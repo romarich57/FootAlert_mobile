@@ -1,0 +1,66 @@
+import 'react-native-gesture-handler/jestSetup';
+import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
+
+jest.mock('react-native-reanimated', () =>
+  require('react-native-reanimated/mock'),
+);
+
+jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+
+jest.mock('@react-native-community/netinfo', () =>
+  require('@react-native-community/netinfo/jest/netinfo-mock'),
+);
+
+jest.mock('react-native-config', () => ({
+  API_FOOTBALL_BASE_URL: 'https://v3.football.api-sports.io',
+  API_FOOTBALL_KEY: 'test-key',
+}));
+
+jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
+
+jest.mock('@shopify/flash-list', () => {
+  const React = require('react');
+  const { FlatList } = require('react-native');
+
+  const FlashList = React.forwardRef((props, ref) => <FlatList ref={ref} {...props} />);
+  FlashList.displayName = 'FlashList';
+
+  return { FlashList };
+});
+
+jest.mock('react-native-localize', () => ({
+  getLocales: () => [
+    {
+      languageCode: 'en',
+      languageTag: 'en-US',
+      countryCode: 'US',
+      isRTL: false,
+    },
+  ],
+  getCountry: () => 'US',
+  getCurrencies: () => ['USD'],
+}));
+
+jest.mock('react-native-device-info', () => ({
+  getVersion: () => '0.0.1',
+  getBuildNumber: () => '1',
+}));
+
+jest.mock('react-native-permissions', () => ({
+  RESULTS: {
+    UNAVAILABLE: 'unavailable',
+    BLOCKED: 'blocked',
+    DENIED: 'denied',
+    GRANTED: 'granted',
+    LIMITED: 'limited',
+  },
+  checkNotifications: jest.fn(async () => ({
+    status: 'granted',
+    settings: {},
+  })),
+  requestNotifications: jest.fn(async () => ({
+    status: 'granted',
+    settings: {},
+  })),
+  openSettings: jest.fn(async () => undefined),
+}));

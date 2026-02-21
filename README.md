@@ -1,97 +1,148 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# FootAlert Mobile (React Native)
 
-# Getting Started
+Application mobile FootAlert (iOS/Android) construite en React Native + TypeScript.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Stack technique
 
-## Step 1: Start Metro
+- React Native 0.84 + React 19
+- Navigation: React Navigation (Bottom Tabs + Native Stack)
+- Server state: TanStack Query
+- i18n: i18next + react-i18next
+- Form: React Hook Form + Zod
+- UI perf: FlashList
+- Stockage local: AsyncStorage
+- Backend data store: PostgreSQL
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Prérequis
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- Node `>=22.11.0`
+- npm
+- Xcode (iOS) / Android Studio (Android)
+- CocoaPods (iOS)
 
-```sh
-# Using npm
-npm start
+## Installation
 
-# OR using Yarn
-yarn start
+```bash
+npm install
 ```
 
-## Step 2: Build and run your app
+## Variables d'environnement API-Football
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+Créer un fichier `.env` à la racine de `Mobile_Foot` (à partir de `.env.example`) :
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```bash
+cp .env.example .env
 ```
 
-### iOS
+Puis renseigner au minimum :
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+```env
+API_FOOTBALL_BASE_URL=https://v3.football.api-sports.io
+API_FOOTBALL_KEY=your_real_key
+MATCHES_DEMO_MODE=false
+```
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+Variables utiles pour contrôler la consommation API en dev :
 
-```sh
+```env
+# Fallback démo auto sur erreurs API (401/403/429) :
+# true = affiche des données démo si quota/auth KO
+# false = affiche les vraies erreurs (mode réel)
+MATCHES_API_ERROR_FALLBACK_ENABLED=true
+
+# Cadence de requêtes (en millisecondes)
+MATCHES_QUERY_STALE_TIME_MS=60000
+MATCHES_LIVE_REFRESH_INTERVAL_MS=60000
+MATCHES_SLOW_REFRESH_INTERVAL_MS=120000
+MATCHES_MAX_REFRESH_BACKOFF_MS=300000
+```
+
+Variables utiles pour l'onglet Suivis (quota/perf) :
+
+```env
+FOLLOWS_SEARCH_DEBOUNCE_MS=500
+FOLLOWS_SEARCH_MIN_CHARS=2
+FOLLOWS_SEARCH_RESULTS_LIMIT=20
+FOLLOWS_TEAM_NEXT_FIXTURE_TTL_MS=3600000
+FOLLOWS_PLAYER_STATS_TTL_MS=3600000
+FOLLOWS_TRENDS_TTL_MS=21600000
+FOLLOWS_TRENDS_LEAGUE_COUNT=7
+FOLLOWS_TRENDS_TEAMS_LIMIT=8
+FOLLOWS_TRENDS_PLAYERS_LIMIT=8
+FOLLOWS_MAX_FOLLOWED_TEAMS=30
+FOLLOWS_MAX_FOLLOWED_PLAYERS=30
+```
+
+Exemple de profil dev économe en quota :
+
+```env
+MATCHES_LIVE_REFRESH_INTERVAL_MS=180000
+MATCHES_SLOW_REFRESH_INTERVAL_MS=300000
+MATCHES_MAX_REFRESH_BACKOFF_MS=600000
+```
+
+### iOS uniquement
+
+```bash
 bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
 bundle exec pod install
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Si tu ajoutes/modifies des dépendances natives (`react-native-config`, etc.), relance `pod install`.
 
-```sh
-# Using npm
+## Lancer l'application
+
+```bash
+# 1) terminal metro
+npm start
+
+# 2) terminal android
+npm run android
+
+# 3) terminal ios
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Important : le flux Matchs V1 appelle directement API-Football depuis l'app mobile.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+- Sans `API_FOOTBALL_KEY`, l’écran Matchs bascule en mode démo (fallback).
+- Si `MATCHES_API_ERROR_FALLBACK_ENABLED=false`, les erreurs API (dont quota) restent visibles et aucun fallback démo n’est appliqué.
 
-## Step 3: Modify your app
+## Scripts utiles
 
-Now that you have successfully run the app, let's make changes!
+```bash
+npm run lint
+npm run typecheck
+npm test
+```
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## Architecture (feature-first)
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+```text
+src/
+  app/
+    App.tsx
+    navigation/
+    providers/
+  features/
+    matches/
+    competitions/
+    follows/
+    more/
+  shared/
+    config/
+    i18n/
+    theme/
+    ui/
+  services/
+    http/
+    storage/
+```
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+## Règles de base
 
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- Tout texte UI passe par i18n (`src/shared/i18n`).
+- Navigation strictement typée (`src/app/navigation/types.ts`).
+- Données serveur via React Query.
+- Aucun secret en dur dans le code.
+- Respect du document `react-native-bonnes-pratiques.md`.
