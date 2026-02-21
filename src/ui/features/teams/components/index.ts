@@ -1,0 +1,11 @@
+export { TeamHeader } from './TeamHeader';
+export { TeamTabs } from './TeamTabs';
+export { TeamSeasonCompetitionPicker } from './TeamSeasonCompetitionPicker';
+export { TeamOverviewTab } from './TeamOverviewTab';
+export { TeamMatchesTab } from './TeamMatchesTab';
+export { TeamStandingsTab } from './TeamStandingsTab';
+export { TeamStatsTab } from './TeamStatsTab';
+export { TeamTransfersTab } from './TeamTransfersTab';
+export { TeamSquadTab } from './TeamSquadTab';
+export { TeamTrophiesTab } from './TeamTrophiesTab';
+export { TeamDetailsTabContent } from './TeamDetailsTabContent';

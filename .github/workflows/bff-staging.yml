@@ -1,0 +1,105 @@
+name: BFF Staging Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - footalert-bff/**
+      - .github/workflows/bff-staging.yml
+
+jobs:
+  bff-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: footalert-bff
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+          cache-dependency-path: footalert-bff/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Integration tests (fastify.inject)
+        run: npm run test
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: bff-quality
+    environment: staging
+    steps:
+      - name: Trigger staging deployment
+        env:
+          BFF_STAGING_DEPLOY_HOOK_URL: ${{ secrets.BFF_STAGING_DEPLOY_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BFF_STAGING_DEPLOY_HOOK_URL:-}" ]; then
+            echo "Missing required secret: BFF_STAGING_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+          curl -fsSL -X POST "$BFF_STAGING_DEPLOY_HOOK_URL"
+
+      - name: Wait for staging healthcheck
+        env:
+          MOBILE_API_BASE_URL_STAGING: ${{ secrets.MOBILE_API_BASE_URL_STAGING }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MOBILE_API_BASE_URL_STAGING:-}" ]; then
+            echo "Missing required secret: MOBILE_API_BASE_URL_STAGING"
+            exit 1
+          fi
+
+          BASE_URL="${MOBILE_API_BASE_URL_STAGING%/}"
+          SERVICE_BASE="$BASE_URL"
+          if [[ "$SERVICE_BASE" == */v1 ]]; then
+            SERVICE_BASE="${SERVICE_BASE%/v1}"
+          fi
+
+          for attempt in $(seq 1 24); do
+            if curl -fsSL "$SERVICE_BASE/health" >/dev/null; then
+              echo "Staging BFF is healthy."
+              exit 0
+            fi
+            echo "Healthcheck not ready yet (attempt $attempt/24)."
+            sleep 10
+          done
+
+          echo "Staging BFF healthcheck failed."
+          exit 1
+
+  validate-mobile-staging:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    defaults:
+      run:
+        working-directory: footalert-bff
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+          cache-dependency-path: footalert-bff/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Mobile API smoke checks on staging
+        env:
+          MOBILE_API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_STAGING }}
+        run: npm run smoke:staging

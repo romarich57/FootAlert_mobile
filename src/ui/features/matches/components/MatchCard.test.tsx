@@ -1,10 +1,10 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 
-import { AppThemeProvider } from '@ui/app/providers/ThemeProvider';
 import { MatchCard } from '@ui/features/matches/components/MatchCard';
 import type { MatchItem } from '@ui/features/matches/types/matches.types';
 import '@ui/shared/i18n';
+import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 const baseMatch: MatchItem = {
   fixtureId: '10',
@@ -29,10 +29,19 @@ const baseMatch: MatchItem = {
 };
 
 function renderCard(match: MatchItem) {
-  return render(
-    <AppThemeProvider>
-      <MatchCard match={match} onPress={jest.fn()} onPressNotification={jest.fn()} />
-    </AppThemeProvider>,
+  const onPress = jest.fn();
+  const onPressNotification = jest.fn();
+  const onPressHomeTeam = jest.fn();
+  const onPressAwayTeam = jest.fn();
+
+  return renderWithAppProviders(
+    <MatchCard
+      match={match}
+      onPress={onPress}
+      onPressNotification={onPressNotification}
+      onPressHomeTeam={onPressHomeTeam}
+      onPressAwayTeam={onPressAwayTeam}
+    />,
   );
 }
 
@@ -53,5 +62,28 @@ describe('MatchCard', () => {
 
     expect(screen.getByText('2')).toBeTruthy();
     expect(screen.getByText('1')).toBeTruthy();
+  });
+
+  it('triggers dedicated team callbacks without opening match details', () => {
+    const onPress = jest.fn();
+    const onPressHomeTeam = jest.fn();
+    const onPressAwayTeam = jest.fn();
+
+    renderWithAppProviders(
+      <MatchCard
+        match={baseMatch}
+        onPress={onPress}
+        onPressNotification={jest.fn()}
+        onPressHomeTeam={onPressHomeTeam}
+        onPressAwayTeam={onPressAwayTeam}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('Paris SG'));
+    fireEvent.press(screen.getByText('Marseille'));
+
+    expect(onPressHomeTeam).toHaveBeenCalledWith('85');
+    expect(onPressAwayTeam).toHaveBeenCalledWith('81');
+    expect(onPress).not.toHaveBeenCalled();
   });
 });

@@ -7,11 +7,8 @@ import {
   getCurrentSeasonYear,
   mapPlayerSeasonToFollowedCard,
 } from '@data/mappers/followsMapper';
-import {
-  loadCachedPlayerCards,
-  saveCachedPlayerCards,
-} from '@data/storage/followsCardsCacheStorage';
 import type { FollowedPlayerCard } from '@ui/features/follows/types/follows.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
 async function mapWithConcurrency<TInput, TOutput>(
   items: TInput[],
@@ -43,28 +40,18 @@ type UseFollowedPlayersCardsParams = {
 
 export function useFollowedPlayersCards({ playerIds }: UseFollowedPlayersCardsParams) {
   const season = getCurrentSeasonYear();
-  const sortedPlayerIds = useMemo(() => [...playerIds], [playerIds]);
+  const sortedPlayerIds = useMemo(() => [...playerIds].sort(), [playerIds]);
 
   return useQuery({
-    queryKey: ['follows', 'players', 'cards', sortedPlayerIds, season],
+    queryKey: queryKeys.follows.followedPlayerCards(sortedPlayerIds, season),
     enabled: sortedPlayerIds.length > 0,
     staleTime: appEnv.followsPlayerStatsTtlMs,
-    queryFn: async (): Promise<FollowedPlayerCard[]> => {
-      const cachedCards = await loadCachedPlayerCards(
-        sortedPlayerIds,
-        appEnv.followsPlayerStatsTtlMs,
-      );
-
-      if (cachedCards) {
-        return cachedCards;
-      }
-
+    queryFn: async ({ signal }): Promise<FollowedPlayerCard[]> => {
       const cards = await mapWithConcurrency(sortedPlayerIds, 3, async playerId => {
-        const payload = await fetchPlayerSeasonStats(playerId, season);
-        return mapPlayerSeasonToFollowedCard(playerId, payload);
+        const payload = await fetchPlayerSeasonStats(playerId, season, signal);
+        return mapPlayerSeasonToFollowedCard(playerId, payload, season);
       });
 
-      await saveCachedPlayerCards(sortedPlayerIds, cards);
       return cards;
     },
   });

@@ -3,6 +3,7 @@ import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { RootStackParamList } from '@ui/app/navigation/types';
@@ -23,14 +24,21 @@ type PlayerDetailsScreenRouteProp = RouteProp<RootStackParamList, 'PlayerDetails
 type PlayerDetailsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PlayerDetails'>;
 
 export function PlayerDetailsScreen() {
+    const { t } = useTranslation();
     const { colors } = useAppTheme();
     const route = useRoute<PlayerDetailsScreenRouteProp>();
     const navigation = useNavigation<PlayerDetailsScreenNavigationProp>();
 
     const { playerId } = route.params;
-    const currentSeason = 2024; // You could fetch this dynamically or from a global constant
+    const currentDate = new Date();
+    const currentSeason = currentDate.getUTCMonth() + 1 >= 7
+        ? currentDate.getUTCFullYear()
+        : currentDate.getUTCFullYear() - 1;
 
     const [activeTab, setActiveTab] = useState<PlayerTabType>('profil');
+    const isMatchesTabActive = activeTab === 'matchs';
+    const isStatsTabActive = activeTab === 'stats';
+    const isCareerTabActive = activeTab === 'carriere';
 
     // Fetch core player details (needed for Header and Profile)
     const {
@@ -45,14 +53,15 @@ export function PlayerDetailsScreen() {
     const { matches, isLoading: isMatchesLoading } = usePlayerMatches(
         playerId,
         profile?.team.id ?? '',
-        currentSeason
+        currentSeason,
+        isMatchesTabActive && Boolean(profile?.team.id)
     );
 
     // Fetch deep stats
-    const { stats, isLoading: isStatsLoading } = usePlayerStats(playerId, currentSeason);
+    const { stats, isLoading: isStatsLoading } = usePlayerStats(playerId, currentSeason, isStatsTabActive);
 
     // Fetch career
-    const { careerSeasons, careerTeams, isLoading: isCareerLoading } = usePlayerCareer(playerId);
+    const { careerSeasons, careerTeams, isLoading: isCareerLoading } = usePlayerCareer(playerId, isCareerTabActive);
 
     if (isProfileLoading) {
         return (
@@ -65,7 +74,7 @@ export function PlayerDetailsScreen() {
     if (isProfileError || !profile) {
         return (
             <View style={[styles.center, { backgroundColor: colors.background }]}>
-                <Text style={{ color: colors.text }}>Impossible de charger le joueur.</Text>
+                <Text style={{ color: colors.text }}>{t('playerDetails.states.loadError')}</Text>
             </View>
         );
     }
@@ -79,8 +88,8 @@ export function PlayerDetailsScreen() {
                 return (
                     <PlayerProfileTab
                         profile={profile}
-                        stats={basicSeasonStats!}
-                        characteristics={characteristics!}
+                        stats={basicSeasonStats}
+                        characteristics={characteristics}
                     />
                 );
             case 'matchs':

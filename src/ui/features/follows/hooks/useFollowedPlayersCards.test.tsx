@@ -4,10 +4,6 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { fetchPlayerSeasonStats } from '@data/endpoints/followsApi';
-import {
-  loadCachedPlayerCards,
-  saveCachedPlayerCards,
-} from '@data/storage/followsCardsCacheStorage';
 
 jest.mock('@data/endpoints/followsApi', () => ({
   fetchPlayerSeasonStats: jest.fn(async () => null),
@@ -19,16 +15,7 @@ jest.mock('@data/endpoints/followsApi', () => ({
   fetchTrendingPlayers: jest.fn(async () => []),
 }));
 
-jest.mock('@data/storage/followsCardsCacheStorage', () => ({
-  loadCachedPlayerCards: jest.fn(async () => null),
-  saveCachedPlayerCards: jest.fn(async () => undefined),
-  loadCachedTeamCards: jest.fn(async () => null),
-  saveCachedTeamCards: jest.fn(async () => undefined),
-}));
-
 const mockedFetchPlayerSeasonStats = jest.mocked(fetchPlayerSeasonStats);
-const mockedLoadCachedPlayerCards = jest.mocked(loadCachedPlayerCards);
-const mockedSaveCachedPlayerCards = jest.mocked(saveCachedPlayerCards);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -49,33 +36,16 @@ describe('useFollowedPlayersCards', () => {
     jest.clearAllMocks();
   });
 
-  it('returns cached cards when available', async () => {
-    mockedLoadCachedPlayerCards.mockResolvedValueOnce([
-      {
-        playerId: '154',
-        playerName: 'Cristiano Ronaldo',
-        playerPhoto: 'cr7.png',
-        position: 'Attacker',
-        teamName: 'Al-Nassr',
-        teamLogo: 'nassr.png',
-        leagueName: 'Saudi League',
-        goals: 24,
-        assists: 8,
-      },
-    ]);
-
-    const { result } = renderHook(() => useFollowedPlayersCards({ playerIds: ['154'] }), {
+  it('does not run query when no player IDs are provided', () => {
+    const { result } = renderHook(() => useFollowedPlayersCards({ playerIds: [] }), {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => {
-      expect(result.current.data).toHaveLength(1);
-    });
-
+    expect(result.current.fetchStatus).toBe('idle');
     expect(mockedFetchPlayerSeasonStats).not.toHaveBeenCalled();
   });
 
-  it('hydrates cards from API and caches them', async () => {
+  it('hydrates cards from API', async () => {
     mockedFetchPlayerSeasonStats.mockResolvedValueOnce({
       player: {
         id: 154,
@@ -111,6 +81,6 @@ describe('useFollowedPlayersCards', () => {
       expect(result.current.data?.[0].playerName).toBe('Cristiano Ronaldo');
     });
 
-    expect(mockedSaveCachedPlayerCards).toHaveBeenCalled();
+    expect(mockedFetchPlayerSeasonStats).toHaveBeenCalledTimes(1);
   });
 });

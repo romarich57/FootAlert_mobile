@@ -6,6 +6,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerMatchPerformance } from '@ui/features/players/types/players.types';
+import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
 
 type PlayerMatchesTabProps = {
     matches: PlayerMatchPerformance[];
@@ -87,6 +88,9 @@ function createStyles(colors: ThemeColors) {
             fontWeight: '700',
             flex: 1,
         },
+        teamNameRight: {
+            textAlign: 'right',
+        },
         scoreBox: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -164,19 +168,37 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
         ({ item }: ListRenderItemInfo<PlayerMatchPerformance>) => {
             const { competition, homeTeam, awayTeam, goalsHome, goalsAway, date, playerStats } = item;
 
-            const ratingVal = parseFloat(playerStats.rating);
+            const ratingVal = playerStats.rating ? Number.parseFloat(playerStats.rating) : NaN;
             const isHighRating = !isNaN(ratingVal) && ratingVal >= 7.0;
 
-            const dateObj = new Date(date);
-            const dateString = dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+            const dateObj = new Date(date ?? '');
+            const dateString = Number.isNaN(dateObj.getTime())
+                ? '?'
+                : dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
-            // Mocking badge icons based on stats
+            // Build badges only from available API values
             const icons = [];
-            if (playerStats.goals > 0) icons.push({ icon: 'soccer', text: `${playerStats.goals} But${playerStats.goals > 1 ? 's' : ''}`, color: colors.primary });
-            if (playerStats.assists > 0) icons.push({ icon: 'shoe-cleat', text: `${playerStats.assists} Passe${playerStats.assists > 1 ? 's' : ''}`, color: colors.primary });
-            if (playerStats.yellowCards > 0) icons.push({ icon: 'card', text: 'Carton Jaune', color: '#FFD700' });
-            if (playerStats.redCards > 0) icons.push({ icon: 'card', text: 'Carton Rouge', color: colors.danger });
-            icons.push({ icon: 'clock-outline', text: `${playerStats.minutes}'`, color: colors.textMuted });
+            if (typeof playerStats.goals === 'number' && playerStats.goals > 0) {
+                icons.push({
+                    icon: 'soccer',
+                    text: `${playerStats.goals} But${playerStats.goals > 1 ? 's' : ''}`,
+                    color: colors.primary,
+                });
+            }
+            if (typeof playerStats.assists === 'number' && playerStats.assists > 0) {
+                icons.push({
+                    icon: 'shoe-cleat',
+                    text: `${playerStats.assists} Passe${playerStats.assists > 1 ? 's' : ''}`,
+                    color: colors.primary,
+                });
+            }
+            if (typeof playerStats.yellowCards === 'number' && playerStats.yellowCards > 0) {
+                icons.push({ icon: 'card', text: 'Carton Jaune', color: '#FFD700' });
+            }
+            if (typeof playerStats.redCards === 'number' && playerStats.redCards > 0) {
+                icons.push({ icon: 'card', text: 'Carton Rouge', color: colors.danger });
+            }
+            icons.push({ icon: 'clock-outline', text: `${toDisplayValue(playerStats.minutes)}'`, color: colors.textMuted });
 
             return (
                 <Pressable
@@ -186,23 +208,25 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                     <View style={styles.cardHeader}>
                         <View style={styles.competitionRow}>
                             {competition.logo ? (
-                                <Image source={{ uri: competition.logo }} style={styles.compLogo} />
+                                <Image source={{ uri: competition.logo ?? undefined }} style={styles.compLogo} />
                             ) : (
                                 <MaterialCommunityIcons name="trophy-outline" size={16} color={colors.primary} />
                             )}
-                            <Text style={styles.compName}>{competition.name}</Text>
+                            <Text style={styles.compName}>{toDisplayValue(competition.name)}</Text>
                         </View>
                         <Text style={styles.dateText}>{dateString}</Text>
                     </View>
 
                     <View style={styles.scoreRow}>
-                        <Text style={styles.teamName} numberOfLines={1}>{homeTeam.name}</Text>
+                        <Text style={styles.teamName} numberOfLines={1}>{toDisplayValue(homeTeam.name)}</Text>
                         <View style={styles.scoreBox}>
-                            <Text style={styles.scoreText}>{goalsHome ?? '-'}</Text>
+                            <Text style={styles.scoreText}>{toDisplayValue(goalsHome)}</Text>
                             <Text style={styles.scoreDivider}>-</Text>
-                            <Text style={styles.scoreText}>{goalsAway ?? '-'}</Text>
+                            <Text style={styles.scoreText}>{toDisplayValue(goalsAway)}</Text>
                         </View>
-                        <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>{awayTeam.name}</Text>
+                        <Text style={[styles.teamName, styles.teamNameRight]} numberOfLines={1}>
+                            {toDisplayValue(awayTeam.name)}
+                        </Text>
                     </View>
 
                     <View style={styles.statsContainer}>
@@ -216,7 +240,9 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                         </View>
 
                         <View style={[styles.ratingBox, isHighRating ? styles.ratingHigh : styles.ratingLow]}>
-                            <Text style={isHighRating ? styles.ratingTextHigh : styles.ratingTextLow}>{playerStats.rating}</Text>
+                            <Text style={isHighRating ? styles.ratingTextHigh : styles.ratingTextLow}>
+                                {toDisplayValue(playerStats.rating)}
+                            </Text>
                             <Text style={[styles.ratingLabel, { color: isHighRating ? `${colors.background}99` : colors.textMuted }]}>NOTE</Text>
                         </View>
                     </View>

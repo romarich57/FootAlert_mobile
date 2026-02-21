@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { appEnv } from '@data/config/env';
 import { fetchNextFixtureForTeam, fetchTeamById } from '@data/endpoints/followsApi';
 import { mapTeamDetailsAndFixtureToFollowedCard } from '@data/mappers/followsMapper';
-import { loadCachedTeamCards, saveCachedTeamCards } from '@data/storage/followsCardsCacheStorage';
 import type { FollowedTeamCard } from '@ui/features/follows/types/follows.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
 async function mapWithConcurrency<TInput, TOutput>(
   items: TInput[],
@@ -37,32 +37,22 @@ type UseFollowedTeamsCardsParams = {
 };
 
 export function useFollowedTeamsCards({ teamIds, timezone }: UseFollowedTeamsCardsParams) {
-  const sortedTeamIds = useMemo(() => [...teamIds], [teamIds]);
+  const sortedTeamIds = useMemo(() => [...teamIds].sort(), [teamIds]);
 
   return useQuery({
-    queryKey: ['follows', 'teams', 'cards', sortedTeamIds, timezone],
+    queryKey: queryKeys.follows.followedTeamCards(sortedTeamIds, timezone),
     enabled: sortedTeamIds.length > 0,
     staleTime: appEnv.followsTeamNextFixtureTtlMs,
-    queryFn: async (): Promise<FollowedTeamCard[]> => {
-      const cachedCards = await loadCachedTeamCards(
-        sortedTeamIds,
-        appEnv.followsTeamNextFixtureTtlMs,
-      );
-
-      if (cachedCards) {
-        return cachedCards;
-      }
-
+    queryFn: async ({ signal }): Promise<FollowedTeamCard[]> => {
       const cards = await mapWithConcurrency(sortedTeamIds, 3, async teamId => {
         const [teamDetails, nextFixture] = await Promise.all([
-          fetchTeamById(teamId),
-          fetchNextFixtureForTeam(teamId, timezone),
+          fetchTeamById(teamId, signal),
+          fetchNextFixtureForTeam(teamId, timezone, signal),
         ]);
 
         return mapTeamDetailsAndFixtureToFollowedCard(teamId, teamDetails, nextFixture);
       });
 
-      await saveCachedTeamCards(sortedTeamIds, cards);
       return cards;
     },
   });

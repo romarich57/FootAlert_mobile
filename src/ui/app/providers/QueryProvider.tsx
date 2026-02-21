@@ -1,22 +1,86 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
+import {
+  QueryClient,
+  QueryClientProvider,
+  onlineManager,
+} from '@tanstack/react-query';
+import {
+  PersistQueryClientProvider,
+} from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-export function QueryProvider({ children }: PropsWithChildren) {
+import {
+  defaultQueryOptions,
+  QUERY_PERSIST_MAX_AGE_MS,
+} from '@ui/shared/query/queryOptions';
+
+type QueryProviderProps = PropsWithChildren<{
+  enablePersistence?: boolean;
+}>;
+
+let hasRegisteredOnlineManager = false;
+
+function registerOnlineManagerIfNeeded(): void {
+  if (hasRegisteredOnlineManager) {
+    return;
+  }
+
+  if (typeof NetInfo.addEventListener !== 'function') {
+    hasRegisteredOnlineManager = true;
+    return;
+  }
+
+  onlineManager.setEventListener(setOnline => {
+    return NetInfo.addEventListener(state => {
+      const isOnline =
+        state.isConnected !== false && state.isInternetReachable !== false;
+      setOnline(isOnline);
+    });
+  });
+
+  hasRegisteredOnlineManager = true;
+}
+
+export function QueryProvider({
+  children,
+  enablePersistence = true,
+}: QueryProviderProps) {
   const [client] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: {
-            retry: 2,
-            staleTime: 30_000,
-            gcTime: 5 * 60_000,
-            refetchOnReconnect: true,
-            refetchOnMount: false,
-          },
+          queries: defaultQueryOptions,
         },
       }),
   );
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  registerOnlineManagerIfNeeded();
+
+  const persister = useMemo(
+    () =>
+      createAsyncStoragePersister({
+        storage: AsyncStorage,
+        key: 'footalert-query-cache-v1',
+      }),
+    [],
+  );
+
+  if (!enablePersistence) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  }
+
+  return (
+    <PersistQueryClientProvider
+      client={client}
+      persistOptions={{
+        persister,
+        maxAge: QUERY_PERSIST_MAX_AGE_MS,
+      }}
+    >
+      {children}
+    </PersistQueryClientProvider>
+  );
 }

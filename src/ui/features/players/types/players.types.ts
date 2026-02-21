@@ -1,36 +1,36 @@
 export type PlayerProfile = {
-    id: string;
-    name: string;
-    photo: string;
-    position: string;
-    age: number;
-    height: string;
-    weight: string;
-    nationality: string;
-    dateOfBirth: string;
+    id: string | null;
+    name: string | null;
+    photo: string | null;
+    position: string | null;
+    age: number | null;
+    height: string | null;
+    weight: string | null;
+    nationality: string | null;
+    dateOfBirth: string | null;
     number: number | null;
-    foot: string;
-    transferValue?: string; // Optional as it might not be provided by API
+    foot: string | null;
+    transferValue: string | null;
     team: {
-        id: string;
-        name: string;
-        logo: string;
+        id: string | null;
+        name: string | null;
+        logo: string | null;
     };
     league: {
-        id: string;
-        name: string;
-        logo: string;
-        season: number;
+        id: string | null;
+        name: string | null;
+        logo: string | null;
+        season: number | null;
     };
 };
 
 export type PlayerCharacteristics = {
-    touches: number;
-    dribbles: number;
-    chances: number;
-    defense: number;
-    duels: number;
-    attack: number; // calculated roughly from shots/goals
+    touches: number | null;
+    dribbles: number | null;
+    chances: number | null;
+    defense: number | null;
+    duels: number | null;
+    attack: number | null; // calculated roughly from available API values
 };
 
 export type PlayerTrophy = {
@@ -39,77 +39,77 @@ export type PlayerTrophy = {
 };
 
 export type PlayerSeasonStats = {
-    matches: number;
-    starts: number;
-    minutes: number;
-    goals: number;
-    assists: number;
-    rating: string;
+    matches: number | null;
+    starts: number | null;
+    minutes: number | null;
+    goals: number | null;
+    assists: number | null;
+    rating: string | null;
     // Deep stats
-    shots: number;
-    shotsOnTarget: number;
-    passes: number;
-    passesAccuracy: number;
-    tackles: number;
-    interceptions: number;
-    yellowCards: number;
-    redCards: number;
+    shots: number | null;
+    shotsOnTarget: number | null;
+    passes: number | null;
+    passesAccuracy: number | null;
+    tackles: number | null;
+    interceptions: number | null;
+    yellowCards: number | null;
+    redCards: number | null;
 };
 
 export type PlayerMatchPerformance = {
     fixtureId: string;
-    date: string;
+    date: string | null;
     competition: {
-        id: string;
-        name: string;
-        logo: string;
+        id: string | null;
+        name: string | null;
+        logo: string | null;
     };
     homeTeam: {
-        id: string;
-        name: string;
-        logo: string;
+        id: string | null;
+        name: string | null;
+        logo: string | null;
     };
     awayTeam: {
-        id: string;
-        name: string;
-        logo: string;
+        id: string | null;
+        name: string | null;
+        logo: string | null;
     };
     goalsHome: number | null;
     goalsAway: number | null;
     playerStats: {
-        minutes: number;
-        rating: string;
-        goals: number;
-        assists: number;
-        yellowCards: number;
-        redCards: number;
-        isStarter: boolean;
+        minutes: number | null;
+        rating: string | null;
+        goals: number | null;
+        assists: number | null;
+        yellowCards: number | null;
+        redCards: number | null;
+        isStarter: boolean | null;
     };
 };
 
 export type PlayerCareerSeason = {
-    season: string;
+    season: string | null;
     team: {
-        id: string;
-        name: string;
-        logo: string;
+        id: string | null;
+        name: string | null;
+        logo: string | null;
     };
-    matches: number;
-    goals: number;
-    assists: number;
-    rating: string;
+    matches: number | null;
+    goals: number | null;
+    assists: number | null;
+    rating: string | null;
 };
 
 export type PlayerCareerTeam = {
     team: {
-        id: string;
-        name: string;
-        logo: string;
+        id: string | null;
+        name: string | null;
+        logo: string | null;
     };
-    period: string;
-    matches: number;
-    goals: number;
-    assists: number;
+    period: string | null;
+    matches: number | null;
+    goals: number | null;
+    assists: number | null;
 };
 
 // API DTOs

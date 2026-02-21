@@ -7,6 +7,15 @@ import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
+function toDisplayValue(value: string | null | undefined): string {
+  if (typeof value !== 'string') {
+    return '?';
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : '?';
+}
+
 function formatMatchDate(dateIso: string): string {
   if (!dateIso) {
     return '';
@@ -35,6 +44,9 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.surfaceElevated,
       padding: 16,
       justifyContent: 'space-between',
+    },
+    contentPressable: {
+      gap: 12,
     },
     topRow: {
       flexDirection: 'row',
@@ -97,6 +109,7 @@ type FollowedTeamCardProps = {
   unfollowLabel?: string;
   followLabel?: string;
   onUnfollow: (teamId: string) => void;
+  onPressTeam?: (teamId: string) => void;
   noNextMatchLabel: string;
   isEditMode?: boolean;
 };
@@ -106,6 +119,7 @@ export function FollowedTeamCard({
   unfollowLabel,
   followLabel,
   onUnfollow,
+  onPressTeam,
   noNextMatchLabel,
   isEditMode,
 }: FollowedTeamCardProps) {
@@ -114,25 +128,38 @@ export function FollowedTeamCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.topRow}>
-        <Image source={{ uri: card.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
-        <Text numberOfLines={1} style={styles.teamName}>
-          {card.teamName}
-        </Text>
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={toDisplayValue(card.teamName)}
+        onPress={() => {
+          if (isEditMode || !onPressTeam) {
+            return;
+          }
 
-      <View style={styles.nextRow}>
-        {card.nextMatch ? (
-          <>
-            <Text numberOfLines={1} style={styles.nextMatchLabel}>
-              vs {card.nextMatch.opponentTeamName}
-            </Text>
-            <Text style={styles.nextMatchDate}>{formatMatchDate(card.nextMatch.startDate)}</Text>
-          </>
-        ) : (
-          <Text style={styles.noMatch}>{noNextMatchLabel}</Text>
-        )}
-      </View>
+          onPressTeam(card.teamId);
+        }}
+        style={styles.contentPressable}
+      >
+        <View style={styles.topRow}>
+          <Image source={{ uri: card.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
+          <Text numberOfLines={1} style={styles.teamName}>
+            {toDisplayValue(card.teamName)}
+          </Text>
+        </View>
+
+        <View style={styles.nextRow}>
+          {card.nextMatch ? (
+            <>
+              <Text numberOfLines={1} style={styles.nextMatchLabel}>
+                vs {toDisplayValue(card.nextMatch.opponentTeamName)}
+              </Text>
+              <Text style={styles.nextMatchDate}>{formatMatchDate(card.nextMatch.startDate)}</Text>
+            </>
+          ) : (
+            <Text style={styles.noMatch}>{noNextMatchLabel}</Text>
+          )}
+        </View>
+      </Pressable>
 
       <View>
         {isEditMode ? (
@@ -145,7 +172,7 @@ export function FollowedTeamCard({
             onPress={() => onUnfollow(card.teamId)}
             followLabel={followLabel!}
             unfollowLabel={unfollowLabel!}
-            accessibilityLabel={`${unfollowLabel} ${card.teamName}`}
+            accessibilityLabel={`${unfollowLabel} ${toDisplayValue(card.teamName)}`}
           />
         )}
       </View>

@@ -5,11 +5,12 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerSeasonStats } from '@ui/features/players/types/players.types';
+import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
 import { ShotMap } from './ShotMap';
 
 type PlayerStatsTabProps = {
     stats: PlayerSeasonStats;
-    leagueName: string;
+    leagueName: string | null;
     seasonText: string;
 };
 
@@ -63,6 +64,11 @@ function createStyles(colors: ThemeColors) {
             flex: 1,
             alignItems: 'center',
         },
+        statBoxWithSeparators: {
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderColor: colors.border,
+        },
         statLabel: {
             color: colors.textMuted,
             fontSize: 12,
@@ -80,6 +86,9 @@ function createStyles(colors: ThemeColors) {
             color: colors.primary,
             fontSize: 28,
             fontWeight: '800',
+        },
+        highlightStatLabel: {
+            color: colors.primary,
         },
         statSubLabel: {
             color: colors.textMuted,
@@ -122,23 +131,18 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
-    // Mock shots based on the design since API-Football doesn't provide granular x/y coordinates
-    const mockShots = [
-        { x: 30, y: 20, isGoal: true },
-        { x: 45, y: 15, isGoal: true },
-        { x: 65, y: 10, isGoal: true },
-        { x: 25, y: 35, isGoal: false },
-        { x: 48, y: 40, isGoal: false },
-        { x: 75, y: 50, isGoal: false },
-    ];
-
-    const accuracyPercent = stats.shots > 0 ? Math.round((stats.shotsOnTarget / stats.shots) * 100) : 0;
+    const accuracyPercent =
+        typeof stats.shots === 'number' &&
+        typeof stats.shotsOnTarget === 'number' &&
+        stats.shots > 0
+            ? String(Math.round((stats.shotsOnTarget / stats.shots) * 100))
+            : '?';
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentPadding}>
 
             <Pressable style={styles.dropdown}>
-                <Text style={styles.dropdownText}>{leagueName} {seasonText}</Text>
+                <Text style={styles.dropdownText}>{toDisplayValue(leagueName)} {seasonText}</Text>
                 <MaterialCommunityIcons name="chevron-down" size={24} color={colors.textMuted} />
             </Pressable>
 
@@ -146,48 +150,48 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
                 <View style={styles.topRowGrid}>
                     <View style={styles.statBox}>
                         <Text style={styles.statLabel}>Buts</Text>
-                        <Text style={styles.statValue}>{stats.goals}</Text>
+                        <Text style={styles.statValue}>{toDisplayValue(stats.goals)}</Text>
                     </View>
-                    <View style={[styles.statBox, { borderLeftWidth: 1, borderRightWidth: 1, borderColor: colors.border }]}>
+                    <View style={[styles.statBox, styles.statBoxWithSeparators]}>
                         <Text style={styles.statLabel}>Passes</Text>
-                        <Text style={styles.statValue}>{stats.assists}</Text>
+                        <Text style={styles.statValue}>{toDisplayValue(stats.assists)}</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={[styles.statLabel, { color: colors.primary }]}>Note</Text>
-                        <Text style={styles.statValueGreen}>{stats.rating}</Text>
+                        <Text style={[styles.statLabel, styles.highlightStatLabel]}>Note</Text>
+                        <Text style={styles.statValueGreen}>{toDisplayValue(stats.rating)}</Text>
                     </View>
                 </View>
 
                 <View style={styles.bottomRowGrid}>
                     <View style={styles.statBox}>
-                        <Text style={styles.statSubValue}>{stats.matches}</Text>
+                        <Text style={styles.statSubValue}>{toDisplayValue(stats.matches)}</Text>
                         <Text style={styles.statSubLabel}>Matchs</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={styles.statSubValue}>{stats.starts}</Text>
+                        <Text style={styles.statSubValue}>{toDisplayValue(stats.starts)}</Text>
                         <Text style={styles.statSubLabel}>Titularisations</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={styles.statSubValue}>{stats.minutes}</Text>
+                        <Text style={styles.statSubValue}>{toDisplayValue(stats.minutes)}</Text>
                         <Text style={styles.statSubLabel}>Min.</Text>
                     </View>
                 </View>
             </View>
 
             <View style={styles.card}>
-                <ShotMap shots={mockShots} accuracy={String(accuracyPercent)} />
+                <ShotMap shots={[]} accuracy={accuracyPercent} />
 
                 <View style={styles.shotStatsRow}>
                     <View style={styles.statBox}>
-                        <Text style={styles.statSubValue}>{stats.shots}</Text>
+                        <Text style={styles.statSubValue}>{toDisplayValue(stats.shots)}</Text>
                         <Text style={styles.statSubLabel}>Tirs</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={styles.statSubValue}>{stats.goals}</Text>
+                        <Text style={styles.statSubValue}>{toDisplayValue(stats.goals)}</Text>
                         <Text style={styles.statSubLabel}>Buts</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={styles.statSubValue}>{(stats.goals * 1.05).toFixed(1)}</Text>
+                        <Text style={styles.statSubValue}>?</Text>
                         <Text style={styles.statSubLabel}>xG</Text>
                     </View>
                 </View>

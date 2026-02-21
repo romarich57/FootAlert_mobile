@@ -131,4 +131,31 @@ describe('followsMapper', () => {
     expect(trends[0].playerId).toBe('10');
     expect(trends[1].playerId).toBe('11');
   });
+
+  it('exposes missing fields with explicit placeholders instead of synthetic entities', () => {
+    const teamCard = mapTeamDetailsAndFixtureToFollowedCard('85', null, null);
+    expect(teamCard.teamName).toBe('?');
+    expect(teamCard.teamLogo).toBe('');
+
+    const playerCard = mapPlayerSeasonToFollowedCard('154', {
+      player: {
+        id: 154,
+      },
+      statistics: [
+        {
+          goals: {
+            total: null,
+            assists: null,
+          },
+        },
+      ],
+    });
+
+    expect(playerCard.playerName).toBe('?');
+    expect(playerCard.position).toBe('?');
+    expect(playerCard.teamName).toBe('?');
+    expect(playerCard.leagueName).toBe('?');
+    expect(playerCard.goals).toBeNull();
+    expect(playerCard.assists).toBeNull();
+  });
 });

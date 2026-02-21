@@ -15,9 +15,10 @@ function createStyles(colors: ThemeColors) {
     },
     title: {
       color: colors.text,
-      fontSize: 18,
-      fontWeight: '700',
-      paddingHorizontal: 20,
+      fontSize: 20,
+      fontWeight: '800',
+      paddingHorizontal: 16,
+      marginBottom: 4,
     },
     card: {
       marginHorizontal: 12,

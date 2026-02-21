@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { Competition } from '@ui/features/competitions/types/competitions.types';
 
 export type MainTabParamList = {
   Matches: undefined;
@@ -10,7 +11,7 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   MatchDetails: { matchId: string };
-  CompetitionDetails: { competitionId: string };
+  CompetitionDetails: { competitionId: string; competition?: Competition };
   TeamDetails: { teamId: string };
   PlayerDetails: { playerId: string };
   SearchPlaceholder: undefined;
@@ -19,6 +20,6 @@ export type RootStackParamList = {
 
 declare global {
   namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {}
+    interface RootParamList extends RootStackParamList { }
   }
 }

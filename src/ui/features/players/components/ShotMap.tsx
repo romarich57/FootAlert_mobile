@@ -60,12 +60,14 @@ export function ShotMap({ shots, accuracy }: ShotMapProps) {
     const pitchWidth = 320;
     const pitchHeight = 200; // Half pitch
 
+    const accuracyLabel = accuracy === '?' ? '?' : `${accuracy}%`;
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.title}>CARTE DES TIRS DE LA SAISON</Text>
                 <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{accuracy}% précision</Text>
+                    <Text style={styles.badgeText}>{accuracyLabel} précision</Text>
                 </View>
             </View>
 

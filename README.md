@@ -6,12 +6,20 @@ Application mobile FootAlert (iOS/Android) construite en React Native + TypeScri
 
 - React Native 0.84 + React 19
 - Navigation: React Navigation (Bottom Tabs + Native Stack)
-- Server state: TanStack Query
+- Server state + offline persistence: TanStack Query + Persist Query Client
 - i18n: i18next + react-i18next
 - Form: React Hook Form + Zod
 - UI perf: FlashList
 - Stockage local: AsyncStorage
-- Backend data store: PostgreSQL
+
+## Architecture data (mobile + BFF)
+
+Le mobile ne parle plus directement à API-Football.
+
+- Mobile -> `MOBILE_API_BASE_URL` (BFF)
+- BFF -> API-Football avec `API_FOOTBALL_KEY` côté serveur uniquement
+
+Référence: `docs/architecture/mobile-data-flow.md`.
 
 ## Prérequis
 
@@ -26,7 +34,7 @@ Application mobile FootAlert (iOS/Android) construite en React Native + TypeScri
 npm install
 ```
 
-## Variables d'environnement API-Football
+## Variables d'environnement mobile
 
 Créer un fichier `.env` à la racine de `Mobile_Foot` (à partir de `.env.example`) :
 
@@ -37,29 +45,16 @@ cp .env.example .env
 Puis renseigner au minimum :
 
 ```env
-API_FOOTBALL_BASE_URL=https://v3.football.api-sports.io
-API_FOOTBALL_KEY=your_real_key
-MATCHES_DEMO_MODE=false
+MOBILE_API_BASE_URL=http://localhost:3001/v1
 ```
 
-Variables utiles pour contrôler la consommation API en dev :
+Variables utiles pour la cadence et les limites UI :
 
 ```env
-# Fallback démo auto sur erreurs API (401/403/429) :
-# true = affiche des données démo si quota/auth KO
-# false = affiche les vraies erreurs (mode réel)
-MATCHES_API_ERROR_FALLBACK_ENABLED=true
-
-# Cadence de requêtes (en millisecondes)
 MATCHES_QUERY_STALE_TIME_MS=60000
 MATCHES_LIVE_REFRESH_INTERVAL_MS=60000
 MATCHES_SLOW_REFRESH_INTERVAL_MS=120000
 MATCHES_MAX_REFRESH_BACKOFF_MS=300000
-```
-
-Variables utiles pour l'onglet Suivis (quota/perf) :
-
-```env
 FOLLOWS_SEARCH_DEBOUNCE_MS=500
 FOLLOWS_SEARCH_MIN_CHARS=2
 FOLLOWS_SEARCH_RESULTS_LIMIT=20
@@ -73,40 +68,66 @@ FOLLOWS_MAX_FOLLOWED_TEAMS=30
 FOLLOWS_MAX_FOLLOWED_PLAYERS=30
 ```
 
-Exemple de profil dev économe en quota :
+## BFF (footalert-bff)
 
-```env
-MATCHES_LIVE_REFRESH_INTERVAL_MS=180000
-MATCHES_SLOW_REFRESH_INTERVAL_MS=300000
-MATCHES_MAX_REFRESH_BACKOFF_MS=600000
+Le BFF est dans `footalert-bff/`.
+
+```bash
+cd footalert-bff
+cp .env.example .env
+npm install
+npm run dev
 ```
 
-### iOS uniquement
+Variables minimales côté BFF:
+
+```env
+API_FOOTBALL_KEY=your_server_side_api_football_key
+```
+
+## Validation staging avant prod
+
+1. Déployer le BFF staging via le workflow `.github/workflows/bff-staging.yml`.
+2. Vérifier les smoke checks staging:
+
+```bash
+MOBILE_API_BASE_URL=https://your-staging-domain/v1 npm run staging:bff:smoke
+```
+
+3. Tester l'app mobile en pointant `MOBILE_API_BASE_URL` vers staging (ex: `.env.staging`), puis lancer:
+
+```bash
+cp .env.staging.example .env.staging
+# puis utiliser ENVFILE=.env.staging selon votre setup react-native-config
+npm run ios
+# ou
+npm run android
+```
+
+## iOS uniquement
 
 ```bash
 bundle install
 bundle exec pod install
 ```
 
-Si tu ajoutes/modifies des dépendances natives (`react-native-config`, etc.), relance `pod install`.
+Si tu ajoutes/modifies des dépendances natives, relance `pod install`.
 
 ## Lancer l'application
 
 ```bash
-# 1) terminal metro
+# 1) terminal BFF (depuis Mobile_Foot/footalert-bff)
+npm run dev
+
+# 2) terminal metro (depuis Mobile_Foot)
 npm start
 
-# 2) terminal android
+# 3) terminal android (depuis Mobile_Foot)
 npm run android
 
-# 3) terminal ios
+# 4) terminal ios (depuis Mobile_Foot)
 npm run ios
 ```
-
-Important : le flux Matchs V1 appelle directement API-Football depuis l'app mobile.
-
-- Sans `API_FOOTBALL_KEY`, l’écran Matchs bascule en mode démo (fallback).
-- Si `MATCHES_API_ERROR_FALLBACK_ENABLED=false`, les erreurs API (dont quota) restent visibles et aucun fallback démo n’est appliqué.
 
 ## Scripts utiles
 
@@ -114,35 +135,47 @@ Important : le flux Matchs V1 appelle directement API-Football depuis l'app mobi
 npm run lint
 npm run typecheck
 npm test
+npm run aso:validate
+npm run check:all
 ```
+
+## Release Android (signing)
+
+Le build `release` Android nécessite un keystore dédié et 4 variables de signing (`FOOTALERT_UPLOAD_*`).
+
+Référence complète : `docs/mobile/android-release-signing.md`.
 
 ## Architecture (feature-first)
 
 ```text
 src/
-  app/
-    App.tsx
-    navigation/
-    providers/
-  features/
-    matches/
-    competitions/
-    follows/
-    more/
-  shared/
+  data/
+    api/
     config/
-    i18n/
-    theme/
-    ui/
-  services/
-    http/
+    endpoints/
+    mappers/
     storage/
+  ui/
+    app/
+      navigation/
+      providers/
+    features/
+      competitions/
+      follows/
+      matches/
+      more/
+      players/
+      teams/
+    shared/
+      i18n/
+      query/
+      testing/
+      theme/
 ```
 
 ## Règles de base
 
-- Tout texte UI passe par i18n (`src/shared/i18n`).
-- Navigation strictement typée (`src/app/navigation/types.ts`).
+- Tout texte UI passe par i18n (`src/ui/shared/i18n`).
+- Navigation strictement typée (`src/ui/app/navigation/types.ts`).
 - Données serveur via React Query.
-- Aucun secret en dur dans le code.
-- Respect du document `react-native-bonnes-pratiques.md`.
+- Aucun secret API tiers dans l’application mobile.

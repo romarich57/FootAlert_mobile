@@ -22,8 +22,8 @@ export type FollowedPlayerCard = {
   teamName: string;
   teamLogo: string;
   leagueName: string;
-  goals: number;
-  assists: number;
+  goals: number | null;
+  assists: number | null;
 };
 
 export type TrendTeamItem = {

@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -11,6 +11,8 @@ type FollowsTrendRowProps = {
   avatarUrl: string;
   isFollowing: boolean;
   onToggleFollow: () => void;
+  onPressItem?: () => void;
+  itemAccessibilityLabel?: string;
   followLabel: string;
   unfollowLabel: string;
   accessibilityLabel: string;
@@ -33,11 +35,17 @@ function createStyles(colors: ThemeColors) {
       flexShrink: 1,
       flex: 1,
     },
-    avatar: {
+    avatarContainer: {
       width: 48,
       height: 48,
       borderRadius: 24,
       backgroundColor: colors.surfaceElevated,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    avatar: {
+      width: 32,
+      height: 32,
     },
     title: {
       color: colors.text,
@@ -59,6 +67,8 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
   avatarUrl,
   isFollowing,
   onToggleFollow,
+  onPressItem,
+  itemAccessibilityLabel,
   followLabel,
   unfollowLabel,
   accessibilityLabel,
@@ -68,17 +78,40 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
 
   return (
     <View style={styles.container}>
-      <View style={styles.left}>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />
-        <View>
-          <Text numberOfLines={1} style={styles.title}>
-            {title}
-          </Text>
-          <Text numberOfLines={1} style={styles.subtitle}>
-            {subtitle}
-          </Text>
+      {onPressItem ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={itemAccessibilityLabel ?? title}
+          style={styles.left}
+          onPress={onPressItem}
+        >
+          <View style={styles.avatarContainer}>
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="contain" />
+          </View>
+          <View>
+            <Text numberOfLines={1} style={styles.title}>
+              {title}
+            </Text>
+            <Text numberOfLines={1} style={styles.subtitle}>
+              {subtitle}
+            </Text>
+          </View>
+        </Pressable>
+      ) : (
+        <View style={styles.left}>
+          <View style={styles.avatarContainer}>
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="contain" />
+          </View>
+          <View>
+            <Text numberOfLines={1} style={styles.title}>
+              {title}
+            </Text>
+            <Text numberOfLines={1} style={styles.subtitle}>
+              {subtitle}
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
 
       <FollowToggleButton
         isFollowing={isFollowing}

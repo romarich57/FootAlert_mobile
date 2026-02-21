@@ -1,25 +1,22 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import type { MainTabParamList, RootStackParamList } from '@ui/app/navigation/types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { CompetitionsScreen } from '@ui/features/competitions';
+import { CompetitionDetailsScreen } from '@ui/features/competitions/screens/CompetitionDetailsScreen';
 import { FollowsScreen, FollowsSearchScreen } from '@ui/features/follows';
 import { MatchesScreen } from '@ui/features/matches';
+import { MatchDetailsScreen } from '@ui/features/matches/screens/MatchDetailsScreen';
 import { MoreScreen } from '@ui/features/more';
+import { PlayerDetailsScreen } from '@ui/features/players/screens/PlayerDetailsScreen';
 import { SearchPlaceholderScreen } from '@ui/features/search';
+import { TeamDetailsScreen } from '@ui/features/teams';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
-const placeholderStyles = StyleSheet.create({
-  text: {
-    textAlign: 'center',
-    marginTop: 40,
-  },
-});
 
 type TabBarIconProps = {
   routeName: keyof MainTabParamList;
@@ -99,17 +96,6 @@ function TabsNavigator() {
   );
 }
 
-function PlaceholderScreen() {
-  const { colors } = useAppTheme();
-  const { t } = useTranslation();
-
-  return (
-    <Text style={[placeholderStyles.text, { color: colors.text }]}>
-      {t('placeholders.inProgress')}
-    </Text>
-  );
-}
-
 export function RootNavigator() {
   const { t } = useTranslation();
 
@@ -120,10 +106,10 @@ export function RootNavigator() {
         component={TabsNavigator}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="MatchDetails" component={PlaceholderScreen} />
-      <Stack.Screen name="CompetitionDetails" component={PlaceholderScreen} />
-      <Stack.Screen name="TeamDetails" component={PlaceholderScreen} />
-      <Stack.Screen name="PlayerDetails" component={PlaceholderScreen} />
+      <Stack.Screen name="MatchDetails" component={MatchDetailsScreen} />
+      <Stack.Screen name="CompetitionDetails" component={CompetitionDetailsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="TeamDetails" component={TeamDetailsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="PlayerDetails" component={PlayerDetailsScreen} />
       <Stack.Screen
         name="SearchPlaceholder"
         component={SearchPlaceholderScreen}

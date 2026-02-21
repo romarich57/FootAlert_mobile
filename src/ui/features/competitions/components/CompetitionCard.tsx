@@ -34,6 +34,10 @@ function createStyles(colors: ThemeColors) {
             height: 32,
             resizeMode: 'contain',
         },
+        logoFallback: {
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 16,
+        },
         name: {
             color: colors.text,
             fontSize: 16,
@@ -68,7 +72,7 @@ export const CompetitionCard = memo(function CompetitionCard({
                 {logoUrl ? (
                     <Image source={{ uri: logoUrl }} style={styles.logo} />
                 ) : (
-                    <View style={[styles.logo, { backgroundColor: colors.surfaceElevated, borderRadius: 16 }]} />
+                    <View style={[styles.logo, styles.logoFallback]} />
                 )}
                 <Text numberOfLines={1} style={styles.name}>
                     {name}

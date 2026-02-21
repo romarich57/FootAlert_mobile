@@ -5,6 +5,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerCareerSeason, PlayerCareerTeam } from '@ui/features/players/types/players.types';
+import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
+import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
 import { FollowsSegmentedControl } from '@ui/features/follows/components/FollowsSegmentedControl'; // Reusing for aesthetic consistency
 
 type PlayerCareerTabProps = {
@@ -122,6 +124,14 @@ function createStyles(colors: ThemeColors) {
             flexDirection: 'row',
             gap: 16,
         },
+        segmentedTopSpacing: {
+            paddingTop: 20,
+        },
+        noteCellContent: {
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+        },
         teamCareerItem: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -188,14 +198,19 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [activeTab, setActiveTab] = useState<'saison' | 'equipe'>('saison');
+    const segmentedTab: FollowEntityTab = activeTab === 'saison' ? 'teams' : 'players';
+
+    const handleSegmentedTabChange = (tab: FollowEntityTab) => {
+        setActiveTab(tab === 'teams' ? 'saison' : 'equipe');
+    };
 
     return (
         <View style={styles.container}>
-            <View style={{ paddingTop: 20 }}>
+            <View style={styles.segmentedTopSpacing}>
                 {/* We reuse the Segmented Control but adapt the types */}
                 <FollowsSegmentedControl
-                    selectedTab={activeTab as any}
-                    onChangeTab={(t: any) => setActiveTab(t)}
+                    selectedTab={segmentedTab}
+                    onChangeTab={handleSegmentedTabChange}
                     teamsLabel="Saison"
                     playersLabel="Équipe"
                 />
@@ -219,17 +234,19 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                                 i === 0 && styles.rowItemFirst,
                             ]}>
                                 <View style={styles.colLogo}>
-                                    <Image source={{ uri: s.team.logo }} style={styles.teamLogo} />
+                                    <Image source={{ uri: s.team.logo ?? undefined }} style={styles.teamLogo} />
                                 </View>
                                 <View style={styles.colSeason}>
-                                    <Text style={styles.seasonText}>{s.season}</Text>
-                                    <Text style={styles.teamNameSub} numberOfLines={1}>{s.team.name}</Text>
+                                    <Text style={styles.seasonText}>{toDisplayValue(s.season)}</Text>
+                                    <Text style={styles.teamNameSub} numberOfLines={1}>
+                                        {toDisplayValue(s.team.name)}
+                                    </Text>
                                 </View>
-                                <View style={styles.colM}><Text style={styles.valText}>{s.matches}</Text></View>
-                                <View style={styles.colB}><Text style={styles.valText}>{s.goals}</Text></View>
-                                <View style={styles.colP}><Text style={styles.valText}>{s.assists}</Text></View>
-                                <View style={[styles.colNote, { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }]}>
-                                    <Text style={styles.noteVal}>{s.rating}</Text>
+                                <View style={styles.colM}><Text style={styles.valText}>{toDisplayValue(s.matches)}</Text></View>
+                                <View style={styles.colB}><Text style={styles.valText}>{toDisplayValue(s.goals)}</Text></View>
+                                <View style={styles.colP}><Text style={styles.valText}>{toDisplayValue(s.assists)}</Text></View>
+                                <View style={[styles.colNote, styles.noteCellContent]}>
+                                    <Text style={styles.noteVal}>{toDisplayValue(s.rating)}</Text>
                                     <MaterialCommunityIcons name="chevron-right" style={styles.noteArrow} />
                                 </View>
                             </View>
@@ -253,15 +270,15 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                         {teams.map((t, i) => (
                             <View key={`${t.team.id}-${i}`} style={styles.teamCareerItem}>
                                 <View style={styles.teamCareerInfo}>
-                                    <Image source={{ uri: t.team.logo }} style={styles.teamCareerLogo} />
+                                    <Image source={{ uri: t.team.logo ?? undefined }} style={styles.teamCareerLogo} />
                                     <View>
-                                        <Text style={styles.teamCareerName}>{t.team.name}</Text>
-                                        <Text style={styles.teamCareerPeriod}>{t.period}</Text>
+                                        <Text style={styles.teamCareerName}>{toDisplayValue(t.team.name)}</Text>
+                                        <Text style={styles.teamCareerPeriod}>{toDisplayValue(t.period)}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.teamCareerStatsRow}>
-                                    <Text style={styles.teamCareerMatches}>{t.matches}</Text>
-                                    <Text style={styles.teamCareerGoals}>{t.goals}</Text>
+                                    <Text style={styles.teamCareerMatches}>{toDisplayValue(t.matches)}</Text>
+                                    <Text style={styles.teamCareerGoals}>{toDisplayValue(t.goals)}</Text>
                                 </View>
                             </View>
                         ))}

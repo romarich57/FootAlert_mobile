@@ -1,81 +1,80 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fetchLeagueById } from '@data/endpoints/competitionsApi';
+import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
 import {
-    loadFollowedLeagueIds,
-    toggleFollowedLeague as storageToggleFollowedLeague,
+  loadFollowedLeagueIds,
+  toggleFollowedLeague,
 } from '@data/storage/followsStorage';
 import type { Competition } from '@ui/features/competitions/types/competitions.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
 const MAX_FOLLOWED_LEAGUES = 50;
 
 export function useFollowedCompetitions() {
-    const [followedIds, setFollowedIds] = useState<string[]>([]);
-    const [followedCompetitions, setFollowedCompetitions] = useState<Competition[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-    const fetchFollowedDetails = useCallback(async (ids: string[]) => {
-        try {
-            const promises = ids.map(id => fetchLeagueById(id));
-            const results = await Promise.all(promises);
+  const followedIdsQuery = useQuery({
+    queryKey: queryKeys.competitions.followedIds(),
+    queryFn: loadFollowedLeagueIds,
+    staleTime: Infinity,
+  });
 
-            const competitions: Competition[] = results
-                .filter(Boolean)
-                .map(dto => ({
-                    id: String(dto!.league.id),
-                    name: dto!.league.name,
-                    logo: dto!.league.logo,
-                    type: dto!.league.type,
-                    countryName: dto!.country.name,
-                }));
+  const followedIds = followedIdsQuery.data ?? [];
 
-            setFollowedCompetitions(competitions);
-        } catch (error) {
-            console.error('Failed to fetch followed leagues', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
+  const followedCompetitionsQuery = useQuery({
+    queryKey: queryKeys.competitions.followedDetails(followedIds),
+    queryFn: async ({ signal }) => {
+      const results = await Promise.all(followedIds.map(id => fetchLeagueById(id, signal)));
+      return results
+        .map(dto => mapLeagueDtoToCompetition(dto))
+        .filter(Boolean) as Competition[];
+    },
+    enabled: followedIds.length > 0,
+    staleTime: 10 * 60_000,
+  });
 
-    const loadFollows = useCallback(async () => {
-        setIsLoading(true);
-        const ids = await loadFollowedLeagueIds();
-        setFollowedIds(ids);
-        if (ids.length > 0) {
-            await fetchFollowedDetails(ids);
-        } else {
-            setFollowedCompetitions([]);
-            setIsLoading(false);
-        }
-    }, [fetchFollowedDetails]);
+  const toggleMutation = useMutation({
+    mutationFn: (leagueId: string) =>
+      toggleFollowedLeague(leagueId, MAX_FOLLOWED_LEAGUES),
+    onSuccess: async (result, leagueId) => {
+      queryClient.setQueryData(queryKeys.competitions.followedIds(), result.ids);
 
-    useEffect(() => {
-        loadFollows();
-    }, [loadFollows]);
+      if (!result.ids.includes(leagueId)) {
+        queryClient.setQueryData<Competition[]>(
+          queryKeys.competitions.followedDetails(result.ids),
+          (current = []) => current.filter(competition => competition.id !== leagueId),
+        );
+        return;
+      }
 
-    const toggleFollow = useCallback(
-        async (leagueId: string) => {
-            const result = await storageToggleFollowedLeague(leagueId, MAX_FOLLOWED_LEAGUES);
-            if (result.changed) {
-                setFollowedIds(result.ids);
-                if (result.ids.includes(leagueId)) {
-                    // If added, load details for it
-                    fetchFollowedDetails(result.ids);
-                } else {
-                    // If removed, just filter it out
-                    setFollowedCompetitions(prev => prev.filter(c => c.id !== leagueId));
-                }
-            }
-            return result;
-        },
-        [fetchFollowedDetails],
-    );
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.competitions.followedDetails(result.ids),
+      });
+    },
+  });
 
-    return {
-        followedIds,
-        followedCompetitions,
-        isLoading,
-        toggleFollow,
-        refreshDelay: loadFollows,
-    };
+  const toggleFollow = useCallback(
+    async (leagueId: string) => {
+      return toggleMutation.mutateAsync(leagueId);
+    },
+    [toggleMutation],
+  );
+
+  const refreshDelay = useCallback(async () => {
+    await followedIdsQuery.refetch();
+    await followedCompetitionsQuery.refetch();
+  }, [followedCompetitionsQuery, followedIdsQuery]);
+
+  return {
+    followedIds,
+    followedCompetitions: useMemo(
+      () => followedCompetitionsQuery.data ?? [],
+      [followedCompetitionsQuery.data],
+    ),
+    isLoading: followedIdsQuery.isLoading || followedCompetitionsQuery.isLoading,
+    toggleFollow,
+    refreshDelay,
+  };
 }

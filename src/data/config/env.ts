@@ -6,7 +6,7 @@ import {
   TOP_COMPETITION_IDS,
 } from '@/shared/constants';
 
-const DEFAULT_API_BASE_URL = 'https://v3.football.api-sports.io';
+const DEFAULT_MOBILE_API_BASE_URL = 'http://localhost:3001/v1';
 const DEFAULT_MATCHES_QUERY_STALE_TIME_MS = 60_000;
 const DEFAULT_FOLLOWS_SEARCH_DEBOUNCE_MS = 500;
 const DEFAULT_FOLLOWS_SEARCH_MIN_CHARS = 2;
@@ -21,10 +21,7 @@ const DEFAULT_FOLLOWS_MAX_FOLLOWED_TEAMS = 30;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_PLAYERS = 30;
 
 export type AppEnv = {
-  apiFootballBaseUrl: string;
-  apiFootballKey: string;
-  matchesDemoMode: boolean;
-  matchesApiErrorFallbackEnabled: boolean;
+  mobileApiBaseUrl: string;
   matchesQueryStaleTimeMs: number;
   matchesLiveRefreshIntervalMs: number;
   matchesSlowRefreshIntervalMs: number;
@@ -46,35 +43,13 @@ function normalizeUrl(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
-function readApiFootballBaseUrl(): string {
-  const configuredBaseUrl = Config.API_FOOTBALL_BASE_URL?.trim();
+function readMobileApiBaseUrl(): string {
+  const configuredBaseUrl = Config.MOBILE_API_BASE_URL?.trim();
   if (!configuredBaseUrl) {
-    return DEFAULT_API_BASE_URL;
+    return DEFAULT_MOBILE_API_BASE_URL;
   }
 
   return normalizeUrl(configuredBaseUrl);
-}
-
-function readApiFootballKey(): string {
-  const configuredKey = Config.API_FOOTBALL_KEY?.trim();
-  return configuredKey ?? '';
-}
-
-function readMatchesDemoMode(): boolean {
-  return readBooleanConfig(Config.MATCHES_DEMO_MODE, false);
-}
-
-function readMatchesApiErrorFallbackEnabled(): boolean {
-  return readBooleanConfig(Config.MATCHES_API_ERROR_FALLBACK_ENABLED, true);
-}
-
-function readBooleanConfig(rawValue: string | undefined, defaultValue: boolean): boolean {
-  const configuredValue = rawValue?.trim().toLowerCase();
-  if (!configuredValue) {
-    return defaultValue;
-  }
-
-  return configuredValue === 'true' || configuredValue === '1';
 }
 
 function readPositiveIntConfig(rawValue: string | undefined, defaultValue: number): number {
@@ -110,18 +85,12 @@ const configuredSlowRefreshIntervalMs = Math.max(
   configuredLiveRefreshIntervalMs,
 );
 const configuredMaxRefreshBackoffMs = Math.max(
-  readPositiveIntConfig(
-    Config.MATCHES_MAX_REFRESH_BACKOFF_MS,
-    MAX_REFRESH_BACKOFF_MS,
-  ),
+  readPositiveIntConfig(Config.MATCHES_MAX_REFRESH_BACKOFF_MS, MAX_REFRESH_BACKOFF_MS),
   configuredSlowRefreshIntervalMs,
 );
 
 export const appEnv: AppEnv = {
-  apiFootballBaseUrl: readApiFootballBaseUrl(),
-  apiFootballKey: readApiFootballKey(),
-  matchesDemoMode: readMatchesDemoMode(),
-  matchesApiErrorFallbackEnabled: readMatchesApiErrorFallbackEnabled(),
+  mobileApiBaseUrl: readMobileApiBaseUrl(),
   matchesQueryStaleTimeMs: readPositiveIntConfig(
     Config.MATCHES_QUERY_STALE_TIME_MS,
     DEFAULT_MATCHES_QUERY_STALE_TIME_MS,
@@ -191,11 +160,9 @@ export const appEnv: AppEnv = {
   ),
 };
 
-export function getApiFootballEnvOrThrow(): AppEnv {
-  if (!appEnv.apiFootballKey) {
-    throw new Error(
-      'Missing API_FOOTBALL_KEY. Set it in your .env file before calling API-Football.',
-    );
+export function getMobileApiEnvOrThrow(): AppEnv {
+  if (!appEnv.mobileApiBaseUrl) {
+    throw new Error('Missing MOBILE_API_BASE_URL. Set it in your .env file.');
   }
 
   return appEnv;

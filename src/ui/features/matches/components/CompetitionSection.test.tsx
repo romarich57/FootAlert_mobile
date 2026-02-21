@@ -1,10 +1,10 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { screen } from '@testing-library/react-native';
 
-import { AppThemeProvider } from '@ui/app/providers/ThemeProvider';
 import { CompetitionSection } from '@ui/features/matches/components/CompetitionSection';
 import type { CompetitionSection as CompetitionSectionType } from '@ui/features/matches/types/matches.types';
 import '@ui/shared/i18n';
+import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 const baseSection: CompetitionSectionType = {
   id: '61',
@@ -15,16 +15,14 @@ const baseSection: CompetitionSectionType = {
 };
 
 function renderSection(section: CompetitionSectionType) {
-  return render(
-    <AppThemeProvider>
-      <CompetitionSection
-        section={section}
-        collapsed
-        onToggle={jest.fn()}
-        onPressMatch={jest.fn()}
-        onPressNotification={jest.fn()}
-      />
-    </AppThemeProvider>,
+  return renderWithAppProviders(
+    <CompetitionSection
+      section={section}
+      collapsed
+      onToggle={jest.fn()}
+      onPressMatch={jest.fn()}
+      onPressNotification={jest.fn()}
+    />,
   );
 }
 

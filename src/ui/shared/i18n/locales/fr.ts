@@ -78,6 +78,17 @@ export const fr = {
       },
     },
   },
+  matchDetails: {
+    labels: {
+      status: 'Statut',
+      kickoff: "Coup d'envoi",
+      venue: 'Stade',
+    },
+    states: {
+      loading: 'Chargement des détails du match...',
+      error: 'Impossible de charger les détails du match.',
+    },
+  },
   follows: {
     title: 'Suivis',
     tabs: {
@@ -118,6 +129,120 @@ export const fr = {
     errors: {
       maxTeams: 'Limite atteinte: {{count}} équipes maximum.',
       maxPlayers: 'Limite atteinte: {{count}} joueurs maximum.',
+    },
+  },
+  teamDetails: {
+    actions: {
+      back: 'Retour',
+      follow: 'Suivre',
+      unfollow: 'Suivi',
+    },
+    tabs: {
+      overview: 'Aperçu',
+      matches: 'Matchs',
+      standings: 'Classement',
+      stats: 'Statistiques',
+      transfers: 'Transferts',
+      squad: 'Effectif',
+      trophies: 'Trophées',
+    },
+    filters: {
+      competition: 'Compétition',
+      season: 'Saison',
+    },
+    states: {
+      loading: 'Chargement des données API...',
+      error: 'Impossible de charger les données API.',
+      empty: 'Aucune donnée API',
+      noSelection: 'Aucune compétition/saison disponible pour ce club.',
+    },
+    overview: {
+      nextMatch: 'Prochain match',
+      recentForm: '5 derniers matchs',
+      seasonStats: 'Stats saison',
+      clubInfo: 'Infos club',
+    },
+    matches: {
+      liveSection: 'Matchs en cours',
+      upcomingSection: 'Matchs à venir',
+      pastSection: 'Matchs passés',
+      filters: {
+        all: 'Tous',
+        home: 'Domicile',
+        away: 'Extérieur',
+      },
+    },
+    stats: {
+      pointsCard: 'Points',
+      goalsBreakdown: 'Répartition des buts',
+      topPlayers: 'Meilleurs joueurs',
+    },
+    transfers: {
+      arrivals: 'Arrivées',
+      departures: 'Départs',
+    },
+    squad: {
+      searchPlaceholder: 'Rechercher un joueur',
+      coach: 'Entraîneur',
+      roles: {
+        all: 'Tout',
+        goalkeepers: 'Gardiens',
+        defenders: 'Défenseurs',
+        midfielders: 'Milieux',
+        attackers: 'Attaquants',
+        other: 'Autres',
+      },
+    },
+    trophies: {
+      title: 'Palmarès',
+    },
+    labels: {
+      rank: 'Rang',
+      points: 'Pts',
+      played: 'J',
+      goalDiff: 'DB',
+      stadium: 'Stade',
+      capacity: 'Capacité',
+      trophies: 'Trophées',
+      team: 'Équipe',
+      goalsForAgainst: 'Buts +/-',
+      rating: 'Note',
+      transferType: 'Type',
+      age: 'Âge',
+      yearsSuffix: 'ans',
+      totalTrophies: 'Total trophées',
+      totalWins: 'Titres gagnés',
+    },
+  },
+  competitionDetails: {
+    tabs: {
+      standings: 'Classement',
+      matches: 'Matchs',
+      playerStats: 'Stats joueurs',
+      teamStats: 'Stats équipes',
+      transfers: 'Transferts',
+      totw: 'Équipe de la semaine',
+      seasons: 'Saisons',
+    },
+    states: {
+      loading: 'Chargement des données API...',
+      loadError: 'Impossible de charger les données de la compétition.',
+    },
+    transfers: {
+      unavailable:
+        "Les transferts globaux d'une ligue ne sont pas disponibles via l'API (limitation endpoint).",
+      notImplemented:
+        "Le flux transferts est disponible mais son affichage détaillé n'est pas encore implémenté.",
+    },
+    totw: {
+      title: 'Équipe de la semaine',
+      unavailable:
+        "L'Équipe de la semaine n'est pas disponible pour cette compétition à cause des limites de l'API.",
+    },
+  },
+  playerDetails: {
+    states: {
+      loadError: 'Impossible de charger le joueur.',
     },
   },
   more: {

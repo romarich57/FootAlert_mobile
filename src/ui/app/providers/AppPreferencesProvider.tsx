@@ -23,6 +23,10 @@ type AppPreferencesContextValue = {
   setNotificationsEnabled: (enabled: boolean) => Promise<void>;
 };
 
+type AppPreferencesProviderProps = PropsWithChildren<{
+  testHydratedPreferences?: AppPreferences;
+}>;
+
 const FALLBACK_PREFERENCES: AppPreferences = {
   theme: 'system',
   language: 'fr',
@@ -34,11 +38,20 @@ const FALLBACK_PREFERENCES: AppPreferences = {
 
 const AppPreferencesContext = createContext<AppPreferencesContextValue | null>(null);
 
-export function AppPreferencesProvider({ children }: PropsWithChildren) {
-  const [preferences, setPreferences] = useState<AppPreferences>(FALLBACK_PREFERENCES);
-  const [isHydrated, setIsHydrated] = useState(false);
+export function AppPreferencesProvider({
+  children,
+  testHydratedPreferences,
+}: AppPreferencesProviderProps) {
+  const [preferences, setPreferences] = useState<AppPreferences>(
+    testHydratedPreferences ?? FALLBACK_PREFERENCES,
+  );
+  const [isHydrated, setIsHydrated] = useState(Boolean(testHydratedPreferences));
 
   useEffect(() => {
+    if (testHydratedPreferences) {
+      return;
+    }
+
     let isMounted = true;
 
     loadAppPreferences()
@@ -61,7 +74,7 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [testHydratedPreferences]);
 
   useEffect(() => {
     if (!isHydrated) {
@@ -150,4 +163,3 @@ export function useAppPreferences(): AppPreferencesContextValue {
 
   return context;
 }
-

@@ -61,12 +61,29 @@ describe('AppPreferencesProvider', () => {
     await waitFor(() => {
       expect(result.current.isHydrated).toBe(true);
     });
+    changeLanguageSpy.mockClear();
 
     await act(async () => {
       await result.current.setLanguagePreference('en');
     });
 
     expect(mockedUpdateAppPreferences).toHaveBeenCalledWith({ language: 'en' });
-    expect(changeLanguageSpy).toHaveBeenCalledWith('en');
+    await waitFor(() => {
+      expect(changeLanguageSpy).toHaveBeenCalledWith('en');
+    });
+  });
+
+  it('supports synchronous hydrated mode for tests', () => {
+    function syncWrapper({ children }: React.PropsWithChildren) {
+      return (
+        <AppPreferencesProvider testHydratedPreferences={initialPreferences}>
+          {children}
+        </AppPreferencesProvider>
+      );
+    }
+
+    const { result } = renderHook(() => useAppPreferences(), { wrapper: syncWrapper });
+    expect(result.current.isHydrated).toBe(true);
+    expect(result.current.preferences.language).toBe('fr');
   });
 });

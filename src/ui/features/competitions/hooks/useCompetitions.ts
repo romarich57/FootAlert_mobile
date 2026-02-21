@@ -1,103 +1,101 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
+import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
 import { fetchAllLeagues, searchLeaguesByName } from '@data/endpoints/competitionsApi';
 import type {
-    Competition,
-    CountryWithCompetitions,
+  Competition,
+  CountryWithCompetitions,
 } from '@ui/features/competitions/types/competitions.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
-const SUGGESTED_LEAGUE_IDS = ['135', '78', '39', '140', '61']; // Serie A, Bundesliga, PL, La Liga, Ligue 1
+const SUGGESTED_LEAGUE_IDS = ['135', '78', '39', '140', '61'];
 
 export function useCompetitions() {
-    const [countries, setCountries] = useState<CountryWithCompetitions[]>([]);
-    const [suggestedCompetitions, setSuggestedCompetitions] = useState<Competition[]>([]);
-    const [searchResults, setSearchResults] = useState<Competition[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
-    const loadAllLeagues = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const dtos = await fetchAllLeagues();
+  const catalogQuery = useQuery({
+    queryKey: queryKeys.competitions.catalog(),
+    queryFn: async ({ signal }) => {
+      return fetchAllLeagues(signal);
+    },
+    staleTime: 10 * 60_000,
+  });
 
-            // Parse and group by country
-            const grouped = new Map<string, CountryWithCompetitions>();
-            const suggestions: Competition[] = [];
+  const searchQuery = useQuery({
+    queryKey: queryKeys.competitions.search(searchTerm.trim()),
+    queryFn: async ({ signal }) => {
+      if (!searchTerm.trim()) {
+        return [];
+      }
 
-            dtos.forEach(dto => {
-                const comp: Competition = {
-                    id: String(dto.league.id),
-                    name: dto.league.name,
-                    logo: dto.league.logo,
-                    type: dto.league.type,
-                    countryName: dto.country.name,
-                };
+      return searchLeaguesByName(searchTerm.trim(), signal);
+    },
+    enabled: searchTerm.trim().length > 0,
+    staleTime: 60_000,
+  });
 
-                if (SUGGESTED_LEAGUE_IDS.includes(comp.id)) {
-                    suggestions.push(comp);
-                }
+  const allCompetitions = useMemo(() => {
+    return (catalogQuery.data ?? [])
+      .map(dto => mapLeagueDtoToCompetition(dto))
+      .filter(Boolean) as Competition[];
+  }, [catalogQuery.data]);
 
-                const countryName = dto.country.name;
-                if (!grouped.has(countryName)) {
-                    grouped.set(countryName, {
-                        name: countryName,
-                        code: dto.country.code,
-                        flag: dto.country.flag,
-                        competitions: [],
-                    });
-                }
-                grouped.get(countryName)!.competitions.push(comp);
-            });
+  const countries = useMemo(() => {
+    const grouped = new Map<string, CountryWithCompetitions>();
 
-            // Sort countries alphabetically
-            const sortedCountries = Array.from(grouped.values()).sort((a, b) =>
-                a.name.localeCompare(b.name),
-            );
+    (catalogQuery.data ?? []).forEach(dto => {
+      const competition = mapLeagueDtoToCompetition(dto);
+      if (!competition) {
+        return;
+      }
 
-            setCountries(sortedCountries);
-            setSuggestedCompetitions(suggestions);
-        } catch (error) {
-            console.error('Failed to load all leagues', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
+      const countryName = dto.country.name;
+      if (!grouped.has(countryName)) {
+        grouped.set(countryName, {
+          name: countryName,
+          code: dto.country.code,
+          flag: dto.country.flag,
+          competitions: [],
+        });
+      }
 
-    useEffect(() => {
-        loadAllLeagues();
-    }, [loadAllLeagues]);
+      grouped.get(countryName)?.competitions.push(competition);
+    });
 
-    const searchLeagues = useCallback(async (query: string) => {
-        if (!query.trim()) {
-            setSearchResults([]);
-            return;
-        }
-        setIsSearching(true);
-        try {
-            const dtos = await searchLeaguesByName(query);
-            const results: Competition[] = dtos.map(dto => ({
-                id: String(dto.league.id),
-                name: dto.league.name,
-                logo: dto.league.logo,
-                type: dto.league.type,
-                countryName: dto.country.name,
-            }));
-            setSearchResults(results);
-        } catch (error) {
-            console.error('Failed to search leagues', error);
-            setSearchResults([]);
-        } finally {
-            setIsSearching(false);
-        }
-    }, []);
+    return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [catalogQuery.data]);
 
-    return {
-        countries,
-        suggestedCompetitions,
-        searchResults,
-        isSearching,
-        isLoading,
-        searchLeagues,
-        refresh: loadAllLeagues,
-    };
+  const suggestedCompetitions = useMemo(() => {
+    return allCompetitions.filter(competition =>
+      SUGGESTED_LEAGUE_IDS.includes(competition.id),
+    );
+  }, [allCompetitions]);
+
+  const searchResults = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return [];
+    }
+
+    return (searchQuery.data ?? [])
+      .map(dto => mapLeagueDtoToCompetition(dto))
+      .filter(Boolean) as Competition[];
+  }, [searchQuery.data, searchTerm]);
+
+  const searchLeagues = useCallback(async (query: string) => {
+    setSearchTerm(query);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    await catalogQuery.refetch();
+  }, [catalogQuery]);
+  return {
+    countries,
+    suggestedCompetitions,
+    searchResults,
+    isSearching: searchQuery.isFetching,
+    isLoading: catalogQuery.isLoading,
+    searchLeagues,
+    refresh,
+  };
 }

@@ -1,0 +1,587 @@
+import type {
+  TeamApiFixtureDto,
+  TeamApiLeagueDto,
+  TeamApiPlayerDto,
+  TeamApiSquadDto,
+  TeamApiStandingsDto,
+  TeamApiStatisticsDto,
+  TeamApiTeamDetailsDto,
+  TeamApiTrophyDto,
+  TeamApiTransferDto,
+  TeamCompetitionOption,
+  TeamFormEntry,
+  TeamIdentity,
+  TeamMatchItem,
+  TeamMatchesData,
+  TeamMatchStatus,
+  TeamSelection,
+  TeamSquadData,
+  TeamSquadPlayer,
+  TeamSquadRole,
+  TeamStandingsData,
+  TeamStandingRow,
+  TeamStatsData,
+  TeamTopPlayer,
+  TeamTrophiesData,
+  TeamTrophyGroup,
+  TeamTransferItem,
+  TeamTransfersData,
+} from '@ui/features/teams/types/teams.types';
+
+const LIVE_STATUSES = new Set(['1H', '2H', 'ET', 'BT', 'P', 'INT', 'LIVE']);
+const UPCOMING_STATUSES = new Set(['TBD', 'NS']);
+
+function toText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function toId(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toParsedFloat(value: string | null | undefined): number | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function classifyTeamMatchStatus(shortStatus: string | null | undefined): TeamMatchStatus {
+  const normalizedStatus = toText(shortStatus)?.toUpperCase() ?? '';
+
+  if (LIVE_STATUSES.has(normalizedStatus)) {
+    return 'live';
+  }
+
+  if (UPCOMING_STATUSES.has(normalizedStatus)) {
+    return 'upcoming';
+  }
+
+  return 'finished';
+}
+
+export function mapTeamDetails(dto: TeamApiTeamDetailsDto | null, teamId: string): TeamIdentity {
+  return {
+    id: teamId,
+    name: toText(dto?.team?.name),
+    logo: toText(dto?.team?.logo),
+    country: toText(dto?.team?.country),
+    founded: toNumber(dto?.team?.founded),
+    venueName: toText(dto?.venue?.name),
+    venueCity: toText(dto?.venue?.city),
+    venueCapacity: toNumber(dto?.venue?.capacity),
+    venueImage: toText(dto?.venue?.image),
+  };
+}
+
+function sortSeasonsDesc(seasons: number[]): number[] {
+  return [...seasons].sort((first, second) => second - first);
+}
+
+export function mapTeamLeaguesToCompetitionOptions(
+  payload: TeamApiLeagueDto[],
+): TeamCompetitionOption[] {
+  const mapped = payload
+    .map<TeamCompetitionOption | null>(item => {
+      const leagueId = toId(item.league?.id);
+      if (!leagueId) {
+        return null;
+      }
+
+      const seasons = (item.seasons ?? [])
+        .map(season => toNumber(season.year))
+        .filter((year): year is number => typeof year === 'number');
+
+      const currentSeason =
+        item.seasons?.find(season => season.current === true)?.year ?? null;
+
+      return {
+        leagueId,
+        leagueName: toText(item.league?.name),
+        leagueLogo: toText(item.league?.logo),
+        country: toText(item.country?.name),
+        seasons: sortSeasonsDesc(Array.from(new Set(seasons))),
+        currentSeason: toNumber(currentSeason),
+      };
+    })
+    .filter((item): item is TeamCompetitionOption => item !== null)
+    .sort((first, second) => {
+      const firstName = first.leagueName ?? '';
+      const secondName = second.leagueName ?? '';
+      return firstName.localeCompare(secondName);
+    });
+
+  return mapped;
+}
+
+export function resolveDefaultTeamSelection(
+  options: TeamCompetitionOption[],
+): TeamSelection {
+  const withCurrentSeason = options.find(
+    option => typeof option.currentSeason === 'number',
+  );
+
+  if (withCurrentSeason) {
+    return {
+      leagueId: withCurrentSeason.leagueId,
+      season: withCurrentSeason.currentSeason,
+    };
+  }
+
+  const withRecentSeason = options.find(option => option.seasons.length > 0);
+
+  if (withRecentSeason) {
+    return {
+      leagueId: withRecentSeason.leagueId,
+      season: withRecentSeason.seasons[0] ?? null,
+    };
+  }
+
+  return {
+    leagueId: null,
+    season: null,
+  };
+}
+
+function toStatusLabel(dto: TeamApiFixtureDto): string | null {
+  return toText(dto.fixture?.status?.long) ?? toText(dto.fixture?.status?.short);
+}
+
+export function mapFixtureToTeamMatch(dto: TeamApiFixtureDto): TeamMatchItem {
+  return {
+    fixtureId: toId(dto.fixture?.id) ?? '',
+    leagueId: toId(dto.league?.id),
+    leagueName: toText(dto.league?.name),
+    leagueLogo: toText(dto.league?.logo),
+    date: toText(dto.fixture?.date),
+    round: toText(dto.league?.round),
+    venue: toText(dto.fixture?.venue?.name),
+    status: classifyTeamMatchStatus(dto.fixture?.status?.short),
+    statusLabel: toStatusLabel(dto),
+    minute: toNumber(dto.fixture?.status?.elapsed),
+    homeTeamId: toId(dto.teams?.home?.id),
+    homeTeamName: toText(dto.teams?.home?.name),
+    homeTeamLogo: toText(dto.teams?.home?.logo),
+    awayTeamId: toId(dto.teams?.away?.id),
+    awayTeamName: toText(dto.teams?.away?.name),
+    awayTeamLogo: toText(dto.teams?.away?.logo),
+    homeGoals: toNumber(dto.goals?.home),
+    awayGoals: toNumber(dto.goals?.away),
+  };
+}
+
+function toSortableTimestamp(value: string | null): number {
+  if (!value) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+}
+
+function sortMatchesByDate(items: TeamMatchItem[]): TeamMatchItem[] {
+  return [...items].sort((first, second) => {
+    return toSortableTimestamp(first.date) - toSortableTimestamp(second.date);
+  });
+}
+
+export function mapFixturesToTeamMatches(payload: TeamApiFixtureDto[]): TeamMatchesData {
+  const all = sortMatchesByDate(
+    payload
+      .map(mapFixtureToTeamMatch)
+      .filter(match => match.fixtureId.length > 0),
+  );
+
+  return {
+    all,
+    upcoming: all.filter(match => match.status === 'upcoming'),
+    live: all.filter(match => match.status === 'live'),
+    past: all
+      .filter(match => match.status === 'finished')
+      .sort((first, second) => toSortableTimestamp(second.date) - toSortableTimestamp(first.date)),
+  };
+}
+
+function resolveFormResult(
+  match: TeamMatchItem,
+  teamId: string,
+): TeamFormEntry['result'] {
+  const homeTeamId = match.homeTeamId;
+  const awayTeamId = match.awayTeamId;
+
+  if (!homeTeamId || !awayTeamId || (homeTeamId !== teamId && awayTeamId !== teamId)) {
+    return '?';
+  }
+
+  if (match.homeGoals === null || match.awayGoals === null) {
+    return '?';
+  }
+
+  const goalDelta = match.homeGoals - match.awayGoals;
+  if (goalDelta === 0) {
+    return 'D';
+  }
+
+  const isHome = homeTeamId === teamId;
+  const hasWon = isHome ? goalDelta > 0 : goalDelta < 0;
+  return hasWon ? 'W' : 'L';
+}
+
+export function mapRecentTeamForm(
+  matches: TeamMatchItem[],
+  teamId: string,
+  limit = 5,
+): TeamFormEntry[] {
+  return matches
+    .filter(match => match.status === 'finished')
+    .sort((first, second) => toSortableTimestamp(second.date) - toSortableTimestamp(first.date))
+    .slice(0, limit)
+    .map(match => {
+      const isHome = match.homeTeamId === teamId;
+
+      return {
+        fixtureId: match.fixtureId,
+        result: resolveFormResult(match, teamId),
+        score:
+          match.homeGoals === null || match.awayGoals === null
+            ? null
+            : `${match.homeGoals}-${match.awayGoals}`,
+        opponentName: isHome ? match.awayTeamName : match.homeTeamName,
+        opponentLogo: isHome ? match.awayTeamLogo : match.homeTeamLogo,
+      };
+    });
+}
+
+export function mapStandingsToTeamData(
+  payload: TeamApiStandingsDto | null,
+  teamId: string,
+): TeamStandingsData {
+  const groups = (payload?.league?.standings ?? []).map(standingGroup => {
+    const firstRowGroupName = toText(standingGroup[0]?.group);
+
+    const rows = standingGroup.map<TeamStandingRow>(row => {
+      const rowTeamId = toId(row.team?.id);
+
+      return {
+        rank: toNumber(row.rank),
+        teamId: rowTeamId,
+        teamName: toText(row.team?.name),
+        teamLogo: toText(row.team?.logo),
+        played: toNumber(row.all?.played),
+        goalDiff: toNumber(row.goalsDiff),
+        points: toNumber(row.points),
+        isTargetTeam: rowTeamId === teamId,
+      };
+    });
+
+    return {
+      groupName: firstRowGroupName,
+      rows,
+    };
+  });
+
+  return {
+    groups,
+  };
+}
+
+export function findTeamStandingRow(
+  standings: TeamStandingsData,
+): TeamStandingRow | null {
+  for (const group of standings.groups) {
+    const row = group.rows.find(item => item.isTargetTeam);
+    if (row) {
+      return row;
+    }
+  }
+
+  return null;
+}
+
+function mapGoalMinuteBreakdown(payload: TeamApiStatisticsDto): TeamStatsData['goalBreakdown'] {
+  const goalMinutes = payload.goals?.for?.minute;
+  const slots = ['0-15', '16-30', '31-45', '46-60', '61-75', '76-90', '91-105', '106-120'];
+
+  return slots.map(slot => ({
+    key: slot,
+    label: slot,
+    value: toNumber(goalMinutes?.[slot]?.total),
+  }));
+}
+
+export function mapPlayersToTopPlayers(payload: TeamApiPlayerDto[], limit = 8): TeamTopPlayer[] {
+  const mapped = payload
+    .map<TeamTopPlayer | null>(item => {
+      const playerId = toId(item.player?.id);
+      if (!playerId) {
+        return null;
+      }
+
+      const stat = item.statistics?.[0];
+      return {
+        playerId,
+        name: toText(item.player?.name),
+        photo: toText(item.player?.photo),
+        position: toText(stat?.games?.position),
+        goals: toNumber(stat?.goals?.total),
+        assists: toNumber(stat?.goals?.assists),
+        rating: toParsedFloat(stat?.games?.rating),
+      };
+    })
+    .filter((item): item is TeamTopPlayer => item !== null)
+    .sort((first, second) => {
+      const firstScore = (first.goals ?? 0) * 3 + (first.assists ?? 0) * 2 + (first.rating ?? 0);
+      const secondScore = (second.goals ?? 0) * 3 + (second.assists ?? 0) * 2 + (second.rating ?? 0);
+      return secondScore - firstScore;
+    });
+
+  return mapped.slice(0, limit);
+}
+
+export function mapTeamStatisticsToStats(
+  payload: TeamApiStatisticsDto | null,
+  standings: TeamStandingsData,
+  topPlayers: TeamTopPlayer[],
+): TeamStatsData {
+  const standingRow = findTeamStandingRow(standings);
+
+  return {
+    rank: standingRow?.rank ?? null,
+    points: standingRow?.points ?? null,
+    played: toNumber(payload?.fixtures?.played?.total),
+    wins: toNumber(payload?.fixtures?.wins?.total),
+    draws: toNumber(payload?.fixtures?.draws?.total),
+    losses: toNumber(payload?.fixtures?.loses?.total),
+    goalsFor: toNumber(payload?.goals?.for?.total?.total),
+    goalsAgainst: toNumber(payload?.goals?.against?.total?.total),
+    homePlayed: toNumber(payload?.fixtures?.played?.home),
+    homeWins: toNumber(payload?.fixtures?.wins?.home),
+    homeDraws: toNumber(payload?.fixtures?.draws?.home),
+    homeLosses: toNumber(payload?.fixtures?.loses?.home),
+    awayPlayed: toNumber(payload?.fixtures?.played?.away),
+    awayWins: toNumber(payload?.fixtures?.wins?.away),
+    awayDraws: toNumber(payload?.fixtures?.draws?.away),
+    awayLosses: toNumber(payload?.fixtures?.loses?.away),
+    expectedGoalsFor: toParsedFloat(payload?.goals?.for?.average?.total),
+    goalBreakdown: payload ? mapGoalMinuteBreakdown(payload) : [],
+    topPlayers,
+  };
+}
+
+function isDateInSeason(dateIso: string | null, season: number | null): boolean {
+  if (!dateIso || season === null) {
+    return true;
+  }
+
+  const parsed = new Date(dateIso);
+  if (Number.isNaN(parsed.getTime())) {
+    return true;
+  }
+
+  const seasonStart = new Date(Date.UTC(season, 6, 1, 0, 0, 0));
+  const seasonEnd = new Date(Date.UTC(season + 1, 5, 30, 23, 59, 59));
+
+  return parsed >= seasonStart && parsed <= seasonEnd;
+}
+
+function mapTransferRole(position: string | null): TeamSquadRole {
+  const normalized = (position ?? '').toLowerCase();
+  if (normalized.includes('goal')) {
+    return 'goalkeepers';
+  }
+
+  if (normalized.includes('def')) {
+    return 'defenders';
+  }
+
+  if (normalized.includes('mid')) {
+    return 'midfielders';
+  }
+
+  if (normalized.includes('att') || normalized.includes('forw') || normalized.includes('strik')) {
+    return 'attackers';
+  }
+
+  return 'other';
+}
+
+export function mapTransfersToTeamTransfers(
+  payload: TeamApiTransferDto[],
+  teamId: string,
+  season: number | null,
+): TeamTransfersData {
+  const arrivals: TeamTransferItem[] = [];
+  const departures: TeamTransferItem[] = [];
+
+  payload.forEach(transferBlock => {
+    const playerId = toId(transferBlock.player?.id);
+    const playerName = toText(transferBlock.player?.name);
+
+    (transferBlock.transfers ?? []).forEach((transfer, index) => {
+      const transferDate = toText(transfer.date);
+      if (!isDateInSeason(transferDate, season)) {
+        return;
+      }
+
+      const teamInId = toId(transfer.teams?.in?.id);
+      const teamOutId = toId(transfer.teams?.out?.id);
+      const commonPayload = {
+        playerId,
+        playerName,
+        playerPhoto: null,
+        position: null,
+        date: transferDate,
+        type: toText(transfer.type),
+        amount: null,
+        fromTeamId: teamOutId,
+        fromTeamName: toText(transfer.teams?.out?.name),
+        fromTeamLogo: toText(transfer.teams?.out?.logo),
+        toTeamId: teamInId,
+        toTeamName: toText(transfer.teams?.in?.name),
+        toTeamLogo: toText(transfer.teams?.in?.logo),
+      };
+
+      if (teamInId === teamId) {
+        arrivals.push({
+          id: `${playerId ?? 'unknown'}-arrival-${index}-${transferDate ?? 'nodate'}`,
+          direction: 'arrival',
+          ...commonPayload,
+        });
+      }
+
+      if (teamOutId === teamId) {
+        departures.push({
+          id: `${playerId ?? 'unknown'}-departure-${index}-${transferDate ?? 'nodate'}`,
+          direction: 'departure',
+          ...commonPayload,
+        });
+      }
+    });
+  });
+
+  const sortByDateDesc = (first: TeamTransferItem, second: TeamTransferItem) => {
+    const firstDate = toSortableTimestamp(first.date);
+    const secondDate = toSortableTimestamp(second.date);
+    return secondDate - firstDate;
+  };
+
+  return {
+    arrivals: arrivals.sort(sortByDateDesc),
+    departures: departures.sort(sortByDateDesc),
+  };
+}
+
+function mapSquadRole(position: string | null): TeamSquadRole {
+  return mapTransferRole(position);
+}
+
+function mapSquadPlayer(player: NonNullable<TeamApiSquadDto['players']>[number]): TeamSquadPlayer | null {
+  const playerId = toId(player.id);
+  if (!playerId) {
+    return null;
+  }
+
+  const position = toText(player.position);
+
+  return {
+    playerId,
+    name: toText(player.name),
+    photo: toText(player.photo),
+    age: toNumber(player.age),
+    number: toNumber(player.number),
+    position,
+    role: mapSquadRole(position),
+  };
+}
+
+export function mapSquadToTeamSquad(payload: TeamApiSquadDto | null): TeamSquadData {
+  const players = (payload?.players ?? [])
+    .map(mapSquadPlayer)
+    .filter((item): item is TeamSquadPlayer => item !== null)
+    .sort((first, second) => {
+      const firstNumber = first.number ?? Number.MAX_SAFE_INTEGER;
+      const secondNumber = second.number ?? Number.MAX_SAFE_INTEGER;
+      return firstNumber - secondNumber;
+    });
+
+  return {
+    coach: null,
+    players,
+  };
+}
+
+function isWinnerTrophy(place: string | null): boolean {
+  return (place ?? '').toLowerCase().includes('winner');
+}
+
+export function mapTrophiesToTeamTrophies(payload: TeamApiTrophyDto[]): TeamTrophiesData {
+  const groupsByCompetition = new Map<string, TeamTrophyGroup>();
+
+  payload.forEach((item, index) => {
+    const competition = toText(item.league);
+    const country = toText(item.country);
+    const groupKey = `${competition ?? '__unknown_competition__'}::${country ?? '__unknown_country__'}`;
+    const existingGroup = groupsByCompetition.get(groupKey);
+    const place = toText(item.place);
+
+    const trophyItem = {
+      id: `${groupKey}-${index}`,
+      competition,
+      country,
+      season: toText(item.season),
+      place,
+    };
+
+    if (!existingGroup) {
+      groupsByCompetition.set(groupKey, {
+        competition,
+        country,
+        winsCount: isWinnerTrophy(place) ? 1 : 0,
+        items: [trophyItem],
+      });
+      return;
+    }
+
+    existingGroup.items.push(trophyItem);
+    if (isWinnerTrophy(place)) {
+      existingGroup.winsCount += 1;
+    }
+  });
+
+  const groups = Array.from(groupsByCompetition.values())
+    .map(group => ({
+      ...group,
+      items: [...group.items].sort((first, second) => {
+        return (second.season ?? '').localeCompare(first.season ?? '');
+      }),
+    }))
+    .sort((first, second) => {
+      if (second.winsCount !== first.winsCount) {
+        return second.winsCount - first.winsCount;
+      }
+
+      return (first.competition ?? '').localeCompare(second.competition ?? '');
+    });
+
+  return {
+    groups,
+    total: payload.length,
+    totalWins: groups.reduce((acc, group) => acc + group.winsCount, 0),
+  };
+}

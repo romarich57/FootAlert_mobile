@@ -12,81 +12,185 @@ import type {
     PlayerTrophy,
 } from '@ui/features/players/types/players.types';
 
-export function mapPlayerDetailsToProfile(dto: PlayerApiDetailsDto): PlayerProfile | null {
-    if (!dto.player || !dto.statistics || dto.statistics.length === 0) {
+type PlayerApiStat = NonNullable<PlayerApiDetailsDto['statistics']>[number];
+
+export function normalizeString(value: string | undefined | null): string | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+export function normalizeNumber(value: number | undefined | null): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function normalizeRating(
+    value: string | number | undefined | null,
+    precision = 1,
+): string | null {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) {
+        return null;
+    }
+
+    return parsed.toFixed(precision);
+}
+
+function toId(value: number | string | undefined): string | null {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    const normalized = String(value).trim();
+    return normalized.length > 0 ? normalized : null;
+}
+
+function resolvePrimaryStatistic(
+    statistics: PlayerApiDetailsDto['statistics'],
+    season?: number,
+): PlayerApiStat | null {
+    if (!statistics || statistics.length === 0) {
+        return null;
+    }
+
+    const seasonScoped = typeof season === 'number'
+        ? statistics.filter(item => item.league?.season === season)
+        : statistics;
+    const candidates = seasonScoped.length > 0 ? seasonScoped : statistics;
+
+    return [...candidates].sort((a, b) => {
+        const aMinutes = a.games?.minutes ?? 0;
+        const bMinutes = b.games?.minutes ?? 0;
+        if (bMinutes !== aMinutes) {
+            return bMinutes - aMinutes;
+        }
+
+        const aAppearances = a.games?.appearences ?? 0;
+        const bAppearances = b.games?.appearences ?? 0;
+        if (bAppearances !== aAppearances) {
+            return bAppearances - aAppearances;
+        }
+
+        return (b.goals?.total ?? 0) - (a.goals?.total ?? 0);
+    })[0] ?? null;
+}
+
+function sumOrNull(a: number | null, b: number | null): number | null {
+    if (a === null && b === null) {
+        return null;
+    }
+
+    return (a ?? 0) + (b ?? 0);
+}
+
+export function mapPlayerDetailsToProfile(
+    dto: PlayerApiDetailsDto,
+    season?: number,
+): PlayerProfile | null {
+    if (!dto.player) {
         return null;
     }
 
     const p = dto.player;
-    const s = dto.statistics[0]; // First stat entry usually is the primary current season/league
+    const s = resolvePrimaryStatistic(dto.statistics, season);
 
     return {
-        id: String(p.id ?? ''),
-        name: p.name ?? '',
-        photo: p.photo ?? '',
-        position: s.games?.position ?? 'Inconnu',
-        age: p.age ?? 0,
-        height: p.height ?? '-',
-        weight: p.weight ?? '-',
-        nationality: p.nationality ?? '-',
-        dateOfBirth: p.birth?.date ?? '-',
-        number: s.games?.number ?? null,
-        foot: 'Droit', // Not explicitly in API-Football v3 player profile by default, mocking
+        id: toId(p.id),
+        name: normalizeString(p.name),
+        photo: normalizeString(p.photo),
+        position: normalizeString(s?.games?.position),
+        age: normalizeNumber(p.age),
+        height: normalizeString(p.height),
+        weight: normalizeString(p.weight),
+        nationality: normalizeString(p.nationality),
+        dateOfBirth: normalizeString(p.birth?.date),
+        number: s?.games?.number ?? null,
+        foot: null,
+        transferValue: null,
         team: {
-            id: String(s.team?.id ?? ''),
-            name: s.team?.name ?? '',
-            logo: s.team?.logo ?? '',
+            id: toId(s?.team?.id),
+            name: normalizeString(s?.team?.name),
+            logo: normalizeString(s?.team?.logo),
         },
         league: {
-            id: String(s.league?.id ?? ''),
-            name: s.league?.name ?? '',
-            logo: s.league?.logo ?? '',
-            season: s.league?.season ?? 0,
+            id: toId(s?.league?.id),
+            name: normalizeString(s?.league?.name),
+            logo: normalizeString(s?.league?.logo),
+            season: normalizeNumber(s?.league?.season),
         },
     };
 }
 
-export function mapPlayerDetailsToCharacteristics(dto: PlayerApiDetailsDto): PlayerCharacteristics {
-    if (!dto.statistics || dto.statistics.length === 0) {
-        return { touches: 0, dribbles: 0, chances: 0, defense: 0, duels: 0, attack: 0 };
+export function mapPlayerDetailsToCharacteristics(
+    dto: PlayerApiDetailsDto,
+    season?: number,
+): PlayerCharacteristics {
+    const s = resolvePrimaryStatistic(dto.statistics, season);
+    if (!s) {
+        return {
+            touches: null,
+            dribbles: null,
+            chances: null,
+            defense: null,
+            duels: null,
+            attack: null,
+        };
     }
-    const s = dto.statistics[0];
 
-    const touches = (s.passes?.total ?? 0) + (s.dribbles?.attempts ?? 0);
-    const dribbles = s.dribbles?.success ?? 0;
-    const chances = s.passes?.key ?? 0;
-    const defense = (s.tackles?.total ?? 0) + (s.tackles?.interceptions ?? 0);
-    const duels = s.duels?.won ?? 0;
-    const attack = (s.goals?.total ?? 0) + (s.shots?.on ?? 0);
+    const touches = sumOrNull(
+        normalizeNumber(s.passes?.total),
+        normalizeNumber(s.dribbles?.attempts),
+    );
+    const dribbles = normalizeNumber(s.dribbles?.success);
+    const chances = normalizeNumber(s.passes?.key);
+    const defense = sumOrNull(
+        normalizeNumber(s.tackles?.total),
+        normalizeNumber(s.tackles?.interceptions),
+    );
+    const duels = normalizeNumber(s.duels?.won);
+    const attack = sumOrNull(
+        normalizeNumber(s.goals?.total),
+        normalizeNumber(s.shots?.on),
+    );
 
     return { touches, dribbles, chances, defense, duels, attack };
 }
 
-export function mapPlayerDetailsToSeasonStats(dto: PlayerApiDetailsDto): PlayerSeasonStats {
-    if (!dto.statistics || dto.statistics.length === 0) {
+export function mapPlayerDetailsToSeasonStats(
+    dto: PlayerApiDetailsDto,
+    season?: number,
+): PlayerSeasonStats {
+    const s = resolvePrimaryStatistic(dto.statistics, season);
+    if (!s) {
         return {
-            matches: 0, starts: 0, minutes: 0, goals: 0, assists: 0, rating: '-',
-            shots: 0, shotsOnTarget: 0, passes: 0, passesAccuracy: 0,
-            tackles: 0, interceptions: 0, yellowCards: 0, redCards: 0,
+            matches: null, starts: null, minutes: null, goals: null, assists: null, rating: null,
+            shots: null, shotsOnTarget: null, passes: null, passesAccuracy: null,
+            tackles: null, interceptions: null, yellowCards: null, redCards: null,
         };
     }
-    const s = dto.statistics[0];
 
     return {
-        matches: s.games?.appearences ?? 0,
-        starts: s.games?.lineups ?? 0,
-        minutes: s.games?.minutes ?? 0,
-        goals: s.goals?.total ?? 0,
-        assists: s.goals?.assists ?? 0,
-        rating: s.games?.rating ? Number(s.games.rating).toFixed(2) : '-',
-        shots: s.shots?.total ?? 0,
-        shotsOnTarget: s.shots?.on ?? 0,
-        passes: s.passes?.total ?? 0,
-        passesAccuracy: s.passes?.accuracy ?? 0,
-        tackles: s.tackles?.total ?? 0,
-        interceptions: s.tackles?.interceptions ?? 0,
-        yellowCards: s.cards?.yellow ?? 0,
-        redCards: s.cards?.red ?? 0,
+        matches: normalizeNumber(s.games?.appearences),
+        starts: normalizeNumber(s.games?.lineups),
+        minutes: normalizeNumber(s.games?.minutes),
+        goals: normalizeNumber(s.goals?.total),
+        assists: normalizeNumber(s.goals?.assists),
+        rating: normalizeRating(s.games?.rating, 2),
+        shots: normalizeNumber(s.shots?.total),
+        shotsOnTarget: normalizeNumber(s.shots?.on),
+        passes: normalizeNumber(s.passes?.total),
+        passesAccuracy: normalizeNumber(s.passes?.accuracy),
+        tackles: normalizeNumber(s.tackles?.total),
+        interceptions: normalizeNumber(s.tackles?.interceptions),
+        yellowCards: normalizeNumber(s.cards?.yellow),
+        redCards: normalizeNumber(s.cards?.red),
     };
 }
 
@@ -114,7 +218,13 @@ export function mapPlayerMatchPerformance(
     if (!fixtureDto.fixture || !fixtureDto.teams) return null;
 
     let playerStats: PlayerMatchPerformance['playerStats'] = {
-        minutes: 0, rating: '-', goals: 0, assists: 0, yellowCards: 0, redCards: 0, isStarter: false,
+        minutes: null,
+        rating: null,
+        goals: null,
+        assists: null,
+        yellowCards: null,
+        redCards: null,
+        isStarter: null,
     };
 
     if (performanceDto?.players) {
@@ -123,36 +233,44 @@ export function mapPlayerMatchPerformance(
             if (matchPlayer && matchPlayer.statistics && matchPlayer.statistics.length > 0) {
                 const s = matchPlayer.statistics[0];
                 playerStats = {
-                    minutes: s.games?.minutes ?? 0,
-                    rating: s.games?.rating ? Number(s.games.rating).toFixed(1) : '-',
-                    goals: s.goals?.total ?? 0,
-                    assists: s.goals?.assists ?? 0,
-                    yellowCards: s.cards?.yellow ?? 0,
-                    redCards: s.cards?.red ?? 0,
-                    isStarter: s.games?.substitute === false,
+                    minutes: normalizeNumber(s.games?.minutes),
+                    rating: normalizeRating(s.games?.rating, 1),
+                    goals: normalizeNumber(s.goals?.total),
+                    assists: normalizeNumber(s.goals?.assists),
+                    yellowCards: normalizeNumber(s.cards?.yellow),
+                    redCards: normalizeNumber(s.cards?.red),
+                    isStarter:
+                        typeof s.games?.substitute === 'boolean'
+                            ? s.games.substitute === false
+                            : null,
                 };
                 break;
             }
         }
     }
 
+    const fixtureId = toId(fixtureDto.fixture.id);
+    if (!fixtureId) {
+        return null;
+    }
+
     return {
-        fixtureId: String(fixtureDto.fixture.id),
-        date: fixtureDto.fixture.date ?? '',
+        fixtureId,
+        date: normalizeString(fixtureDto.fixture.date),
         competition: {
-            id: String(fixtureDto.league?.id ?? ''),
-            name: fixtureDto.league?.name ?? 'Unknown',
-            logo: fixtureDto.league?.logo ?? '',
+            id: toId(fixtureDto.league?.id),
+            name: normalizeString(fixtureDto.league?.name),
+            logo: normalizeString(fixtureDto.league?.logo),
         },
         homeTeam: {
-            id: String(fixtureDto.teams.home?.id ?? ''),
-            name: fixtureDto.teams.home?.name ?? '',
-            logo: fixtureDto.teams.home?.logo ?? '',
+            id: toId(fixtureDto.teams.home?.id),
+            name: normalizeString(fixtureDto.teams.home?.name),
+            logo: normalizeString(fixtureDto.teams.home?.logo),
         },
         awayTeam: {
-            id: String(fixtureDto.teams.away?.id ?? ''),
-            name: fixtureDto.teams.away?.name ?? '',
-            logo: fixtureDto.teams.away?.logo ?? '',
+            id: toId(fixtureDto.teams.away?.id),
+            name: normalizeString(fixtureDto.teams.away?.name),
+            logo: normalizeString(fixtureDto.teams.away?.logo),
         },
         goalsHome: fixtureDto.goals?.home ?? null,
         goalsAway: fixtureDto.goals?.away ?? null,
@@ -164,17 +282,21 @@ export function mapPlayerCareerSeasons(dto: PlayerApiDetailsDto): PlayerCareerSe
     if (!dto.statistics) return [];
 
     return dto.statistics.map(s => ({
-        season: s.league?.season ? String(s.league.season) : 'Unknown',
+        season: s.league?.season ? String(s.league.season) : null,
         team: {
-            id: String(s.team?.id ?? ''),
-            name: s.team?.name ?? '',
-            logo: s.team?.logo ?? '',
+            id: toId(s.team?.id),
+            name: normalizeString(s.team?.name),
+            logo: normalizeString(s.team?.logo),
         },
-        matches: s.games?.appearences ?? 0,
-        goals: s.goals?.total ?? 0,
-        assists: s.goals?.assists ?? 0,
-        rating: s.games?.rating ? Number(s.games.rating).toFixed(2) : '-',
-    })).sort((a, b) => b.season.localeCompare(a.season));
+        matches: normalizeNumber(s.games?.appearences),
+        goals: normalizeNumber(s.goals?.total),
+        assists: normalizeNumber(s.goals?.assists),
+        rating: normalizeRating(s.games?.rating, 2),
+    })).sort((a, b) => {
+        const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
+        const bYear = b.season ? Number.parseInt(b.season, 10) : Number.NEGATIVE_INFINITY;
+        return bYear - aYear;
+    });
 }
 
 export function mapPlayerCareerTeams(dto: PlayerApiDetailsDto): PlayerCareerTeam[] {
@@ -183,31 +305,34 @@ export function mapPlayerCareerTeams(dto: PlayerApiDetailsDto): PlayerCareerTeam
     const teamMap = new Map<string, PlayerCareerTeam>();
 
     dto.statistics.forEach(s => {
-        const teamId = String(s.team?.id ?? '');
+        const teamId = toId(s.team?.id);
         const seasonStr = s.league?.season ? String(s.league.season) : '';
+        if (!teamId) {
+            return;
+        }
 
         if (!teamMap.has(teamId)) {
             teamMap.set(teamId, {
                 team: {
                     id: teamId,
-                    name: s.team?.name ?? '',
-                    logo: s.team?.logo ?? '',
+                    name: normalizeString(s.team?.name),
+                    logo: normalizeString(s.team?.logo),
                 },
-                period: seasonStr, // Will be updated
-                matches: 0,
-                goals: 0,
-                assists: 0,
+                period: seasonStr || null, // Will be updated
+                matches: null,
+                goals: null,
+                assists: null,
             });
         }
 
         const t = teamMap.get(teamId)!;
-        t.matches += (s.games?.appearences ?? 0);
-        t.goals += (s.goals?.total ?? 0);
-        t.assists += (s.goals?.assists ?? 0);
+        t.matches = sumOrNull(t.matches, normalizeNumber(s.games?.appearences));
+        t.goals = sumOrNull(t.goals, normalizeNumber(s.goals?.total));
+        t.assists = sumOrNull(t.assists, normalizeNumber(s.goals?.assists));
 
         // Update period heuristically
-        if (seasonStr && !t.period.includes(seasonStr)) {
-            if (t.period === '') {
+        if (seasonStr && !(t.period ?? '').includes(seasonStr)) {
+            if (!t.period) {
                 t.period = seasonStr;
             } else {
                 const years = t.period.split(' - ').map(Number).filter(n => !isNaN(n));

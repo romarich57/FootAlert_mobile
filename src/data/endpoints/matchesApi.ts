@@ -1,5 +1,4 @@
-import { getApiFootballEnvOrThrow } from '@data/config/env';
-import { httpGet } from '@data/api/http/client';
+import { bffGet } from '@data/endpoints/bffClient';
 import type {
   ApiFootballFixtureDto,
   ApiFootballResponse,
@@ -16,14 +15,36 @@ export async function fetchFixturesByDate({
   timezone,
   signal,
 }: FetchFixturesByDateParams): Promise<ApiFootballFixtureDto[]> {
-  const { apiFootballBaseUrl, apiFootballKey } = getApiFootballEnvOrThrow();
-  const requestUrl = `${apiFootballBaseUrl}/fixtures?date=${encodeURIComponent(date)}&timezone=${encodeURIComponent(timezone)}`;
-  const payload = await httpGet<ApiFootballResponse<ApiFootballFixtureDto>>(requestUrl, {
-    signal,
-    headers: {
-      'x-apisports-key': apiFootballKey,
+  const payload = await bffGet<ApiFootballResponse<ApiFootballFixtureDto>>(
+    '/matches',
+    {
+      date,
+      timezone,
     },
-  });
+    { signal },
+  );
 
   return payload.response;
+}
+
+type FetchFixtureByIdParams = {
+  fixtureId: string;
+  timezone: string;
+  signal?: AbortSignal;
+};
+
+export async function fetchFixtureById({
+  fixtureId,
+  timezone,
+  signal,
+}: FetchFixtureByIdParams): Promise<ApiFootballFixtureDto | null> {
+  const payload = await bffGet<ApiFootballResponse<ApiFootballFixtureDto>>(
+    `/matches/${encodeURIComponent(fixtureId)}`,
+    {
+      timezone,
+    },
+    { signal },
+  );
+
+  return payload.response[0] ?? null;
 }

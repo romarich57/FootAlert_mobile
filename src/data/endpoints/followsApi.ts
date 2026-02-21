@@ -1,5 +1,4 @@
-import { httpGet } from '@data/api/http/client';
-import { getApiFootballEnvOrThrow } from '@data/config/env';
+import { bffGet } from '@data/endpoints/bffClient';
 import type {
   FollowsApiFixtureDto,
   FollowsApiPlayerSearchDto,
@@ -11,27 +10,21 @@ import type {
   FollowsApiTopScorerDto,
 } from '@ui/features/follows/types/follows.types';
 
-function buildRequestUrl(pathWithQuery: string): string {
-  const { apiFootballBaseUrl } = getApiFootballEnvOrThrow();
-  return `${apiFootballBaseUrl}${pathWithQuery}`;
-}
-
-function buildAuthHeaders(): Record<string, string> {
-  const { apiFootballKey } = getApiFootballEnvOrThrow();
-  return {
-    'x-apisports-key': apiFootballKey,
-  };
-}
+type NestedApiResponse<T> = {
+  response: Array<{
+    response?: T[];
+  }>;
+};
 
 export async function searchTeamsByName(
   query: string,
   signal?: AbortSignal,
 ): Promise<FollowsApiTeamSearchDto[]> {
-  const requestUrl = buildRequestUrl(`/teams?search=${encodeURIComponent(query)}`);
-  const payload = await httpGet<FollowsApiResponse<FollowsApiTeamSearchDto>>(requestUrl, {
-    signal,
-    headers: buildAuthHeaders(),
-  });
+  const payload = await bffGet<FollowsApiResponse<FollowsApiTeamSearchDto>>(
+    '/follows/search/teams',
+    { q: query },
+    { signal },
+  );
 
   return payload.response;
 }
@@ -41,13 +34,11 @@ export async function searchPlayersByName(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiPlayerSearchDto[]> {
-  const requestUrl = buildRequestUrl(
-    `/players?search=${encodeURIComponent(query)}&season=${season}`,
+  const payload = await bffGet<FollowsApiResponse<FollowsApiPlayerSearchDto>>(
+    '/follows/search/players',
+    { q: query, season },
+    { signal },
   );
-  const payload = await httpGet<FollowsApiResponse<FollowsApiPlayerSearchDto>>(requestUrl, {
-    signal,
-    headers: buildAuthHeaders(),
-  });
 
   return payload.response;
 }
@@ -57,13 +48,11 @@ export async function fetchNextFixtureForTeam(
   timezone: string,
   signal?: AbortSignal,
 ): Promise<FollowsApiFixtureDto | null> {
-  const requestUrl = buildRequestUrl(
-    `/fixtures?team=${encodeURIComponent(teamId)}&next=1&timezone=${encodeURIComponent(timezone)}`,
+  const payload = await bffGet<FollowsApiResponse<FollowsApiFixtureDto>>(
+    `/follows/teams/${encodeURIComponent(teamId)}/next-fixture`,
+    { timezone },
+    { signal },
   );
-  const payload = await httpGet<FollowsApiResponse<FollowsApiFixtureDto>>(requestUrl, {
-    signal,
-    headers: buildAuthHeaders(),
-  });
 
   return payload.response[0] ?? null;
 }
@@ -72,11 +61,11 @@ export async function fetchTeamById(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<FollowsApiTeamDetailsDto | null> {
-  const requestUrl = buildRequestUrl(`/teams?id=${encodeURIComponent(teamId)}`);
-  const payload = await httpGet<FollowsApiResponse<FollowsApiTeamDetailsDto>>(requestUrl, {
-    signal,
-    headers: buildAuthHeaders(),
-  });
+  const payload = await bffGet<FollowsApiResponse<FollowsApiTeamDetailsDto>>(
+    `/follows/teams/${encodeURIComponent(teamId)}`,
+    undefined,
+    { signal },
+  );
 
   return payload.response[0] ?? null;
 }
@@ -86,13 +75,11 @@ export async function fetchPlayerSeasonStats(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiPlayerSeasonDto | null> {
-  const requestUrl = buildRequestUrl(
-    `/players?id=${encodeURIComponent(playerId)}&season=${season}`,
+  const payload = await bffGet<FollowsApiResponse<FollowsApiPlayerSeasonDto>>(
+    `/follows/players/${encodeURIComponent(playerId)}/season/${encodeURIComponent(String(season))}`,
+    undefined,
+    { signal },
   );
-  const payload = await httpGet<FollowsApiResponse<FollowsApiPlayerSeasonDto>>(requestUrl, {
-    signal,
-    headers: buildAuthHeaders(),
-  });
 
   return payload.response[0] ?? null;
 }
@@ -102,21 +89,18 @@ export async function fetchTrendingTeams(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiStandingDto[]> {
-  const requests = topLeagueIds.map(leagueId => {
-    const requestUrl = buildRequestUrl(
-      `/standings?league=${encodeURIComponent(leagueId)}&season=${season}`,
-    );
+  const payload = await bffGet<NestedApiResponse<FollowsApiStandingDto>>(
+    '/follows/trends/teams',
+    {
+      leagueIds: topLeagueIds.join(','),
+      season,
+    },
+    { signal },
+  );
 
-    return httpGet<FollowsApiResponse<FollowsApiStandingDto>>(requestUrl, {
-      signal,
-      headers: buildAuthHeaders(),
-    })
-      .then(payload => payload.response[0])
-      .catch(() => null);
-  });
-
-  const responses = await Promise.all(requests);
-  return responses.filter(Boolean) as FollowsApiStandingDto[];
+  return payload.response
+    .map(group => group.response?.[0] ?? null)
+    .filter(Boolean) as FollowsApiStandingDto[];
 }
 
 export async function fetchTrendingPlayers(
@@ -124,19 +108,14 @@ export async function fetchTrendingPlayers(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiTopScorerDto[]> {
-  const requests = topLeagueIds.map(leagueId => {
-    const requestUrl = buildRequestUrl(
-      `/players/topscorers?league=${encodeURIComponent(leagueId)}&season=${season}`,
-    );
+  const payload = await bffGet<NestedApiResponse<FollowsApiTopScorerDto>>(
+    '/follows/trends/players',
+    {
+      leagueIds: topLeagueIds.join(','),
+      season,
+    },
+    { signal },
+  );
 
-    return httpGet<FollowsApiResponse<FollowsApiTopScorerDto>>(requestUrl, {
-      signal,
-      headers: buildAuthHeaders(),
-    })
-      .then(payload => payload.response)
-      .catch(() => []);
-  });
-
-  const responseGroups = await Promise.all(requests);
-  return responseGroups.flat();
+  return payload.response.flatMap(group => group.response ?? []);
 }

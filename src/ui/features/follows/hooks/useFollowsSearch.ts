@@ -13,6 +13,7 @@ import type {
   FollowsSearchResultPlayer,
   FollowsSearchResultTeam,
 } from '@ui/features/follows/types/follows.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
 function useDebouncedValue(value: string, delayMs: number): string {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -42,7 +43,7 @@ export function useFollowsSearch({ tab, query }: UseFollowsSearchParams) {
   const hasEnoughChars = debouncedQuery.length >= appEnv.followsSearchMinChars;
 
   const searchQuery = useQuery({
-    queryKey: ['follows', 'search', tab, debouncedQuery, season],
+    queryKey: queryKeys.follows.search(tab, debouncedQuery, season),
     enabled: hasEnoughChars,
     queryFn: async ({ signal }): Promise<
       FollowsSearchResultTeam[] | FollowsSearchResultPlayer[]

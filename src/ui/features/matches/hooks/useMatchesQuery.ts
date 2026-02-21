@@ -9,6 +9,7 @@ import {
 } from '@data/mappers/fixturesMapper';
 import type { MatchesQueryResult } from '@ui/features/matches/types/matches.types';
 import { ApiError } from '@data/api/http/client';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type UseMatchesQueryParams = {
   date: string;
@@ -34,19 +35,12 @@ export function shouldRetryMatchesQuery(
     return isRetriableStatus(error.status);
   }
 
-  if (
-    error instanceof Error &&
-    error.message.includes('Missing API_FOOTBALL_KEY')
-  ) {
-    return false;
-  }
-
   return true;
 }
 
 export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQueryParams) {
   const query = useQuery({
-    queryKey: ['matches', date, timezone],
+    queryKey: queryKeys.matches(date, timezone),
     enabled,
     staleTime: MATCHES_QUERY_STALE_TIME_MS,
     refetchOnReconnect: true,

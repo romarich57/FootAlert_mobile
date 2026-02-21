@@ -4,12 +4,13 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerCharacteristics, PlayerProfile, PlayerSeasonStats } from '@ui/features/players/types/players.types';
+import { toDisplayValue, toHeightValue, toSeasonLabel } from '@ui/features/players/utils/playerDisplay';
 import { RadarChart } from './RadarChart';
 
 type PlayerProfileTabProps = {
     profile: PlayerProfile;
-    stats: PlayerSeasonStats;
-    characteristics: PlayerCharacteristics;
+    stats: PlayerSeasonStats | null;
+    characteristics: PlayerCharacteristics | null;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -85,11 +86,43 @@ function createStyles(colors: ThemeColors) {
             fontSize: 22,
             fontWeight: '800',
         },
+        numberBadgeContainer: {
+            backgroundColor: `${colors.primary}20`,
+            padding: 8,
+            paddingHorizontal: 12,
+            borderWidth: 0,
+            alignSelf: 'flex-start',
+            marginBottom: 6,
+        },
+        transferValueContainer: {
+            alignItems: 'flex-end',
+        },
         seasonTitleRow: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 12,
             marginBottom: 20,
+        },
+        seasonLogoPlaceholder: {
+            width: 32,
+            height: 32,
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        seasonMetaContainer: {
+            flex: 1,
+        },
+        seasonRatingBadge: {
+            backgroundColor: colors.primary,
+            paddingHorizontal: 12,
+            paddingVertical: 4,
+            borderRadius: 12,
+        },
+        seasonRatingText: {
+            color: colors.background,
+            fontWeight: '800',
         },
         seasonTitle: {
             color: colors.text,
@@ -125,12 +158,21 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
-function InfoBlock({ label, value, unit, styles }: any) {
+type PlayerProfileTabStyles = ReturnType<typeof createStyles>;
+
+type InfoBlockProps = {
+    label: string;
+    value: string | number | null | undefined;
+    unit?: string;
+    styles: PlayerProfileTabStyles;
+};
+
+function InfoBlock({ label, value, unit, styles }: InfoBlockProps) {
     return (
         <View style={styles.infoBlock}>
             <Text style={styles.infoLabel}>{label}</Text>
             <View style={styles.infoValueRow}>
-                <Text style={styles.infoValue}>{value}</Text>
+                <Text style={styles.infoValue}>{toDisplayValue(value)}</Text>
                 {unit && <Text style={styles.infoUnit}>{unit}</Text>}
             </View>
         </View>
@@ -146,26 +188,30 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
 
             {/* Physical Info */}
             <View style={styles.row}>
-                <InfoBlock label="Taille" value={profile.height.replace(' cm', '')} unit="cm" styles={styles} />
+                <InfoBlock label="Taille" value={toHeightValue(profile.height)} unit="cm" styles={styles} />
                 <InfoBlock label="Âge" value={profile.age} unit="ans" styles={styles} />
-                <InfoBlock label="Pays" value={profile.nationality.substring(0, 3).toUpperCase()} styles={styles} />
+                <InfoBlock
+                    label="Pays"
+                    value={profile.nationality ? profile.nationality.substring(0, 3).toUpperCase() : null}
+                    styles={styles}
+                />
             </View>
 
             {/* Extra Info */}
             <View style={styles.largeBlock}>
                 <View style={styles.largeBlockRow}>
                     <View>
-                        <View style={[styles.largeBlock, { backgroundColor: `${colors.primary}20`, padding: 8, paddingHorizontal: 12, borderWidth: 0, alignSelf: 'flex-start', marginBottom: 6 }]}>
-                            <Text style={styles.largeValueGreen}>{profile.number ?? '?'}</Text>
+                        <View style={styles.numberBadgeContainer}>
+                            <Text style={styles.largeValueGreen}>{toDisplayValue(profile.number)}</Text>
                         </View>
                     </View>
                     <View>
                         <Text style={styles.largeBlockLabel}>Pied fort</Text>
-                        <Text style={styles.largeBlockValue}>{profile.foot}</Text>
+                        <Text style={styles.largeBlockValue}>{toDisplayValue(profile.foot)}</Text>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
+                    <View style={styles.transferValueContainer}>
                         <Text style={styles.largeBlockLabel}>Valeur marchande</Text>
-                        <Text style={styles.largeValueGreen}>{profile.transferValue ?? '-'}</Text>
+                        <Text style={styles.largeValueGreen}>{toDisplayValue(profile.transferValue)}</Text>
                     </View>
                 </View>
             </View>
@@ -173,30 +219,30 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
             {/* Season Stats Summary */}
             <View style={styles.largeBlock}>
                 <View style={styles.seasonTitleRow}>
-                    <View style={{ width: 32, height: 32, backgroundColor: colors.surfaceElevated, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={styles.seasonLogoPlaceholder}>
                         {/* Placeholder for league logo */}
                     </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.seasonTitle}>{profile.league.name}</Text>
-                        <Text style={styles.largeBlockLabel}>Saison {profile.league.season}/{profile.league.season + 1}</Text>
+                    <View style={styles.seasonMetaContainer}>
+                        <Text style={styles.seasonTitle}>{toDisplayValue(profile.league.name)}</Text>
+                        <Text style={styles.largeBlockLabel}>Saison {toSeasonLabel(profile.league.season)}</Text>
                     </View>
-                    <View style={{ backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
-                        <Text style={{ color: colors.background, fontWeight: '800' }}>{stats.rating}</Text>
+                    <View style={styles.seasonRatingBadge}>
+                        <Text style={styles.seasonRatingText}>{toDisplayValue(stats?.rating)}</Text>
                     </View>
                 </View>
 
                 <View style={styles.statsGrid}>
                     <View style={styles.statCol}>
                         <Text style={styles.statLabel}>Matchs</Text>
-                        <Text style={styles.statValue}>{stats.matches}</Text>
+                        <Text style={styles.statValue}>{toDisplayValue(stats?.matches)}</Text>
                     </View>
                     <View style={styles.statCol}>
                         <Text style={styles.statLabel}>Buts</Text>
-                        <Text style={styles.statValue}>{stats.goals}</Text>
+                        <Text style={styles.statValue}>{toDisplayValue(stats?.goals)}</Text>
                     </View>
                     <View style={styles.statCol}>
                         <Text style={styles.statLabel}>Passes D.</Text>
-                        <Text style={styles.statValue}>{stats.assists}</Text>
+                        <Text style={styles.statValue}>{toDisplayValue(stats?.assists)}</Text>
                     </View>
                 </View>
             </View>
@@ -204,7 +250,19 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
             {/* Characteristics / Radar Chart */}
             <View style={styles.largeBlock}>
                 <Text style={styles.sectionTitle}>Caractéristiques</Text>
-                <RadarChart data={characteristics} size={280} />
+                <RadarChart
+                    data={
+                        characteristics ?? {
+                            touches: null,
+                            dribbles: null,
+                            chances: null,
+                            defense: null,
+                            duels: null,
+                            attack: null,
+                        }
+                    }
+                    size={280}
+                />
             </View>
 
         </ScrollView>

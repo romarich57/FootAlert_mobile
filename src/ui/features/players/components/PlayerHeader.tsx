@@ -13,6 +13,10 @@ type PlayerHeaderProps = {
     onShare?: () => void;
 };
 
+function displayValue(value: string | null | undefined): string {
+    return value && value.trim().length > 0 ? value : '?';
+}
+
 function createStyles(colors: ThemeColors, topInset: number) {
     return StyleSheet.create({
         container: {
@@ -119,7 +123,7 @@ export function PlayerHeader({ profile, onBack, onShare }: PlayerHeaderProps) {
                     <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
                 </Pressable>
                 <Text style={styles.navTitle} numberOfLines={1}>
-                    {profile.name}
+                    {displayValue(profile.name)}
                 </Text>
                 <Pressable onPress={onShare} hitSlop={10} style={styles.iconButton}>
                     <MaterialCommunityIcons name="share-variant" size={24} color={colors.text} />
@@ -130,26 +134,26 @@ export function PlayerHeader({ profile, onBack, onShare }: PlayerHeaderProps) {
                 <View style={styles.photoContainer}>
                     <View style={styles.photoBackground}>
                         <Image
-                            source={{ uri: profile.photo }}
+                            source={{ uri: profile.photo ?? undefined }}
                             style={styles.photo}
                             resizeMode="cover"
                         />
                     </View>
                     <View style={styles.teamLogoSmallContainer}>
                         <Image
-                            source={{ uri: profile.team.logo }}
+                            source={{ uri: profile.team.logo ?? undefined }}
                             style={styles.teamLogoSmall}
                             resizeMode="contain"
                         />
                     </View>
                 </View>
 
-                <Text style={styles.name}>{profile.name}</Text>
+                <Text style={styles.name}>{displayValue(profile.name)}</Text>
 
                 <View style={styles.subtitleRow}>
-                    <Text style={styles.position}>{profile.position}</Text>
+                    <Text style={styles.position}>{displayValue(profile.position)}</Text>
                     <Text style={styles.separator}>•</Text>
-                    <Text style={styles.teamName}>{profile.team.name}</Text>
+                    <Text style={styles.teamName}>{displayValue(profile.team.name)}</Text>
                 </View>
             </View>
         </View>

@@ -4,31 +4,14 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useFollowsTrends } from '@ui/features/follows/hooks/useFollowsTrends';
 import { fetchTrendingPlayers, fetchTrendingTeams } from '@data/endpoints/followsApi';
-import {
-  loadCachedPlayerTrends,
-  loadCachedTeamTrends,
-  saveCachedPlayerTrends,
-  saveCachedTeamTrends,
-} from '@data/storage/followsTrendsCacheStorage';
 
 jest.mock('@data/endpoints/followsApi', () => ({
   fetchTrendingTeams: jest.fn(async () => []),
   fetchTrendingPlayers: jest.fn(async () => []),
 }));
 
-jest.mock('@data/storage/followsTrendsCacheStorage', () => ({
-  loadCachedTeamTrends: jest.fn(async () => null),
-  saveCachedTeamTrends: jest.fn(async () => undefined),
-  loadCachedPlayerTrends: jest.fn(async () => null),
-  saveCachedPlayerTrends: jest.fn(async () => undefined),
-}));
-
 const mockedFetchTrendingTeams = jest.mocked(fetchTrendingTeams);
 const mockedFetchTrendingPlayers = jest.mocked(fetchTrendingPlayers);
-const mockedLoadCachedTeamTrends = jest.mocked(loadCachedTeamTrends);
-const mockedSaveCachedTeamTrends = jest.mocked(saveCachedTeamTrends);
-const mockedLoadCachedPlayerTrends = jest.mocked(loadCachedPlayerTrends);
-const mockedSaveCachedPlayerTrends = jest.mocked(saveCachedPlayerTrends);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -49,28 +32,16 @@ describe('useFollowsTrends', () => {
     jest.clearAllMocks();
   });
 
-  it('returns cached team trends when cache is valid', async () => {
-    mockedLoadCachedTeamTrends.mockResolvedValueOnce([
-      {
-        teamId: '50',
-        teamName: 'Man City',
-        teamLogo: 'city.png',
-        leagueName: 'Premier League',
-      },
-    ]);
-
-    const { result } = renderHook(() => useFollowsTrends({ tab: 'teams', hidden: false }), {
+  it('does not query when trends are hidden', () => {
+    const { result } = renderHook(() => useFollowsTrends({ tab: 'teams', hidden: true }), {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => {
-      expect(result.current.data).toHaveLength(1);
-    });
-
+    expect(result.current.fetchStatus).toBe('idle');
     expect(mockedFetchTrendingTeams).not.toHaveBeenCalled();
   });
 
-  it('hides trends on API error for teams', async () => {
+  it('returns empty trends on team API error', async () => {
     mockedFetchTrendingTeams.mockRejectedValueOnce(new Error('Network error'));
 
     const { result } = renderHook(() => useFollowsTrends({ tab: 'teams', hidden: false }), {
@@ -80,15 +51,15 @@ describe('useFollowsTrends', () => {
     await waitFor(() => {
       expect(result.current.data).toEqual([]);
     });
-
-    expect(mockedSaveCachedTeamTrends).not.toHaveBeenCalled();
   });
 
-  it('returns player trends and caches them', async () => {
+  it('returns mapped player trends', async () => {
     mockedFetchTrendingPlayers.mockResolvedValueOnce([
       {
         player: { id: 154, name: 'Cristiano Ronaldo', photo: 'cr7.png' },
-        statistics: [{ team: { name: 'Al-Nassr', logo: 'nassr.png' }, games: { position: 'Att' } }],
+        statistics: [
+          { team: { name: 'Al-Nassr', logo: 'nassr.png' }, games: { position: 'Att' } },
+        ],
       },
     ]);
 
@@ -100,7 +71,6 @@ describe('useFollowsTrends', () => {
       expect(result.current.data).toHaveLength(1);
     });
 
-    expect(mockedLoadCachedPlayerTrends).toHaveBeenCalled();
-    expect(mockedSaveCachedPlayerTrends).toHaveBeenCalled();
+    expect(mockedFetchTrendingPlayers).toHaveBeenCalled();
   });
 });

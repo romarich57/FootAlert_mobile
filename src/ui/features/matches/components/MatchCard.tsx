@@ -19,6 +19,8 @@ type MatchCardProps = {
   match: MatchItem;
   onPress: (match: MatchItem) => void;
   onPressNotification: (match: MatchItem) => void;
+  onPressHomeTeam?: (teamId: string) => void;
+  onPressAwayTeam?: (teamId: string) => void;
 };
 
 function formatKickoffTime(date: string): string {
@@ -166,7 +168,13 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-export function MatchCard({ match, onPress, onPressNotification }: MatchCardProps) {
+export function MatchCard({
+  match,
+  onPress,
+  onPressNotification,
+  onPressHomeTeam,
+  onPressAwayTeam,
+}: MatchCardProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -186,6 +194,20 @@ export function MatchCard({ match, onPress, onPressNotification }: MatchCardProp
   const handleNotificationPress = (event?: GestureResponderEvent) => {
     event?.stopPropagation?.();
     onPressNotification(match);
+  };
+
+  const handleHomeTeamPress = (event?: GestureResponderEvent) => {
+    event?.stopPropagation?.();
+    if (onPressHomeTeam) {
+      onPressHomeTeam(match.homeTeamId);
+    }
+  };
+
+  const handleAwayTeamPress = (event?: GestureResponderEvent) => {
+    event?.stopPropagation?.();
+    if (onPressAwayTeam) {
+      onPressAwayTeam(match.awayTeamId);
+    }
   };
 
   const renderTeamLogo = (
@@ -233,7 +255,7 @@ export function MatchCard({ match, onPress, onPressNotification }: MatchCardProp
       </View>
 
       <View style={styles.teamsRow}>
-        <View style={styles.teamBlock}>
+        <Pressable style={styles.teamBlock} onPress={handleHomeTeamPress}>
           {renderTeamLogo(
             'home',
             match.homeTeamLogo,
@@ -244,7 +266,7 @@ export function MatchCard({ match, onPress, onPressNotification }: MatchCardProp
           <Text numberOfLines={1} style={styles.teamName}>
             {match.homeTeamName}
           </Text>
-        </View>
+        </Pressable>
 
         <View style={styles.scoreWrapper}>
           {canDisplayScore ? (
@@ -261,7 +283,7 @@ export function MatchCard({ match, onPress, onPressNotification }: MatchCardProp
           </Text>
         </View>
 
-        <View style={styles.teamBlock}>
+        <Pressable style={styles.teamBlock} onPress={handleAwayTeamPress}>
           {renderTeamLogo(
             'away',
             match.awayTeamLogo,
@@ -272,7 +294,7 @@ export function MatchCard({ match, onPress, onPressNotification }: MatchCardProp
           <Text numberOfLines={1} style={styles.teamName}>
             {match.awayTeamName}
           </Text>
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.broadcastRow}>

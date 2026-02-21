@@ -1,30 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useMemo } from 'react';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { appEnv } from '@data/config/env';
 import {
-  FollowedCarousel,
-  FollowedPlayerCard,
-  FollowedTeamCard,
-  FollowsEmptyFollowedCard,
+  FollowsFollowedSection,
   FollowsHeader,
   FollowsSegmentedControl,
-  FollowsTrendRow,
+  FollowsTrendsSection,
 } from '@ui/features/follows/components';
-import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
-import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
-import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
-import { useFollowsTrends } from '@ui/features/follows/hooks/useFollowsTrends';
-import type {
-  FollowEntityTab,
-  TrendPlayerItem,
-  TrendTeamItem,
-} from '@ui/features/follows/types/follows.types';
-import type { RootStackParamList } from '@ui/app/navigation/types';
+import { useFollowsScreenModel } from '@ui/features/follows/hooks/useFollowsScreenModel';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 
@@ -80,208 +66,94 @@ export function FollowsScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [selectedTab, setSelectedTab] = useState<FollowEntityTab>('teams');
-  const [isEditMode, setIsEditMode] = useState(false);
 
-  const {
-    followedTeamIds,
-    followedPlayerIds,
-    hideTrendsTeams,
-    hideTrendsPlayers,
-    isLoading,
-    lastToggleError,
-    clearToggleError,
-    toggleTeamFollow,
-    togglePlayerFollow,
-    updateHideTrends,
-  } = useFollowsActions();
-
-  const timezone = useMemo(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
-    [],
-  );
-
-  const teamCardsQuery = useFollowedTeamsCards({
-    teamIds: followedTeamIds,
-    timezone,
-  });
-
-  const playerCardsQuery = useFollowedPlayersCards({
-    playerIds: followedPlayerIds,
-  });
-
-  const hideTrendsCurrentTab = selectedTab === 'teams' ? hideTrendsTeams : hideTrendsPlayers;
-
-  const trendsQuery = useFollowsTrends({
-    tab: selectedTab,
-    hidden: hideTrendsCurrentTab,
-  });
-
-  const handleOpenSearch = useCallback(() => {
-    navigation.navigate('FollowsSearch', {
-      initialTab: selectedTab,
-    });
-  }, [navigation, selectedTab]);
-
-  const handleToggleTeam = useCallback(
-    (teamId: string) => {
-      clearToggleError();
-      toggleTeamFollow(teamId).catch(() => undefined);
-    },
-    [clearToggleError, toggleTeamFollow],
-  );
-
-  const handleTogglePlayer = useCallback(
-    (playerId: string) => {
-      clearToggleError();
-      togglePlayerFollow(playerId).catch(() => undefined);
-    },
-    [clearToggleError, togglePlayerFollow],
-  );
-
-  const teamCards = teamCardsQuery.data ?? [];
-  const playerCards = playerCardsQuery.data ?? [];
-
-  const trendsItems = useMemo(() => {
-    return trendsQuery.data ?? [];
-  }, [trendsQuery.data]);
-
-  const isSectionLoading =
-    isLoading ||
-    (selectedTab === 'teams' ? teamCardsQuery.isLoading : playerCardsQuery.isLoading);
-
-  const showLimitError = lastToggleError === 'limit_reached';
+  const model = useFollowsScreenModel();
+  const showLimitError = model.lastToggleError === 'limit_reached';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <FollowsHeader
           title={t('follows.title')}
-          onPressSearch={handleOpenSearch}
+          onPressSearch={model.handleOpenSearch}
           searchA11yLabel={t('follows.search.openSearch')}
-          isEditMode={isEditMode}
-          onPressEdit={() => setIsEditMode(!isEditMode)}
+          isEditMode={model.isEditMode}
+          onPressEdit={() => model.setIsEditMode(!model.isEditMode)}
           editLabel={t('follows.actions.edit')}
           saveLabel={t('follows.actions.done')}
         />
 
         <FollowsSegmentedControl
-          selectedTab={selectedTab}
-          onChangeTab={setSelectedTab}
+          selectedTab={model.selectedTab}
+          onChangeTab={model.setSelectedTab}
           teamsLabel={t('follows.tabs.teams')}
           playersLabel={t('follows.tabs.players')}
         />
 
         {showLimitError ? (
           <Text style={styles.limitError}>
-            {selectedTab === 'teams'
+            {model.selectedTab === 'teams'
               ? t('follows.errors.maxTeams', { count: appEnv.followsMaxFollowedTeams })
               : t('follows.errors.maxPlayers', { count: appEnv.followsMaxFollowedPlayers })}
           </Text>
         ) : null}
 
-        {selectedTab === 'teams' ? (
-          <FollowedCarousel
-            items={teamCards}
-            keyExtractor={item => item.teamId}
-            renderItem={item => (
-              <FollowedTeamCard
-                card={item}
-                unfollowLabel={t('follows.actions.unfollow')}
-                followLabel={t('follows.actions.follow')}
-                onUnfollow={handleToggleTeam}
-                noNextMatchLabel={t('follows.cards.noNextMatch')}
-                isEditMode={isEditMode}
-              />
-            )}
-            emptyState={
-              <FollowsEmptyFollowedCard
-                onPress={handleOpenSearch}
-                label={t('follows.cards.addToFavorites')}
-              />
-            }
-          />
-        ) : (
-          <FollowedCarousel
-            items={playerCards}
-            keyExtractor={item => item.playerId}
-            renderItem={item => (
-              <FollowedPlayerCard
-                card={item}
-                followLabel={t('follows.actions.follow')}
-                unfollowLabel={t('follows.actions.unfollow')}
-                onUnfollow={handleTogglePlayer}
-                goalsLabel={t('follows.cards.goals')}
-                assistsLabel={t('follows.cards.assists')}
-                isEditMode={isEditMode}
-              />
-            )}
-            emptyState={
-              <FollowsEmptyFollowedCard
-                onPress={handleOpenSearch}
-                label={t('follows.cards.addToFavorites')}
-              />
-            }
-          />
-        )}
+        <FollowsFollowedSection
+          selectedTab={model.selectedTab}
+          teamCards={model.teamCards}
+          playerCards={model.playerCards}
+          isEditMode={model.isEditMode}
+          onPressAdd={model.handleOpenSearch}
+          onUnfollowTeam={model.handleToggleTeam}
+          onUnfollowPlayer={model.handleTogglePlayer}
+          onPressTeam={model.handleOpenTeamDetails}
+          onPressPlayer={model.handleOpenPlayerDetails}
+          labels={{
+            addToFavorites: t('follows.cards.addToFavorites'),
+            follow: t('follows.actions.follow'),
+            unfollow: t('follows.actions.unfollow'),
+            noNextMatch: t('follows.cards.noNextMatch'),
+            goals: t('follows.cards.goals'),
+            assists: t('follows.cards.assists'),
+          }}
+        />
 
-        {isSectionLoading ? <Text style={styles.infoText}>{t('follows.states.loading')}</Text> : null}
+        {model.isSectionLoading ? (
+          <Text style={styles.infoText}>{t('follows.states.loading')}</Text>
+        ) : null}
 
-        <View style={styles.trendsSection}>
-          <View style={styles.trendsHeader}>
-            <Text style={styles.trendsTitle}>{t('follows.trends.title')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                updateHideTrends(selectedTab, !hideTrendsCurrentTab).catch(() => undefined);
-              }}
-              accessibilityLabel={
-                hideTrendsCurrentTab ? t('follows.trends.show') : t('follows.trends.hide')
-              }
-            >
-              <Text style={styles.trendsActionText}>
-                {hideTrendsCurrentTab ? t('follows.trends.show') : t('follows.trends.hide')}
-              </Text>
-            </Pressable>
-          </View>
-
-          {!hideTrendsCurrentTab && trendsItems.length === 0 ? (
-            <Text style={styles.infoText}>{t('follows.states.noTrends')}</Text>
-          ) : null}
-
-          {!hideTrendsCurrentTab && selectedTab === 'teams'
-            ? (trendsItems as TrendTeamItem[]).map(item => (
-              <FollowsTrendRow
-                key={`trend-team-${item.teamId}`}
-                title={item.teamName}
-                subtitle={item.leagueName}
-                avatarUrl={item.teamLogo}
-                isFollowing={followedTeamIds.includes(item.teamId)}
-                onToggleFollow={() => handleToggleTeam(item.teamId)}
-                followLabel={t('follows.actions.follow')}
-                unfollowLabel={t('follows.actions.unfollow')}
-                accessibilityLabel={`${t('follows.actions.follow')} ${item.teamName}`}
-              />
-            ))
-            : null}
-
-          {!hideTrendsCurrentTab && selectedTab === 'players'
-            ? (trendsItems as TrendPlayerItem[]).map(item => (
-              <FollowsTrendRow
-                key={`trend-player-${item.playerId}`}
-                title={item.playerName}
-                subtitle={[item.position, item.teamName].filter(Boolean).join(' • ')}
-                avatarUrl={item.playerPhoto}
-                isFollowing={followedPlayerIds.includes(item.playerId)}
-                onToggleFollow={() => handleTogglePlayer(item.playerId)}
-                followLabel={t('follows.actions.follow')}
-                unfollowLabel={t('follows.actions.unfollow')}
-                accessibilityLabel={`${t('follows.actions.follow')} ${item.playerName}`}
-              />
-            ))
-            : null}
-        </View>
+        <FollowsTrendsSection
+          selectedTab={model.selectedTab}
+          hideTrends={model.hideTrendsCurrentTab}
+          followedTeamIds={model.followedTeamIds}
+          followedPlayerIds={model.followedPlayerIds}
+          teamTrends={model.asTeamTrends}
+          playerTrends={model.asPlayerTrends}
+          onToggleFollowTeam={model.handleToggleTeam}
+          onToggleFollowPlayer={model.handleTogglePlayer}
+          onPressTeam={model.handleOpenTeamDetails}
+          onPressPlayer={model.handleOpenPlayerDetails}
+          onToggleVisibility={() => {
+            model
+              .updateHideTrends(model.selectedTab, !model.hideTrendsCurrentTab)
+              .catch(() => undefined);
+          }}
+          labels={{
+            title: t('follows.trends.title'),
+            show: t('follows.trends.show'),
+            hide: t('follows.trends.hide'),
+            noTrends: t('follows.states.noTrends'),
+            follow: t('follows.actions.follow'),
+            unfollow: t('follows.actions.unfollow'),
+          }}
+          styles={{
+            trendsSection: styles.trendsSection,
+            trendsHeader: styles.trendsHeader,
+            trendsTitle: styles.trendsTitle,
+            trendsActionText: styles.trendsActionText,
+            infoText: styles.infoText,
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

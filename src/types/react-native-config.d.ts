@@ -1,9 +1,6 @@
 declare module 'react-native-config' {
   export interface NativeConfig {
-    API_FOOTBALL_BASE_URL?: string;
-    API_FOOTBALL_KEY?: string;
-    MATCHES_DEMO_MODE?: string;
-    MATCHES_API_ERROR_FALLBACK_ENABLED?: string;
+    MOBILE_API_BASE_URL?: string;
     MATCHES_QUERY_STALE_TIME_MS?: string;
     MATCHES_LIVE_REFRESH_INTERVAL_MS?: string;
     MATCHES_SLOW_REFRESH_INTERVAL_MS?: string;

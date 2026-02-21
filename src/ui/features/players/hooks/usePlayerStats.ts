@@ -4,16 +4,20 @@ import { mapPlayerDetailsToSeasonStats } from '@data/mappers/playersMapper';
 
 export const PLAYER_STATS_QUERY_KEY = 'player_stats';
 
-export function usePlayerStats(playerId: string, season: number) {
+export function usePlayerStats(
+    playerId: string,
+    season: number,
+    enabled: boolean = true,
+) {
     const statsQuery = useQuery({
         queryKey: [PLAYER_STATS_QUERY_KEY, playerId, season],
         queryFn: async ({ signal }) => {
             const dto = await fetchPlayerDetails(playerId, season, signal);
             if (!dto) throw new Error('Player not found');
 
-            return mapPlayerDetailsToSeasonStats(dto);
+            return mapPlayerDetailsToSeasonStats(dto, season);
         },
-        enabled: !!playerId && !!season,
+        enabled: enabled && !!playerId && !!season,
         staleTime: 5 * 60 * 1000,
     });
 

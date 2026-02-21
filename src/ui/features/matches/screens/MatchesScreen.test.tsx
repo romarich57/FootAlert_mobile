@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import {
@@ -9,12 +9,11 @@ import {
   type ParamListBase,
 } from '@react-navigation/native';
 
-import { AppThemeProvider } from '@ui/app/providers/ThemeProvider';
 import { MatchesScreen } from '@ui/features/matches/screens/MatchesScreen';
-import { useMatchesOfflineCache } from '@ui/features/matches/hooks/useMatchesOfflineCache';
+import { useFollowedTeamIdsQuery } from '@ui/features/follows/hooks/useFollowedTeamIdsQuery';
 import { useMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
-import { appEnv } from '@data/config/env';
 import i18n from '@ui/shared/i18n';
+import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 jest.mock('@react-native-community/netinfo', () => ({
   useNetInfo: jest.fn(),
@@ -30,14 +29,9 @@ jest.mock('@react-navigation/native', () => {
 });
 
 jest.mock('@ui/features/matches/hooks/useMatchesQuery');
-jest.mock('@ui/features/matches/hooks/useMatchesOfflineCache');
+jest.mock('@ui/features/follows/hooks/useFollowedTeamIdsQuery');
 jest.mock('@ui/features/matches/hooks/useMatchesRefresh', () => ({
   useMatchesRefresh: jest.fn(),
-}));
-jest.mock('@data/storage/asyncStorage', () => ({
-  getJsonValue: jest.fn(() => new Promise(() => {})),
-  setJsonValue: jest.fn(async () => undefined),
-  removeValue: jest.fn(async () => undefined),
 }));
 jest.mock('@data/storage/matchPreferencesStorage', () => ({
   DEFAULT_MATCH_NOTIFICATION_PREFS: {
@@ -56,14 +50,13 @@ jest.mock('@data/storage/matchPreferencesStorage', () => ({
 }));
 
 const mockedUseMatchesQuery = jest.mocked(useMatchesQuery);
-const mockedUseMatchesOfflineCache = jest.mocked(useMatchesOfflineCache);
+const mockedUseFollowedTeamIdsQuery = jest.mocked(useFollowedTeamIdsQuery);
 const mockedUseNetInfo = jest.mocked(useNetInfo);
 const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedUseIsFocused = jest.mocked(useIsFocused);
 
 const navigateMock = jest.fn();
 const refetchMock = jest.fn(async () => ({ isError: false }));
-const saveCacheMock = jest.fn(async () => undefined);
 
 const sectionFixture = {
   id: '61',
@@ -128,18 +121,12 @@ const nonTopSectionFixture = {
 };
 
 function renderScreen() {
-  return render(
-    <AppThemeProvider>
-      <MatchesScreen />
-    </AppThemeProvider>,
-  );
+  return renderWithAppProviders(<MatchesScreen />);
 }
 
 describe('MatchesScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    appEnv.apiFootballKey = 'test_key';
-    appEnv.matchesDemoMode = false;
     mockedUseNavigation.mockReturnValue({
       navigate: navigateMock,
     } as unknown as NavigationProp<ParamListBase>);
@@ -148,13 +135,10 @@ describe('MatchesScreen', () => {
       isConnected: true,
       isInternetReachable: true,
     } as ReturnType<typeof useNetInfo>);
-    mockedUseMatchesOfflineCache.mockReturnValue({
-      cacheKey: 'matches_cache',
-      cachedPayload: null,
-      isLoadingCache: false,
-      lastUpdatedAt: null,
-      saveCache: saveCacheMock,
-    });
+    mockedUseFollowedTeamIdsQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useFollowedTeamIdsQuery>);
     mockedUseMatchesQuery.mockReturnValue({
       data: {
         sections: [sectionFixture],
@@ -208,18 +192,13 @@ describe('MatchesScreen', () => {
       isConnected: false,
       isInternetReachable: false,
     } as ReturnType<typeof useNetInfo>);
-    mockedUseMatchesOfflineCache.mockReturnValue({
-      cacheKey: 'matches_cache',
-      cachedPayload: {
-        sections: [sectionFixture],
-        lastUpdatedAt: '2026-02-19T18:00:00.000Z',
-      },
-      isLoadingCache: false,
-      lastUpdatedAt: '2026-02-19T18:00:00.000Z',
-      saveCache: saveCacheMock,
-    });
     mockedUseMatchesQuery.mockReturnValue({
-      data: undefined,
+      data: {
+        sections: [sectionFixture],
+        requestDurationMs: 150,
+        fetchedAt: '2026-02-19T18:00:00.000Z',
+        hasLiveMatches: true,
+      },
       isLoading: false,
       isError: false,
       isRefetching: false,
@@ -250,50 +229,18 @@ describe('MatchesScreen', () => {
     expect(refetchMock).toHaveBeenCalled();
   });
 
-  it('shows demo fallback matches when API key is missing', () => {
-    mockedUseMatchesQuery.mockReturnValue({
-      data: undefined,
-      error: new Error(
-        'Missing API_FOOTBALL_KEY. Set it in your .env file before calling API-Football.',
-      ),
-      isLoading: false,
-      isError: true,
-      isRefetching: false,
-      isSlowNetwork: false,
-      refetch: refetchMock,
-    } as unknown as ReturnType<typeof useMatchesQuery>);
-
-    renderScreen();
-
-    expect(screen.getByText(i18n.t('matches.demoFallback.title'))).toBeTruthy();
-    expect(screen.getByText('Paris SG')).toBeTruthy();
-    expect(screen.getByText('Real Madrid')).toBeTruthy();
-    expect(screen.queryByText(i18n.t('matches.states.error.title'))).toBeNull();
-  });
-
-  it('shows demo fallback instantly when demo mode is enabled', () => {
-    appEnv.matchesDemoMode = true;
-    mockedUseMatchesQuery.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-      isRefetching: false,
-      isSlowNetwork: false,
-      refetch: refetchMock,
-    } as unknown as ReturnType<typeof useMatchesQuery>);
-
-    renderScreen();
-
-    expect(screen.getByText(i18n.t('matches.demoFallback.title'))).toBeTruthy();
-    expect(screen.getByText('Paris SG')).toBeTruthy();
-    expect(screen.queryByText(i18n.t('matches.states.loading.title'))).toBeNull();
-  });
-
   it('navigates to match details when pressing a match card', () => {
     renderScreen();
 
-    fireEvent.press(screen.getByText('Paris SG'));
+    fireEvent.press(screen.getByTestId('match-card-10'));
     expect(navigateMock).toHaveBeenCalledWith('MatchDetails', { matchId: '10' });
+  });
+
+  it('navigates to team details when pressing a team inside a match card', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByText('Paris SG'));
+    expect(navigateMock).toHaveBeenCalledWith('TeamDetails', { teamId: '85' });
   });
 
   it('opens notification modal when pressing card notification button', async () => {

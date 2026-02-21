@@ -1,18 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchPlayerDetails, fetchPlayerSeasons } from '@data/endpoints/playersApi';
-import { mapPlayerCareerSeasons, mapPlayerCareerTeams } from '@data/mappers/playersMapper';
+import { mapPlayerCareerSeasons } from '@data/mappers/playersMapper';
 import type { PlayerCareerSeason, PlayerCareerTeam } from '@ui/features/players/types/players.types';
 
 export const PLAYER_CAREER_SEASONS_QUERY_KEY = 'player_career_seasons';
 export const PLAYER_CAREER_QUERY_KEY = 'player_career';
 
-export function usePlayerCareer(playerId: string) {
+function sumNullable(a: number | null, b: number | null): number | null {
+    if (a === null && b === null) {
+        return null;
+    }
+
+    return (a ?? 0) + (b ?? 0);
+}
+
+export function usePlayerCareer(playerId: string, enabled: boolean = true) {
     const seasonsListQuery = useQuery({
         queryKey: [PLAYER_CAREER_SEASONS_QUERY_KEY, playerId],
         queryFn: async ({ signal }) => {
             return fetchPlayerSeasons(playerId, signal);
         },
-        enabled: !!playerId,
+        enabled: enabled && !!playerId,
         staleTime: 60 * 60 * 1000,
     });
 
@@ -27,7 +35,6 @@ export function usePlayerCareer(playerId: string) {
             const results = await Promise.all(promises);
 
             let allSeasons: PlayerCareerSeason[] = [];
-            let allTeams: PlayerCareerTeam[] = [];
 
             results.forEach(dto => {
                 if (dto) {
@@ -35,31 +42,48 @@ export function usePlayerCareer(playerId: string) {
                 }
             });
 
-            // We will sort and filter duplicates appropriately if the API returned overlapping stats
-            const uniqueSeasons = Array.from(new Map(allSeasons.map(item => [item.season + '-' + item.team.id, item])).values());
-            uniqueSeasons.sort((a, b) => b.season.localeCompare(a.season));
+            // Deduplicate season/team entries while preserving items with partial identifiers.
+            const uniqueSeasons = Array.from(
+                new Map(
+                    allSeasons.map((item, index) => {
+                        const seasonKey = item.season ?? `unknown-season-${index}`;
+                        const teamKey = item.team.id ?? item.team.name ?? `unknown-team-${index}`;
+                        return [`${seasonKey}-${teamKey}`, item] as const;
+                    }),
+                ).values(),
+            );
+            uniqueSeasons.sort((a, b) => {
+                const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
+                const bYear = b.season ? Number.parseInt(b.season, 10) : Number.NEGATIVE_INFINITY;
+                return bYear - aYear;
+            });
 
             // Aggregate teams
             const teamMap = new Map<string, PlayerCareerTeam>();
             uniqueSeasons.forEach(s => {
-                if (!teamMap.has(s.team.id)) {
-                    teamMap.set(s.team.id, {
+                const teamId = s.team.id ?? '';
+                if (!teamId) {
+                    return;
+                }
+
+                if (!teamMap.has(teamId)) {
+                    teamMap.set(teamId, {
                         team: s.team,
-                        period: '',
-                        matches: 0,
-                        goals: 0,
-                        assists: 0,
+                        period: null,
+                        matches: null,
+                        goals: null,
+                        assists: null,
                     });
                 }
-                const t = teamMap.get(s.team.id)!;
-                t.matches += s.matches;
-                t.goals += s.goals;
-                t.assists += s.assists;
+                const t = teamMap.get(teamId)!;
+                t.matches = sumNullable(t.matches, s.matches);
+                t.goals = sumNullable(t.goals, s.goals);
+                t.assists = sumNullable(t.assists, s.assists);
 
                 // basic period calculation snippet 
-                const year = parseInt(s.season, 10);
+                const year = s.season ? Number.parseInt(s.season, 10) : Number.NaN;
                 if (!isNaN(year)) {
-                    if (t.period === '') {
+                    if (!t.period) {
                         t.period = `${year}`;
                     } else {
                         const range = t.period.split(' - ').map(Number);
@@ -75,7 +99,7 @@ export function usePlayerCareer(playerId: string) {
                 teams: Array.from(teamMap.values()),
             };
         },
-        enabled: !!playerId && seasonsListQuery.isSuccess,
+        enabled: enabled && !!playerId && seasonsListQuery.isSuccess,
         staleTime: 60 * 60 * 1000,
     });
 

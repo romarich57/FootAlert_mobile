@@ -1,54 +1,134 @@
-import { httpGet } from '@data/api/http/client';
-import { getApiFootballEnvOrThrow } from '@data/config/env';
+import { bffGet } from '@data/endpoints/bffClient';
 import type {
-    CompetitionsApiLeagueDto,
-    CompetitionsApiResponse,
+  CompetitionsApiLeagueDto,
+  CompetitionsApiResponse,
+  CompetitionsApiStandingDto,
+  CompetitionsApiFixtureDto,
+  CompetitionsApiPlayerStatDto,
+  CompetitionsApiTransferDto,
 } from '@ui/features/competitions/types/competitions.types';
 
-function buildRequestUrl(pathWithQuery: string): string {
-    const { apiFootballBaseUrl } = getApiFootballEnvOrThrow();
-    return `${apiFootballBaseUrl}${pathWithQuery}`;
-}
-
-function buildAuthHeaders(): Record<string, string> {
-    const { apiFootballKey } = getApiFootballEnvOrThrow();
-    return {
-        'x-apisports-key': apiFootballKey,
-    };
-}
-
 export async function fetchAllLeagues(signal?: AbortSignal): Promise<CompetitionsApiLeagueDto[]> {
-    const requestUrl = buildRequestUrl('/leagues');
-    const payload = await httpGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(requestUrl, {
-        signal,
-        headers: buildAuthHeaders(),
-    });
+  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(
+    '/competitions',
+    undefined,
+    { signal },
+  );
 
-    return payload.response;
+  return payload.response;
 }
 
 export async function searchLeaguesByName(
-    query: string,
-    signal?: AbortSignal,
+  query: string,
+  signal?: AbortSignal,
 ): Promise<CompetitionsApiLeagueDto[]> {
-    const requestUrl = buildRequestUrl(`/leagues?search=${encodeURIComponent(query)}`);
-    const payload = await httpGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(requestUrl, {
-        signal,
-        headers: buildAuthHeaders(),
-    });
+  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(
+    '/competitions/search',
+    { q: query },
+    { signal },
+  );
 
-    return payload.response;
+  return payload.response;
 }
 
 export async function fetchLeagueById(
-    id: string,
-    signal?: AbortSignal,
+  id: string,
+  signal?: AbortSignal,
 ): Promise<CompetitionsApiLeagueDto | null> {
-    const requestUrl = buildRequestUrl(`/leagues?id=${encodeURIComponent(id)}`);
-    const payload = await httpGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(requestUrl, {
-        signal,
-        headers: buildAuthHeaders(),
-    });
+  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(
+    `/competitions/${encodeURIComponent(id)}`,
+    undefined,
+    { signal },
+  );
 
-    return payload.response[0] ?? null;
+  return payload.response[0] ?? null;
+}
+
+export async function fetchLeagueStandings(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionsApiStandingDto | null> {
+  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiStandingDto>>(
+    `/competitions/${encodeURIComponent(String(leagueId))}/standings`,
+    { season },
+    { signal },
+  );
+
+  return payload.response[0] ?? null;
+}
+
+export async function fetchLeagueFixtures(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionsApiFixtureDto[]> {
+  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiFixtureDto>>(
+    `/competitions/${encodeURIComponent(String(leagueId))}/matches`,
+    { season },
+    { signal },
+  );
+
+  return payload.response;
+}
+
+async function fetchLeaguePlayerStatsByType(
+  leagueId: number,
+  season: number,
+  type: 'topscorers' | 'topassists' | 'topyellowcards' | 'topredcards',
+  signal?: AbortSignal,
+): Promise<CompetitionsApiPlayerStatDto[]> {
+  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiPlayerStatDto>>(
+    `/competitions/${encodeURIComponent(String(leagueId))}/player-stats`,
+    { season, type },
+    { signal },
+  );
+
+  return payload.response;
+}
+
+export async function fetchLeagueTopScorers(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionsApiPlayerStatDto[]> {
+  return fetchLeaguePlayerStatsByType(leagueId, season, 'topscorers', signal);
+}
+
+export async function fetchLeagueTopAssists(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionsApiPlayerStatDto[]> {
+  return fetchLeaguePlayerStatsByType(leagueId, season, 'topassists', signal);
+}
+
+export async function fetchLeagueTopYellowCards(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionsApiPlayerStatDto[]> {
+  return fetchLeaguePlayerStatsByType(leagueId, season, 'topyellowcards', signal);
+}
+
+export async function fetchLeagueTopRedCards(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionsApiPlayerStatDto[]> {
+  return fetchLeaguePlayerStatsByType(leagueId, season, 'topredcards', signal);
+}
+
+export async function fetchLeagueTransfers(
+  leagueId: number,
+  season?: number,
+  signal?: AbortSignal,
+): Promise<CompetitionsApiTransferDto[]> {
+  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiTransferDto>>(
+    `/competitions/${encodeURIComponent(String(leagueId))}/transfers`,
+    { season },
+    { signal },
+  );
+
+  return payload.response;
 }

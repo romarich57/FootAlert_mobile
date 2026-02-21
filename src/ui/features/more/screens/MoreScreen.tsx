@@ -44,7 +44,7 @@ function createStyles(colors: ThemeColors) {
       fontSize: 44,
       fontWeight: '800',
       letterSpacing: -1,
-      paddingHorizontal: 20,
+      paddingHorizontal: 16,
       paddingTop: 6,
       paddingBottom: 10,
     },

@@ -4,24 +4,14 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { fetchNextFixtureForTeam, fetchTeamById } from '@data/endpoints/followsApi';
-import { loadCachedTeamCards, saveCachedTeamCards } from '@data/storage/followsCardsCacheStorage';
 
 jest.mock('@data/endpoints/followsApi', () => ({
   fetchNextFixtureForTeam: jest.fn(async () => null),
   fetchTeamById: jest.fn(async () => null),
 }));
 
-jest.mock('@data/storage/followsCardsCacheStorage', () => ({
-  loadCachedTeamCards: jest.fn(async () => null),
-  saveCachedTeamCards: jest.fn(async () => undefined),
-  loadCachedPlayerCards: jest.fn(async () => null),
-  saveCachedPlayerCards: jest.fn(async () => undefined),
-}));
-
 const mockedFetchNextFixtureForTeam = jest.mocked(fetchNextFixtureForTeam);
 const mockedFetchTeamById = jest.mocked(fetchTeamById);
-const mockedLoadCachedTeamCards = jest.mocked(loadCachedTeamCards);
-const mockedSaveCachedTeamCards = jest.mocked(saveCachedTeamCards);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -42,34 +32,22 @@ describe('useFollowedTeamsCards', () => {
     jest.clearAllMocks();
   });
 
-  it('returns cached cards when available', async () => {
-    mockedLoadCachedTeamCards.mockResolvedValueOnce([
-      {
-        teamId: '529',
-        teamName: 'Barcelona',
-        teamLogo: 'barca.png',
-        nextMatch: null,
-      },
-    ]);
-
+  it('does not run query when no team IDs are provided', () => {
     const { result } = renderHook(
       () =>
         useFollowedTeamsCards({
-          teamIds: ['529'],
+          teamIds: [],
           timezone: 'Europe/Paris',
         }),
       { wrapper: createWrapper() },
     );
 
-    await waitFor(() => {
-      expect(result.current.data).toHaveLength(1);
-    });
-
+    expect(result.current.fetchStatus).toBe('idle');
     expect(mockedFetchTeamById).not.toHaveBeenCalled();
     expect(mockedFetchNextFixtureForTeam).not.toHaveBeenCalled();
   });
 
-  it('hydrates cards from API and caches them', async () => {
+  it('hydrates cards from API', async () => {
     mockedFetchTeamById.mockResolvedValueOnce({
       team: { id: 529, name: 'Barcelona', logo: 'barca.png' },
     });
@@ -94,6 +72,7 @@ describe('useFollowedTeamsCards', () => {
       expect(result.current.data?.[0].teamName).toBe('Barcelona');
     });
 
-    expect(mockedSaveCachedTeamCards).toHaveBeenCalled();
+    expect(mockedFetchTeamById).toHaveBeenCalledTimes(1);
+    expect(mockedFetchNextFixtureForTeam).toHaveBeenCalledTimes(1);
   });
 });

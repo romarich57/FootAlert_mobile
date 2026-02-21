@@ -119,6 +119,20 @@ export function FollowsSearchScreen() {
     [togglePlayerFollow],
   );
 
+  const handleOpenPlayerDetails = useCallback(
+    (playerId: string) => {
+      navigation.navigate('PlayerDetails', { playerId });
+    },
+    [navigation],
+  );
+
+  const handleOpenTeamDetails = useCallback(
+    (teamId: string) => {
+      navigation.navigate('TeamDetails', { teamId });
+    },
+    [navigation],
+  );
+
   const renderTeamRow = useCallback(
     (item: FollowsSearchResultTeam) => {
       return (
@@ -126,6 +140,8 @@ export function FollowsSearchScreen() {
           title={item.teamName}
           subtitle={item.country}
           avatarUrl={item.teamLogo}
+          onPressItem={() => handleOpenTeamDetails(item.teamId)}
+          itemAccessibilityLabel={item.teamName}
           isFollowing={followedTeamIds.includes(item.teamId)}
           onToggleFollow={() => handleToggleTeam(item.teamId)}
           followLabel={t('follows.actions.follow')}
@@ -134,7 +150,7 @@ export function FollowsSearchScreen() {
         />
       );
     },
-    [followedTeamIds, handleToggleTeam, t],
+    [followedTeamIds, handleOpenTeamDetails, handleToggleTeam, t],
   );
 
   const renderPlayerRow = useCallback(
@@ -144,6 +160,8 @@ export function FollowsSearchScreen() {
           title={item.playerName}
           subtitle={[item.position, item.teamName].filter(Boolean).join(' • ')}
           avatarUrl={item.playerPhoto}
+          onPressItem={() => handleOpenPlayerDetails(item.playerId)}
+          itemAccessibilityLabel={item.playerName}
           isFollowing={followedPlayerIds.includes(item.playerId)}
           onToggleFollow={() => handleTogglePlayer(item.playerId)}
           followLabel={t('follows.actions.follow')}
@@ -152,7 +170,7 @@ export function FollowsSearchScreen() {
         />
       );
     },
-    [followedPlayerIds, handleTogglePlayer, t],
+    [followedPlayerIds, handleOpenPlayerDetails, handleTogglePlayer, t],
   );
 
   const teamResults =

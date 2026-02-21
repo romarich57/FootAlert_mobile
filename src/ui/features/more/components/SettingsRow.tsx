@@ -48,8 +48,8 @@ function createStyles(colors: ThemeColors) {
     },
     label: {
       color: colors.text,
-      fontSize: 15,
-      fontWeight: '600',
+      fontSize: 16,
+      fontWeight: '700',
       flexShrink: 1,
     },
     valueWrap: {
@@ -61,8 +61,8 @@ function createStyles(colors: ThemeColors) {
     },
     value: {
       color: colors.textMuted,
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: 13,
+      fontWeight: '600',
       textAlign: 'right',
       flexShrink: 1,
     },

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
 import {
@@ -11,108 +11,167 @@ import {
   toggleFollowedTeam,
 } from '@data/storage/followsStorage';
 import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type ToggleFollowError = 'limit_reached' | null;
 
-export type FollowsActionsState = {
-  followedTeamIds: string[];
-  followedPlayerIds: string[];
-  hideTrendsTeams: boolean;
-  hideTrendsPlayers: boolean;
-  isLoading: boolean;
-  lastToggleError: ToggleFollowError;
-};
+function computeNextIds(ids: string[], id: string, maxAllowed: number): string[] {
+  if (ids.includes(id)) {
+    return ids.filter(value => value !== id);
+  }
+
+  if (ids.length >= maxAllowed) {
+    return ids;
+  }
+
+  return [id, ...ids.filter(value => value !== id)];
+}
 
 export function useFollowsActions() {
-  const [state, setState] = useState<FollowsActionsState>({
-    followedTeamIds: [],
-    followedPlayerIds: [],
-    hideTrendsTeams: false,
-    hideTrendsPlayers: false,
-    isLoading: true,
-    lastToggleError: null,
+  const queryClient = useQueryClient();
+  const [lastToggleError, setLastToggleError] = useState<ToggleFollowError>(null);
+
+  const followedTeamIdsQuery = useQuery({
+    queryKey: queryKeys.follows.followedTeamIds(),
+    queryFn: loadFollowedTeamIds,
+    staleTime: Infinity,
   });
 
-  const loadState = useCallback(async () => {
-    const [teamIds, playerIds, hideTeams, hidePlayers] = await Promise.all([
-      loadFollowedTeamIds(),
-      loadFollowedPlayerIds(),
-      loadHideTrends('teams'),
-      loadHideTrends('players'),
-    ]);
+  const followedPlayerIdsQuery = useQuery({
+    queryKey: queryKeys.follows.followedPlayerIds(),
+    queryFn: loadFollowedPlayerIds,
+    staleTime: Infinity,
+  });
 
-    setState(current => ({
-      ...current,
-      followedTeamIds: teamIds,
-      followedPlayerIds: playerIds,
-      hideTrendsTeams: hideTeams,
-      hideTrendsPlayers: hidePlayers,
-      isLoading: false,
-    }));
-  }, []);
+  const hideTrendsTeamsQuery = useQuery({
+    queryKey: queryKeys.follows.hideTrends('teams'),
+    queryFn: () => loadHideTrends('teams'),
+    staleTime: Infinity,
+  });
 
-  useFocusEffect(
-    useCallback(() => {
-      let mounted = true;
+  const hideTrendsPlayersQuery = useQuery({
+    queryKey: queryKeys.follows.hideTrends('players'),
+    queryFn: () => loadHideTrends('players'),
+    staleTime: Infinity,
+  });
 
-      loadState().catch(() => {
-        if (mounted) {
-          setState(current => ({
-            ...current,
-            isLoading: false,
-          }));
-        }
+  const toggleTeamMutation = useMutation({
+    mutationFn: (teamId: string) =>
+      toggleFollowedTeam(teamId, appEnv.followsMaxFollowedTeams),
+    onMutate: async teamId => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.follows.followedTeamIds(),
       });
 
-      return () => {
-        mounted = false;
-      };
-    }, [loadState]),
+      const previousIds =
+        queryClient.getQueryData<string[]>(queryKeys.follows.followedTeamIds()) ?? [];
+
+      queryClient.setQueryData(
+        queryKeys.follows.followedTeamIds(),
+        computeNextIds(previousIds, teamId, appEnv.followsMaxFollowedTeams),
+      );
+
+      return { previousIds };
+    },
+    onError: (_error, _teamId, context) => {
+      queryClient.setQueryData(queryKeys.follows.followedTeamIds(), context?.previousIds ?? []);
+    },
+    onSuccess: result => {
+      queryClient.setQueryData(queryKeys.follows.followedTeamIds(), result.ids);
+      setLastToggleError(result.reason ?? null);
+    },
+  });
+
+  const togglePlayerMutation = useMutation({
+    mutationFn: (playerId: string) =>
+      toggleFollowedPlayer(playerId, appEnv.followsMaxFollowedPlayers),
+    onMutate: async playerId => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.follows.followedPlayerIds(),
+      });
+
+      const previousIds =
+        queryClient.getQueryData<string[]>(queryKeys.follows.followedPlayerIds()) ?? [];
+
+      queryClient.setQueryData(
+        queryKeys.follows.followedPlayerIds(),
+        computeNextIds(previousIds, playerId, appEnv.followsMaxFollowedPlayers),
+      );
+
+      return { previousIds };
+    },
+    onError: (_error, _playerId, context) => {
+      queryClient.setQueryData(queryKeys.follows.followedPlayerIds(), context?.previousIds ?? []);
+    },
+    onSuccess: result => {
+      queryClient.setQueryData(queryKeys.follows.followedPlayerIds(), result.ids);
+      setLastToggleError(result.reason ?? null);
+    },
+  });
+
+  const hideTrendsMutation = useMutation({
+    mutationFn: ({ tab, value }: { tab: FollowEntityTab; value: boolean }) =>
+      saveHideTrends(tab, value),
+    onMutate: async ({ tab, value }) => {
+      const queryKey = queryKeys.follows.hideTrends(tab);
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousValue = queryClient.getQueryData<boolean>(queryKey) ?? false;
+      queryClient.setQueryData(queryKey, value);
+
+      return { tab, previousValue };
+    },
+    onError: (_error, _payload, context) => {
+      if (!context) {
+        return;
+      }
+
+      queryClient.setQueryData(
+        queryKeys.follows.hideTrends(context.tab),
+        context.previousValue,
+      );
+    },
+    onSuccess: (_result, payload) => {
+      queryClient.setQueryData(queryKeys.follows.hideTrends(payload.tab), payload.value);
+    },
+  });
+
+  const toggleTeamFollow = useCallback(
+    async (teamId: string) => {
+      return toggleTeamMutation.mutateAsync(teamId);
+    },
+    [toggleTeamMutation],
   );
 
-  const toggleTeamFollow = useCallback(async (teamId: string) => {
-    const result = await toggleFollowedTeam(teamId, appEnv.followsMaxFollowedTeams);
+  const togglePlayerFollow = useCallback(
+    async (playerId: string) => {
+      return togglePlayerMutation.mutateAsync(playerId);
+    },
+    [togglePlayerMutation],
+  );
 
-    setState(current => ({
-      ...current,
-      followedTeamIds: result.ids,
-      lastToggleError: result.reason ?? null,
-    }));
-
-    return result;
-  }, []);
-
-  const togglePlayerFollow = useCallback(async (playerId: string) => {
-    const result = await toggleFollowedPlayer(playerId, appEnv.followsMaxFollowedPlayers);
-
-    setState(current => ({
-      ...current,
-      followedPlayerIds: result.ids,
-      lastToggleError: result.reason ?? null,
-    }));
-
-    return result;
-  }, []);
-
-  const updateHideTrends = useCallback(async (tab: FollowEntityTab, value: boolean) => {
-    await saveHideTrends(tab, value);
-
-    setState(current => ({
-      ...current,
-      hideTrendsTeams: tab === 'teams' ? value : current.hideTrendsTeams,
-      hideTrendsPlayers: tab === 'players' ? value : current.hideTrendsPlayers,
-    }));
-  }, []);
+  const updateHideTrends = useCallback(
+    async (tab: FollowEntityTab, value: boolean) => {
+      await hideTrendsMutation.mutateAsync({ tab, value });
+    },
+    [hideTrendsMutation],
+  );
 
   const clearToggleError = useCallback(() => {
-    setState(current => ({
-      ...current,
-      lastToggleError: null,
-    }));
+    setLastToggleError(null);
   }, []);
 
   return {
-    ...state,
+    followedTeamIds: followedTeamIdsQuery.data ?? [],
+    followedPlayerIds: followedPlayerIdsQuery.data ?? [],
+    hideTrendsTeams: hideTrendsTeamsQuery.data ?? false,
+    hideTrendsPlayers: hideTrendsPlayersQuery.data ?? false,
+    isLoading:
+      followedTeamIdsQuery.isLoading ||
+      followedPlayerIdsQuery.isLoading ||
+      hideTrendsTeamsQuery.isLoading ||
+      hideTrendsPlayersQuery.isLoading,
+    lastToggleError,
     toggleTeamFollow,
     togglePlayerFollow,
     updateHideTrends,

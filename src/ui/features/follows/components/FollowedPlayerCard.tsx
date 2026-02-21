@@ -7,6 +7,19 @@ import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
+function toDisplayValue(value: string | number | null | undefined): string {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : '?';
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : '?';
+  }
+
+  return '?';
+}
+
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     card: {
@@ -16,6 +29,9 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.surfaceElevated,
       padding: 16,
       justifyContent: 'space-between',
+    },
+    contentPressable: {
+      gap: 8,
     },
     top: {
       flexDirection: 'row',
@@ -108,6 +124,7 @@ type FollowedPlayerCardProps = {
   followLabel?: string;
   unfollowLabel?: string;
   onUnfollow: (playerId: string) => void;
+  onPressPlayer?: (playerId: string) => void;
   goalsLabel: string;
   assistsLabel: string;
   isEditMode?: boolean;
@@ -118,6 +135,7 @@ export function FollowedPlayerCard({
   followLabel,
   unfollowLabel,
   onUnfollow,
+  onPressPlayer,
   goalsLabel,
   assistsLabel,
   isEditMode,
@@ -127,39 +145,47 @@ export function FollowedPlayerCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.top}>
-        <Image source={{ uri: card.playerPhoto }} style={styles.playerPhoto} resizeMode="cover" />
-        <View style={styles.playerInfo}>
-          <Text numberOfLines={1} style={styles.playerName}>
-            {card.playerName}
-          </Text>
-          <Text numberOfLines={1} style={styles.position}>
-            {card.position}
+      <Pressable
+        disabled={!onPressPlayer || isEditMode}
+        onPress={() => onPressPlayer?.(card.playerId)}
+        accessibilityRole="button"
+        accessibilityLabel={toDisplayValue(card.playerName)}
+        style={styles.contentPressable}
+      >
+        <View style={styles.top}>
+          <Image source={{ uri: card.playerPhoto }} style={styles.playerPhoto} resizeMode="cover" />
+          <View style={styles.playerInfo}>
+            <Text numberOfLines={1} style={styles.playerName}>
+              {toDisplayValue(card.playerName)}
+            </Text>
+            <Text numberOfLines={1} style={styles.position}>
+              {toDisplayValue(card.position)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.clubRow}>
+          <Image source={{ uri: card.teamLogo }} style={styles.clubLogo} resizeMode="contain" />
+          <Text numberOfLines={1} style={styles.clubName}>
+            {toDisplayValue(card.teamName)}
           </Text>
         </View>
-      </View>
 
-      <View style={styles.clubRow}>
-        <Image source={{ uri: card.teamLogo }} style={styles.clubLogo} resizeMode="contain" />
-        <Text numberOfLines={1} style={styles.clubName}>
-          {card.teamName}
+        <Text numberOfLines={1} style={styles.leagueName}>
+          {toDisplayValue(card.leagueName)}
         </Text>
-      </View>
 
-      <Text numberOfLines={1} style={styles.leagueName}>
-        {card.leagueName}
-      </Text>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>{goalsLabel}</Text>
-          <Text style={styles.statValue}>{card.goals}</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>{goalsLabel}</Text>
+            <Text style={styles.statValue}>{toDisplayValue(card.goals)}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>{assistsLabel}</Text>
+            <Text style={styles.statValue}>{toDisplayValue(card.assists)}</Text>
+          </View>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>{assistsLabel}</Text>
-          <Text style={styles.statValue}>{card.assists}</Text>
-        </View>
-      </View>
+      </Pressable>
 
       <View>
         {isEditMode ? (
@@ -172,7 +198,7 @@ export function FollowedPlayerCard({
             onPress={() => onUnfollow(card.playerId)}
             followLabel={followLabel!}
             unfollowLabel={unfollowLabel!}
-            accessibilityLabel={`${unfollowLabel} ${card.playerName}`}
+            accessibilityLabel={`${unfollowLabel} ${toDisplayValue(card.playerName)}`}
           />
         )}
       </View>

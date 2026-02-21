@@ -60,7 +60,7 @@ describe('usePlayerDetails', () => {
             name: 'Test Player',
             position: 'Attacker',
             age: 25,
-            team: { id: '1', name: 'Team A', logo: undefined },
+            team: { id: '1', name: 'Team A', logo: null },
         }));
 
         expect(result.current.seasonStats).toEqual(expect.objectContaining({

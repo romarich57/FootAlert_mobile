@@ -17,6 +17,8 @@ type CompetitionSectionProps = {
   onToggle: (sectionId: string) => void;
   onPressMatch: (match: MatchItem) => void;
   onPressNotification: (match: MatchItem) => void;
+  onPressHomeTeam?: (teamId: string) => void;
+  onPressAwayTeam?: (teamId: string) => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -105,6 +107,8 @@ export function CompetitionSection({
   onToggle,
   onPressMatch,
   onPressNotification,
+  onPressHomeTeam,
+  onPressAwayTeam,
 }: CompetitionSectionProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
@@ -147,6 +151,8 @@ export function CompetitionSection({
                 match={match}
                 onPress={onPressMatch}
                 onPressNotification={onPressNotification}
+                onPressHomeTeam={onPressHomeTeam}
+                onPressAwayTeam={onPressAwayTeam}
               />
             ))
           ) : (

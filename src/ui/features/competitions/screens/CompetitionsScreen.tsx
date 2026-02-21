@@ -11,6 +11,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@ui/app/navigation/types';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { useCompetitions } from '@ui/features/competitions/hooks/useCompetitions';
@@ -96,6 +99,13 @@ function createStyles(colors: ThemeColors, topInset: number) {
       textAlign: 'center',
       marginTop: 16,
     },
+    loadingContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    allCompetitionsContent: {
+      paddingBottom: 64,
+    },
   });
 }
 
@@ -104,6 +114,7 @@ export function CompetitionsScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
@@ -142,7 +153,7 @@ export function CompetitionsScreen() {
 
   if (isCompetitionsLoading && countries.length === 0) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>{t('screens.competitions.loading')}</Text>
       </View>
@@ -188,6 +199,7 @@ export function CompetitionsScreen() {
                     name={comp.name}
                     logoUrl={comp.logo}
                     rightElement={renderFollowButton(comp.id)}
+                    onPress={() => navigation.navigate('CompetitionDetails', { competitionId: comp.id, competition: comp })}
                   />
                 ))
               )}
@@ -217,6 +229,7 @@ export function CompetitionsScreen() {
                     logoUrl={comp.logo}
                     isEditMode={isEditMode}
                     onUnfollow={() => toggleFollow(comp.id)}
+                    onPress={() => !isEditMode && navigation.navigate('CompetitionDetails', { competitionId: comp.id, competition: comp })}
                   />
                 ))
               )}
@@ -233,6 +246,7 @@ export function CompetitionsScreen() {
                   name={comp.name}
                   logoUrl={comp.logo}
                   rightElement={renderFollowButton(comp.id)}
+                  onPress={() => navigation.navigate('CompetitionDetails', { competitionId: comp.id, competition: comp })}
                 />
               ))}
             </View>
@@ -241,7 +255,7 @@ export function CompetitionsScreen() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t('screens.competitions.allCompetitions')}</Text>
             </View>
-            <View style={[styles.sectionContent, { paddingBottom: 64 }]}>
+            <View style={[styles.sectionContent, styles.allCompetitionsContent]}>
               {countries.map(country => (
                 <CountryAccordion
                   key={country.name}
@@ -254,6 +268,7 @@ export function CompetitionsScreen() {
                       name={comp.name}
                       logoUrl={comp.logo}
                       rightElement={renderFollowButton(comp.id)}
+                      onPress={() => navigation.navigate('CompetitionDetails', { competitionId: comp.id, competition: comp })}
                     />
                   ))}
                 </CountryAccordion>

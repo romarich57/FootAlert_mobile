@@ -23,9 +23,9 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.chipBorder,
     },
     badgeText: {
-      color: colors.textMuted,
+      color: colors.chipBorder,
       fontSize: 11,
-      fontWeight: '700',
+      fontWeight: '800',
       textTransform: 'uppercase',
     },
   });

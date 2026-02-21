@@ -17,9 +17,9 @@ export function usePlayerDetails(playerId: string, season: number) {
             const dto = await fetchPlayerDetails(playerId, season, signal);
             if (!dto) throw new Error('Player not found');
             return {
-                profile: mapPlayerDetailsToProfile(dto),
-                characteristics: mapPlayerDetailsToCharacteristics(dto),
-                seasonStats: mapPlayerDetailsToSeasonStats(dto),
+                profile: mapPlayerDetailsToProfile(dto, season),
+                characteristics: mapPlayerDetailsToCharacteristics(dto, season),
+                seasonStats: mapPlayerDetailsToSeasonStats(dto, season),
             };
         },
         enabled: !!playerId && !!season,

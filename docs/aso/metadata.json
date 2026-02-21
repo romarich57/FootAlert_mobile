@@ -1,0 +1,31 @@
+{
+  "app_name": "FootAlert",
+  "apple": {
+    "en_US": {
+      "title": "FootAlert: Soccer Live Scores",
+      "subtitle": "Follow teams & players live",
+      "promotional_text": "Live scores, lineups, standings, and player details. Follow clubs and players without creating an account, with fast match alerts and offline cache.",
+      "keywords": "soccer,football,scores,live,fixtures,standings,stats,player,alerts,lineups,results",
+      "description": "FootAlert is your all-in-one football companion for live scores, fixtures, standings, and player insights.\n\nFollow matches in real time:\n- Live soccer scores and match status (live, upcoming, finished)\n- Fixtures by date and competition\n- Fast updates with match context and key events\n\nTrack what matters to you:\n- Follow teams and players without creating an account\n- Personalized match alerts for goals, kick-off, and match end\n- One-tap access to your followed entities\n\nGo deeper on players and competitions:\n- Player profile, recent matches, season stats, and career view\n- League catalog with standings and statistics\n- Team and player trend discovery\n\nBuilt for speed and clarity:\n- Offline cache to keep recent data available\n- Clean navigation across Matches, Competitions, Follows, and More\n- French and English support\n\nWhether you are a casual fan or a stats-focused supporter, FootAlert helps you stay close to every game with reliable live football updates."
+    },
+    "fr_FR": {
+      "title": "FootAlert: Scores Foot Live",
+      "subtitle": "Suivis joueurs & equipes",
+      "promotional_text": "Scores en direct, compos, classements et fiches joueurs. Suivez equipes et joueurs sans compte avec alertes match rapides et cache hors ligne.",
+      "keywords": "foot,scores,direct,matchs,classement,statistiques,joueurs,equipes,alertes,resultats",
+      "description": "FootAlert est votre appli foot tout-en-un pour les scores en direct, calendriers, classements et statistiques joueurs.\n\nSuivez les matchs en temps reel:\n- Scores foot live et statut du match (direct, a venir, termine)\n- Calendrier par date et competition\n- Mises a jour rapides avec contexte du match\n\nSuivez ce qui vous interesse:\n- Suivi des equipes et joueurs sans creation de compte\n- Alertes match personnalisees (buts, debut, fin)\n- Acces rapide a vos suivis\n\nAllez plus loin dans les donnees:\n- Fiche joueur, matchs recents, stats saison et carriere\n- Catalogue des ligues avec classements et statistiques\n- Decouverte des tendances equipes et joueurs\n\nConcue pour la performance:\n- Cache hors ligne pour consulter les dernieres donnees\n- Navigation claire entre Matchs, Ligues, Suivis et Plus\n- Disponible en francais et en anglais\n\nQue vous soyez fan occasionnel ou passionne de stats, FootAlert vous aide a ne rien manquer du football en direct."
+    }
+  },
+  "google": {
+    "en_US": {
+      "title": "FootAlert: Soccer Live Scores",
+      "short_description": "Live football scores, player stats, fixtures, standings, and match alerts.",
+      "full_description": "FootAlert is your all-in-one football companion for live scores, fixtures, standings, and player insights.\n\nFollow matches in real time:\n- Live soccer scores and match status (live, upcoming, finished)\n- Fixtures by date and competition\n- Fast updates with match context and key events\n\nTrack what matters to you:\n- Follow teams and players without creating an account\n- Personalized match alerts for goals, kick-off, and match end\n- One-tap access to your followed entities\n\nGo deeper on players and competitions:\n- Player profile, recent matches, season stats, and career view\n- League catalog with standings and statistics\n- Team and player trend discovery\n\nBuilt for speed and clarity:\n- Offline cache to keep recent data available\n- Clean navigation across Matches, Competitions, Follows, and More\n- French and English support\n\nWhether you are a casual fan or a stats-focused supporter, FootAlert helps you stay close to every game with reliable live football updates."
+    },
+    "fr_FR": {
+      "title": "FootAlert: Scores Foot Live",
+      "short_description": "Scores foot en direct, stats joueurs, classements, matchs et alertes.",
+      "full_description": "FootAlert est votre appli foot tout-en-un pour les scores en direct, calendriers, classements et statistiques joueurs.\n\nSuivez les matchs en temps reel:\n- Scores foot live et statut du match (direct, a venir, termine)\n- Calendrier par date et competition\n- Mises a jour rapides avec contexte du match\n\nSuivez ce qui vous interesse:\n- Suivi des equipes et joueurs sans creation de compte\n- Alertes match personnalisees (buts, debut, fin)\n- Acces rapide a vos suivis\n\nAllez plus loin dans les donnees:\n- Fiche joueur, matchs recents, stats saison et carriere\n- Catalogue des ligues avec classements et statistiques\n- Decouverte des tendances equipes et joueurs\n\nConcue pour la performance:\n- Cache hors ligne pour consulter les dernieres donnees\n- Navigation claire entre Matchs, Ligues, Suivis et Plus\n- Disponible en francais et en anglais\n\nQue vous soyez fan occasionnel ou passionne de stats, FootAlert vous aide a ne rien manquer du football en direct."
+    }
+  }
+}

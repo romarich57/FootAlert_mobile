@@ -16,9 +16,82 @@ import type {
 
 type PlayerSearchStat = NonNullable<FollowsApiPlayerSearchDto['statistics']>[number];
 type PlayerSeasonStat = NonNullable<FollowsApiPlayerSeasonDto['statistics']>[number];
+type PlayerComparableStat = {
+  league?: { season?: number };
+  games?: { minutes?: number; appearences?: number; position?: string };
+  goals?: { total?: number | null };
+};
 
 function toId(value: number | string | undefined): string {
-  return String(value ?? '');
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : '';
+}
+
+function normalizeText(value: string | undefined | null, fallback = '?'): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function normalizeImageUri(value: string | undefined | null): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : '';
+}
+
+function normalizeDateIso(value: string | undefined | null): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : '';
+}
+
+function normalizeNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function resolvePrimaryStat<T extends PlayerComparableStat>(
+  stats: T[] | undefined,
+  preferredSeason?: number,
+): T | undefined {
+  if (!stats || stats.length === 0) {
+    return undefined;
+  }
+
+  const seasonScoped = typeof preferredSeason === 'number'
+    ? stats.filter(item => item.league?.season === preferredSeason)
+    : stats;
+  const candidates = seasonScoped.length > 0 ? seasonScoped : stats;
+
+  return [...candidates].sort((a, b) => {
+    const aMinutes = a.games?.minutes ?? 0;
+    const bMinutes = b.games?.minutes ?? 0;
+    if (bMinutes !== aMinutes) {
+      return bMinutes - aMinutes;
+    }
+
+    const aAppearances = a.games?.appearences ?? 0;
+    const bAppearances = b.games?.appearences ?? 0;
+    if (bAppearances !== aAppearances) {
+      return bAppearances - aAppearances;
+    }
+
+    const aGoals = a.goals?.total ?? 0;
+    const bGoals = b.goals?.total ?? 0;
+    return bGoals - aGoals;
+  })[0];
 }
 
 function uniqueById<T>(items: T[], getId: (item: T) => string): T[] {
@@ -48,9 +121,9 @@ export function mapTeamSearchResults(
   const mapped = payload
     .map(item => ({
       teamId: toId(item.team?.id),
-      teamName: item.team?.name?.trim() ?? 'Unknown team',
-      teamLogo: item.team?.logo ?? '',
-      country: item.team?.country ?? '',
+      teamName: normalizeText(item.team?.name),
+      teamLogo: normalizeImageUri(item.team?.logo),
+      country: normalizeText(item.team?.country),
     }))
     .filter(item => Boolean(item.teamId));
 
@@ -60,7 +133,7 @@ export function mapTeamSearchResults(
 function resolvePlayerSearchStat(
   payload: FollowsApiPlayerSearchDto,
 ): PlayerSearchStat | undefined {
-  return payload.statistics?.[0];
+  return resolvePrimaryStat(payload.statistics, getCurrentSeasonYear());
 }
 
 export function mapPlayerSearchResults(
@@ -73,12 +146,12 @@ export function mapPlayerSearchResults(
 
       return {
         playerId: toId(item.player?.id),
-        playerName: item.player?.name?.trim() ?? 'Unknown player',
-        playerPhoto: item.player?.photo ?? '',
-        position: stat?.games?.position ?? '',
-        teamName: stat?.team?.name ?? '',
-        teamLogo: stat?.team?.logo ?? '',
-        leagueName: stat?.league?.name ?? '',
+        playerName: normalizeText(item.player?.name),
+        playerPhoto: normalizeImageUri(item.player?.photo),
+        position: normalizeText(stat?.games?.position),
+        teamName: normalizeText(stat?.team?.name),
+        teamLogo: normalizeImageUri(stat?.team?.logo),
+        leagueName: normalizeText(stat?.league?.name),
       };
     })
     .filter(item => Boolean(item.playerId));
@@ -102,42 +175,46 @@ export function mapTeamDetailsAndFixtureToFollowedCard(
 
   return {
     teamId: normalizedTeamId,
-    teamName: teamDetails?.team?.name ?? teamNameFromFixture ?? `Team #${normalizedTeamId}`,
-    teamLogo: teamDetails?.team?.logo ?? teamLogoFromFixture ?? '',
+    teamName: normalizeText(teamDetails?.team?.name ?? teamNameFromFixture),
+    teamLogo: normalizeImageUri(teamDetails?.team?.logo ?? teamLogoFromFixture),
     nextMatch: nextFixture?.fixture?.id
       ? {
           fixtureId: toId(nextFixture.fixture.id),
-          opponentTeamName: opponentTeam?.name ?? '',
-          opponentTeamLogo: opponentTeam?.logo ?? '',
-          startDate: nextFixture.fixture.date ?? '',
+          opponentTeamName: normalizeText(opponentTeam?.name),
+          opponentTeamLogo: normalizeImageUri(opponentTeam?.logo),
+          startDate: normalizeDateIso(nextFixture.fixture.date),
         }
       : null,
   };
 }
 
-function resolvePlayerSeasonStat(payload: FollowsApiPlayerSeasonDto):
+function resolvePlayerSeasonStat(
+  payload: FollowsApiPlayerSeasonDto,
+  season?: number,
+):
   | PlayerSeasonStat
   | undefined {
-  return payload.statistics?.[0];
+  return resolvePrimaryStat(payload.statistics, season);
 }
 
 export function mapPlayerSeasonToFollowedCard(
   playerId: string,
   payload: FollowsApiPlayerSeasonDto | null,
+  season?: number,
 ): FollowedPlayerCard {
   const normalizedPlayerId = toId(playerId);
-  const stat = payload ? resolvePlayerSeasonStat(payload) : undefined;
+  const stat = payload ? resolvePlayerSeasonStat(payload, season) : undefined;
 
   return {
     playerId: normalizedPlayerId,
-    playerName: payload?.player?.name ?? `Player #${normalizedPlayerId}`,
-    playerPhoto: payload?.player?.photo ?? '',
-    position: stat?.games?.position ?? '',
-    teamName: stat?.team?.name ?? '',
-    teamLogo: stat?.team?.logo ?? '',
-    leagueName: stat?.league?.name ?? '',
-    goals: stat?.goals?.total ?? 0,
-    assists: stat?.goals?.assists ?? 0,
+    playerName: normalizeText(payload?.player?.name),
+    playerPhoto: normalizeImageUri(payload?.player?.photo),
+    position: normalizeText(stat?.games?.position),
+    teamName: normalizeText(stat?.team?.name),
+    teamLogo: normalizeImageUri(stat?.team?.logo),
+    leagueName: normalizeText(stat?.league?.name),
+    goals: normalizeNumber(stat?.goals?.total),
+    assists: normalizeNumber(stat?.goals?.assists),
   };
 }
 
@@ -146,13 +223,13 @@ export function mapTrendingTeamsFromStandings(
   limit: number,
 ): TrendTeamItem[] {
   const collected = payload.flatMap(leagueItem => {
-    const leagueName = leagueItem.league?.name ?? '';
+    const leagueName = normalizeText(leagueItem.league?.name);
     const standing = leagueItem.league?.standings?.[0] ?? [];
 
     return standing.map(item => ({
       teamId: toId(item.team?.id),
-      teamName: item.team?.name ?? 'Unknown team',
-      teamLogo: item.team?.logo ?? '',
+      teamName: normalizeText(item.team?.name),
+      teamLogo: normalizeImageUri(item.team?.logo),
       leagueName,
     }));
   });
@@ -168,11 +245,11 @@ export function mapTrendingPlayersFromTopScorers(
 ): TrendPlayerItem[] {
   const mapped = payload.map(item => ({
     playerId: toId(item.player?.id),
-    playerName: item.player?.name ?? 'Unknown player',
-    playerPhoto: item.player?.photo ?? '',
-    position: item.statistics?.[0]?.games?.position ?? '',
-    teamName: item.statistics?.[0]?.team?.name ?? '',
-    teamLogo: item.statistics?.[0]?.team?.logo ?? '',
+    playerName: normalizeText(item.player?.name),
+    playerPhoto: normalizeImageUri(item.player?.photo),
+    position: normalizeText(item.statistics?.[0]?.games?.position),
+    teamName: normalizeText(item.statistics?.[0]?.team?.name),
+    teamLogo: normalizeImageUri(item.statistics?.[0]?.team?.logo),
   }));
 
   return uniqueById(mapped, item => item.playerId)

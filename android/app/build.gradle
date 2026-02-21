@@ -61,6 +61,14 @@ react {
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 def enableProguardInReleaseBuilds = false
+def requestedTasks = gradle.startParameter.taskNames.collect { it.toLowerCase() }
+def isReleaseTaskRequested = requestedTasks.any { it.contains('release') }
+def releaseStoreFile = project.findProperty('FOOTALERT_UPLOAD_STORE_FILE') ?: System.getenv('FOOTALERT_UPLOAD_STORE_FILE')
+def releaseStorePassword = project.findProperty('FOOTALERT_UPLOAD_STORE_PASSWORD') ?: System.getenv('FOOTALERT_UPLOAD_STORE_PASSWORD')
+def releaseKeyAlias = project.findProperty('FOOTALERT_UPLOAD_KEY_ALIAS') ?: System.getenv('FOOTALERT_UPLOAD_KEY_ALIAS')
+def releaseKeyPassword = project.findProperty('FOOTALERT_UPLOAD_KEY_PASSWORD') ?: System.getenv('FOOTALERT_UPLOAD_KEY_PASSWORD')
+def hasReleaseSigningConfig = [releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword]
+    .every { value -> value != null && value.toString().trim() }
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -80,9 +88,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.mobile_foot"
+    namespace "com.footalert.app"
     defaultConfig {
-        applicationId "com.mobile_foot"
+        applicationId "com.footalert.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -95,15 +103,28 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (hasReleaseSigningConfig) {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (isReleaseTaskRequested && !hasReleaseSigningConfig) {
+                throw new GradleException(
+                        'Release signing is not configured. Set FOOTALERT_UPLOAD_STORE_FILE, FOOTALERT_UPLOAD_STORE_PASSWORD, FOOTALERT_UPLOAD_KEY_ALIAS, and FOOTALERT_UPLOAD_KEY_PASSWORD via Gradle properties or CI environment variables.',
+                )
+            }
+            if (hasReleaseSigningConfig) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

@@ -21,12 +21,12 @@ describe('useMatchesQuery retry strategy', () => {
     expect(shouldRetry).toBe(false);
   });
 
-  it('does not retry when API key is missing', () => {
+  it('retries unknown runtime errors before max attempts', () => {
     const shouldRetry = shouldRetryMatchesQuery(
       0,
-      new Error('Missing API_FOOTBALL_KEY in environment variables'),
+      new Error('Unexpected runtime failure'),
     );
-    expect(shouldRetry).toBe(false);
+    expect(shouldRetry).toBe(true);
   });
 
   it('uses a 60s stale time budget', () => {
