@@ -40,16 +40,19 @@ jobs:
     needs: bff-quality
     environment: staging
     steps:
-      - name: Trigger staging deployment
-        env:
-          BFF_STAGING_DEPLOY_HOOK_URL: ${{ secrets.BFF_STAGING_DEPLOY_HOOK_URL }}
-        run: |
-          set -euo pipefail
-          if [ -z "${BFF_STAGING_DEPLOY_HOOK_URL:-}" ]; then
-            echo "Missing required secret: BFF_STAGING_DEPLOY_HOOK_URL"
-            exit 1
-          fi
-          curl -fsSL -X POST "$BFF_STAGING_DEPLOY_HOOK_URL"
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_SSH_HOST }}
+          username: ${{ secrets.VPS_SSH_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd ~/foot_mobile/FootAlert_mobile
+            git pull origin main
+            cd footalert-bff
+            npm install
+            npm run build --if-present
+            pm2 restart footalert-bff
 
       - name: Wait for staging healthcheck
         env:
