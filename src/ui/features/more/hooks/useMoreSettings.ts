@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
+import { Linking } from 'react-native';
 
+import { appEnv } from '@data/config/env';
 import { getAppVersionLabel } from '@data/config/appMeta';
 import {
   getCurrencyByCode,
@@ -12,6 +14,8 @@ import {
   openNotificationsSettings,
   requestNotificationsPermission,
 } from '@data/permissions/notificationsPermission';
+import { openStoreReviewPage } from '@data/reviews/inAppReview';
+import { incrementPositiveEventCount } from '@data/storage/reviewPromptStorage';
 import { useAppPreferences } from '@ui/app/providers/AppPreferencesProvider';
 import type {
   LanguageOption,
@@ -112,6 +116,7 @@ export function useMoreSettings() {
         const requestStatus = await requestNotificationsPermission();
         if (isNotificationsPermissionGranted(requestStatus)) {
           await setNotificationsEnabled(true);
+          incrementPositiveEventCount().catch(() => undefined);
           return;
         }
 
@@ -134,6 +139,44 @@ export function useMoreSettings() {
     await refreshNotificationsFromSystem();
   }, [refreshNotificationsFromSystem]);
 
+  const openExternalUrl = useCallback(async (url?: string) => {
+    if (!url) {
+      return false;
+    }
+
+    const canOpen = await Linking.canOpenURL(url);
+    if (!canOpen) {
+      return false;
+    }
+
+    await Linking.openURL(url);
+    return true;
+  }, []);
+
+  const openPrivacyPolicy = useCallback(async () => {
+    return openExternalUrl(appEnv.privacyPolicyUrl);
+  }, [openExternalUrl]);
+
+  const openSupport = useCallback(async () => {
+    return openExternalUrl(appEnv.supportUrl);
+  }, [openExternalUrl]);
+
+  const openFollowUs = useCallback(async () => {
+    return openExternalUrl(appEnv.followUsUrl);
+  }, [openExternalUrl]);
+
+  const openRateApp = useCallback(async () => {
+    return openStoreReviewPage({
+      appStoreUrl: appEnv.appStoreUrl,
+      playStoreUrl: appEnv.playStoreUrl,
+    });
+  }, []);
+
+  const hasPrivacyPolicyUrl = Boolean(appEnv.privacyPolicyUrl);
+  const hasSupportUrl = Boolean(appEnv.supportUrl);
+  const hasFollowUsUrl = Boolean(appEnv.followUsUrl);
+  const hasRateAppUrl = Boolean(appEnv.appStoreUrl || appEnv.playStoreUrl);
+
   return {
     preferences,
     isHydrated,
@@ -145,12 +188,20 @@ export function useMoreSettings() {
     measurementOptions,
     isUpdatingNotifications,
     permissionDenied,
+    hasPrivacyPolicyUrl,
+    hasSupportUrl,
+    hasFollowUsUrl,
+    hasRateAppUrl,
     setPermissionDenied,
     handleThemeChange,
     handleLanguageChange,
     handleCurrencyChange,
     handleMeasurementChange,
     handleNotificationsChange,
+    openPrivacyPolicy,
+    openSupport,
+    openFollowUs,
+    openRateApp,
     openSystemNotificationSettings,
   };
 }

@@ -262,6 +262,7 @@ export const en = {
       followUs: 'Follow us',
       tipsSupport: 'Tips & support',
       privacyPolicy: 'Privacy policy',
+      rateApp: 'Rate app',
       appVersion: 'App version',
     },
     values: {

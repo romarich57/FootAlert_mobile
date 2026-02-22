@@ -180,6 +180,7 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
             const icons = [];
             if (typeof playerStats.goals === 'number' && playerStats.goals > 0) {
                 icons.push({
+                    key: 'goals',
                     icon: 'soccer',
                     text: `${playerStats.goals} But${playerStats.goals > 1 ? 's' : ''}`,
                     color: colors.primary,
@@ -187,18 +188,24 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
             }
             if (typeof playerStats.assists === 'number' && playerStats.assists > 0) {
                 icons.push({
+                    key: 'assists',
                     icon: 'shoe-cleat',
                     text: `${playerStats.assists} Passe${playerStats.assists > 1 ? 's' : ''}`,
                     color: colors.primary,
                 });
             }
             if (typeof playerStats.yellowCards === 'number' && playerStats.yellowCards > 0) {
-                icons.push({ icon: 'card', text: 'Carton Jaune', color: '#FFD700' });
+                icons.push({ key: 'yellow-cards', icon: 'card', text: 'Carton Jaune', color: '#FFD700' });
             }
             if (typeof playerStats.redCards === 'number' && playerStats.redCards > 0) {
-                icons.push({ icon: 'card', text: 'Carton Rouge', color: colors.danger });
+                icons.push({ key: 'red-cards', icon: 'card', text: 'Carton Rouge', color: colors.danger });
             }
-            icons.push({ icon: 'clock-outline', text: `${toDisplayValue(playerStats.minutes)}'`, color: colors.textMuted });
+            icons.push({
+                key: 'minutes',
+                icon: 'clock-outline',
+                text: `${toDisplayValue(playerStats.minutes)}'`,
+                color: colors.textMuted,
+            });
 
             return (
                 <Pressable
@@ -231,8 +238,8 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
 
                     <View style={styles.statsContainer}>
                         <View style={styles.badgesRow}>
-                            {icons.map((itemBadge, idx) => (
-                                <View key={idx} style={styles.badge}>
+                            {icons.map(itemBadge => (
+                                <View key={itemBadge.key} style={styles.badge}>
                                     <MaterialCommunityIcons name={itemBadge.icon} size={16} color={itemBadge.color} />
                                     <Text style={styles.badgeText}>{itemBadge.text}</Text>
                                 </View>

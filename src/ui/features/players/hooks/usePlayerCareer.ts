@@ -1,116 +1,148 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchPlayerDetails, fetchPlayerSeasons } from '@data/endpoints/playersApi';
+
+import { appEnv } from '@data/config/env';
+import {
+  fetchPlayerCareerAggregate,
+  fetchPlayerDetails,
+  fetchPlayerSeasons,
+} from '@data/endpoints/playersApi';
 import { mapPlayerCareerSeasons } from '@data/mappers/playersMapper';
 import type { PlayerCareerSeason, PlayerCareerTeam } from '@ui/features/players/types/players.types';
 
 export const PLAYER_CAREER_SEASONS_QUERY_KEY = 'player_career_seasons';
 export const PLAYER_CAREER_QUERY_KEY = 'player_career';
+export const PLAYER_CAREER_AGGREGATE_QUERY_KEY = 'player_career_aggregate';
 
 function sumNullable(a: number | null, b: number | null): number | null {
-    if (a === null && b === null) {
-        return null;
+  if (a === null && b === null) {
+    return null;
+  }
+
+  return (a ?? 0) + (b ?? 0);
+}
+
+function aggregateLegacyCareer(
+  allSeasons: PlayerCareerSeason[],
+): { seasons: PlayerCareerSeason[]; teams: PlayerCareerTeam[] } {
+  const uniqueSeasons = Array.from(
+    new Map(
+      allSeasons.map((item, index) => {
+        const seasonKey = item.season ?? `unknown-season-${index}`;
+        const teamKey = item.team.id ?? item.team.name ?? `unknown-team-${index}`;
+        return [`${seasonKey}-${teamKey}`, item] as const;
+      }),
+    ).values(),
+  );
+
+  uniqueSeasons.sort((a, b) => {
+    const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
+    const bYear = b.season ? Number.parseInt(b.season, 10) : Number.NEGATIVE_INFINITY;
+    return bYear - aYear;
+  });
+
+  const teamMap = new Map<string, PlayerCareerTeam>();
+  uniqueSeasons.forEach(season => {
+    const teamId = season.team.id ?? '';
+    if (!teamId) {
+      return;
     }
 
-    return (a ?? 0) + (b ?? 0);
+    if (!teamMap.has(teamId)) {
+      teamMap.set(teamId, {
+        team: season.team,
+        period: null,
+        matches: null,
+        goals: null,
+        assists: null,
+      });
+    }
+
+    const team = teamMap.get(teamId);
+    if (!team) {
+      return;
+    }
+
+    team.matches = sumNullable(team.matches, season.matches);
+    team.goals = sumNullable(team.goals, season.goals);
+    team.assists = sumNullable(team.assists, season.assists);
+
+    const year = season.season ? Number.parseInt(season.season, 10) : Number.NaN;
+    if (!Number.isNaN(year)) {
+      if (!team.period) {
+        team.period = `${year}`;
+      } else {
+        const range = team.period.split(' - ').map(Number);
+        const min = Math.min(...range, year);
+        const max = Math.max(...range, year);
+        team.period = min === max ? `${min}` : `${min} - ${max}`;
+      }
+    }
+  });
+
+  return {
+    seasons: uniqueSeasons,
+    teams: Array.from(teamMap.values()),
+  };
 }
 
 export function usePlayerCareer(playerId: string, enabled: boolean = true) {
-    const seasonsListQuery = useQuery({
-        queryKey: [PLAYER_CAREER_SEASONS_QUERY_KEY, playerId],
-        queryFn: async ({ signal }) => {
-            return fetchPlayerSeasons(playerId, signal);
-        },
-        enabled: enabled && !!playerId,
-        staleTime: 60 * 60 * 1000,
-    });
+  const useAggregateEndpoint = appEnv.mobileEnableBffPlayerAggregates;
 
-    const careerQuery = useQuery({
-        queryKey: [PLAYER_CAREER_QUERY_KEY, playerId, seasonsListQuery.data],
-        queryFn: async ({ signal }) => {
-            const seasons = seasonsListQuery.data || [];
-            // Fetch details for all seasons to aggregate career stats
-            // Note: In real app, consider pagination or batching to avoid API rate limits
-            // For this implementation, we map over the seasons to gather career data
-            const promises = seasons.map(s => fetchPlayerDetails(playerId, s, signal));
-            const results = await Promise.all(promises);
+  const seasonsListQuery = useQuery({
+    queryKey: [PLAYER_CAREER_SEASONS_QUERY_KEY, playerId, 'legacy'],
+    queryFn: async ({ signal }) => fetchPlayerSeasons(playerId, signal),
+    enabled: enabled && !useAggregateEndpoint && !!playerId,
+    staleTime: 60 * 60 * 1000,
+  });
 
-            let allSeasons: PlayerCareerSeason[] = [];
+  const legacyCareerQuery = useQuery({
+    queryKey: [PLAYER_CAREER_QUERY_KEY, playerId, seasonsListQuery.data, 'legacy'],
+    queryFn: async ({ signal }) => {
+      const seasons = seasonsListQuery.data ?? [];
+      const detailsBySeason = await Promise.all(
+        seasons.map(season => fetchPlayerDetails(playerId, season, signal)),
+      );
 
-            results.forEach(dto => {
-                if (dto) {
-                    allSeasons = allSeasons.concat(mapPlayerCareerSeasons(dto));
-                }
-            });
+      const allSeasons = detailsBySeason.flatMap(details =>
+        details ? mapPlayerCareerSeasons(details) : [],
+      );
 
-            // Deduplicate season/team entries while preserving items with partial identifiers.
-            const uniqueSeasons = Array.from(
-                new Map(
-                    allSeasons.map((item, index) => {
-                        const seasonKey = item.season ?? `unknown-season-${index}`;
-                        const teamKey = item.team.id ?? item.team.name ?? `unknown-team-${index}`;
-                        return [`${seasonKey}-${teamKey}`, item] as const;
-                    }),
-                ).values(),
-            );
-            uniqueSeasons.sort((a, b) => {
-                const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
-                const bYear = b.season ? Number.parseInt(b.season, 10) : Number.NEGATIVE_INFINITY;
-                return bYear - aYear;
-            });
+      return aggregateLegacyCareer(allSeasons);
+    },
+    enabled:
+      enabled &&
+      !useAggregateEndpoint &&
+      !!playerId &&
+      seasonsListQuery.isSuccess,
+    staleTime: 60 * 60 * 1000,
+  });
 
-            // Aggregate teams
-            const teamMap = new Map<string, PlayerCareerTeam>();
-            uniqueSeasons.forEach(s => {
-                const teamId = s.team.id ?? '';
-                if (!teamId) {
-                    return;
-                }
+  const aggregateCareerQuery = useQuery({
+    queryKey: [PLAYER_CAREER_AGGREGATE_QUERY_KEY, playerId],
+    queryFn: async ({ signal }) => fetchPlayerCareerAggregate(playerId, signal),
+    enabled: enabled && useAggregateEndpoint && !!playerId,
+    staleTime: 60 * 60 * 1000,
+  });
 
-                if (!teamMap.has(teamId)) {
-                    teamMap.set(teamId, {
-                        team: s.team,
-                        period: null,
-                        matches: null,
-                        goals: null,
-                        assists: null,
-                    });
-                }
-                const t = teamMap.get(teamId)!;
-                t.matches = sumNullable(t.matches, s.matches);
-                t.goals = sumNullable(t.goals, s.goals);
-                t.assists = sumNullable(t.assists, s.assists);
+  const activeCareerQuery = useAggregateEndpoint ? aggregateCareerQuery : legacyCareerQuery;
 
-                // basic period calculation snippet 
-                const year = s.season ? Number.parseInt(s.season, 10) : Number.NaN;
-                if (!isNaN(year)) {
-                    if (!t.period) {
-                        t.period = `${year}`;
-                    } else {
-                        const range = t.period.split(' - ').map(Number);
-                        const min = Math.min(...range, year);
-                        const max = Math.max(...range, year);
-                        t.period = min === max ? `${min}` : `${min} - ${max}`;
-                    }
-                }
-            });
+  return {
+    careerSeasons: activeCareerQuery.data?.seasons ?? [],
+    careerTeams: activeCareerQuery.data?.teams ?? [],
+    isLoading: useAggregateEndpoint
+      ? aggregateCareerQuery.isLoading
+      : seasonsListQuery.isLoading || legacyCareerQuery.isLoading,
+    isError: useAggregateEndpoint
+      ? aggregateCareerQuery.isError
+      : seasonsListQuery.isError || legacyCareerQuery.isError,
+    refetch: () => {
+      if (useAggregateEndpoint) {
+        aggregateCareerQuery.refetch();
+        return;
+      }
 
-            return {
-                seasons: uniqueSeasons,
-                teams: Array.from(teamMap.values()),
-            };
-        },
-        enabled: enabled && !!playerId && seasonsListQuery.isSuccess,
-        staleTime: 60 * 60 * 1000,
-    });
-
-    return {
-        careerSeasons: careerQuery.data?.seasons ?? [],
-        careerTeams: careerQuery.data?.teams ?? [],
-        isLoading: seasonsListQuery.isLoading || careerQuery.isLoading,
-        isError: seasonsListQuery.isError || careerQuery.isError,
-        refetch: () => {
-            seasonsListQuery.refetch();
-            careerQuery.refetch();
-        },
-    };
+      seasonsListQuery.refetch();
+      legacyCareerQuery.refetch();
+    },
+  };
 }

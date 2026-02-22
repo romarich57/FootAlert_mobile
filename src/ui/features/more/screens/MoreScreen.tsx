@@ -2,19 +2,18 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import {
   CurrencyPickerModal,
-  DisabledFeatureRow,
   SettingsRow,
   SettingsSection,
   SettingsSelectionModal,
@@ -28,15 +27,28 @@ import type {
 } from '@ui/features/more/types/more.types';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
+type MoreFeedItem =
+  | {
+      type: 'preferences';
+      key: 'preferences';
+    }
+  | {
+      type: 'warning';
+      key: 'warning';
+    }
+  | {
+      type: 'information';
+      key: 'information';
+    };
+
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
-    contentContainer: {
+    listContent: {
       gap: 22,
-      paddingTop: 8,
       paddingBottom: 26,
     },
     title: {
@@ -98,12 +110,20 @@ export function MoreScreen() {
     measurementOptions,
     isUpdatingNotifications,
     permissionDenied,
+    hasPrivacyPolicyUrl,
+    hasSupportUrl,
+    hasFollowUsUrl,
+    hasRateAppUrl,
     setPermissionDenied,
     handleThemeChange,
     handleLanguageChange,
     handleCurrencyChange,
     handleMeasurementChange,
     handleNotificationsChange,
+    openPrivacyPolicy,
+    openSupport,
+    openFollowUs,
+    openRateApp,
     openSystemNotificationSettings,
   } = useMoreSettings();
 
@@ -176,6 +196,171 @@ export function MoreScreen() {
     [handleCurrencyChange],
   );
 
+  const feedItems = useMemo<MoreFeedItem[]>(() => {
+    const items: MoreFeedItem[] = [{ type: 'preferences', key: 'preferences' }];
+    if (permissionDenied) {
+      items.push({ type: 'warning', key: 'warning' });
+    }
+    items.push({ type: 'information', key: 'information' });
+    return items;
+  }, [permissionDenied]);
+
+  const renderItem = useMemo<ListRenderItem<MoreFeedItem>>(
+    () =>
+      ({ item }) => {
+        if (item.type === 'preferences') {
+          return (
+            <SettingsSection title={t('more.sections.preferences')}>
+              <SettingsRow
+                iconName="theme-light-dark"
+                label={t('more.rows.theme')}
+                value={themeValue}
+                onPress={() => setOpenedModal('theme')}
+                accessibilityLabel={t('more.rows.theme')}
+              />
+              <SettingsRow
+                iconName="translate"
+                label={t('more.rows.language')}
+                value={languageValue}
+                onPress={() => setOpenedModal('language')}
+                accessibilityLabel={t('more.rows.language')}
+              />
+              <SettingsRow
+                iconName="cash-multiple"
+                label={t('more.rows.currency')}
+                value={currencyValue}
+                onPress={() => setOpenedModal('currency')}
+                accessibilityLabel={t('more.rows.currency')}
+              />
+              <SettingsRow
+                iconName="ruler"
+                label={t('more.rows.measurement')}
+                value={measurementValue}
+                onPress={() => setOpenedModal('measurement')}
+                accessibilityLabel={t('more.rows.measurement')}
+              />
+              <SettingsRow
+                iconName="bell-ring-outline"
+                label={t('more.rows.notifications')}
+                value={notificationsValue}
+                isLast
+                accessibilityLabel={t('more.rows.notifications')}
+                rightElement={(
+                  <Switch
+                    accessibilityRole="switch"
+                    accessibilityLabel={t('more.rows.notifications')}
+                    value={preferences.notificationsEnabled}
+                    onValueChange={value => {
+                      handleNotificationsChange(value).catch(() => undefined);
+                    }}
+                    disabled={isUpdatingNotifications}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor={preferences.notificationsEnabled ? colors.primaryContrast : colors.textMuted}
+                  />
+                )}
+                showChevron={false}
+              />
+            </SettingsSection>
+          );
+        }
+
+        if (item.type === 'warning') {
+          return (
+            <View style={styles.warningCard}>
+              <Text style={styles.warningText}>{t('more.notifications.permissionDenied')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('more.notifications.openSettings')}
+                onPress={() => {
+                  setPermissionDenied(false);
+                  openSystemNotificationSettings().catch(() => undefined);
+                }}
+              >
+                <Text style={styles.warningActionText}>{t('more.notifications.openSettings')}</Text>
+              </Pressable>
+            </View>
+          );
+        }
+
+        return (
+          <SettingsSection title={t('more.sections.information')}>
+            <SettingsRow
+              iconName="account-group-outline"
+              label={t('more.rows.followUs')}
+              onPress={() => {
+                openFollowUs().catch(() => undefined);
+              }}
+              disabled={!hasFollowUsUrl}
+              accessibilityLabel={t('more.rows.followUs')}
+            />
+            <SettingsRow
+              iconName="lifebuoy"
+              label={t('more.rows.tipsSupport')}
+              onPress={() => {
+                openSupport().catch(() => undefined);
+              }}
+              disabled={!hasSupportUrl}
+              accessibilityLabel={t('more.rows.tipsSupport')}
+            />
+            <SettingsRow
+              iconName="shield-lock-outline"
+              label={t('more.rows.privacyPolicy')}
+              onPress={() => {
+                openPrivacyPolicy().catch(() => undefined);
+              }}
+              disabled={!hasPrivacyPolicyUrl}
+              accessibilityLabel={t('more.rows.privacyPolicy')}
+            />
+            <SettingsRow
+              iconName="star-circle-outline"
+              label={t('more.rows.rateApp')}
+              onPress={() => {
+                openRateApp().catch(() => undefined);
+              }}
+              disabled={!hasRateAppUrl}
+              accessibilityLabel={t('more.rows.rateApp')}
+            />
+            <SettingsRow
+              iconName="information-outline"
+              label={t('more.rows.appVersion')}
+              value={appVersion}
+              isLast
+              showChevron={false}
+            />
+          </SettingsSection>
+        );
+      },
+    [
+      appVersion,
+      colors.border,
+      colors.primary,
+      colors.primaryContrast,
+      colors.textMuted,
+      currencyValue,
+      handleNotificationsChange,
+      hasFollowUsUrl,
+      hasPrivacyPolicyUrl,
+      hasRateAppUrl,
+      hasSupportUrl,
+      isUpdatingNotifications,
+      languageValue,
+      measurementValue,
+      notificationsValue,
+      openFollowUs,
+      openPrivacyPolicy,
+      openRateApp,
+      openSupport,
+      openSystemNotificationSettings,
+      preferences.notificationsEnabled,
+      setPermissionDenied,
+      styles.warningActionText,
+      styles.warningCard,
+      styles.warningText,
+      t,
+      themeValue,
+    ],
+  );
+
   if (!isHydrated) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -189,101 +374,13 @@ export function MoreScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.title}>{t('more.title')}</Text>
-      <ScrollView contentContainerStyle={styles.contentContainer}>
-        <SettingsSection title={t('more.sections.preferences')}>
-          <SettingsRow
-            iconName="theme-light-dark"
-            label={t('more.rows.theme')}
-            value={themeValue}
-            onPress={() => setOpenedModal('theme')}
-            accessibilityLabel={t('more.rows.theme')}
-          />
-          <SettingsRow
-            iconName="translate"
-            label={t('more.rows.language')}
-            value={languageValue}
-            onPress={() => setOpenedModal('language')}
-            accessibilityLabel={t('more.rows.language')}
-          />
-          <SettingsRow
-            iconName="cash-multiple"
-            label={t('more.rows.currency')}
-            value={currencyValue}
-            onPress={() => setOpenedModal('currency')}
-            accessibilityLabel={t('more.rows.currency')}
-          />
-          <SettingsRow
-            iconName="ruler"
-            label={t('more.rows.measurement')}
-            value={measurementValue}
-            onPress={() => setOpenedModal('measurement')}
-            accessibilityLabel={t('more.rows.measurement')}
-          />
-          <SettingsRow
-            iconName="bell-ring-outline"
-            label={t('more.rows.notifications')}
-            value={notificationsValue}
-            isLast
-            accessibilityLabel={t('more.rows.notifications')}
-            rightElement={(
-              <Switch
-                accessibilityRole="switch"
-                accessibilityLabel={t('more.rows.notifications')}
-                value={preferences.notificationsEnabled}
-                onValueChange={value => {
-                  handleNotificationsChange(value).catch(() => undefined);
-                }}
-                disabled={isUpdatingNotifications}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={preferences.notificationsEnabled ? colors.primaryContrast : colors.textMuted}
-              />
-            )}
-            showChevron={false}
-          />
-        </SettingsSection>
-
-        {permissionDenied ? (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningText}>{t('more.notifications.permissionDenied')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('more.notifications.openSettings')}
-              onPress={() => {
-                setPermissionDenied(false);
-                openSystemNotificationSettings().catch(() => undefined);
-              }}
-            >
-              <Text style={styles.warningActionText}>{t('more.notifications.openSettings')}</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        <SettingsSection title={t('more.sections.information')}>
-          <DisabledFeatureRow
-            iconName="account-group-outline"
-            label={t('more.rows.followUs')}
-            badgeLabel={t('more.badges.comingSoon')}
-          />
-          <DisabledFeatureRow
-            iconName="lifebuoy"
-            label={t('more.rows.tipsSupport')}
-            badgeLabel={t('more.badges.comingSoon')}
-          />
-          <DisabledFeatureRow
-            iconName="shield-lock-outline"
-            label={t('more.rows.privacyPolicy')}
-            badgeLabel={t('more.badges.comingSoon')}
-          />
-          <SettingsRow
-            iconName="information-outline"
-            label={t('more.rows.appVersion')}
-            value={appVersion}
-            isLast
-            showChevron={false}
-          />
-        </SettingsSection>
-      </ScrollView>
+      <FlashList
+        data={feedItems}
+        keyExtractor={item => item.key}
+        renderItem={renderItem}
+        ListHeaderComponent={<Text style={styles.title}>{t('more.title')}</Text>}
+        contentContainerStyle={styles.listContent}
+      />
 
       <SettingsSelectionModal
         visible={openedModal === 'theme'}

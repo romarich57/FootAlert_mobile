@@ -263,6 +263,7 @@ export const fr = {
       followUs: 'Suivez-nous',
       tipsSupport: 'Astuces et assistance',
       privacyPolicy: 'Politique de confidentialité',
+      rateApp: "Noter l'application",
       appVersion: "Version de l'application",
     },
     values: {

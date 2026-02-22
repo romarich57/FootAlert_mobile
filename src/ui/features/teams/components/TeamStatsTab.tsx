@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { FlashList } from '@shopify/flash-list';
+import { memo, useCallback, useMemo } from 'react';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -170,12 +170,61 @@ function renderPlayerMeta(player: TeamTopPlayer): string {
   return `${goals} G · ${assists} A`;
 }
 
+type TeamTopPlayerRowProps = {
+  player: TeamTopPlayer;
+  onPressPlayer: (playerId: string) => void;
+  ratingLabel: string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const TeamTopPlayerRow = memo(function TeamTopPlayerRow({
+  player,
+  onPressPlayer,
+  ratingLabel,
+  styles,
+}: TeamTopPlayerRowProps) {
+  return (
+    <Pressable
+      onPress={() => onPressPlayer(player.playerId)}
+      style={styles.playerCard}
+    >
+      <View style={styles.playerIdentity}>
+        <Text numberOfLines={1} style={styles.playerName}>
+          {toDisplayValue(player.name)}
+        </Text>
+        <Text style={styles.playerMeta}>{toDisplayValue(player.position)}</Text>
+      </View>
+
+      <View style={styles.playerRight}>
+        <Text style={styles.playerRightText}>{renderPlayerMeta(player)}</Text>
+        <Text style={styles.playerMeta}>
+          {ratingLabel}: {toDisplayValue(player.rating)}
+        </Text>
+      </View>
+    </Pressable>
+  );
+});
+
 export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer }: TeamStatsTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const goalBreakdown = useMemo(() => formatGoalBreakdown(data), [data]);
+  const topPlayers = useMemo(() => data?.topPlayers ?? [], [data?.topPlayers]);
+  const ratingLabel = t('teamDetails.labels.rating');
+
+  const renderTopPlayerItem = useCallback<ListRenderItem<TeamTopPlayer>>(
+    ({ item }) => (
+      <TeamTopPlayerRow
+        player={item}
+        onPressPlayer={onPressPlayer}
+        ratingLabel={ratingLabel}
+        styles={styles}
+      />
+    ),
+    [onPressPlayer, ratingLabel, styles],
+  );
 
   return (
     <View style={styles.container}>
@@ -240,28 +289,9 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
           <Text style={styles.playersTitle}>{t('teamDetails.stats.topPlayers')}</Text>
 
           <FlashList
-            data={data?.topPlayers ?? []}
+            data={topPlayers}
             keyExtractor={item => item.playerId}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => onPressPlayer(item.playerId)}
-                style={styles.playerCard}
-              >
-                <View style={styles.playerIdentity}>
-                  <Text numberOfLines={1} style={styles.playerName}>
-                    {toDisplayValue(item.name)}
-                  </Text>
-                  <Text style={styles.playerMeta}>{toDisplayValue(item.position)}</Text>
-                </View>
-
-                <View style={styles.playerRight}>
-                  <Text style={styles.playerRightText}>{renderPlayerMeta(item)}</Text>
-                  <Text style={styles.playerMeta}>
-                    {t('teamDetails.labels.rating')}: {toDisplayValue(item.rating)}
-                  </Text>
-                </View>
-              </Pressable>
-            )}
+            renderItem={renderTopPlayerItem}
             ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
           />
         </>

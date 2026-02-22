@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,10 +15,7 @@ import { PlayerMatchesTab } from '@ui/features/players/components/PlayerMatchesT
 import { PlayerStatsTab } from '@ui/features/players/components/PlayerStatsTab';
 import { PlayerCareerTab } from '@ui/features/players/components/PlayerCareerTab';
 
-import { usePlayerDetails } from '@ui/features/players/hooks/usePlayerDetails';
-import { usePlayerMatches } from '@ui/features/players/hooks/usePlayerMatches';
-import { usePlayerStats } from '@ui/features/players/hooks/usePlayerStats';
-import { usePlayerCareer } from '@ui/features/players/hooks/usePlayerCareer';
+import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
 
 type PlayerDetailsScreenRouteProp = RouteProp<RootStackParamList, 'PlayerDetails'>;
 type PlayerDetailsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PlayerDetails'>;
@@ -30,40 +27,25 @@ export function PlayerDetailsScreen() {
     const navigation = useNavigation<PlayerDetailsScreenNavigationProp>();
 
     const { playerId } = route.params;
-    const currentDate = new Date();
-    const currentSeason = currentDate.getUTCMonth() + 1 >= 7
-        ? currentDate.getUTCFullYear()
-        : currentDate.getUTCFullYear() - 1;
-
     const [activeTab, setActiveTab] = useState<PlayerTabType>('profil');
-    const isMatchesTabActive = activeTab === 'matchs';
-    const isStatsTabActive = activeTab === 'stats';
-    const isCareerTabActive = activeTab === 'carriere';
+    const screenModel = usePlayerDetailsScreenModel({ playerId, activeTab });
 
-    // Fetch core player details (needed for Header and Profile)
-    const {
-        profile,
-        characteristics,
-        seasonStats: basicSeasonStats,
-        isLoading: isProfileLoading,
-        isError: isProfileError
-    } = usePlayerDetails(playerId, currentSeason);
+    const handleBack = useCallback(() => {
+        navigation.goBack();
+    }, [navigation]);
+    const handleShare = useCallback(() => {
+        // TODO: Implement share logic.
+    }, []);
+    const handlePressMatch = useCallback((fixtureId: string) => {
+        navigation.navigate('MatchDetails', { matchId: fixtureId });
+    }, [navigation]);
 
-    // Fetch matches conditionally if tab is selected or preload
-    const { matches, isLoading: isMatchesLoading } = usePlayerMatches(
-        playerId,
-        profile?.team.id ?? '',
-        currentSeason,
-        isMatchesTabActive && Boolean(profile?.team.id)
+    const seasonText = useMemo(
+        () => `${screenModel.currentSeason}/${screenModel.currentSeason + 1}`,
+        [screenModel.currentSeason],
     );
 
-    // Fetch deep stats
-    const { stats, isLoading: isStatsLoading } = usePlayerStats(playerId, currentSeason, isStatsTabActive);
-
-    // Fetch career
-    const { careerSeasons, careerTeams, isLoading: isCareerLoading } = usePlayerCareer(playerId, isCareerTabActive);
-
-    if (isProfileLoading) {
+    if (screenModel.isProfileLoading) {
         return (
             <View style={[styles.center, { backgroundColor: colors.background }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -71,56 +53,61 @@ export function PlayerDetailsScreen() {
         );
     }
 
-    if (isProfileError || !profile) {
+    if (screenModel.isProfileError || !screenModel.profile) {
         return (
             <View style={[styles.center, { backgroundColor: colors.background }]}>
                 <Text style={{ color: colors.text }}>{t('playerDetails.states.loadError')}</Text>
             </View>
         );
     }
+    const profile = screenModel.profile;
 
-    const handleBack = () => navigation.goBack();
-    const handleShare = () => { /* Implement share logic */ };
-
-    const renderTabContent = () => {
-        switch (activeTab) {
-            case 'profil':
-                return (
-                    <PlayerProfileTab
-                        profile={profile}
-                        stats={basicSeasonStats}
-                        characteristics={characteristics}
-                    />
-                );
-            case 'matchs':
-                if (isMatchesLoading) return <ActivityIndicator style={styles.loader} color={colors.primary} />;
-                return (
-                    <PlayerMatchesTab
-                        matches={matches}
-                        onPressMatch={(fixtureId) => navigation.navigate('MatchDetails', { matchId: fixtureId })}
-                    />
-                );
-            case 'stats':
-                if (isStatsLoading || !stats) return <ActivityIndicator style={styles.loader} color={colors.primary} />;
-                return (
-                    <PlayerStatsTab
-                        stats={stats}
-                        leagueName={profile.league.name}
-                        seasonText={`${currentSeason}/${currentSeason + 1}`}
-                    />
-                );
-            case 'carriere':
-                if (isCareerLoading) return <ActivityIndicator style={styles.loader} color={colors.primary} />;
-                return (
-                    <PlayerCareerTab
-                        seasons={careerSeasons}
-                        teams={careerTeams}
-                    />
-                );
-            default:
-                return null;
-        }
-    };
+    let tabContent: React.ReactNode = null;
+    switch (activeTab) {
+        case 'profil':
+            tabContent = (
+                <PlayerProfileTab
+                    profile={profile}
+                    stats={screenModel.basicSeasonStats}
+                    characteristics={screenModel.characteristics}
+                />
+            );
+            break;
+        case 'matchs':
+            tabContent = screenModel.isMatchesLoading ? (
+                <ActivityIndicator style={styles.loader} color={colors.primary} />
+            ) : (
+                <PlayerMatchesTab
+                    matches={screenModel.matches}
+                    onPressMatch={handlePressMatch}
+                />
+            );
+            break;
+        case 'stats':
+            tabContent = screenModel.isStatsLoading || !screenModel.stats ? (
+                <ActivityIndicator style={styles.loader} color={colors.primary} />
+            ) : (
+                <PlayerStatsTab
+                    stats={screenModel.stats}
+                    leagueName={profile.league.name}
+                    seasonText={seasonText}
+                />
+            );
+            break;
+        case 'carriere':
+            tabContent = screenModel.isCareerLoading ? (
+                <ActivityIndicator style={styles.loader} color={colors.primary} />
+            ) : (
+                <PlayerCareerTab
+                    seasons={screenModel.careerSeasons}
+                    teams={screenModel.careerTeams}
+                />
+            );
+            break;
+        default:
+            tabContent = null;
+            break;
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -133,7 +120,7 @@ export function PlayerDetailsScreen() {
                 selectedTab={activeTab}
                 onChangeTab={setActiveTab}
             />
-            {renderTabContent()}
+            {tabContent}
         </View>
     );
 }

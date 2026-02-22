@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -243,6 +243,33 @@ function buildFeedItems(
   });
 }
 
+const SquadPlayerRow = memo(function SquadPlayerRow({
+  player,
+  yearsSuffixLabel,
+  styles,
+}: {
+  player: TeamSquadPlayer;
+  yearsSuffixLabel: string;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={styles.playerCard}>
+      <View style={styles.playerLeft}>
+        <Text style={styles.playerNumber}>{toDisplayNumber(player.number)}</Text>
+        <View style={styles.playerIdentity}>
+          <Text numberOfLines={1} style={styles.playerName}>
+            {toDisplayValue(player.name)}
+          </Text>
+          <Text style={styles.playerPosition}>{toDisplayValue(player.position)}</Text>
+        </View>
+      </View>
+      <Text style={styles.playerAge}>
+        {toDisplayNumber(player.age)} {yearsSuffixLabel}
+      </Text>
+    </View>
+  );
+});
+
 export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
@@ -266,31 +293,24 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
     () => buildFeedItems(data?.players ?? [], roleFilter, searchValue.trim(), roleLabels),
     [data?.players, roleFilter, roleLabels, searchValue],
   );
+  const keyExtractor = useCallback((item: SquadFeedItem) => item.key, []);
 
-  const renderItem: ListRenderItem<SquadFeedItem> = ({ item }) => {
-    if (item.type === 'header') {
-      return <Text style={styles.groupHeader}>{item.title}</Text>;
-    }
+  const renderItem = useCallback<ListRenderItem<SquadFeedItem>>(
+    ({ item }) => {
+      if (item.type === 'header') {
+        return <Text style={styles.groupHeader}>{item.title}</Text>;
+      }
 
-    const player = item.player;
-
-    return (
-      <View style={styles.playerCard}>
-        <View style={styles.playerLeft}>
-          <Text style={styles.playerNumber}>{toDisplayNumber(player.number)}</Text>
-          <View style={styles.playerIdentity}>
-            <Text numberOfLines={1} style={styles.playerName}>
-              {toDisplayValue(player.name)}
-            </Text>
-            <Text style={styles.playerPosition}>{toDisplayValue(player.position)}</Text>
-          </View>
-        </View>
-        <Text style={styles.playerAge}>
-          {toDisplayNumber(player.age)} {t('teamDetails.labels.yearsSuffix')}
-        </Text>
-      </View>
-    );
-  };
+      return (
+        <SquadPlayerRow
+          player={item.player}
+          yearsSuffixLabel={t('teamDetails.labels.yearsSuffix')}
+          styles={styles}
+        />
+      );
+    },
+    [styles, t],
+  );
 
   return (
     <View style={styles.container}>
@@ -348,7 +368,7 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
       {!isLoading && !isError ? (
         <FlashList
           data={feedItems}
-          keyExtractor={item => item.key}
+          keyExtractor={keyExtractor}
           renderItem={renderItem}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />

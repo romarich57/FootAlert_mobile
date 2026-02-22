@@ -19,9 +19,23 @@ const DEFAULT_FOLLOWS_TRENDS_TEAMS_LIMIT = 8;
 const DEFAULT_FOLLOWS_TRENDS_PLAYERS_LIMIT = 8;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_TEAMS = 30;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_PLAYERS = 30;
+const DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES = false;
+
+function readRuntimeNodeEnv(): string | undefined {
+  const runtimeProcess = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process;
+  return runtimeProcess?.env?.NODE_ENV;
+}
+
+const IS_DEV_RUNTIME =
+  typeof __DEV__ === 'boolean' ? __DEV__ : readRuntimeNodeEnv() !== 'production';
 
 export type AppEnv = {
   mobileApiBaseUrl: string;
+  privacyPolicyUrl?: string;
+  supportUrl?: string;
+  followUsUrl?: string;
+  appStoreUrl?: string;
+  playStoreUrl?: string;
   matchesQueryStaleTimeMs: number;
   matchesLiveRefreshIntervalMs: number;
   matchesSlowRefreshIntervalMs: number;
@@ -37,19 +51,131 @@ export type AppEnv = {
   followsTrendsPlayersLimit: number;
   followsMaxFollowedTeams: number;
   followsMaxFollowedPlayers: number;
+  mobileEnableBffPlayerAggregates: boolean;
 };
 
 function normalizeUrl(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
-function readMobileApiBaseUrl(): string {
-  const configuredBaseUrl = Config.MOBILE_API_BASE_URL?.trim();
-  if (!configuredBaseUrl) {
-    return DEFAULT_MOBILE_API_BASE_URL;
+function parseNamedUrlOrThrow(value: string, envVarName: string): URL {
+  try {
+    return new URL(value);
+  } catch {
+    throw new Error(`Invalid ${envVarName} value "${value}". Expected an absolute URL.`);
+  }
+}
+
+function parseUrlOrThrow(value: string): URL {
+  return parseNamedUrlOrThrow(value, 'MOBILE_API_BASE_URL');
+}
+
+function isLocalDevHost(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '10.0.2.2'
+  );
+}
+
+export function resolveMobileApiBaseUrl(
+  configuredBaseUrl: string | undefined,
+  isDevRuntime: boolean = IS_DEV_RUNTIME,
+): string {
+  const fallbackUrl = isDevRuntime ? DEFAULT_MOBILE_API_BASE_URL : '';
+  const selectedUrl = normalizeUrl(configuredBaseUrl?.trim() || fallbackUrl);
+  if (!selectedUrl) {
+    throw new Error(
+      'Missing MOBILE_API_BASE_URL. Set it in your env file for non-dev builds.',
+    );
   }
 
-  return normalizeUrl(configuredBaseUrl);
+  const parsedUrl = parseUrlOrThrow(selectedUrl);
+  const isHttps = parsedUrl.protocol === 'https:';
+  const isHttp = parsedUrl.protocol === 'http:';
+  if (!isHttps && !isHttp) {
+    throw new Error(
+      `Unsupported MOBILE_API_BASE_URL protocol "${parsedUrl.protocol}". Use https:// (or http://localhost only in dev).`,
+    );
+  }
+
+  if (!isDevRuntime && !isHttps) {
+    throw new Error(
+      'MOBILE_API_BASE_URL must use HTTPS for non-dev builds.',
+    );
+  }
+
+  if (isDevRuntime && isHttp && !isLocalDevHost(parsedUrl.hostname)) {
+    throw new Error(
+      'MOBILE_API_BASE_URL can use HTTP only for localhost/127.0.0.1/10.0.2.2 in dev.',
+    );
+  }
+
+  return selectedUrl;
+}
+
+export function resolveExternalUrl(
+  configuredUrl: string | undefined,
+  envVarName: string,
+  options: {
+    isDevRuntime?: boolean;
+    requiredOutsideDev?: boolean;
+  } = {},
+): string | undefined {
+  const { isDevRuntime = IS_DEV_RUNTIME, requiredOutsideDev = false } = options;
+  const selectedUrl = normalizeUrl(configuredUrl?.trim() || '');
+  if (!selectedUrl) {
+    if (requiredOutsideDev && !isDevRuntime) {
+      throw new Error(`Missing ${envVarName}. Set it in your env file for non-dev builds.`);
+    }
+    return undefined;
+  }
+
+  const parsedUrl = parseNamedUrlOrThrow(selectedUrl, envVarName);
+  if (parsedUrl.protocol !== 'https:') {
+    throw new Error(`${envVarName} must use HTTPS.`);
+  }
+
+  return selectedUrl;
+}
+
+function readMobileApiBaseUrl(): string {
+  return resolveMobileApiBaseUrl(Config.MOBILE_API_BASE_URL, IS_DEV_RUNTIME);
+}
+
+function readPrivacyPolicyUrl(): string | undefined {
+  return resolveExternalUrl(Config.MOBILE_PRIVACY_POLICY_URL, 'MOBILE_PRIVACY_POLICY_URL', {
+    isDevRuntime: IS_DEV_RUNTIME,
+    requiredOutsideDev: true,
+  });
+}
+
+function readSupportUrl(): string | undefined {
+  return resolveExternalUrl(Config.MOBILE_SUPPORT_URL, 'MOBILE_SUPPORT_URL', {
+    isDevRuntime: IS_DEV_RUNTIME,
+    requiredOutsideDev: true,
+  });
+}
+
+function readFollowUsUrl(): string | undefined {
+  return resolveExternalUrl(Config.MOBILE_FOLLOW_US_URL, 'MOBILE_FOLLOW_US_URL', {
+    isDevRuntime: IS_DEV_RUNTIME,
+    requiredOutsideDev: true,
+  });
+}
+
+function readAppStoreUrl(): string | undefined {
+  return resolveExternalUrl(Config.MOBILE_APP_STORE_URL, 'MOBILE_APP_STORE_URL', {
+    isDevRuntime: IS_DEV_RUNTIME,
+    requiredOutsideDev: false,
+  });
+}
+
+function readPlayStoreUrl(): string | undefined {
+  return resolveExternalUrl(Config.MOBILE_PLAY_STORE_URL, 'MOBILE_PLAY_STORE_URL', {
+    isDevRuntime: IS_DEV_RUNTIME,
+    requiredOutsideDev: false,
+  });
 }
 
 function readPositiveIntConfig(rawValue: string | undefined, defaultValue: number): number {
@@ -76,6 +202,23 @@ function readPositiveIntInRangeConfig(
   return Math.min(Math.max(parsedValue, min), max);
 }
 
+function readBooleanConfig(rawValue: string | undefined, defaultValue: boolean): boolean {
+  const configuredValue = rawValue?.trim().toLowerCase();
+  if (!configuredValue) {
+    return defaultValue;
+  }
+
+  if (configuredValue === '1' || configuredValue === 'true' || configuredValue === 'yes') {
+    return true;
+  }
+
+  if (configuredValue === '0' || configuredValue === 'false' || configuredValue === 'no') {
+    return false;
+  }
+
+  return defaultValue;
+}
+
 const configuredLiveRefreshIntervalMs = readPositiveIntConfig(
   Config.MATCHES_LIVE_REFRESH_INTERVAL_MS,
   LIVE_REFRESH_INTERVAL_MS,
@@ -91,6 +234,11 @@ const configuredMaxRefreshBackoffMs = Math.max(
 
 export const appEnv: AppEnv = {
   mobileApiBaseUrl: readMobileApiBaseUrl(),
+  privacyPolicyUrl: readPrivacyPolicyUrl(),
+  supportUrl: readSupportUrl(),
+  followUsUrl: readFollowUsUrl(),
+  appStoreUrl: readAppStoreUrl(),
+  playStoreUrl: readPlayStoreUrl(),
   matchesQueryStaleTimeMs: readPositiveIntConfig(
     Config.MATCHES_QUERY_STALE_TIME_MS,
     DEFAULT_MATCHES_QUERY_STALE_TIME_MS,
@@ -157,6 +305,10 @@ export const appEnv: AppEnv = {
     DEFAULT_FOLLOWS_MAX_FOLLOWED_PLAYERS,
     1,
     200,
+  ),
+  mobileEnableBffPlayerAggregates: readBooleanConfig(
+    Config.MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
+    DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
   ),
 };
 

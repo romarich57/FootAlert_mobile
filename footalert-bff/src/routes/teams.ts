@@ -4,8 +4,8 @@ import { z } from 'zod';
 import { apiFootballGet } from '../lib/apiFootballClient.js';
 import { withCache } from '../lib/cache.js';
 import {
+  boundedPositiveIntSchema,
   numericStringSchema,
-  positiveIntSchema,
   seasonSchema,
   timezoneSchema,
 } from '../lib/schemas.js';
@@ -22,7 +22,7 @@ const teamFixturesQuerySchema = z
     season: seasonSchema.optional(),
     leagueId: numericStringSchema.optional(),
     timezone: timezoneSchema.optional(),
-    next: positiveIntSchema.optional(),
+    next: boundedPositiveIntSchema(1, 10).optional(),
   })
   .strict();
 
@@ -39,7 +39,7 @@ const teamPlayersQuerySchema = z
   .object({
     leagueId: numericStringSchema,
     season: seasonSchema,
-    page: positiveIntSchema.optional(),
+    page: boundedPositiveIntSchema(1, 10).optional(),
   })
   .strict();
 

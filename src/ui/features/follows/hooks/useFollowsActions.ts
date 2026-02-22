@@ -10,6 +10,7 @@ import {
   toggleFollowedPlayer,
   toggleFollowedTeam,
 } from '@data/storage/followsStorage';
+import { incrementPositiveEventCount } from '@data/storage/reviewPromptStorage';
 import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
@@ -76,9 +77,14 @@ export function useFollowsActions() {
     onError: (_error, _teamId, context) => {
       queryClient.setQueryData(queryKeys.follows.followedTeamIds(), context?.previousIds ?? []);
     },
-    onSuccess: result => {
+    onSuccess: (result, teamId, context) => {
       queryClient.setQueryData(queryKeys.follows.followedTeamIds(), result.ids);
       setLastToggleError(result.reason ?? null);
+      const wasAlreadyFollowed = context?.previousIds?.includes(teamId) ?? false;
+      const isNowFollowed = result.ids.includes(teamId);
+      if (result.changed && !wasAlreadyFollowed && isNowFollowed) {
+        incrementPositiveEventCount().catch(() => undefined);
+      }
     },
   });
 
@@ -103,9 +109,14 @@ export function useFollowsActions() {
     onError: (_error, _playerId, context) => {
       queryClient.setQueryData(queryKeys.follows.followedPlayerIds(), context?.previousIds ?? []);
     },
-    onSuccess: result => {
+    onSuccess: (result, playerId, context) => {
       queryClient.setQueryData(queryKeys.follows.followedPlayerIds(), result.ids);
       setLastToggleError(result.reason ?? null);
+      const wasAlreadyFollowed = context?.previousIds?.includes(playerId) ?? false;
+      const isNowFollowed = result.ids.includes(playerId);
+      if (result.changed && !wasAlreadyFollowed && isNowFollowed) {
+        incrementPositiveEventCount().catch(() => undefined);
+      }
     },
   });
 

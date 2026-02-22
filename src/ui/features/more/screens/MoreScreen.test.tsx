@@ -55,6 +55,10 @@ const handleCurrencyChangeMock = jest.fn(async () => undefined);
 const handleMeasurementChangeMock = jest.fn(async () => undefined);
 const handleNotificationsChangeMock = jest.fn(async () => undefined);
 const setPermissionDeniedMock = jest.fn();
+const openPrivacyPolicyMock = jest.fn(async () => true);
+const openSupportMock = jest.fn(async () => true);
+const openFollowUsMock = jest.fn(async () => true);
+const openRateAppMock = jest.fn(async () => true);
 
 function createMoreSettingsMock(
   overrides: Partial<ReturnType<typeof useMoreSettings>> = {},
@@ -95,12 +99,20 @@ function createMoreSettingsMock(
     ],
     isUpdatingNotifications: false,
     permissionDenied: false,
+    hasPrivacyPolicyUrl: true,
+    hasSupportUrl: true,
+    hasFollowUsUrl: true,
+    hasRateAppUrl: true,
     setPermissionDenied: setPermissionDeniedMock,
     handleThemeChange: handleThemeChangeMock,
     handleLanguageChange: handleLanguageChangeMock,
     handleCurrencyChange: handleCurrencyChangeMock,
     handleMeasurementChange: handleMeasurementChangeMock,
     handleNotificationsChange: handleNotificationsChangeMock,
+    openPrivacyPolicy: openPrivacyPolicyMock,
+    openSupport: openSupportMock,
+    openFollowUs: openFollowUsMock,
+    openRateApp: openRateAppMock,
     openSystemNotificationSettings: openSystemNotificationSettingsMock,
     ...overrides,
   };
@@ -170,13 +182,45 @@ describe('MoreScreen', () => {
     expect(handleNotificationsChangeMock).toHaveBeenCalledWith(false);
   });
 
-  it('shows disabled upcoming rows with badge', () => {
+  it('renders information rows', () => {
     renderScreen();
 
-    expect(screen.getAllByText(i18n.t('more.badges.comingSoon')).length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText(i18n.t('more.rows.followUs'))).toBeTruthy();
     expect(screen.getByText(i18n.t('more.rows.tipsSupport'))).toBeTruthy();
     expect(screen.getByText(i18n.t('more.rows.privacyPolicy'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('more.rows.rateApp'))).toBeTruthy();
+  });
+
+  it('opens legal and social links when rows are pressed', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByLabelText(i18n.t('more.rows.followUs')));
+    fireEvent.press(screen.getByLabelText(i18n.t('more.rows.tipsSupport')));
+    fireEvent.press(screen.getByLabelText(i18n.t('more.rows.privacyPolicy')));
+    fireEvent.press(screen.getByLabelText(i18n.t('more.rows.rateApp')));
+
+    expect(openFollowUsMock).toHaveBeenCalled();
+    expect(openSupportMock).toHaveBeenCalled();
+    expect(openPrivacyPolicyMock).toHaveBeenCalled();
+    expect(openRateAppMock).toHaveBeenCalled();
+  });
+
+  it('disables legal/social rows when URLs are missing', () => {
+    mockedUseMoreSettings.mockReturnValueOnce(
+      createMoreSettingsMock({
+        hasFollowUsUrl: false,
+        hasSupportUrl: false,
+        hasPrivacyPolicyUrl: false,
+        hasRateAppUrl: false,
+      }),
+    );
+
+    renderScreen();
+
+    expect(screen.queryByLabelText(i18n.t('more.rows.followUs'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('more.rows.tipsSupport'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('more.rows.privacyPolicy'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('more.rows.rateApp'))).toBeNull();
   });
 
   it('shows app version value', () => {

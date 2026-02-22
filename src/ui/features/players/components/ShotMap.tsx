@@ -61,6 +61,19 @@ export function ShotMap({ shots, accuracy }: ShotMapProps) {
     const pitchHeight = 200; // Half pitch
 
     const accuracyLabel = accuracy === '?' ? '?' : `${accuracy}%`;
+    const renderedShots = useMemo(() => {
+        const occurrences = new Map<string, number>();
+        return shots.map(shot => {
+            const baseKey = `${shot.x}-${shot.y}-${shot.isGoal ? 'goal' : 'shot'}`;
+            const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
+            occurrences.set(baseKey, occurrence);
+
+            return {
+                key: `shot-${baseKey}-${occurrence}`,
+                shot,
+            };
+        });
+    }, [shots]);
 
     return (
         <View style={styles.container}>
@@ -90,9 +103,9 @@ export function ShotMap({ shots, accuracy }: ShotMapProps) {
                     <Path d="M 35 60 A 15 15 0 0 1 65 60" stroke={colors.border} strokeWidth="0.5" fill="none" />
 
                     {/* Shots */}
-                    {shots.map((shot, idx) => (
+                    {renderedShots.map(({ key, shot }) => (
                         <Circle
-                            key={idx}
+                            key={key}
                             cx={shot.x}
                             cy={shot.y}
                             r={shot.isGoal ? "2" : "1.5"}

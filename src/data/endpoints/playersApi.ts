@@ -1,10 +1,20 @@
 import { bffGet } from '@data/endpoints/bffClient';
+import {
+  mapPlayerCareerSeasonAggregate,
+  mapPlayerCareerTeamAggregate,
+  mapPlayerMatchPerformanceAggregate,
+} from '@data/mappers/playersMapper';
 import type {
+  PlayerApiCareerAggregateResponse,
   PlayerApiDetailsDto,
   PlayerApiFixtureDto,
+  PlayerApiMatchesAggregateResponse,
   PlayerApiMatchPerformanceDto,
   PlayerApiResponse,
   PlayerApiTrophyDto,
+  PlayerCareerSeason,
+  PlayerCareerTeam,
+  PlayerMatchPerformance,
 } from '@ui/features/players/types/players.types';
 
 export async function fetchPlayerDetails(
@@ -47,6 +57,29 @@ export async function fetchPlayerTrophies(
   return payload.response ?? [];
 }
 
+export async function fetchPlayerCareerAggregate(
+  playerId: string,
+  signal?: AbortSignal,
+): Promise<{ seasons: PlayerCareerSeason[]; teams: PlayerCareerTeam[] }> {
+  const payload = await bffGet<PlayerApiCareerAggregateResponse>(
+    `/players/${encodeURIComponent(playerId)}/career`,
+    undefined,
+    { signal },
+  );
+
+  const seasons = (payload.response?.seasons ?? [])
+    .map(mapPlayerCareerSeasonAggregate)
+    .sort((a, b) => {
+      const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
+      const bYear = b.season ? Number.parseInt(b.season, 10) : Number.NEGATIVE_INFINITY;
+      return bYear - aYear;
+    });
+
+  const teams = (payload.response?.teams ?? []).map(mapPlayerCareerTeamAggregate);
+
+  return { seasons, teams };
+}
+
 export async function fetchTeamFixtures(
   teamId: string,
   season: number,
@@ -77,4 +110,26 @@ export async function fetchFixturePlayerStats(
   );
 
   return payload.response[0] ?? null;
+}
+
+export async function fetchPlayerMatchesAggregate(
+  playerId: string,
+  teamId: string,
+  season: number,
+  amount: number = 15,
+  signal?: AbortSignal,
+): Promise<PlayerMatchPerformance[]> {
+  const payload = await bffGet<PlayerApiMatchesAggregateResponse>(
+    `/players/${encodeURIComponent(playerId)}/matches`,
+    {
+      teamId,
+      season,
+      last: amount,
+    },
+    { signal },
+  );
+
+  return (payload.response ?? [])
+    .map(mapPlayerMatchPerformanceAggregate)
+    .filter((item): item is PlayerMatchPerformance => item !== null);
 }

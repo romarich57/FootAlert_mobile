@@ -1,6 +1,9 @@
 import type {
+    PlayerApiCareerSeasonAggregateDto,
+    PlayerApiCareerTeamAggregateDto,
     PlayerApiDetailsDto,
     PlayerApiFixtureDto,
+    PlayerApiMatchPerformanceAggregateDto,
     PlayerApiMatchPerformanceDto,
     PlayerApiTrophyDto,
     PlayerCareerSeason,
@@ -43,13 +46,87 @@ export function normalizeRating(
     return parsed.toFixed(precision);
 }
 
-function toId(value: number | string | undefined): string | null {
+function toId(value: number | string | null | undefined): string | null {
     if (value === undefined || value === null) {
         return null;
     }
 
     const normalized = String(value).trim();
     return normalized.length > 0 ? normalized : null;
+}
+
+export function mapPlayerCareerSeasonAggregate(
+    dto: PlayerApiCareerSeasonAggregateDto,
+): PlayerCareerSeason {
+    return {
+        season: normalizeString(dto.season),
+        team: {
+            id: toId(dto.team?.id),
+            name: normalizeString(dto.team?.name),
+            logo: normalizeString(dto.team?.logo),
+        },
+        matches: normalizeNumber(dto.matches),
+        goals: normalizeNumber(dto.goals),
+        assists: normalizeNumber(dto.assists),
+        rating: normalizeRating(dto.rating, 2),
+    };
+}
+
+export function mapPlayerCareerTeamAggregate(dto: PlayerApiCareerTeamAggregateDto): PlayerCareerTeam {
+    return {
+        team: {
+            id: toId(dto.team?.id),
+            name: normalizeString(dto.team?.name),
+            logo: normalizeString(dto.team?.logo),
+        },
+        period: normalizeString(dto.period),
+        matches: normalizeNumber(dto.matches),
+        goals: normalizeNumber(dto.goals),
+        assists: normalizeNumber(dto.assists),
+    };
+}
+
+export function mapPlayerMatchPerformanceAggregate(
+    dto: PlayerApiMatchPerformanceAggregateDto,
+): PlayerMatchPerformance | null {
+    const fixtureId = toId(dto.fixtureId);
+    if (!fixtureId) {
+        return null;
+    }
+
+    return {
+        fixtureId,
+        date: normalizeString(dto.date),
+        competition: {
+            id: toId(dto.competition?.id),
+            name: normalizeString(dto.competition?.name),
+            logo: normalizeString(dto.competition?.logo),
+        },
+        homeTeam: {
+            id: toId(dto.homeTeam?.id),
+            name: normalizeString(dto.homeTeam?.name),
+            logo: normalizeString(dto.homeTeam?.logo),
+        },
+        awayTeam: {
+            id: toId(dto.awayTeam?.id),
+            name: normalizeString(dto.awayTeam?.name),
+            logo: normalizeString(dto.awayTeam?.logo),
+        },
+        goalsHome: normalizeNumber(dto.goalsHome),
+        goalsAway: normalizeNumber(dto.goalsAway),
+        playerStats: {
+            minutes: normalizeNumber(dto.playerStats?.minutes),
+            rating: normalizeRating(dto.playerStats?.rating, 1),
+            goals: normalizeNumber(dto.playerStats?.goals),
+            assists: normalizeNumber(dto.playerStats?.assists),
+            yellowCards: normalizeNumber(dto.playerStats?.yellowCards),
+            redCards: normalizeNumber(dto.playerStats?.redCards),
+            isStarter:
+                typeof dto.playerStats?.isStarter === 'boolean'
+                    ? dto.playerStats.isStarter
+                    : null,
+        },
+    };
 }
 
 function resolvePrimaryStatistic(

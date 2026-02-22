@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
@@ -10,9 +10,27 @@ import type {
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 const SUGGESTED_LEAGUE_IDS = ['135', '78', '39', '140', '61'];
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function useCompetitions() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const normalizedSearchTerm = searchTerm.trim();
+
+  useEffect(() => {
+    if (!normalizedSearchTerm) {
+      setDebouncedSearchTerm('');
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(normalizedSearchTerm);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [normalizedSearchTerm]);
 
   const catalogQuery = useQuery({
     queryKey: queryKeys.competitions.catalog(),
@@ -23,15 +41,15 @@ export function useCompetitions() {
   });
 
   const searchQuery = useQuery({
-    queryKey: queryKeys.competitions.search(searchTerm.trim()),
+    queryKey: queryKeys.competitions.search(debouncedSearchTerm),
     queryFn: async ({ signal }) => {
-      if (!searchTerm.trim()) {
+      if (!debouncedSearchTerm) {
         return [];
       }
 
-      return searchLeaguesByName(searchTerm.trim(), signal);
+      return searchLeaguesByName(debouncedSearchTerm, signal);
     },
-    enabled: searchTerm.trim().length > 0,
+    enabled: debouncedSearchTerm.length > 0,
     staleTime: 60_000,
   });
 
@@ -73,14 +91,14 @@ export function useCompetitions() {
   }, [allCompetitions]);
 
   const searchResults = useMemo(() => {
-    if (!searchTerm.trim()) {
+    if (!debouncedSearchTerm) {
       return [];
     }
 
     return (searchQuery.data ?? [])
       .map(dto => mapLeagueDtoToCompetition(dto))
       .filter(Boolean) as Competition[];
-  }, [searchQuery.data, searchTerm]);
+  }, [debouncedSearchTerm, searchQuery.data]);
 
   const searchLeagues = useCallback(async (query: string) => {
     setSearchTerm(query);

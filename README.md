@@ -46,7 +46,17 @@ Puis renseigner au minimum :
 
 ```env
 MOBILE_API_BASE_URL=http://localhost:3001/v1
+MOBILE_PRIVACY_POLICY_URL=https://example.com/privacy
+MOBILE_SUPPORT_URL=https://example.com/support
+MOBILE_FOLLOW_US_URL=https://example.com/social
 ```
+
+Notes sécurité:
+
+- En dev, `http://localhost`, `http://127.0.0.1` et `http://10.0.2.2` sont acceptés.
+- En non-dev (staging/prod), `MOBILE_API_BASE_URL` doit être présent et en `https://`.
+- En non-dev (staging/prod), `MOBILE_PRIVACY_POLICY_URL`, `MOBILE_SUPPORT_URL` et `MOBILE_FOLLOW_US_URL` sont obligatoires et doivent être en `https://`.
+- `MOBILE_APP_STORE_URL` et `MOBILE_PLAY_STORE_URL` sont optionnelles (fallback pour l'action "Rate app").
 
 Variables utiles pour la cadence et les limites UI :
 
@@ -135,6 +145,9 @@ npm run ios
 npm run lint
 npm run typecheck
 npm test
+npm run aso:validate:metadata
+npm run aso:validate:assets
+npm run aso:validate:icon-ios
 npm run aso:validate
 npm run check:all
 ```

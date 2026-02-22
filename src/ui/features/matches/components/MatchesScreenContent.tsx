@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 
@@ -90,56 +91,82 @@ export function MatchesScreenContent({
   onCloseNotificationModal,
   onSaveNotificationPrefs,
 }: MatchesScreenContentProps) {
-  const renderItem: ListRenderItem<MatchesFeedItem> = ({ item }) => {
-    if (item.type === 'ad') {
-      return <PartnerBannerCard />;
-    }
+  const keyExtractor = useCallback((item: MatchesFeedItem) => item.key, []);
+  const renderItem = useCallback<ListRenderItem<MatchesFeedItem>>(
+    ({ item }) => {
+      if (item.type === 'ad') {
+        return <PartnerBannerCard />;
+      }
 
-    return (
-      <CompetitionSection
-        section={item.section}
-        collapsed={Boolean(collapsedSections[item.section.id])}
-        onToggle={onToggleSection}
-        onPressMatch={onPressMatch}
-        onPressNotification={onPressNotification}
-        onPressHomeTeam={onPressTeam}
-        onPressAwayTeam={onPressTeam}
-      />
-    );
-  };
+      return (
+        <CompetitionSection
+          section={item.section}
+          collapsed={Boolean(collapsedSections[item.section.id])}
+          onToggle={onToggleSection}
+          onPressMatch={onPressMatch}
+          onPressNotification={onPressNotification}
+          onPressHomeTeam={onPressTeam}
+          onPressAwayTeam={onPressTeam}
+        />
+      );
+    },
+    [collapsedSections, onPressMatch, onPressNotification, onPressTeam, onToggleSection],
+  );
+  const listHeaderComponent = useMemo(
+    () => (
+      <View style={styles.listHeader}>
+        <MatchesHeader
+          onPressCalendar={onPressCalendar}
+          onPressSearch={onPressSearch}
+          onPressNotifications={onPressNotifications}
+        />
+        <DateChipsRow selectedDate={selectedDate} onSelectDate={onSelectDate} />
+        <StatusFiltersRow filter={statusFilter} onFilterChange={onFilterChange} />
+
+        {showLoading ? <ScreenStateView state="loading" /> : null}
+        {showError ? <ScreenStateView state="error" onRetry={onRetry} /> : null}
+        {showOfflineBanner ? (
+          <ScreenStateView state="offline" lastUpdatedAt={lastUpdatedAt} />
+        ) : null}
+        {showOfflineWithoutCache ? (
+          <ScreenStateView state="offline" lastUpdatedAt={lastUpdatedAt} />
+        ) : null}
+        {showErrorBanner ? <ScreenStateView state="error" onRetry={onRetry} /> : null}
+        {isSlowNetwork ? <ScreenStateView state="slow" /> : null}
+        {showEmpty ? <ScreenStateView state="empty" /> : null}
+      </View>
+    ),
+    [
+      isSlowNetwork,
+      lastUpdatedAt,
+      onFilterChange,
+      onPressCalendar,
+      onPressNotifications,
+      onPressSearch,
+      onRetry,
+      onSelectDate,
+      selectedDate,
+      showEmpty,
+      showError,
+      showErrorBanner,
+      showLoading,
+      showOfflineBanner,
+      showOfflineWithoutCache,
+      statusFilter,
+      styles.listHeader,
+    ],
+  );
 
   return (
     <>
       <FlashList
         data={listData}
         renderItem={renderItem}
-        keyExtractor={item => item.key}
+        keyExtractor={keyExtractor}
         refreshing={isRefetching}
         onRefresh={onRetry}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <MatchesHeader
-              onPressCalendar={onPressCalendar}
-              onPressSearch={onPressSearch}
-              onPressNotifications={onPressNotifications}
-            />
-            <DateChipsRow selectedDate={selectedDate} onSelectDate={onSelectDate} />
-            <StatusFiltersRow filter={statusFilter} onFilterChange={onFilterChange} />
-
-            {showLoading ? <ScreenStateView state="loading" /> : null}
-            {showError ? <ScreenStateView state="error" onRetry={onRetry} /> : null}
-            {showOfflineBanner ? (
-              <ScreenStateView state="offline" lastUpdatedAt={lastUpdatedAt} />
-            ) : null}
-            {showOfflineWithoutCache ? (
-              <ScreenStateView state="offline" lastUpdatedAt={lastUpdatedAt} />
-            ) : null}
-            {showErrorBanner ? <ScreenStateView state="error" onRetry={onRetry} /> : null}
-            {isSlowNetwork ? <ScreenStateView state="slow" /> : null}
-            {showEmpty ? <ScreenStateView state="empty" /> : null}
-          </View>
-        }
+        ListHeaderComponent={listHeaderComponent}
       />
 
       <MatchNotificationModal

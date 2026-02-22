@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { FlashList } from '@shopify/flash-list';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,8 @@ type TeamTransfersTabProps = {
   isError: boolean;
   onRetry: () => void;
 };
+
+type TeamTransferItem = NonNullable<TeamTransfersData['arrivals']>[number];
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -113,6 +115,37 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
+type TeamTransferRowProps = {
+  item: TeamTransferItem;
+  transferTypeLabel: string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const TeamTransferRow = memo(function TeamTransferRow({
+  item,
+  transferTypeLabel,
+  styles,
+}: TeamTransferRowProps) {
+  return (
+    <View style={styles.transferCard}>
+      <View style={styles.transferTopRow}>
+        <Text numberOfLines={1} style={styles.transferPlayer}>
+          {toDisplayValue(item.playerName)}
+        </Text>
+        <Text style={styles.transferDate}>{toDisplayDate(item.date)}</Text>
+      </View>
+
+      <Text numberOfLines={1} style={styles.transferLine}>
+        {toDisplayValue(item.fromTeamName)} → {toDisplayValue(item.toTeamName)}
+      </Text>
+
+      <Text style={styles.transferMeta}>
+        {transferTypeLabel}: {toDisplayValue(item.type)}
+      </Text>
+    </View>
+  );
+});
+
 export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTransfersTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
@@ -120,6 +153,18 @@ export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTran
   const [direction, setDirection] = useState<TeamTransferDirection>('arrival');
 
   const list = direction === 'arrival' ? data?.arrivals ?? [] : data?.departures ?? [];
+  const transferTypeLabel = t('teamDetails.labels.transferType');
+
+  const renderTransferItem = useCallback<ListRenderItem<TeamTransferItem>>(
+    ({ item }) => (
+      <TeamTransferRow
+        item={item}
+        transferTypeLabel={transferTypeLabel}
+        styles={styles}
+      />
+    ),
+    [styles, transferTypeLabel],
+  );
 
   return (
     <View style={styles.container}>
@@ -162,24 +207,7 @@ export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTran
         <FlashList
           data={list}
           keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.transferCard}>
-              <View style={styles.transferTopRow}>
-                <Text numberOfLines={1} style={styles.transferPlayer}>
-                  {toDisplayValue(item.playerName)}
-                </Text>
-                <Text style={styles.transferDate}>{toDisplayDate(item.date)}</Text>
-              </View>
-
-              <Text numberOfLines={1} style={styles.transferLine}>
-                {toDisplayValue(item.fromTeamName)} → {toDisplayValue(item.toTeamName)}
-              </Text>
-
-              <Text style={styles.transferMeta}>
-                {t('teamDetails.labels.transferType')}: {toDisplayValue(item.type)}
-              </Text>
-            </View>
-          )}
+          renderItem={renderTransferItem}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />
       ) : null}

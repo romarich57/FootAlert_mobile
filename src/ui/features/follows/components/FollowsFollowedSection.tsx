@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { FollowedCarousel, FollowedPlayerCard, FollowedTeamCard, FollowsEmptyFollowedCard } from '@ui/features/follows/components';
 import type { FollowEntityTab, FollowedPlayerCard as FollowedPlayerCardType, FollowedTeamCard as FollowedTeamCardType } from '@ui/features/follows/types/follows.types';
 
@@ -33,22 +34,51 @@ export function FollowsFollowedSection({
   onPressPlayer,
   labels,
 }: FollowsFollowedSectionProps) {
+  const renderTeamCard = useCallback(
+    (item: FollowedTeamCardType) => (
+      <FollowedTeamCard
+        card={item}
+        unfollowLabel={labels.unfollow}
+        followLabel={labels.follow}
+        onUnfollow={onUnfollowTeam}
+        onPressTeam={onPressTeam}
+        noNextMatchLabel={labels.noNextMatch}
+        isEditMode={isEditMode}
+      />
+    ),
+    [isEditMode, labels.follow, labels.noNextMatch, labels.unfollow, onPressTeam, onUnfollowTeam],
+  );
+
+  const renderPlayerCard = useCallback(
+    (item: FollowedPlayerCardType) => (
+      <FollowedPlayerCard
+        card={item}
+        followLabel={labels.follow}
+        unfollowLabel={labels.unfollow}
+        onUnfollow={onUnfollowPlayer}
+        onPressPlayer={onPressPlayer}
+        goalsLabel={labels.goals}
+        assistsLabel={labels.assists}
+        isEditMode={isEditMode}
+      />
+    ),
+    [
+      isEditMode,
+      labels.assists,
+      labels.follow,
+      labels.goals,
+      labels.unfollow,
+      onPressPlayer,
+      onUnfollowPlayer,
+    ],
+  );
+
   if (selectedTab === 'teams') {
     return (
       <FollowedCarousel
         items={teamCards}
         keyExtractor={item => item.teamId}
-        renderItem={item => (
-          <FollowedTeamCard
-            card={item}
-            unfollowLabel={labels.unfollow}
-            followLabel={labels.follow}
-            onUnfollow={onUnfollowTeam}
-            onPressTeam={onPressTeam}
-            noNextMatchLabel={labels.noNextMatch}
-            isEditMode={isEditMode}
-          />
-        )}
+        renderItem={renderTeamCard}
         emptyState={<FollowsEmptyFollowedCard onPress={onPressAdd} label={labels.addToFavorites} />}
       />
     );
@@ -58,18 +88,7 @@ export function FollowsFollowedSection({
     <FollowedCarousel
       items={playerCards}
       keyExtractor={item => item.playerId}
-      renderItem={item => (
-        <FollowedPlayerCard
-          card={item}
-          followLabel={labels.follow}
-          unfollowLabel={labels.unfollow}
-          onUnfollow={onUnfollowPlayer}
-          onPressPlayer={onPressPlayer}
-          goalsLabel={labels.goals}
-          assistsLabel={labels.assists}
-          isEditMode={isEditMode}
-        />
-      )}
+      renderItem={renderPlayerCard}
       emptyState={<FollowsEmptyFollowedCard onPress={onPressAdd} label={labels.addToFavorites} />}
     />
   );

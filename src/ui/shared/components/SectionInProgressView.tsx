@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import type { SectionInProgressViewProps } from '@ui/shared/components/SectionInProgressView.types';
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -30,15 +31,35 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-export function SectionInProgressView() {
+export function SectionInProgressView({
+  title,
+  subtitle,
+  testID = 'section-in-progress-view',
+  titleTestID = 'section-in-progress-title',
+  subtitleTestID = 'section-in-progress-subtitle',
+  accessibilityLabel,
+}: SectionInProgressViewProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const resolvedTitle = title ?? t('placeholders.inProgress');
+  const resolvedSubtitle = subtitle ?? t('placeholders.inProgressSubtitle');
+  const resolvedAccessibilityLabel =
+    accessibilityLabel ?? `${resolvedTitle}. ${resolvedSubtitle}`;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('placeholders.inProgress')}</Text>
-      <Text style={styles.subtitle}>{t('placeholders.inProgressSubtitle')}</Text>
+    <View
+      accessible
+      accessibilityLabel={resolvedAccessibilityLabel}
+      style={styles.container}
+      testID={testID}
+    >
+      <Text style={styles.title} testID={titleTestID}>
+        {resolvedTitle}
+      </Text>
+      <Text style={styles.subtitle} testID={subtitleTestID}>
+        {resolvedSubtitle}
+      </Text>
     </View>
   );
 }

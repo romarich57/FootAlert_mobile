@@ -6,7 +6,11 @@ Ce dossier centralise les metadonnees ASO de FootAlert pour Apple App Store et G
 
 - `docs/aso/metadata.json` : source unique des textes store EN-US et FR-FR.
 - `docs/aso/ab-tests.md` : plan A/B test post-publication.
+- `docs/aso/positioning.md` : stratégie de positionnement/catégories (Apple + Google).
+- `docs/aso/assets/` : assets store versionnés (screenshots + feature graphic).
 - `scripts/aso/validate-metadata.mjs` : validation locale des limites de caracteres.
+- `scripts/aso/validate-assets.mjs` : validation présence/dimensions des assets store.
+- `scripts/aso/validate-icon-ios.mjs` : validation AppIcon iOS (slots + dimensions).
 
 ## Mapping des champs vers consoles store
 
@@ -23,15 +27,18 @@ Ce dossier centralise les metadonnees ASO de FootAlert pour Apple App Store et G
 - `google.<locale>.title` -> App name (max 50)
 - `google.<locale>.short_description` -> Short description (max 80)
 - `google.<locale>.full_description` -> Full description (max 4000)
+- `store_strategy.apple.primary_category` -> Primary Category (`SPORTS`)
+- `store_strategy.google.category` -> Google Play category (`SPORTS`)
 
 ## Process de publication metadata
 
 1. Mettre a jour `docs/aso/metadata.json`.
-2. Executer `npm run aso:validate`.
-3. Ouvrir App Store Connect et Google Play Console.
-4. Coller les champs par locale.
-5. Lancer relecture QA linguistique finale.
-6. Soumettre la version.
+2. Mettre a jour `docs/aso/assets/` si la release impacte les captures.
+3. Executer `npm run aso:validate`.
+4. Ouvrir App Store Connect et Google Play Console.
+5. Coller les champs par locale.
+6. Lancer relecture QA linguistique finale.
+7. Soumettre la version.
 
 ## Checklist operationnelle avant soumission
 
@@ -46,7 +53,9 @@ Ce dossier centralise les metadonnees ASO de FootAlert pour Apple App Store et G
 - Validation locale OK (`npm run aso:validate`).
 - Titre + short description alignes sur l'intent "live scores".
 - EN-US et FR-FR presentes pour Apple et Google.
-- Mots-cles Apple sans depassement de 100 caracteres.
+- Mots-cles Apple sans depassement de 100 caracteres, sans doublons et sans overlap title/subtitle.
+- `store_strategy` present et aligne avec le positionnement Sports.
+- Assets store complets (Apple 6.7 / 5.5 / iPad 12.9 + Google screenshots + feature graphic).
 
 ### Release readiness
 

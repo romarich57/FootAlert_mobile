@@ -12,8 +12,8 @@ type CompetitionMatchesTabProps = {
 };
 
 type ListItem =
-    | { type: 'header'; title: string }
-    | { type: 'fixture'; data: Fixture };
+    | { type: 'header'; key: string; title: string }
+    | { type: 'fixture'; key: string; data: Fixture };
 
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
@@ -149,17 +149,30 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
         if (!fixtures) return [];
         const items: ListItem[] = [];
         let currentRound = '';
+        const roundOccurrences = new Map<string, number>();
 
         fixtures.forEach(fixture => {
             const roundName = displayValue(fixture.round).toString();
             if (roundName !== currentRound) {
-                items.push({ type: 'header', title: roundName });
+                const occurrence = (roundOccurrences.get(roundName) ?? 0) + 1;
+                roundOccurrences.set(roundName, occurrence);
+                items.push({
+                    type: 'header',
+                    key: `round-${roundName}-${occurrence}`,
+                    title: roundName,
+                });
                 currentRound = roundName;
             }
-            items.push({ type: 'fixture', data: fixture });
+            items.push({
+                type: 'fixture',
+                key: `fixture-${fixture.id}`,
+                data: fixture,
+            });
         });
         return items;
     }, [fixtures]);
+
+    const keyExtractor = useCallback((item: ListItem) => item.key, []);
 
     const renderItem = useCallback(({ item }: { item: ListItem }) => {
         if (item.type === 'header') {
@@ -233,6 +246,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
         <View style={styles.container}>
             <FlashList
                 data={listData}
+                keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 getItemType={(item) => item.type}
             />

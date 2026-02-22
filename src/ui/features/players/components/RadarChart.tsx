@@ -72,8 +72,8 @@ export function RadarChart({ data, size = 260 }: RadarChartProps) {
     // Generate points for the background webbing
     const generateLevels = (levels: number) => {
         const polygons = [];
-        for (let i = 1; i <= levels; i++) {
-            const levelRadius = (radius / levels) * i;
+        for (let level = 1; level <= levels; level++) {
+            const levelRadius = (radius / levels) * level;
             const points = AXES.map((_, index) => {
                 const angle = (Math.PI * 2 * index) / 6 - Math.PI / 2; // -90 deg to start top
                 return `${center + levelRadius * Math.cos(angle)},${center + levelRadius * Math.sin(angle)
@@ -81,7 +81,7 @@ export function RadarChart({ data, size = 260 }: RadarChartProps) {
             }).join(' ');
             polygons.push(
                 <Polygon
-                    key={`level-${i}`}
+                    key={`level-${level}`}
                     points={points}
                     stroke={colors.border}
                     strokeWidth="1"
@@ -122,11 +122,11 @@ export function RadarChart({ data, size = 260 }: RadarChartProps) {
     });
 
     // Center axes lines
-    const axesLines = AXES.map((_, index) => {
+    const axesLines = AXES.map((axis, index) => {
         const angle = (Math.PI * 2 * index) / 6 - Math.PI / 2;
         return (
             <Line
-                key={`axis-${index}`}
+                key={`axis-${axis.key}`}
                 x1={center}
                 y1={center}
                 x2={center + radius * Math.cos(angle)}

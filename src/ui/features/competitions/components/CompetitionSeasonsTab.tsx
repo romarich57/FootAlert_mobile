@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList } from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, type ListRenderItem } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -9,6 +9,11 @@ type CompetitionSeasonsTabProps = {
     competitionId: number;
     currentSeason: number;
     onSeasonSelect: (season: number) => void;
+};
+
+type CompetitionSeasonItem = {
+    year: number;
+    current: boolean;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -62,11 +67,55 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
+type SeasonRowProps = {
+    item: CompetitionSeasonItem;
+    currentSeason: number;
+    onSeasonSelect: (season: number) => void;
+    checkColor: string;
+    styles: ReturnType<typeof createStyles>;
+};
+
+const SeasonRow = memo(function SeasonRow({
+    item,
+    currentSeason,
+    onSeasonSelect,
+    checkColor,
+    styles,
+}: SeasonRowProps) {
+    const isActive = item.year === currentSeason;
+
+    return (
+        <Pressable
+            style={[styles.seasonRow, isActive ? styles.seasonRowActive : null]}
+            onPress={() => onSeasonSelect(item.year)}
+        >
+            <Text style={[styles.seasonText, isActive ? styles.seasonTextActive : null]}>
+                Saison {item.year}/{item.year + 1} {item.current ? '(En cours)' : ''}
+            </Text>
+            {isActive ? (
+                <MaterialCommunityIcons name="check" size={20} color={checkColor} />
+            ) : null}
+        </Pressable>
+    );
+});
+
 export function CompetitionSeasonsTab({ competitionId, currentSeason, onSeasonSelect }: CompetitionSeasonsTabProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const { data: seasons, isLoading, error } = useCompetitionSeasons(competitionId);
+    const renderSeasonItem = useCallback<ListRenderItem<CompetitionSeasonItem>>(
+        ({ item }) => (
+            <SeasonRow
+                item={item}
+                currentSeason={currentSeason}
+                onSeasonSelect={onSeasonSelect}
+                checkColor={colors.primary}
+                styles={styles}
+            />
+        ),
+        [colors.primary, currentSeason, onSeasonSelect, styles],
+    );
 
     if (isLoading) {
         return (
@@ -90,22 +139,10 @@ export function CompetitionSeasonsTab({ competitionId, currentSeason, onSeasonSe
             <FlatList
                 data={seasons}
                 keyExtractor={(item) => item.year.toString()}
-                renderItem={({ item }) => {
-                    const isActive = item.year === currentSeason;
-                    return (
-                        <Pressable
-                            style={[styles.seasonRow, isActive && styles.seasonRowActive]}
-                            onPress={() => onSeasonSelect(item.year)}
-                        >
-                            <Text style={[styles.seasonText, isActive && styles.seasonTextActive]}>
-                                Saison {item.year}/{item.year + 1} {item.current && '(En cours)'}
-                            </Text>
-                            {isActive && (
-                                <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
-                            )}
-                        </Pressable>
-                    );
-                }}
+                renderItem={renderSeasonItem}
+                initialNumToRender={8}
+                maxToRenderPerBatch={10}
+                windowSize={6}
             />
         </View>
     );

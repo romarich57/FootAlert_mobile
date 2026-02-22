@@ -95,11 +95,16 @@ function buildFollowsSection(
 function buildFeedItems(sections: CompetitionSection[]): MatchesFeedItem[] {
   const nonFollowSectionsCount = sections.filter(section => !section.isFollowSection).length;
   let hasInsertedAd = false;
+  const sectionOccurrences = new Map<string, number>();
 
-  return sections.flatMap((section, index) => {
+  return sections.flatMap(section => {
+    const baseKey = `section-${section.id}-${section.name}`;
+    const occurrence = (sectionOccurrences.get(baseKey) ?? 0) + 1;
+    sectionOccurrences.set(baseKey, occurrence);
+
     const sectionItem: MatchesFeedItem = {
       type: 'section',
-      key: `section-${section.id}-${index}`,
+      key: occurrence === 1 ? baseKey : `${baseKey}-${occurrence}`,
       section,
     };
 

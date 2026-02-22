@@ -26,6 +26,43 @@ function getByPath(obj, dottedPath) {
   return dottedPath.split('.').reduce((current, key) => current?.[key], obj);
 }
 
+function tokenize(rawValue) {
+  return String(rawValue || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\u00C0-\u017F\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function validateAppleKeywordField(metadata, locale, errors) {
+  const title = metadata?.apple?.[locale]?.title ?? '';
+  const subtitle = metadata?.apple?.[locale]?.subtitle ?? '';
+  const keywordsRaw = metadata?.apple?.[locale]?.keywords ?? '';
+  const keywords = keywordsRaw
+    .split(',')
+    .map(keyword => keyword.trim().toLowerCase())
+    .filter(Boolean);
+
+  const deduplicatedKeywords = new Set();
+  for (const keyword of keywords) {
+    if (deduplicatedKeywords.has(keyword)) {
+      errors.push(`apple.${locale}.keywords contains duplicate keyword "${keyword}".`);
+    }
+    deduplicatedKeywords.add(keyword);
+  }
+
+  const titleSubtitleWords = new Set([...tokenize(title), ...tokenize(subtitle)]);
+  for (const keyword of keywords) {
+    const keywordWords = tokenize(keyword);
+    const overlaps = keywordWords.some(word => titleSubtitleWords.has(word));
+    if (overlaps) {
+      errors.push(
+        `apple.${locale}.keywords contains "${keyword}" which overlaps with title/subtitle words.`,
+      );
+    }
+  }
+}
+
 function safeReadJson(filePath) {
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
@@ -65,6 +102,9 @@ function main() {
       errors.push(`${rule.path} exceeds max length (${length}/${rule.max}).`);
     }
   }
+
+  validateAppleKeywordField(metadata, 'en_US', errors);
+  validateAppleKeywordField(metadata, 'fr_FR', errors);
 
   for (const check of checks) {
     console.log(`[aso:validate] ${check.path}: ${check.length}/${check.max}`);

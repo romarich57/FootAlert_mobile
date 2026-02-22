@@ -7,6 +7,7 @@ import {
   loadFollowedLeagueIds,
   toggleFollowedLeague,
 } from '@data/storage/followsStorage';
+import { incrementPositiveEventCount } from '@data/storage/reviewPromptStorage';
 import type { Competition } from '@ui/features/competitions/types/competitions.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
@@ -38,8 +39,19 @@ export function useFollowedCompetitions() {
   const toggleMutation = useMutation({
     mutationFn: (leagueId: string) =>
       toggleFollowedLeague(leagueId, MAX_FOLLOWED_LEAGUES),
-    onSuccess: async (result, leagueId) => {
+    onMutate: async () => {
+      const previousIds =
+        queryClient.getQueryData<string[]>(queryKeys.competitions.followedIds()) ?? [];
+      return { previousIds };
+    },
+    onSuccess: async (result, leagueId, context) => {
       queryClient.setQueryData(queryKeys.competitions.followedIds(), result.ids);
+
+      const wasAlreadyFollowed = context?.previousIds?.includes(leagueId) ?? false;
+      const isNowFollowed = result.ids.includes(leagueId);
+      if (result.changed && !wasAlreadyFollowed && isNowFollowed) {
+        incrementPositiveEventCount().catch(() => undefined);
+      }
 
       if (!result.ids.includes(leagueId)) {
         queryClient.setQueryData<Competition[]>(

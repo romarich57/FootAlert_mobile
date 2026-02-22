@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -134,22 +134,65 @@ function buildFeedItems(data: TeamStandingsData | undefined): StandingFeedItem[]
     return [];
   }
 
-  return data.groups.flatMap((group, groupIndex) => {
+  const headerOccurrences = new Map<string, number>();
+
+  return data.groups.flatMap(group => {
+    const groupIdentity = group.groupName ?? 'standings';
+    const headerOccurrence = (headerOccurrences.get(groupIdentity) ?? 0) + 1;
+    headerOccurrences.set(groupIdentity, headerOccurrence);
+
     const header: StandingFeedItem = {
       type: 'header',
-      key: `group-${groupIndex}`,
+      key: `group-${groupIdentity}-${headerOccurrence}`,
       title: group.groupName,
     };
 
-    const rows = group.rows.map<StandingFeedItem>((row, rowIndex) => ({
-      type: 'row',
-      key: `group-${groupIndex}-row-${rowIndex}-${row.teamId ?? 'unknown'}`,
-      row,
-    }));
+    const rowOccurrences = new Map<string, number>();
+    const rows = group.rows.map<StandingFeedItem>(row => {
+      const rowBaseKey = `${groupIdentity}-${row.teamId ?? row.teamName ?? 'unknown'}-${row.rank ?? 'unknown'}`;
+      const rowOccurrence = (rowOccurrences.get(rowBaseKey) ?? 0) + 1;
+      rowOccurrences.set(rowBaseKey, rowOccurrence);
+
+      return {
+        type: 'row',
+        key: `row-${rowBaseKey}-${rowOccurrence}`,
+        row,
+      };
+    });
 
     return [header, ...rows];
   });
 }
+
+const StandingRowItem = memo(function StandingRowItem({
+  row,
+  styles,
+}: {
+  row: TeamStandingRow;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={[styles.row, row.isTargetTeam ? styles.rowTarget : null]}>
+      <View style={styles.colRank}>
+        <Text style={styles.cellText}>{toDisplayNumber(row.rank)}</Text>
+      </View>
+      <View style={styles.colTeam}>
+        <Text numberOfLines={1} style={styles.teamText}>
+          {toDisplayValue(row.teamName)}
+        </Text>
+      </View>
+      <View style={styles.colPlayed}>
+        <Text style={styles.cellText}>{toDisplayNumber(row.played)}</Text>
+      </View>
+      <View style={styles.colGoalDiff}>
+        <Text style={styles.cellText}>{toDisplayNumber(row.goalDiff)}</Text>
+      </View>
+      <View style={styles.colPoints}>
+        <Text style={styles.cellTextBold}>{toDisplayNumber(row.points)}</Text>
+      </View>
+    </View>
+  );
+});
 
 export function TeamStandingsTab({ data, isLoading, isError, onRetry }: TeamStandingsTabProps) {
   const { colors } = useAppTheme();
@@ -157,34 +200,18 @@ export function TeamStandingsTab({ data, isLoading, isError, onRetry }: TeamStan
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const feedItems = useMemo(() => buildFeedItems(data), [data]);
+  const keyExtractor = useCallback((item: StandingFeedItem) => item.key, []);
 
-  const renderItem: ListRenderItem<StandingFeedItem> = ({ item }) => {
-    if (item.type === 'header') {
-      return <Text style={styles.groupHeader}>{toDisplayValue(item.title)}</Text>;
-    }
+  const renderItem = useCallback<ListRenderItem<StandingFeedItem>>(
+    ({ item }) => {
+      if (item.type === 'header') {
+        return <Text style={styles.groupHeader}>{toDisplayValue(item.title)}</Text>;
+      }
 
-    return (
-      <View style={[styles.row, item.row.isTargetTeam ? styles.rowTarget : null]}>
-        <View style={styles.colRank}>
-          <Text style={styles.cellText}>{toDisplayNumber(item.row.rank)}</Text>
-        </View>
-        <View style={styles.colTeam}>
-          <Text numberOfLines={1} style={styles.teamText}>
-            {toDisplayValue(item.row.teamName)}
-          </Text>
-        </View>
-        <View style={styles.colPlayed}>
-          <Text style={styles.cellText}>{toDisplayNumber(item.row.played)}</Text>
-        </View>
-        <View style={styles.colGoalDiff}>
-          <Text style={styles.cellText}>{toDisplayNumber(item.row.goalDiff)}</Text>
-        </View>
-        <View style={styles.colPoints}>
-          <Text style={styles.cellTextBold}>{toDisplayNumber(item.row.points)}</Text>
-        </View>
-      </View>
-    );
-  };
+      return <StandingRowItem row={item.row} styles={styles} />;
+    },
+    [styles],
+  );
 
   return (
     <View style={styles.container}>
@@ -225,7 +252,7 @@ export function TeamStandingsTab({ data, isLoading, isError, onRetry }: TeamStan
         <FlashList
           data={feedItems}
           renderItem={renderItem}
-          keyExtractor={item => item.key}
+          keyExtractor={keyExtractor}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />
       ) : null}

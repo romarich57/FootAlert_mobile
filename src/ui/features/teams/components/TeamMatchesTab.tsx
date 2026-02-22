@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -209,6 +209,66 @@ function buildFeedItems(
   ];
 }
 
+const TeamMatchRow = memo(function TeamMatchRow({
+  match,
+  styles,
+  onPressMatch,
+  onPressTeam,
+}: {
+  match: TeamMatchItem;
+  styles: ReturnType<typeof createStyles>;
+  onPressMatch: (matchId: string) => void;
+  onPressTeam: (teamId: string) => void;
+}) {
+  const score =
+    match.status === 'upcoming'
+      ? toDisplayHour(match.date)
+      : toDisplayScore(match.homeGoals, match.awayGoals);
+
+  return (
+    <Pressable style={styles.matchCard} onPress={() => onPressMatch(match.fixtureId)}>
+      <View style={styles.metaRow}>
+        <Text style={styles.metaText}>{toDisplayDate(match.date)}</Text>
+        <Text numberOfLines={1} style={styles.metaText}>
+          {toDisplayValue(match.leagueName)}
+        </Text>
+      </View>
+
+      <View style={styles.teamsRow}>
+        <Pressable
+          onPress={event => {
+            event.stopPropagation();
+            if (match.homeTeamId) {
+              onPressTeam(match.homeTeamId);
+            }
+          }}
+          style={styles.homeTeamPressable}
+        >
+          <Text numberOfLines={1} style={styles.teamName}>
+            {toDisplayValue(match.homeTeamName)}
+          </Text>
+        </Pressable>
+
+        <Text style={styles.middleText}>{score}</Text>
+
+        <Pressable
+          onPress={event => {
+            event.stopPropagation();
+            if (match.awayTeamId) {
+              onPressTeam(match.awayTeamId);
+            }
+          }}
+          style={styles.awayTeamPressable}
+        >
+          <Text numberOfLines={1} style={[styles.teamName, styles.awayTeamName]}>
+            {toDisplayValue(match.awayTeamName)}
+          </Text>
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+});
+
 export function TeamMatchesTab({
   teamId,
   data,
@@ -232,61 +292,25 @@ export function TeamMatchesTab({
       }),
     [data, teamId, t, venueFilter],
   );
+  const keyExtractor = useCallback((item: MatchFeedItem) => item.key, []);
 
-  const renderItem: ListRenderItem<MatchFeedItem> = ({ item }) => {
-    if (item.type === 'header') {
-      return <Text style={styles.sectionHeader}>{item.title}</Text>;
-    }
+  const renderItem = useCallback<ListRenderItem<MatchFeedItem>>(
+    ({ item }) => {
+      if (item.type === 'header') {
+        return <Text style={styles.sectionHeader}>{item.title}</Text>;
+      }
 
-    const match = item.match;
-    const score =
-      match.status === 'upcoming'
-        ? toDisplayHour(match.date)
-        : toDisplayScore(match.homeGoals, match.awayGoals);
-
-    return (
-      <Pressable style={styles.matchCard} onPress={() => onPressMatch(match.fixtureId)}>
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>{toDisplayDate(match.date)}</Text>
-          <Text numberOfLines={1} style={styles.metaText}>
-            {toDisplayValue(match.leagueName)}
-          </Text>
-        </View>
-
-        <View style={styles.teamsRow}>
-          <Pressable
-            onPress={event => {
-              event.stopPropagation();
-              if (match.homeTeamId) {
-                onPressTeam(match.homeTeamId);
-              }
-            }}
-            style={styles.homeTeamPressable}
-          >
-            <Text numberOfLines={1} style={styles.teamName}>
-              {toDisplayValue(match.homeTeamName)}
-            </Text>
-          </Pressable>
-
-          <Text style={styles.middleText}>{score}</Text>
-
-          <Pressable
-            onPress={event => {
-              event.stopPropagation();
-              if (match.awayTeamId) {
-                onPressTeam(match.awayTeamId);
-              }
-            }}
-            style={styles.awayTeamPressable}
-          >
-            <Text numberOfLines={1} style={[styles.teamName, styles.awayTeamName]}>
-              {toDisplayValue(match.awayTeamName)}
-            </Text>
-          </Pressable>
-        </View>
-      </Pressable>
-    );
-  };
+      return (
+        <TeamMatchRow
+          match={item.match}
+          styles={styles}
+          onPressMatch={onPressMatch}
+          onPressTeam={onPressTeam}
+        />
+      );
+    },
+    [onPressMatch, onPressTeam, styles],
+  );
 
   return (
     <View style={styles.container}>
@@ -325,7 +349,7 @@ export function TeamMatchesTab({
       {!isLoading && !isError ? (
         <FlashList
           data={feedItems}
-          keyExtractor={item => item.key}
+          keyExtractor={keyExtractor}
           renderItem={renderItem}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />

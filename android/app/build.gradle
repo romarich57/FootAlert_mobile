@@ -60,7 +60,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = (project.findProperty('FOOTALERT_ENABLE_MINIFY') ?: 'true').toBoolean()
 def requestedTasks = gradle.startParameter.taskNames.collect { it.toLowerCase() }
 def isReleaseTaskRequested = requestedTasks.any { it.contains('release') }
 def releaseStoreFile = project.findProperty('FOOTALERT_UPLOAD_STORE_FILE') ?: System.getenv('FOOTALERT_UPLOAD_STORE_FILE')
@@ -126,6 +126,15 @@ android {
                 signingConfig signingConfigs.release
             }
             minifyEnabled enableProguardInReleaseBuilds
+            shrinkResources enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+        benchmark {
+            initWith release
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+            minifyEnabled enableProguardInReleaseBuilds
+            shrinkResources enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }

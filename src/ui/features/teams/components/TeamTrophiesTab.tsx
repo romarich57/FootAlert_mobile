@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
-import { FlashList } from '@shopify/flash-list';
+import { memo, useCallback, useMemo } from 'react';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import type { TeamTrophiesData } from '@ui/features/teams/types/teams.types';
+import type { TeamTrophiesData, TeamTrophyGroup } from '@ui/features/teams/types/teams.types';
 import { toDisplayNumber, toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
@@ -114,10 +114,51 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
+type TeamTrophyGroupRowProps = {
+  group: TeamTrophyGroup;
+  totalWinsLabel: string;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const TeamTrophyGroupRow = memo(function TeamTrophyGroupRow({
+  group,
+  totalWinsLabel,
+  styles,
+}: TeamTrophyGroupRowProps) {
+  return (
+    <View style={styles.groupCard}>
+      <Text style={styles.groupTitle}>{toDisplayValue(group.competition)}</Text>
+      <Text style={styles.groupMeta}>
+        {toDisplayValue(group.country)} • {totalWinsLabel}: {toDisplayNumber(group.winsCount)}
+      </Text>
+
+      {group.items.map(trophy => (
+        <View key={trophy.id} style={styles.seasonRow}>
+          <Text style={styles.seasonText}>{toDisplayValue(trophy.season)}</Text>
+          <Text style={styles.placeText}>{toDisplayValue(trophy.place)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+});
+
 export function TeamTrophiesTab({ data, isLoading, isError, onRetry }: TeamTrophiesTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const totalWinsLabel = t('teamDetails.labels.totalWins');
+  const groups = useMemo(() => data?.groups ?? [], [data?.groups]);
+
+  const renderGroupItem = useCallback<ListRenderItem<TeamTrophyGroup>>(
+    ({ item }) => (
+      <TeamTrophyGroupRow
+        group={item}
+        totalWinsLabel={totalWinsLabel}
+        styles={styles}
+      />
+    ),
+    [styles, totalWinsLabel],
+  );
 
   return (
     <View style={styles.container}>
@@ -150,23 +191,9 @@ export function TeamTrophiesTab({ data, isLoading, isError, onRetry }: TeamTroph
 
       {!isLoading && !isError ? (
         <FlashList
-          data={data?.groups ?? []}
+          data={groups}
           keyExtractor={item => `${item.competition}-${item.country ?? 'country'}`}
-          renderItem={({ item }) => (
-            <View style={styles.groupCard}>
-              <Text style={styles.groupTitle}>{toDisplayValue(item.competition)}</Text>
-              <Text style={styles.groupMeta}>
-                {toDisplayValue(item.country)} • {t('teamDetails.labels.totalWins')}: {toDisplayNumber(item.winsCount)}
-              </Text>
-
-              {item.items.map(trophy => (
-                <View key={trophy.id} style={styles.seasonRow}>
-                  <Text style={styles.seasonText}>{toDisplayValue(trophy.season)}</Text>
-                  <Text style={styles.placeText}>{toDisplayValue(trophy.place)}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+          renderItem={renderGroupItem}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />
       ) : null}

@@ -12,8 +12,8 @@ type CompetitionStandingsTabProps = {
 };
 
 type ListItem =
-    | { type: 'header'; title: string }
-    | { type: 'row'; data: StandingRow };
+    | { type: 'header'; key: string; title: string }
+    | { type: 'row'; key: string; data: StandingRow };
 
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
@@ -153,6 +153,21 @@ function getDescriptionColor(desc: string | null, styles: any) {
     return null;
 }
 
+function createFormBadges(form: string, teamId: number) {
+    const chars = form !== '?' ? form.split('').slice(0, 5) : [];
+    const seen = new Map<string, number>();
+
+    return chars.map(char => {
+        const occurrence = (seen.get(char) ?? 0) + 1;
+        seen.set(char, occurrence);
+
+        return {
+            char,
+            key: `form-${teamId}-${char}-${occurrence}`,
+        };
+    });
+}
+
 export function CompetitionStandingsTab({ competitionId, season }: CompetitionStandingsTabProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -162,16 +177,30 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
     const listData = useMemo(() => {
         if (!groups) return [];
         const items: ListItem[] = [];
+        const headerOccurrences = new Map<string, number>();
+
         groups.forEach(group => {
             if (groups.length > 1 || group.groupName !== 'Classement') {
-                items.push({ type: 'header', title: group.groupName });
+                const occurrence = (headerOccurrences.get(group.groupName) ?? 0) + 1;
+                headerOccurrences.set(group.groupName, occurrence);
+                items.push({
+                    type: 'header',
+                    key: `header-${group.groupName}-${occurrence}`,
+                    title: group.groupName,
+                });
             }
             group.rows.forEach(row => {
-                items.push({ type: 'row', data: row });
+                items.push({
+                    type: 'row',
+                    key: `standing-${row.teamId}-${row.rank}`,
+                    data: row,
+                });
             });
         });
         return items;
     }, [groups]);
+
+    const keyExtractor = useCallback((item: ListItem) => item.key, []);
 
     const renderItem = useCallback(({ item }: { item: ListItem }) => {
         if (item.type === 'header') {
@@ -191,7 +220,7 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
         }
 
         const data = item.data;
-        const formChars = data.form !== '?' ? data.form.split('').slice(0, 5) : [];
+        const formBadges = createFormBadges(data.form, data.teamId);
         const descStyle = getDescriptionColor(data.description, styles);
 
         return (
@@ -214,11 +243,11 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
                     <Text style={styles.statTextBold}>{displayValue(data.points)}</Text>
                 </View>
                 <View style={styles.colForm}>
-                    {formChars.length > 0 ? (
+                    {formBadges.length > 0 ? (
                         <View style={styles.formRow}>
-                            {formChars.map((char, index) => (
-                                <View key={index} style={[styles.formBadge, getFormStyle(char, styles)]}>
-                                    <Text style={styles.formBadgeText}>{char}</Text>
+                            {formBadges.map(badge => (
+                                <View key={badge.key} style={[styles.formBadge, getFormStyle(badge.char, styles)]}>
+                                    <Text style={styles.formBadgeText}>{badge.char}</Text>
                                 </View>
                             ))}
                         </View>
@@ -263,6 +292,7 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
             )}
             <FlashList
                 data={listData}
+                keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 getItemType={(item) => item.type}
             />

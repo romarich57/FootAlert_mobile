@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -173,6 +173,16 @@ export function FollowsSearchScreen() {
     [followedPlayerIds, handleOpenPlayerDetails, handleTogglePlayer, t],
   );
 
+  const renderTeamItem = useCallback<ListRenderItem<FollowsSearchResultTeam>>(
+    ({ item }) => renderTeamRow(item),
+    [renderTeamRow],
+  );
+
+  const renderPlayerItem = useCallback<ListRenderItem<FollowsSearchResultPlayer>>(
+    ({ item }) => renderPlayerRow(item),
+    [renderPlayerRow],
+  );
+
   const teamResults =
     selectedTab === 'teams' ? (search.results as FollowsSearchResultTeam[]) : [];
   const playerResults =
@@ -242,7 +252,7 @@ export function FollowsSearchScreen() {
         <FlashList
           data={teamResults}
           keyExtractor={item => `team-${item.teamId}`}
-          renderItem={({ item }) => renderTeamRow(item)}
+          renderItem={renderTeamItem}
           contentContainerStyle={styles.listContent}
         />
       ) : null}
@@ -251,7 +261,7 @@ export function FollowsSearchScreen() {
         <FlashList
           data={playerResults}
           keyExtractor={item => `player-${item.playerId}`}
-          renderItem={({ item }) => renderPlayerRow(item)}
+          renderItem={renderPlayerItem}
           contentContainerStyle={styles.listContent}
         />
       ) : null}

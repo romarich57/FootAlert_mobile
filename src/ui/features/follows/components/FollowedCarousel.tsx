@@ -1,6 +1,6 @@
-import { memo, useMemo, type ReactElement } from 'react';
+import { memo, useCallback, useMemo, type ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -42,6 +42,10 @@ export const FollowedCarousel = memo(function FollowedCarousel<T>({
 }: FollowedCarouselProps<T>) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const renderCarouselItem = useCallback<ListRenderItem<T>>(
+    ({ item }) => renderItem(item),
+    [renderItem],
+  );
 
   return (
     <View style={styles.container}>
@@ -52,7 +56,7 @@ export const FollowedCarousel = memo(function FollowedCarousel<T>({
           data={items}
           horizontal
           keyExtractor={keyExtractor}
-          renderItem={({ item }) => renderItem(item)}
+          renderItem={renderCarouselItem}
           contentContainerStyle={styles.content}
           showsHorizontalScrollIndicator={false}
         />

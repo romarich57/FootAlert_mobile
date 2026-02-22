@@ -199,6 +199,32 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [activeTab, setActiveTab] = useState<'saison' | 'equipe'>('saison');
     const segmentedTab: FollowEntityTab = activeTab === 'saison' ? 'teams' : 'players';
+    const seasonRows = useMemo(() => {
+        const occurrences = new Map<string, number>();
+        return seasons.slice(0, 5).map(season => {
+            const baseKey = `${season.season ?? 'unknown'}-${season.team.id ?? season.team.name ?? 'unknown'}`;
+            const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
+            occurrences.set(baseKey, occurrence);
+
+            return {
+                key: `season-${baseKey}-${occurrence}`,
+                data: season,
+            };
+        });
+    }, [seasons]);
+    const teamRows = useMemo(() => {
+        const occurrences = new Map<string, number>();
+        return teams.map(team => {
+            const baseKey = `${team.team.id ?? team.team.name ?? 'unknown'}-${team.period ?? 'unknown'}`;
+            const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
+            occurrences.set(baseKey, occurrence);
+
+            return {
+                key: `team-${baseKey}-${occurrence}`,
+                data: team,
+            };
+        });
+    }, [teams]);
 
     const handleSegmentedTabChange = (tab: FollowEntityTab) => {
         setActiveTab(tab === 'teams' ? 'saison' : 'equipe');
@@ -228,8 +254,8 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                             <View style={styles.colNote}><Text style={styles.headerText}>NOTE</Text></View>
                         </View>
 
-                        {seasons.slice(0, 5).map((s, i) => (
-                            <View key={`${s.season}-${s.team.id}-${i}`} style={[
+                        {seasonRows.map(({ key, data: s }, i) => (
+                            <View key={key} style={[
                                 styles.rowItem,
                                 i === 0 && styles.rowItemFirst,
                             ]}>
@@ -267,8 +293,8 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                             </View>
                         </View>
 
-                        {teams.map((t, i) => (
-                            <View key={`${t.team.id}-${i}`} style={styles.teamCareerItem}>
+                        {teamRows.map(({ key, data: t }) => (
+                            <View key={key} style={styles.teamCareerItem}>
                                 <View style={styles.teamCareerInfo}>
                                     <Image source={{ uri: t.team.logo ?? undefined }} style={styles.teamCareerLogo} />
                                     <View>

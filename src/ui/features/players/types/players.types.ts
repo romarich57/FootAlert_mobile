@@ -112,6 +112,73 @@ export type PlayerCareerTeam = {
     assists: number | null;
 };
 
+export type PlayerApiCareerSeasonAggregateDto = {
+    season?: string | null;
+    team?: {
+        id?: string | number | null;
+        name?: string | null;
+        logo?: string | null;
+    };
+    matches?: number | null;
+    goals?: number | null;
+    assists?: number | null;
+    rating?: string | number | null;
+};
+
+export type PlayerApiCareerTeamAggregateDto = {
+    team?: {
+        id?: string | number | null;
+        name?: string | null;
+        logo?: string | null;
+    };
+    period?: string | null;
+    matches?: number | null;
+    goals?: number | null;
+    assists?: number | null;
+};
+
+export type PlayerApiCareerAggregateResponse = {
+    response?: {
+        seasons?: PlayerApiCareerSeasonAggregateDto[];
+        teams?: PlayerApiCareerTeamAggregateDto[];
+    };
+};
+
+export type PlayerApiMatchPerformanceAggregateDto = {
+    fixtureId?: string | number | null;
+    date?: string | null;
+    competition?: {
+        id?: string | number | null;
+        name?: string | null;
+        logo?: string | null;
+    };
+    homeTeam?: {
+        id?: string | number | null;
+        name?: string | null;
+        logo?: string | null;
+    };
+    awayTeam?: {
+        id?: string | number | null;
+        name?: string | null;
+        logo?: string | null;
+    };
+    goalsHome?: number | null;
+    goalsAway?: number | null;
+    playerStats?: {
+        minutes?: number | null;
+        rating?: string | number | null;
+        goals?: number | null;
+        assists?: number | null;
+        yellowCards?: number | null;
+        redCards?: number | null;
+        isStarter?: boolean | null;
+    };
+};
+
+export type PlayerApiMatchesAggregateResponse = {
+    response?: PlayerApiMatchPerformanceAggregateDto[];
+};
+
 // API DTOs
 
 export type PlayerApiDetailsDto = {
