@@ -101,6 +101,7 @@ export function PlayerDetailsScreen() {
                 <PlayerCareerTab
                     seasons={screenModel.careerSeasons}
                     teams={screenModel.careerTeams}
+                    nationality={profile.nationality ?? undefined}
                 />
             );
             break;

@@ -7,12 +7,13 @@ import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerCareerSeason, PlayerCareerTeam } from '@ui/features/players/types/players.types';
 import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
-import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
+import { toDisplayValue, getRatingColor } from '@ui/features/players/utils/playerDisplay';
 import { FollowsSegmentedControl } from '@ui/features/follows/components/FollowsSegmentedControl'; // Reusing for aesthetic consistency
 
 type PlayerCareerTabProps = {
     seasons: PlayerCareerSeason[];
     teams: PlayerCareerTeam[];
+    nationality?: string;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -83,14 +84,19 @@ function createStyles(colors: ThemeColors) {
             fontWeight: '700',
         },
         noteVal: {
-            color: colors.primary,
-            fontSize: 14,
+            color: '#FFFFFF',
+            fontSize: 12,
             fontWeight: '800',
+            textAlign: 'center',
+            lineHeight: 16,
         },
-        noteArrow: {
-            color: colors.textMuted,
-            fontSize: 14,
-            marginLeft: 4,
+        noteBadge: {
+            borderRadius: 6,
+            paddingHorizontal: 6,
+            paddingVertical: 4,
+            minWidth: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
         },
         seeAllRow: {
             backgroundColor: colors.surface,
@@ -195,15 +201,16 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
-export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
+export function PlayerCareerTab({ seasons, teams, nationality }: PlayerCareerTabProps) {
     const { colors } = useAppTheme();
     const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [activeTab, setActiveTab] = useState<'saison' | 'equipe'>('saison');
     const segmentedTab: FollowEntityTab = activeTab === 'saison' ? 'teams' : 'players';
+
     const seasonRows = useMemo(() => {
         const occurrences = new Map<string, number>();
-        return seasons.slice(0, 5).map(season => {
+        return seasons.map(season => {
             const baseKey = `${season.season ?? 'unknown'}-${season.team.id ?? season.team.name ?? 'unknown'}`;
             const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
             occurrences.set(baseKey, occurrence);
@@ -214,9 +221,10 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
             };
         });
     }, [seasons]);
-    const teamRows = useMemo(() => {
+    const { professionalTeams, nationalTeams } = useMemo(() => {
         const occurrences = new Map<string, number>();
-        return teams.map(team => {
+
+        const mappedTeams = teams.map(team => {
             const baseKey = `${team.team.id ?? team.team.name ?? 'unknown'}-${team.period ?? 'unknown'}`;
             const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
             occurrences.set(baseKey, occurrence);
@@ -226,7 +234,27 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                 data: team,
             };
         });
-    }, [teams]);
+
+        const natRegex = nationality ? new RegExp(`^${nationality}$`, 'i') : null;
+
+        const profs: typeof mappedTeams = [];
+        const nats: typeof mappedTeams = [];
+
+        for (const item of mappedTeams) {
+            const teamName = item.data.team.name ?? '';
+            const isNat =
+                (natRegex && natRegex.test(teamName)) ||
+                /(U21|U20|U19|U18|U17|National)/i.test(teamName);
+
+            if (isNat) {
+                nats.push(item);
+            } else {
+                profs.push(item);
+            }
+        }
+
+        return { professionalTeams: profs, nationalTeams: nats };
+    }, [teams, nationality]);
 
     const handleSegmentedTabChange = (tab: FollowEntityTab) => {
         setActiveTab(tab === 'teams' ? 'saison' : 'equipe');
@@ -260,56 +288,85 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                             <View key={key} style={[
                                 styles.rowItem,
                                 i === 0 && styles.rowItemFirst,
+                                i === seasonRows.length - 1 && styles.rowItemLast,
                             ]}>
                                 <View style={styles.colLogo}>
                                     <Image source={{ uri: s.team.logo ?? undefined }} style={styles.teamLogo} />
                                 </View>
                                 <View style={styles.colSeason}>
-                                    <Text style={styles.seasonText}>{toDisplayValue(s.season)}</Text>
-                                    <Text style={styles.teamNameSub} numberOfLines={1}>
-                                        {toDisplayValue(s.team.name)}
+                                    <Text style={styles.seasonText} numberOfLines={1}>{toDisplayValue(s.team.name)}</Text>
+                                    <Text style={styles.teamNameSub}>
+                                        {s.season ? `${s.season}/${parseInt(s.season) + 1}` : '?'}
                                     </Text>
                                 </View>
                                 <View style={styles.colM}><Text style={styles.valText}>{toDisplayValue(s.matches)}</Text></View>
                                 <View style={styles.colB}><Text style={styles.valText}>{toDisplayValue(s.goals)}</Text></View>
                                 <View style={styles.colP}><Text style={styles.valText}>{toDisplayValue(s.assists)}</Text></View>
                                 <View style={[styles.colNote, styles.noteCellContent]}>
-                                    <Text style={styles.noteVal}>{toDisplayValue(s.rating)}</Text>
-                                    <MaterialCommunityIcons name="chevron-right" style={styles.noteArrow} />
+                                    <View style={[styles.noteBadge, { backgroundColor: getRatingColor(s.rating) }]}>
+                                        <Text style={styles.noteVal}>{toDisplayValue(s.rating)}</Text>
+                                    </View>
                                 </View>
                             </View>
                         ))}
-
-                        <Pressable style={styles.seeAllRow}>
-                            <Text style={styles.seeAllText}>{t('playerDetails.career.labels.seeAllSeasons')}</Text>
-                            <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textMuted} />
-                        </Pressable>
                     </View>
                 ) : (
                     <View>
-                        <View style={styles.sectionTitleRow}>
-                            <Text style={styles.sectionTitle}>{t('playerDetails.career.labels.professionalCareer')}</Text>
-                            <View style={styles.sectionIcons}>
-                                <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.textMuted} />
-                                <MaterialCommunityIcons name="soccer" size={20} color={colors.textMuted} />
-                            </View>
-                        </View>
-
-                        {teamRows.map(({ key, data: team }) => (
-                            <View key={key} style={styles.teamCareerItem}>
-                                <View style={styles.teamCareerInfo}>
-                                    <Image source={{ uri: team.team.logo ?? undefined }} style={styles.teamCareerLogo} />
-                                    <View>
-                                        <Text style={styles.teamCareerName}>{toDisplayValue(team.team.name)}</Text>
-                                        <Text style={styles.teamCareerPeriod}>{toDisplayValue(team.period)}</Text>
+                        {professionalTeams.length > 0 && (
+                            <>
+                                <View style={styles.sectionTitleRow}>
+                                    <Text style={styles.sectionTitle}>{t('playerDetails.career.labels.professionalCareer')}</Text>
+                                    <View style={styles.sectionIcons}>
+                                        <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.textMuted} />
+                                        <MaterialCommunityIcons name="soccer" size={20} color={colors.textMuted} />
                                     </View>
                                 </View>
-                                <View style={styles.teamCareerStatsRow}>
-                                    <Text style={styles.teamCareerMatches}>{toDisplayValue(team.matches)}</Text>
-                                    <Text style={styles.teamCareerGoals}>{toDisplayValue(team.goals)}</Text>
+
+                                {professionalTeams.map(({ key, data: team }) => (
+                                    <View key={key} style={styles.teamCareerItem}>
+                                        <View style={styles.teamCareerInfo}>
+                                            <Image source={{ uri: team.team.logo ?? undefined }} style={styles.teamCareerLogo} />
+                                            <View>
+                                                <Text style={styles.teamCareerName}>{toDisplayValue(team.team.name)}</Text>
+                                                <Text style={styles.teamCareerPeriod}>{toDisplayValue(team.period)}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.teamCareerStatsRow}>
+                                            <Text style={styles.teamCareerMatches}>{toDisplayValue(team.matches)}</Text>
+                                            <Text style={styles.teamCareerGoals}>{toDisplayValue(team.goals)}</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </>
+                        )}
+
+                        {nationalTeams.length > 0 && (
+                            <>
+                                <View style={[styles.sectionTitleRow, { marginTop: professionalTeams.length > 0 ? 32 : 24 }]}>
+                                    <Text style={styles.sectionTitle}>{t('playerDetails.career.labels.nationalTeam', { defaultValue: 'Équipe nationale' })}</Text>
+                                    <View style={styles.sectionIcons}>
+                                        <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.textMuted} />
+                                        <MaterialCommunityIcons name="soccer" size={20} color={colors.textMuted} />
+                                    </View>
                                 </View>
-                            </View>
-                        ))}
+
+                                {nationalTeams.map(({ key, data: team }) => (
+                                    <View key={key} style={styles.teamCareerItem}>
+                                        <View style={styles.teamCareerInfo}>
+                                            <Image source={{ uri: team.team.logo ?? undefined }} style={styles.teamCareerLogo} />
+                                            <View>
+                                                <Text style={styles.teamCareerName}>{toDisplayValue(team.team.name)}</Text>
+                                                <Text style={styles.teamCareerPeriod}>{toDisplayValue(team.period)}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.teamCareerStatsRow}>
+                                            <Text style={styles.teamCareerMatches}>{toDisplayValue(team.matches)}</Text>
+                                            <Text style={styles.teamCareerGoals}>{toDisplayValue(team.goals)}</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </>
+                        )}
 
                         <View style={styles.legendRow}>
                             <View style={styles.legendItem}>

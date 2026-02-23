@@ -6,6 +6,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import type { MainTabParamList, RootStackParamList } from '@ui/app/navigation/types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { CompetitionsScreen } from '@ui/features/competitions';
+import { CompetitionDetailsScreen } from '@ui/features/competitions/screens/CompetitionDetailsScreen';
 import { FollowsScreen } from '@ui/features/follows';
 import { MatchesScreen } from '@ui/features/matches';
 import { MatchDetailsScreen } from '@ui/features/matches/screens/MatchDetailsScreen';
@@ -106,6 +107,11 @@ export function RootNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="MatchDetails" component={MatchDetailsScreen} />
+      <Stack.Screen
+        name="CompetitionDetails"
+        component={CompetitionDetailsScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen name="TeamDetails" component={TeamDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PlayerDetails" component={PlayerDetailsScreen} />
       <Stack.Screen
