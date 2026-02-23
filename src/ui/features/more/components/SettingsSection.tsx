@@ -21,12 +21,17 @@ function createStyles(colors: ThemeColors) {
       marginBottom: 4,
     },
     card: {
-      marginHorizontal: 12,
-      borderRadius: 16,
+      marginHorizontal: 16,
+      borderRadius: 18,
       borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+      borderColor: colors.cardBorder,
+      backgroundColor: colors.cardBackground,
       overflow: 'hidden',
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
     },
   });
 }

@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, type ListRenderItem } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { useCompetitionSeasons } from '../hooks/useCompetitionSeasons';
@@ -71,6 +72,7 @@ type SeasonRowProps = {
     item: CompetitionSeasonItem;
     currentSeason: number;
     onSeasonSelect: (season: number) => void;
+    formatSeasonLabel: (year: number, current: boolean) => string;
     checkColor: string;
     styles: ReturnType<typeof createStyles>;
 };
@@ -79,6 +81,7 @@ const SeasonRow = memo(function SeasonRow({
     item,
     currentSeason,
     onSeasonSelect,
+    formatSeasonLabel,
     checkColor,
     styles,
 }: SeasonRowProps) {
@@ -90,7 +93,7 @@ const SeasonRow = memo(function SeasonRow({
             onPress={() => onSeasonSelect(item.year)}
         >
             <Text style={[styles.seasonText, isActive ? styles.seasonTextActive : null]}>
-                Saison {item.year}/{item.year + 1} {item.current ? '(En cours)' : ''}
+                {formatSeasonLabel(item.year, item.current)}
             </Text>
             {isActive ? (
                 <MaterialCommunityIcons name="check" size={20} color={checkColor} />
@@ -101,20 +104,29 @@ const SeasonRow = memo(function SeasonRow({
 
 export function CompetitionSeasonsTab({ competitionId, currentSeason, onSeasonSelect }: CompetitionSeasonsTabProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const { data: seasons, isLoading, error } = useCompetitionSeasons(competitionId);
+    const formatSeasonLabel = useCallback(
+        (year: number, current: boolean) => {
+            const label = t('competitionDetails.seasons.label', { start: year, end: year + 1 });
+            return current ? `${label} ${t('competitionDetails.seasons.current')}` : label;
+        },
+        [t],
+    );
     const renderSeasonItem = useCallback<ListRenderItem<CompetitionSeasonItem>>(
         ({ item }) => (
             <SeasonRow
                 item={item}
                 currentSeason={currentSeason}
                 onSeasonSelect={onSeasonSelect}
+                formatSeasonLabel={formatSeasonLabel}
                 checkColor={colors.primary}
                 styles={styles}
             />
         ),
-        [colors.primary, currentSeason, onSeasonSelect, styles],
+        [colors.primary, currentSeason, formatSeasonLabel, onSeasonSelect, styles],
     );
 
     if (isLoading) {
@@ -128,14 +140,14 @@ export function CompetitionSeasonsTab({ competitionId, currentSeason, onSeasonSe
     if (error || !seasons || seasons.length === 0) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>Saisons non disponibles</Text>
+                <Text style={styles.emptyText}>{t('competitionDetails.seasons.unavailable')}</Text>
             </View>
         );
     }
 
     return (
         <View style={styles.container}>
-            <Text style={styles.headerLabel}>Historique des saisons</Text>
+            <Text style={styles.headerLabel}>{t('competitionDetails.seasons.history')}</Text>
             <FlatList
                 data={seasons}
                 keyExtractor={(item) => item.year.toString()}

@@ -1,7 +1,9 @@
 import { Pressable, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { FollowsTrendRow } from '@ui/features/follows/components/FollowsTrendRow';
 import type { FollowEntityTab, TrendPlayerItem, TrendTeamItem } from '@ui/features/follows/types/follows.types';
+import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 type FollowsTrendsSectionProps = {
   selectedTab: FollowEntityTab;
@@ -47,6 +49,8 @@ export function FollowsTrendsSection({
   labels,
   styles,
 }: FollowsTrendsSectionProps) {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.trendsSection}>
       <View style={styles.trendsHeader}>
@@ -92,7 +96,7 @@ export function FollowsTrendsSection({
           <FollowsTrendRow
             key={`trend-player-${item.playerId}`}
             title={item.playerName}
-            subtitle={[item.position, item.teamName].filter(Boolean).join(' • ')}
+            subtitle={[localizePlayerPosition(item.position, t), item.teamName].filter(Boolean).join(' • ')}
             avatarUrl={item.playerPhoto}
             onPressItem={() => onPressPlayer(item.playerId)}
             itemAccessibilityLabel={item.playerName}

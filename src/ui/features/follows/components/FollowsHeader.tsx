@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -7,12 +7,11 @@ import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type FollowsHeaderProps = {
   title: string;
-  onPressSearch: () => void;
-  searchA11yLabel: string;
-  isEditMode?: boolean;
-  onPressEdit?: () => void;
-  editLabel?: string;
-  saveLabel?: string;
+  isSearchVisible: boolean;
+  searchQuery: string;
+  onSearchQueryChange: (query: string) => void;
+  onPressSearchToggle: () => void;
+  placeholder?: string;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -32,20 +31,6 @@ function createStyles(colors: ThemeColors) {
       letterSpacing: -1.0,
       flex: 1,
     },
-    actions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    editButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 8,
-    },
-    editText: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '600',
-    },
     searchButton: {
       width: 44,
       height: 44,
@@ -56,40 +41,73 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'center',
       backgroundColor: colors.surface,
     },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingTop: 12,
+      paddingBottom: 8,
+      gap: 4,
+    },
+    backButton: {
+      padding: 12,
+    },
+    headerSearchInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 18,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+    },
   });
 }
 
 export function FollowsHeader({
   title,
-  onPressSearch,
-  searchA11yLabel,
-  isEditMode = false,
-  onPressEdit,
-  editLabel,
-  saveLabel,
+  isSearchVisible,
+  searchQuery,
+  onSearchQueryChange,
+  onPressSearchToggle,
+  placeholder,
 }: FollowsHeaderProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const currentEditLabel = isEditMode ? (saveLabel ?? editLabel ?? '') : (editLabel ?? saveLabel ?? '');
+
+  if (isSearchVisible) {
+    return (
+      <View style={styles.searchContainer}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPressSearchToggle}
+          style={styles.backButton}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={26} color={colors.textMuted} />
+        </Pressable>
+        <TextInput
+          autoFocus
+          value={searchQuery}
+          onChangeText={onSearchQueryChange}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textMuted}
+          style={styles.headerSearchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+          selectionColor={colors.primary}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
-      <View style={styles.actions}>
-        {onPressEdit && (
-          <Pressable onPress={onPressEdit} style={styles.editButton}>
-            <Text style={styles.editText}>{currentEditLabel}</Text>
-          </Pressable>
-        )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={searchA11yLabel}
-          onPress={onPressSearch}
-          style={styles.searchButton}
-        >
-          <MaterialCommunityIcons name="magnify" size={24} color={colors.text} />
-        </Pressable>
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPressSearchToggle}
+        style={styles.searchButton}
+      >
+        <MaterialCommunityIcons name="magnify" size={24} color={colors.text} />
+      </Pressable>
     </View>
   );
 }

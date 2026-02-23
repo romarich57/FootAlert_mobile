@@ -20,11 +20,11 @@ type SettingsRowProps = {
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     row: {
-      minHeight: 56,
-      paddingHorizontal: 14,
+      minHeight: 60,
+      paddingHorizontal: 16,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 14,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
@@ -86,7 +86,7 @@ export function SettingsRow({
   const rowContent = (
     <>
       <View style={styles.iconWrap}>
-        <MaterialCommunityIcons name={iconName} size={22} color={colors.text} />
+        <MaterialCommunityIcons name={iconName} size={24} color={colors.primary} />
       </View>
       <View style={styles.content}>
         <Text style={styles.label}>{label}</Text>

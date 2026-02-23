@@ -7,6 +7,7 @@ import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamStatsData, TeamTopPlayer } from '@ui/features/teams/types/teams.types';
 import { toDisplayNumber, toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 type TeamStatsTabProps = {
   data: TeamStatsData | undefined;
@@ -174,6 +175,7 @@ type TeamTopPlayerRowProps = {
   player: TeamTopPlayer;
   onPressPlayer: (playerId: string) => void;
   ratingLabel: string;
+  positionLabel: string;
   styles: ReturnType<typeof createStyles>;
 };
 
@@ -181,6 +183,7 @@ const TeamTopPlayerRow = memo(function TeamTopPlayerRow({
   player,
   onPressPlayer,
   ratingLabel,
+  positionLabel,
   styles,
 }: TeamTopPlayerRowProps) {
   return (
@@ -192,7 +195,7 @@ const TeamTopPlayerRow = memo(function TeamTopPlayerRow({
         <Text numberOfLines={1} style={styles.playerName}>
           {toDisplayValue(player.name)}
         </Text>
-        <Text style={styles.playerMeta}>{toDisplayValue(player.position)}</Text>
+        <Text style={styles.playerMeta}>{positionLabel}</Text>
       </View>
 
       <View style={styles.playerRight}>
@@ -213,6 +216,10 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
   const goalBreakdown = useMemo(() => formatGoalBreakdown(data), [data]);
   const topPlayers = useMemo(() => data?.topPlayers ?? [], [data?.topPlayers]);
   const ratingLabel = t('teamDetails.labels.rating');
+  const localizePositionLabel = useCallback(
+    (value: string | null | undefined) => localizePlayerPosition(value, t),
+    [t],
+  );
 
   const renderTopPlayerItem = useCallback<ListRenderItem<TeamTopPlayer>>(
     ({ item }) => (
@@ -220,10 +227,11 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
         player={item}
         onPressPlayer={onPressPlayer}
         ratingLabel={ratingLabel}
+        positionLabel={localizePositionLabel(item.position)}
         styles={styles}
       />
     ),
-    [onPressPlayer, ratingLabel, styles],
+    [localizePositionLabel, onPressPlayer, ratingLabel, styles],
   );
 
   return (

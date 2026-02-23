@@ -223,10 +223,10 @@ export function TeamStandingsTab({ data, isLoading, isError, onRetry }: TeamStan
           <Text style={styles.tableHeaderText}>{t('teamDetails.labels.team')}</Text>
         </View>
         <View style={styles.colPlayed}>
-          <Text style={styles.tableHeaderText}>J</Text>
+          <Text style={styles.tableHeaderText}>{t('teamDetails.labels.played')}</Text>
         </View>
         <View style={styles.colGoalDiff}>
-          <Text style={styles.tableHeaderText}>DB</Text>
+          <Text style={styles.tableHeaderText}>{t('teamDetails.labels.goalDiff')}</Text>
         </View>
         <View style={styles.colPoints}>
           <Text style={styles.tableHeaderText}>{t('teamDetails.labels.points')}</Text>

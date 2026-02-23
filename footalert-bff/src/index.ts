@@ -1,7 +1,17 @@
-import { env } from './config/env.js';
-import { buildServer } from './server.js';
-
 async function start() {
+  // Node >= 20 supports process.loadEnvFile; load local .env automatically in dev.
+  const envFile = process.env.ENVFILE?.trim() || '.env';
+  try {
+    process.loadEnvFile?.(envFile);
+  } catch (error) {
+    const code = (error as { code?: string } | undefined)?.code;
+    if (code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  const { env } = await import('./config/env.js');
+  const { buildServer } = await import('./server.js');
   const app = await buildServer();
   await app.listen({
     host: env.host,

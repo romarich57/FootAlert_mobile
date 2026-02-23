@@ -20,7 +20,6 @@ export const linking: LinkingOptions<RootStackParamList> = {
       TeamDetails: 'team/:teamId',
       PlayerDetails: 'player/:playerId',
       SearchPlaceholder: 'search',
-      FollowsSearch: 'follows/search/:initialTab?',
     },
   },
 };

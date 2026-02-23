@@ -86,11 +86,30 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
   app.get('/v1/follows/search/players', async request => {
     const query = parseOrThrow(searchPlayersQuerySchema, request.query);
 
-    return withCache(`follows:search:players:${request.url}`, 60_000, () =>
-      apiFootballGet(
-        `/players?search=${encodeURIComponent(query.q)}&season=${encodeURIComponent(String(query.season))}`,
-      ),
-    );
+    return withCache(`follows:search:players-profiles:${request.url}`, 60_000, async () => {
+      const result = await apiFootballGet<any>(
+        `/players/profiles?search=${encodeURIComponent(query.q)}`,
+      );
+
+      const mapped = (result.response || []).map((item: any) => ({
+        player: {
+          id: item.player?.id,
+          name: item.player?.name,
+          photo: item.player?.photo,
+        },
+        statistics: [
+          {
+            games: {
+              position: item.player?.position,
+            },
+          },
+        ],
+      }));
+
+      return {
+        response: mapped,
+      };
+    });
   });
 
   app.get('/v1/follows/teams/:teamId', async request => {

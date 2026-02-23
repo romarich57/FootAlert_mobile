@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -162,7 +163,9 @@ function createStyles(colors: ThemeColors) {
 
 export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProps) {
     const { colors } = useAppTheme();
+    const { t, i18n } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-US';
 
     const renderItem = useCallback(
         ({ item }: ListRenderItemInfo<PlayerMatchPerformance>) => {
@@ -174,7 +177,7 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
             const dateObj = new Date(date ?? '');
             const dateString = Number.isNaN(dateObj.getTime())
                 ? '?'
-                : dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+                : dateObj.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 
             // Build badges only from available API values
             const icons = [];
@@ -182,7 +185,7 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                 icons.push({
                     key: 'goals',
                     icon: 'soccer',
-                    text: `${playerStats.goals} But${playerStats.goals > 1 ? 's' : ''}`,
+                    text: t('playerDetails.matches.badges.goals', { count: playerStats.goals }),
                     color: colors.primary,
                 });
             }
@@ -190,15 +193,25 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                 icons.push({
                     key: 'assists',
                     icon: 'shoe-cleat',
-                    text: `${playerStats.assists} Passe${playerStats.assists > 1 ? 's' : ''}`,
+                    text: t('playerDetails.matches.badges.assists', { count: playerStats.assists }),
                     color: colors.primary,
                 });
             }
             if (typeof playerStats.yellowCards === 'number' && playerStats.yellowCards > 0) {
-                icons.push({ key: 'yellow-cards', icon: 'card', text: 'Carton Jaune', color: '#FFD700' });
+                icons.push({
+                    key: 'yellow-cards',
+                    icon: 'card',
+                    text: t('playerDetails.matches.labels.yellowCard'),
+                    color: '#FFD700',
+                });
             }
             if (typeof playerStats.redCards === 'number' && playerStats.redCards > 0) {
-                icons.push({ key: 'red-cards', icon: 'card', text: 'Carton Rouge', color: colors.danger });
+                icons.push({
+                    key: 'red-cards',
+                    icon: 'card',
+                    text: t('playerDetails.matches.labels.redCard'),
+                    color: colors.danger,
+                });
             }
             icons.push({
                 key: 'minutes',
@@ -250,13 +263,15 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                             <Text style={isHighRating ? styles.ratingTextHigh : styles.ratingTextLow}>
                                 {toDisplayValue(playerStats.rating)}
                             </Text>
-                            <Text style={[styles.ratingLabel, { color: isHighRating ? `${colors.background}99` : colors.textMuted }]}>NOTE</Text>
+                            <Text style={[styles.ratingLabel, { color: isHighRating ? `${colors.background}99` : colors.textMuted }]}>
+                                {t('playerDetails.matches.labels.rating')}
+                            </Text>
                         </View>
                     </View>
                 </Pressable>
             );
         },
-        [colors, onPressMatch, styles]
+        [colors, locale, onPressMatch, styles, t]
     );
 
     return (
@@ -268,8 +283,8 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                 contentContainerStyle={styles.listContent}
                 ListHeaderComponent={
                     <View style={styles.headerRow}>
-                        <Text style={styles.title}>Matchs Récents</Text>
-                        <Text style={styles.filterText}>Filtres</Text>
+                        <Text style={styles.title}>{t('playerDetails.matches.labels.recentMatches')}</Text>
+                        <Text style={styles.filterText}>{t('playerDetails.matches.labels.filters')}</Text>
                     </View>
                 }
             />

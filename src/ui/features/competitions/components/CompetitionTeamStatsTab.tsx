@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { useCompetitionTeamStats } from '../hooks/useCompetitionTeamStats';
@@ -67,6 +68,7 @@ function createStyles(colors: ThemeColors) {
 
 export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTeamStatsTabProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const [statMode, setStatMode] = useState<StatMode>('attack');
@@ -74,7 +76,7 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
 
     const listData = statMode === 'attack' ? teamStats?.bestAttack : teamStats?.bestDefense;
     const maxChartValue = listData && listData.length > 0
-        ? Math.max(...listData.map(t => statMode === 'attack' ? t.goalsFor : t.goalsAgainst))
+        ? Math.max(...listData.map(team => statMode === 'attack' ? team.goalsFor : team.goalsAgainst))
         : 1;
 
     const chartData: HorizontalBarChartItem[] = (listData || []).slice(0, 10).map((team, index) => ({
@@ -94,7 +96,7 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                     onPress={() => setStatMode('attack')}
                 >
                     <Text style={[styles.selectorText, statMode === 'attack' && styles.selectorTextActive]}>
-                        Meilleure Attaque
+                        {t('competitionDetails.teamStats.bestAttack')}
                     </Text>
                 </Pressable>
                 <Pressable
@@ -102,7 +104,7 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                     onPress={() => setStatMode('defense')}
                 >
                     <Text style={[styles.selectorText, statMode === 'defense' && styles.selectorTextActive]}>
-                        Meilleure Défense
+                        {t('competitionDetails.teamStats.bestDefense')}
                     </Text>
                 </Pressable>
             </View>
@@ -113,12 +115,16 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                 </View>
             ) : error || !listData || listData.length === 0 ? (
                 <View style={styles.centerContainer}>
-                    <Text style={styles.emptyText}>Statistiques non disponibles (?)</Text>
+                    <Text style={styles.emptyText}>{t('competitionDetails.teamStats.unavailable')}</Text>
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.contentScroll} showsVerticalScrollIndicator={false}>
                     <HorizontalBarChart
-                        title={statMode === 'attack' ? 'Classement Buts Marqués' : 'Classement Buts Encaissés'}
+                        title={
+                            statMode === 'attack'
+                                ? t('competitionDetails.teamStats.goalsScoredRanking')
+                                : t('competitionDetails.teamStats.goalsConcededRanking')
+                        }
                         data={chartData}
                     />
                 </ScrollView>

@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { Fixture } from '../types/competitions.types';
@@ -119,21 +120,21 @@ function displayValue(value: string | number | null | undefined): string | numbe
     return value !== null && value !== undefined && value !== '' ? value : '?';
 }
 
-function formatMatchTime(dateString: string) {
+function formatMatchTime(dateString: string, locale: string) {
     if (!dateString || dateString === '?') return '?';
     try {
         const date = new Date(dateString);
-        return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     } catch {
         return '?';
     }
 }
 
-function formatMatchDate(dateString: string) {
+function formatMatchDate(dateString: string, locale: string) {
     if (!dateString || dateString === '?') return '?';
     try {
         const date = new Date(dateString);
-        return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch {
         return '?';
     }
@@ -141,7 +142,9 @@ function formatMatchDate(dateString: string) {
 
 export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatchesTabProps) {
     const { colors } = useAppTheme();
+    const { t, i18n } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-US';
 
     const { data: fixtures, isLoading, error } = useCompetitionFixtures(competitionId, season);
 
@@ -189,8 +192,8 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
 
         let statusText = f.status;
         if (isLive) statusText = `${f.elapsed}'`;
-        else if (isFinished) statusText = 'Terminé';
-        else if (f.status === 'NS') statusText = formatMatchTime(f.date);
+        else if (isFinished) statusText = t('competitionDetails.matches.finished');
+        else if (f.status === 'NS') statusText = formatMatchTime(f.date, locale);
 
         return (
             <View style={styles.fixtureCard}>
@@ -198,7 +201,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
                     <Text style={[styles.matchStatus, isLive && styles.matchStatusLive]}>
                         {statusText}
                     </Text>
-                    <Text style={styles.matchDate}>{formatMatchDate(f.date)}</Text>
+                    <Text style={styles.matchDate}>{formatMatchDate(f.date, locale)}</Text>
                 </View>
 
                 <View style={styles.teamsContainer}>
@@ -224,7 +227,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
                 </View>
             </View>
         );
-    }, [styles]);
+    }, [locale, styles, t]);
 
     if (isLoading) {
         return (
@@ -237,7 +240,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
     if (error || listData.length === 0) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>Matchs non disponibles (?)</Text>
+                <Text style={styles.emptyText}>{t('competitionDetails.matches.unavailable')}</Text>
             </View>
         );
     }

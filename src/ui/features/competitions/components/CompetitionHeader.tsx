@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -120,6 +121,7 @@ export function CompetitionHeader({
     onOpenSeasonPicker
 }: CompetitionHeaderProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
 
@@ -167,7 +169,10 @@ export function CompetitionHeader({
                 {availableSeasons.length > 0 && (
                     <Pressable style={styles.seasonSelector} onPress={handleSeasonPress}>
                         <Text style={styles.seasonText}>
-                            Saison {currentSeason}/{currentSeason + 1}
+                            {t('competitionDetails.labels.season', {
+                                start: currentSeason,
+                                end: currentSeason + 1,
+                            })}
                         </Text>
                         <MaterialCommunityIcons name="chevron-down" size={20} color={colors.text} />
                     </Pressable>

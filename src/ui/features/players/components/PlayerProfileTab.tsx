@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerCharacteristics, PlayerProfile, PlayerSeasonStats } from '@ui/features/players/types/players.types';
-import { toDisplayValue, toHeightValue, toSeasonLabel } from '@ui/features/players/utils/playerDisplay';
+import { toDisplayValue, toHeightValue } from '@ui/features/players/utils/playerDisplay';
 import { RadarChart } from './RadarChart';
 
 type PlayerProfileTabProps = {
@@ -181,17 +182,33 @@ function InfoBlock({ label, value, unit, styles }: InfoBlockProps) {
 
 export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProfileTabProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const seasonStart = profile.league.season;
+    const seasonLabel = t('playerDetails.profile.labels.season', {
+        start: typeof seasonStart === 'number' ? seasonStart : '?',
+        end: typeof seasonStart === 'number' ? seasonStart + 1 : '?',
+    });
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentPadding}>
 
             {/* Physical Info */}
             <View style={styles.row}>
-                <InfoBlock label="Taille" value={toHeightValue(profile.height)} unit="cm" styles={styles} />
-                <InfoBlock label="Âge" value={profile.age} unit="ans" styles={styles} />
                 <InfoBlock
-                    label="Pays"
+                    label={t('playerDetails.profile.labels.height')}
+                    value={toHeightValue(profile.height)}
+                    unit={t('playerDetails.profile.units.centimeters')}
+                    styles={styles}
+                />
+                <InfoBlock
+                    label={t('playerDetails.profile.labels.age')}
+                    value={profile.age}
+                    unit={t('playerDetails.profile.units.years')}
+                    styles={styles}
+                />
+                <InfoBlock
+                    label={t('playerDetails.profile.labels.country')}
                     value={profile.nationality ? profile.nationality.substring(0, 3).toUpperCase() : null}
                     styles={styles}
                 />
@@ -206,11 +223,11 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
                         </View>
                     </View>
                     <View>
-                        <Text style={styles.largeBlockLabel}>Pied fort</Text>
+                        <Text style={styles.largeBlockLabel}>{t('playerDetails.profile.labels.dominantFoot')}</Text>
                         <Text style={styles.largeBlockValue}>{toDisplayValue(profile.foot)}</Text>
                     </View>
                     <View style={styles.transferValueContainer}>
-                        <Text style={styles.largeBlockLabel}>Valeur marchande</Text>
+                        <Text style={styles.largeBlockLabel}>{t('playerDetails.profile.labels.marketValue')}</Text>
                         <Text style={styles.largeValueGreen}>{toDisplayValue(profile.transferValue)}</Text>
                     </View>
                 </View>
@@ -224,7 +241,7 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
                     </View>
                     <View style={styles.seasonMetaContainer}>
                         <Text style={styles.seasonTitle}>{toDisplayValue(profile.league.name)}</Text>
-                        <Text style={styles.largeBlockLabel}>Saison {toSeasonLabel(profile.league.season)}</Text>
+                        <Text style={styles.largeBlockLabel}>{seasonLabel}</Text>
                     </View>
                     <View style={styles.seasonRatingBadge}>
                         <Text style={styles.seasonRatingText}>{toDisplayValue(stats?.rating)}</Text>
@@ -233,15 +250,15 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
 
                 <View style={styles.statsGrid}>
                     <View style={styles.statCol}>
-                        <Text style={styles.statLabel}>Matchs</Text>
+                        <Text style={styles.statLabel}>{t('playerDetails.profile.labels.matches')}</Text>
                         <Text style={styles.statValue}>{toDisplayValue(stats?.matches)}</Text>
                     </View>
                     <View style={styles.statCol}>
-                        <Text style={styles.statLabel}>Buts</Text>
+                        <Text style={styles.statLabel}>{t('playerDetails.profile.labels.goals')}</Text>
                         <Text style={styles.statValue}>{toDisplayValue(stats?.goals)}</Text>
                     </View>
                     <View style={styles.statCol}>
-                        <Text style={styles.statLabel}>Passes D.</Text>
+                        <Text style={styles.statLabel}>{t('playerDetails.profile.labels.assists')}</Text>
                         <Text style={styles.statValue}>{toDisplayValue(stats?.assists)}</Text>
                     </View>
                 </View>
@@ -249,7 +266,7 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
 
             {/* Characteristics / Radar Chart */}
             <View style={styles.largeBlock}>
-                <Text style={styles.sectionTitle}>Caractéristiques</Text>
+                <Text style={styles.sectionTitle}>{t('playerDetails.profile.labels.characteristics')}</Text>
                 <RadarChart
                     data={
                         characteristics ?? {

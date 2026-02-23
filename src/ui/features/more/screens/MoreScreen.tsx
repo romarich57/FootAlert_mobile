@@ -29,17 +29,17 @@ import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type MoreFeedItem =
   | {
-      type: 'preferences';
-      key: 'preferences';
-    }
+    type: 'preferences';
+    key: 'preferences';
+  }
   | {
-      type: 'warning';
-      key: 'warning';
-    }
+    type: 'warning';
+    key: 'warning';
+  }
   | {
-      type: 'information';
-      key: 'information';
-    };
+    type: 'information';
+    key: 'information';
+  };
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -53,12 +53,12 @@ function createStyles(colors: ThemeColors) {
     },
     title: {
       color: colors.text,
-      fontSize: 44,
+      fontSize: 34,
       fontWeight: '800',
       letterSpacing: -1,
       paddingHorizontal: 16,
-      paddingTop: 6,
-      paddingBottom: 10,
+      paddingTop: 16,
+      paddingBottom: 24,
     },
     loadingWrap: {
       flex: 1,
@@ -378,7 +378,7 @@ export function MoreScreen() {
         data={feedItems}
         keyExtractor={item => item.key}
         renderItem={renderItem}
-        ListHeaderComponent={<Text style={styles.title}>{t('more.title')}</Text>}
+        ListHeaderComponent={<View style={{ height: 16 }} />}
         contentContainerStyle={styles.listContent}
       />
 

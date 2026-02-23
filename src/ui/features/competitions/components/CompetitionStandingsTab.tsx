@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { StandingRow } from '../types/competitions.types';
@@ -146,10 +147,15 @@ function getFormStyle(char: string, styles: any) {
 
 function getDescriptionColor(desc: string | null, styles: any) {
     if (!desc) return null;
-    const lower = desc.toLowerCase();
+    const lower = desc
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
     if (lower.includes('champion') || lower.includes('promotion')) return styles.descPromotion;
     if (lower.includes('relegation')) return styles.descRelegation;
-    if (lower.includes('cup') || lower.includes('league')) return styles.descChampion;
+    if (lower.includes('cup') || lower.includes('league') || lower.includes('coupe') || lower.includes('ligue')) {
+        return styles.descChampion;
+    }
     return null;
 }
 
@@ -170,9 +176,11 @@ function createFormBadges(form: string, teamId: number) {
 
 export function CompetitionStandingsTab({ competitionId, season }: CompetitionStandingsTabProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const { data: groups, isLoading, error } = useCompetitionStandings(competitionId, season);
+    const defaultGroupTitle = t('competitionDetails.standings.defaultGroup');
 
     const listData = useMemo(() => {
         if (!groups) return [];
@@ -180,13 +188,14 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
         const headerOccurrences = new Map<string, number>();
 
         groups.forEach(group => {
-            if (groups.length > 1 || group.groupName !== 'Classement') {
-                const occurrence = (headerOccurrences.get(group.groupName) ?? 0) + 1;
-                headerOccurrences.set(group.groupName, occurrence);
+            const groupName = group.groupName?.trim() || defaultGroupTitle;
+            if (groups.length > 1 || groupName !== defaultGroupTitle) {
+                const occurrence = (headerOccurrences.get(groupName) ?? 0) + 1;
+                headerOccurrences.set(groupName, occurrence);
                 items.push({
                     type: 'header',
-                    key: `header-${group.groupName}-${occurrence}`,
-                    title: group.groupName,
+                    key: `header-${groupName}-${occurrence}`,
+                    title: groupName,
                 });
             }
             group.rows.forEach(row => {
@@ -198,7 +207,7 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
             });
         });
         return items;
-    }, [groups]);
+    }, [defaultGroupTitle, groups]);
 
     const keyExtractor = useCallback((item: ListItem) => item.key, []);
 
@@ -208,12 +217,12 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
                 <View style={styles.groupHeader}>
                     <Text style={styles.groupHeaderText}>{item.title}</Text>
                     <View style={styles.tableHeaderRow}>
-                        <View style={styles.colRank}><Text style={styles.headerText}>#</Text></View>
-                        <View style={styles.colTeam}><Text style={styles.headerText}>ÉQUIPE</Text></View>
-                        <View style={styles.colStat}><Text style={styles.headerText}>J</Text></View>
-                        <View style={styles.colStat}><Text style={styles.headerText}>DB</Text></View>
-                        <View style={styles.colStat}><Text style={styles.headerText}>PTS</Text></View>
-                        <View style={styles.colForm}><Text style={styles.headerText}>FORME</Text></View>
+                        <View style={styles.colRank}><Text style={styles.headerText}>{t('competitionDetails.standings.table.rank')}</Text></View>
+                        <View style={styles.colTeam}><Text style={styles.headerText}>{t('competitionDetails.standings.table.team')}</Text></View>
+                        <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.played')}</Text></View>
+                        <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.goalDiff')}</Text></View>
+                        <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.points')}</Text></View>
+                        <View style={styles.colForm}><Text style={styles.headerText}>{t('competitionDetails.standings.table.form')}</Text></View>
                     </View>
                 </View>
             );
@@ -257,7 +266,7 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
                 </View>
             </View>
         );
-    }, [styles]);
+    }, [styles, t]);
 
     if (isLoading) {
         return (
@@ -270,7 +279,7 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
     if (error || listData.length === 0) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>Classement non disponible (?)</Text>
+                <Text style={styles.emptyText}>{t('competitionDetails.standings.unavailable')}</Text>
             </View>
         );
     }
@@ -282,12 +291,12 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
         <View style={styles.container}>
             {needsTopHeader && (
                 <View style={styles.tableHeaderRow}>
-                    <View style={styles.colRank}><Text style={styles.headerText}>#</Text></View>
-                    <View style={styles.colTeam}><Text style={styles.headerText}>ÉQUIPE</Text></View>
-                    <View style={styles.colStat}><Text style={styles.headerText}>J</Text></View>
-                    <View style={styles.colStat}><Text style={styles.headerText}>DB</Text></View>
-                    <View style={styles.colStat}><Text style={styles.headerText}>PTS</Text></View>
-                    <View style={styles.colForm}><Text style={styles.headerText}>FORME</Text></View>
+                    <View style={styles.colRank}><Text style={styles.headerText}>{t('competitionDetails.standings.table.rank')}</Text></View>
+                    <View style={styles.colTeam}><Text style={styles.headerText}>{t('competitionDetails.standings.table.team')}</Text></View>
+                    <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.played')}</Text></View>
+                    <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.goalDiff')}</Text></View>
+                    <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.points')}</Text></View>
+                    <View style={styles.colForm}><Text style={styles.headerText}>{t('competitionDetails.standings.table.form')}</Text></View>
                 </View>
             )}
             <FlashList

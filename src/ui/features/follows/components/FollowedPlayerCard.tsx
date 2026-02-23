@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { Image, StyleSheet, Text, View, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import type { FollowedPlayerCard as FollowedPlayerCardType } from '@ui/features/follows/types/follows.types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 function toDisplayValue(value: string | number | null | undefined): string {
   if (typeof value === 'number') {
@@ -141,7 +143,9 @@ export function FollowedPlayerCard({
   isEditMode,
 }: FollowedPlayerCardProps) {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const localizedPosition = localizePlayerPosition(card.position, t);
 
   return (
     <View style={styles.card}>
@@ -159,7 +163,7 @@ export function FollowedPlayerCard({
               {toDisplayValue(card.playerName)}
             </Text>
             <Text numberOfLines={1} style={styles.position}>
-              {toDisplayValue(card.position)}
+              {localizedPosition}
             </Text>
           </View>
         </View>

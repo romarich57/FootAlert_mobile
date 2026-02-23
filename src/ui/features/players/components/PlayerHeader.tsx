@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerProfile } from '@ui/features/players/types/players.types';
+import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 type PlayerHeaderProps = {
     profile: PlayerProfile;
@@ -113,8 +115,10 @@ function createStyles(colors: ThemeColors, topInset: number) {
 
 export function PlayerHeader({ profile, onBack, onShare }: PlayerHeaderProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
+    const localizedPosition = localizePlayerPosition(profile.position, t);
 
     return (
         <View style={styles.container}>
@@ -151,7 +155,7 @@ export function PlayerHeader({ profile, onBack, onShare }: PlayerHeaderProps) {
                 <Text style={styles.name}>{displayValue(profile.name)}</Text>
 
                 <View style={styles.subtitleRow}>
-                    <Text style={styles.position}>{displayValue(profile.position)}</Text>
+                    <Text style={styles.position}>{localizedPosition}</Text>
                     <Text style={styles.separator}>•</Text>
                     <Text style={styles.teamName}>{displayValue(profile.team.name)}</Text>
                 </View>

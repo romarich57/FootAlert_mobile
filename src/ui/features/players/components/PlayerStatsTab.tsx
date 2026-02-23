@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -129,6 +130,7 @@ function createStyles(colors: ThemeColors) {
 
 export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTabProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const accuracyPercent =
@@ -149,15 +151,15 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
             <View style={styles.card}>
                 <View style={styles.topRowGrid}>
                     <View style={styles.statBox}>
-                        <Text style={styles.statLabel}>Buts</Text>
+                        <Text style={styles.statLabel}>{t('playerDetails.stats.labels.goals')}</Text>
                         <Text style={styles.statValue}>{toDisplayValue(stats.goals)}</Text>
                     </View>
                     <View style={[styles.statBox, styles.statBoxWithSeparators]}>
-                        <Text style={styles.statLabel}>Passes</Text>
+                        <Text style={styles.statLabel}>{t('playerDetails.stats.labels.assists')}</Text>
                         <Text style={styles.statValue}>{toDisplayValue(stats.assists)}</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={[styles.statLabel, styles.highlightStatLabel]}>Note</Text>
+                        <Text style={[styles.statLabel, styles.highlightStatLabel]}>{t('playerDetails.stats.labels.rating')}</Text>
                         <Text style={styles.statValueGreen}>{toDisplayValue(stats.rating)}</Text>
                     </View>
                 </View>
@@ -165,15 +167,15 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
                 <View style={styles.bottomRowGrid}>
                     <View style={styles.statBox}>
                         <Text style={styles.statSubValue}>{toDisplayValue(stats.matches)}</Text>
-                        <Text style={styles.statSubLabel}>Matchs</Text>
+                        <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.matches')}</Text>
                     </View>
                     <View style={styles.statBox}>
                         <Text style={styles.statSubValue}>{toDisplayValue(stats.starts)}</Text>
-                        <Text style={styles.statSubLabel}>Titularisations</Text>
+                        <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.starts')}</Text>
                     </View>
                     <View style={styles.statBox}>
                         <Text style={styles.statSubValue}>{toDisplayValue(stats.minutes)}</Text>
-                        <Text style={styles.statSubLabel}>Min.</Text>
+                        <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.minutes')}</Text>
                     </View>
                 </View>
             </View>
@@ -184,20 +186,20 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
                 <View style={styles.shotStatsRow}>
                     <View style={styles.statBox}>
                         <Text style={styles.statSubValue}>{toDisplayValue(stats.shots)}</Text>
-                        <Text style={styles.statSubLabel}>Tirs</Text>
+                        <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.shots')}</Text>
                     </View>
                     <View style={styles.statBox}>
                         <Text style={styles.statSubValue}>{toDisplayValue(stats.goals)}</Text>
-                        <Text style={styles.statSubLabel}>Buts</Text>
+                        <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.goals')}</Text>
                     </View>
                     <View style={styles.statBox}>
                         <Text style={styles.statSubValue}>?</Text>
-                        <Text style={styles.statSubLabel}>xG</Text>
+                        <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.xg')}</Text>
                     </View>
                 </View>
 
                 <Pressable style={styles.detailsLinkRow}>
-                    <Text style={styles.detailsLinkText}>DÉTAILS DES TIRS</Text>
+                    <Text style={styles.detailsLinkText}>{t('playerDetails.stats.labels.shotDetails')}</Text>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.primary} />
                 </Pressable>
             </View>

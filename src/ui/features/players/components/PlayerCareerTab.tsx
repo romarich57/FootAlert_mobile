@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, ScrollView } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -196,6 +197,7 @@ function createStyles(colors: ThemeColors) {
 
 export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [activeTab, setActiveTab] = useState<'saison' | 'equipe'>('saison');
     const segmentedTab: FollowEntityTab = activeTab === 'saison' ? 'teams' : 'players';
@@ -237,8 +239,8 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                 <FollowsSegmentedControl
                     selectedTab={segmentedTab}
                     onChangeTab={handleSegmentedTabChange}
-                    teamsLabel="Saison"
-                    playersLabel="Équipe"
+                    teamsLabel={t('playerDetails.career.tabs.season')}
+                    playersLabel={t('playerDetails.career.tabs.team')}
                 />
             </View>
 
@@ -246,12 +248,12 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                 {activeTab === 'saison' ? (
                     <View>
                         <View style={styles.tableHeaderRow}>
-                            <View style={styles.colLogo}><Text style={styles.headerText}>LOGO</Text></View>
-                            <View style={styles.colSeason}><Text style={styles.headerText}>SAISON</Text></View>
-                            <View style={styles.colM}><Text style={styles.headerText}>M</Text></View>
-                            <View style={styles.colB}><Text style={styles.headerText}>B</Text></View>
-                            <View style={styles.colP}><Text style={styles.headerText}>P</Text></View>
-                            <View style={styles.colNote}><Text style={styles.headerText}>NOTE</Text></View>
+                            <View style={styles.colLogo}><Text style={styles.headerText}>{t('playerDetails.career.table.logo')}</Text></View>
+                            <View style={styles.colSeason}><Text style={styles.headerText}>{t('playerDetails.career.table.season')}</Text></View>
+                            <View style={styles.colM}><Text style={styles.headerText}>{t('playerDetails.career.table.matches')}</Text></View>
+                            <View style={styles.colB}><Text style={styles.headerText}>{t('playerDetails.career.table.goals')}</Text></View>
+                            <View style={styles.colP}><Text style={styles.headerText}>{t('playerDetails.career.table.assists')}</Text></View>
+                            <View style={styles.colNote}><Text style={styles.headerText}>{t('playerDetails.career.table.rating')}</Text></View>
                         </View>
 
                         {seasonRows.map(({ key, data: s }, i) => (
@@ -279,32 +281,32 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                         ))}
 
                         <Pressable style={styles.seeAllRow}>
-                            <Text style={styles.seeAllText}>VOIR TOUTES LES SAISONS</Text>
+                            <Text style={styles.seeAllText}>{t('playerDetails.career.labels.seeAllSeasons')}</Text>
                             <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textMuted} />
                         </Pressable>
                     </View>
                 ) : (
                     <View>
                         <View style={styles.sectionTitleRow}>
-                            <Text style={styles.sectionTitle}>Carrière professionnelle</Text>
+                            <Text style={styles.sectionTitle}>{t('playerDetails.career.labels.professionalCareer')}</Text>
                             <View style={styles.sectionIcons}>
                                 <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.textMuted} />
                                 <MaterialCommunityIcons name="soccer" size={20} color={colors.textMuted} />
                             </View>
                         </View>
 
-                        {teamRows.map(({ key, data: t }) => (
+                        {teamRows.map(({ key, data: team }) => (
                             <View key={key} style={styles.teamCareerItem}>
                                 <View style={styles.teamCareerInfo}>
-                                    <Image source={{ uri: t.team.logo ?? undefined }} style={styles.teamCareerLogo} />
+                                    <Image source={{ uri: team.team.logo ?? undefined }} style={styles.teamCareerLogo} />
                                     <View>
-                                        <Text style={styles.teamCareerName}>{toDisplayValue(t.team.name)}</Text>
-                                        <Text style={styles.teamCareerPeriod}>{toDisplayValue(t.period)}</Text>
+                                        <Text style={styles.teamCareerName}>{toDisplayValue(team.team.name)}</Text>
+                                        <Text style={styles.teamCareerPeriod}>{toDisplayValue(team.period)}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.teamCareerStatsRow}>
-                                    <Text style={styles.teamCareerMatches}>{toDisplayValue(t.matches)}</Text>
-                                    <Text style={styles.teamCareerGoals}>{toDisplayValue(t.goals)}</Text>
+                                    <Text style={styles.teamCareerMatches}>{toDisplayValue(team.matches)}</Text>
+                                    <Text style={styles.teamCareerGoals}>{toDisplayValue(team.goals)}</Text>
                                 </View>
                             </View>
                         ))}
@@ -312,11 +314,11 @@ export function PlayerCareerTab({ seasons, teams }: PlayerCareerTabProps) {
                         <View style={styles.legendRow}>
                             <View style={styles.legendItem}>
                                 <MaterialCommunityIcons name="format-list-bulleted" size={16} color={colors.textMuted} />
-                                <Text style={styles.legendText}>MATCHS JOUÉS</Text>
+                                <Text style={styles.legendText}>{t('playerDetails.career.labels.matchesPlayed')}</Text>
                             </View>
                             <View style={styles.legendItem}>
                                 <MaterialCommunityIcons name="soccer" size={16} color={colors.textMuted} />
-                                <Text style={styles.legendText}>BUTS</Text>
+                                <Text style={styles.legendText}>{t('playerDetails.career.labels.goals')}</Text>
                             </View>
                         </View>
                     </View>

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import Svg, { Rect, Path, Circle } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -55,6 +56,7 @@ function createStyles(colors: ThemeColors) {
 
 export function ShotMap({ shots, accuracy }: ShotMapProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const pitchWidth = 320;
@@ -78,9 +80,11 @@ export function ShotMap({ shots, accuracy }: ShotMapProps) {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>CARTE DES TIRS DE LA SAISON</Text>
+                <Text style={styles.title}>{t('playerDetails.stats.labels.seasonShotMap')}</Text>
                 <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{accuracyLabel} précision</Text>
+                    <Text style={styles.badgeText}>
+                        {accuracyLabel} {t('playerDetails.stats.labels.accuracy')}
+                    </Text>
                 </View>
             </View>
 

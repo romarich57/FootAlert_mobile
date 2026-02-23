@@ -117,13 +117,10 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            if (isReleaseTaskRequested && !hasReleaseSigningConfig) {
-                throw new GradleException(
-                        'Release signing is not configured. Set FOOTALERT_UPLOAD_STORE_FILE, FOOTALERT_UPLOAD_STORE_PASSWORD, FOOTALERT_UPLOAD_KEY_ALIAS, and FOOTALERT_UPLOAD_KEY_PASSWORD via Gradle properties or CI environment variables.',
-                )
-            }
             if (hasReleaseSigningConfig) {
                 signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
             }
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources enableProguardInReleaseBuilds

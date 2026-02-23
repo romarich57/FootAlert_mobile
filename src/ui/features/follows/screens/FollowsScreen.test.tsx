@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { FollowsScreen } from '@ui/features/follows/screens/FollowsScreen';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
@@ -56,7 +57,18 @@ const mockedUseFollowsTrends = jest.mocked(useFollowsTrends);
 const navigateMock = jest.fn();
 
 function renderScreen() {
-  return render(<FollowsScreen />);
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <FollowsScreen />
+    </QueryClientProvider>,
+  );
 }
 
 describe('FollowsScreen', () => {
@@ -135,14 +147,11 @@ describe('FollowsScreen', () => {
     expect(screen.getByText('Man City')).toBeTruthy();
   });
 
-  it('opens follows search when pressing search button', () => {
+  it('renders follows tabs', () => {
     renderScreen();
 
-    fireEvent.press(screen.getByLabelText(i18n.t('follows.search.openSearch')));
-
-    expect(navigateMock).toHaveBeenCalledWith('FollowsSearch', {
-      initialTab: 'teams',
-    });
+    expect(screen.getByText(i18n.t('follows.tabs.teams'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('follows.tabs.players'))).toBeTruthy();
   });
 
   it('opens player details when pressing a followed player card', () => {

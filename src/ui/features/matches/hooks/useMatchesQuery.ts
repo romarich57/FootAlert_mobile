@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchFixturesByDate } from '@data/endpoints/matchesApi';
@@ -64,6 +64,29 @@ export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQu
   const isSlowNetwork = useMemo(() => {
     return (query.data?.requestDurationMs ?? 0) > 3_500;
   }, [query.data?.requestDurationMs]);
+
+  useEffect(() => {
+    if (!(typeof __DEV__ === 'boolean' && __DEV__)) {
+      return;
+    }
+
+    if (!query.error) {
+      return;
+    }
+
+    const requestUrl = `${appEnv.mobileApiBaseUrl}/matches?date=${encodeURIComponent(
+      date,
+    )}&timezone=${encodeURIComponent(timezone)}`;
+
+    if (query.error instanceof ApiError) {
+      console.warn(
+        `[FootAlert][matches] ${query.error.message} on ${requestUrl} | status=${query.error.status} payload=${query.error.payload}`,
+      );
+      return;
+    }
+
+    console.warn(`[FootAlert][matches] request failed on ${requestUrl}`, query.error);
+  }, [date, query.error, timezone]);
 
   return {
     ...query,

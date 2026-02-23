@@ -38,6 +38,8 @@ describe('useFollowsSearch', () => {
         useFollowsSearch({
           tab: 'teams',
           query: 'a',
+          localTeams: [],
+          localPlayers: [],
         }),
       {
         wrapper: createWrapper(),
@@ -66,6 +68,8 @@ describe('useFollowsSearch', () => {
         useFollowsSearch({
           tab: 'teams',
           query: 'Barca',
+          localTeams: [],
+          localPlayers: [],
         }),
       {
         wrapper: createWrapper(),
@@ -113,6 +117,8 @@ describe('useFollowsSearch', () => {
         useFollowsSearch({
           tab: 'players',
           query: 'Ronaldo',
+          localTeams: [],
+          localPlayers: [],
         }),
       {
         wrapper: createWrapper(),

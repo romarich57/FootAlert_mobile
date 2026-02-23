@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { useCompetitionPlayerStats, PlayerStatType } from '../hooks/useCompetitionPlayerStats';
@@ -12,12 +13,7 @@ type CompetitionPlayerStatsTabProps = {
     season: number;
 };
 
-const STAT_TYPES: { key: PlayerStatType; label: string }[] = [
-    { key: 'goals', label: 'Buteurs' },
-    { key: 'assists', label: 'Passeurs' },
-    { key: 'yellowCards', label: 'Cartons Jaunes' },
-    { key: 'redCards', label: 'Cartons Rouges' },
-];
+const STAT_TYPE_KEYS: PlayerStatType[] = ['goals', 'assists', 'yellowCards', 'redCards'];
 
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
@@ -86,21 +82,30 @@ function getStatValue(stat: CompetitionPlayerStat, type: PlayerStatType): number
     }
 }
 
-function getStatLabel(type: PlayerStatType): string {
+function getStatLabel(type: PlayerStatType, translate: (key: string) => string): string {
     switch (type) {
-        case 'goals': return 'Buts';
-        case 'assists': return 'Passes déc.';
-        case 'yellowCards': return 'Cartons';
-        case 'redCards': return 'Cartons';
-        default: return 'Stat';
+        case 'goals': return translate('competitionDetails.playerStats.statLabels.goals');
+        case 'assists': return translate('competitionDetails.playerStats.statLabels.assists');
+        case 'yellowCards': return translate('competitionDetails.playerStats.statLabels.yellowCards');
+        case 'redCards': return translate('competitionDetails.playerStats.statLabels.redCards');
+        default: return translate('competitionDetails.tabs.playerStats');
     }
 }
 
 export function CompetitionPlayerStatsTab({ competitionId, season }: CompetitionPlayerStatsTabProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const [activeStatType, setActiveStatType] = useState<PlayerStatType>('goals');
+    const statTypes = useMemo(
+        () =>
+            STAT_TYPE_KEYS.map(key => ({
+                key,
+                label: t(`competitionDetails.playerStats.statTypes.${key}`),
+            })),
+        [t],
+    );
 
     const { data: statsData, isLoading, error } = useCompetitionPlayerStats(competitionId, season, activeStatType);
 
@@ -123,7 +128,7 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
         <View style={styles.container}>
             <View style={styles.selectorContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
-                    {STAT_TYPES.map(type => {
+                    {statTypes.map(type => {
                         const isActive = activeStatType === type.key;
                         return (
                             <Pressable
@@ -146,7 +151,7 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
                 </View>
             ) : error || !leader ? (
                 <View style={styles.centerContainer}>
-                    <Text style={styles.emptyText}>Statistiques non disponibles pour cette saison (?).</Text>
+                    <Text style={styles.emptyText}>{t('competitionDetails.playerStats.unavailable')}</Text>
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.contentScroll} showsVerticalScrollIndicator={false}>
@@ -154,13 +159,15 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
                         <HeroPlayerStatCard
                             playerStat={leader}
                             statValue={getStatValue(leader, activeStatType)}
-                            statLabel={getStatLabel(activeStatType)}
+                            statLabel={getStatLabel(activeStatType, t)}
                             rank={1}
                         />
                     </View>
 
                     <HorizontalBarChart
-                        title={`Classement - ${STAT_TYPES.find(t => t.key === activeStatType)?.label}`}
+                        title={t('competitionDetails.playerStats.rankingTitle', {
+                            label: statTypes.find(type => type.key === activeStatType)?.label ?? '',
+                        })}
                         data={chartData}
                     />
                 </ScrollView>

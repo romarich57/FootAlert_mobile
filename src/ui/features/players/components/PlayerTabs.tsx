@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -68,38 +69,44 @@ function TabItem({
 }
 
 export function PlayerTabs({
-    selectedTab,
-    onChangeTab,
-    profilLabel = 'Profil',
-    matchsLabel = 'Matchs',
-    statsLabel = 'Stats',
-    carriereLabel = 'Carrière',
+  selectedTab,
+  onChangeTab,
+  profilLabel,
+  matchsLabel,
+  statsLabel,
+  carriereLabel,
 }: PlayerTabsProps) {
-    const { colors } = useAppTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors } = useAppTheme();
+  const { t } = useTranslation();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const resolvedProfilLabel = profilLabel ?? t('playerDetails.tabs.profile');
+  const resolvedMatchsLabel = matchsLabel ?? t('playerDetails.tabs.matches');
+  const resolvedStatsLabel = statsLabel ?? t('playerDetails.tabs.stats');
+  const resolvedCarriereLabel = carriereLabel ?? t('playerDetails.tabs.career');
 
     return (
         <View style={styles.container}>
             <TabItem
-                label={profilLabel}
+                label={resolvedProfilLabel}
                 selected={selectedTab === 'profil'}
                 onPress={() => onChangeTab('profil')}
                 styles={styles}
             />
             <TabItem
-                label={matchsLabel}
+                label={resolvedMatchsLabel}
                 selected={selectedTab === 'matchs'}
                 onPress={() => onChangeTab('matchs')}
                 styles={styles}
             />
             <TabItem
-                label={statsLabel}
+                label={resolvedStatsLabel}
                 selected={selectedTab === 'stats'}
                 onPress={() => onChangeTab('stats')}
                 styles={styles}
             />
             <TabItem
-                label={carriereLabel}
+                label={resolvedCarriereLabel}
                 selected={selectedTab === 'carriere'}
                 onPress={() => onChangeTab('carriere')}
                 styles={styles}

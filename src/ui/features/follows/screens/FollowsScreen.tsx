@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { appEnv } from '@data/config/env';
+import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import {
   FollowsFollowedSection,
   FollowsHeader,
@@ -13,28 +14,40 @@ import {
 } from '@ui/features/follows/components';
 import { useFollowsScreenModel } from '@ui/features/follows/hooks/useFollowsScreenModel';
 import type {
+  FollowsSearchResultPlayer,
+  FollowsSearchResultTeam,
   TrendPlayerItem,
   TrendTeamItem,
 } from '@ui/features/follows/types/follows.types';
-import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 type FollowsFeedItem =
   | {
-      type: 'trend-team';
-      key: string;
-      item: TrendTeamItem;
-    }
+    type: 'trend-team';
+    key: string;
+    item: TrendTeamItem;
+  }
   | {
-      type: 'trend-player';
-      key: string;
-      item: TrendPlayerItem;
-    }
+    type: 'trend-player';
+    key: string;
+    item: TrendPlayerItem;
+  }
   | {
-      type: 'empty';
-      key: string;
-      message: string;
-    };
+    type: 'search-team';
+    key: string;
+    item: FollowsSearchResultTeam;
+  }
+  | {
+    type: 'search-player';
+    key: string;
+    item: FollowsSearchResultPlayer;
+  }
+  | {
+    type: 'empty';
+    key: string;
+    message: string;
+  };
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -81,6 +94,15 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 20,
       paddingBottom: 6,
     },
+    stateContainer: {
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+    },
+    stateText: {
+      color: colors.textMuted,
+      fontSize: 18,
+      fontWeight: '600',
+    },
   });
 }
 
@@ -90,7 +112,32 @@ function buildFeedItems(
   teamTrends: TrendTeamItem[],
   playerTrends: TrendPlayerItem[],
   emptyMessage: string,
+  search: ReturnType<typeof useFollowsScreenModel>['search'],
 ): FollowsFeedItem[] {
+  if (search.hasEnoughChars) {
+    if (selectedTab === 'teams') {
+      const results = search.results as FollowsSearchResultTeam[];
+      if (results.length === 0 && !search.isLoading) {
+        return [{ type: 'empty', key: 'empty-search-teams', message: emptyMessage }];
+      }
+      return results.map(item => ({
+        type: 'search-team',
+        key: `search-team-${item.teamId}`,
+        item,
+      }));
+    }
+
+    const results = search.results as FollowsSearchResultPlayer[];
+    if (results.length === 0 && !search.isLoading) {
+      return [{ type: 'empty', key: 'empty-search-players', message: emptyMessage }];
+    }
+    return results.map(item => ({
+      type: 'search-player',
+      key: `search-player-${item.playerId}`,
+      item,
+    }));
+  }
+
   if (hideTrends) {
     return [];
   }
@@ -133,12 +180,16 @@ export function FollowsScreen() {
         model.hideTrendsCurrentTab,
         model.asTeamTrends,
         model.asPlayerTrends,
-        t('follows.states.noTrends'),
+        model.search.hasEnoughChars
+          ? t('follows.search.empty')
+          : t('follows.states.noTrends'),
+        model.search,
       ),
     [
       model.asPlayerTrends,
       model.asTeamTrends,
       model.hideTrendsCurrentTab,
+      model.search,
       model.selectedTab,
       t,
     ],
@@ -149,12 +200,18 @@ export function FollowsScreen() {
       return <Text style={styles.infoText}>{item.message}</Text>;
     }
 
-    if (item.type === 'trend-team') {
+    if (item.type === 'trend-team' || item.type === 'search-team') {
+      const isSearch = item.type === 'search-team';
       const trendItem = item.item;
+      // FollowsSearchResultTeam has 'country', TrendTeamItem has 'leagueName'
+      const subtitle = isSearch
+        ? (trendItem as FollowsSearchResultTeam).country
+        : (trendItem as TrendTeamItem).leagueName;
+
       return (
         <FollowsTrendRow
           title={trendItem.teamName}
-          subtitle={trendItem.leagueName}
+          subtitle={subtitle}
           avatarUrl={trendItem.teamLogo}
           onPressItem={() => model.handleOpenTeamDetails(trendItem.teamId)}
           itemAccessibilityLabel={trendItem.teamName}
@@ -171,7 +228,7 @@ export function FollowsScreen() {
     return (
       <FollowsTrendRow
         title={trendItem.playerName}
-        subtitle={[trendItem.position, trendItem.teamName].filter(Boolean).join(' • ')}
+        subtitle={[localizePlayerPosition(trendItem.position, t), trendItem.teamName].filter(Boolean).join(' • ')}
         avatarUrl={trendItem.playerPhoto}
         onPressItem={() => model.handleOpenPlayerDetails(trendItem.playerId)}
         itemAccessibilityLabel={trendItem.playerName}
@@ -188,20 +245,37 @@ export function FollowsScreen() {
     <>
       <FollowsHeader
         title={t('follows.title')}
-        onPressSearch={model.handleOpenSearch}
-        searchA11yLabel={t('follows.search.openSearch')}
-        isEditMode={model.isEditMode}
-        onPressEdit={() => model.setIsEditMode(!model.isEditMode)}
-        editLabel={t('follows.actions.edit')}
-        saveLabel={t('follows.actions.done')}
+        isSearchVisible={model.isSearchVisible}
+        searchQuery={model.searchQuery}
+        onSearchQueryChange={model.setSearchQuery}
+        onPressSearchToggle={model.toggleSearchVisibility}
+        placeholder={
+          model.selectedTab === 'teams'
+            ? t('follows.search.placeholderTeams')
+            : t('follows.search.placeholderPlayers')
+        }
       />
 
-      <FollowsSegmentedControl
-        selectedTab={model.selectedTab}
-        onChangeTab={model.setSelectedTab}
-        teamsLabel={t('follows.tabs.teams')}
-        playersLabel={t('follows.tabs.players')}
-      />
+      {/* Hide segmented control when searching for a cleaner look, or keep it?
+          We'll keep it so users can switch tabs while searching. */}
+      {!model.search.hasEnoughChars && !model.isSearchVisible ? (
+        <FollowsSegmentedControl
+          selectedTab={model.selectedTab}
+          onChangeTab={model.setSelectedTab}
+          teamsLabel={t('follows.tabs.teams')}
+          playersLabel={t('follows.tabs.players')}
+        />
+      ) : null}
+
+      {model.isSearchVisible && (
+        <FollowsSegmentedControl
+          selectedTab={model.selectedTab}
+          onChangeTab={model.setSelectedTab}
+          teamsLabel={t('follows.tabs.teams')}
+          playersLabel={t('follows.tabs.players')}
+        />
+      )}
+
 
       {showLimitError ? (
         <Text style={styles.limitError}>
@@ -211,54 +285,66 @@ export function FollowsScreen() {
         </Text>
       ) : null}
 
-      <FollowsFollowedSection
-        selectedTab={model.selectedTab}
-        teamCards={model.teamCards}
-        playerCards={model.playerCards}
-        isEditMode={model.isEditMode}
-        onPressAdd={model.handleOpenSearch}
-        onUnfollowTeam={model.handleToggleTeam}
-        onUnfollowPlayer={model.handleTogglePlayer}
-        onPressTeam={model.handleOpenTeamDetails}
-        onPressPlayer={model.handleOpenPlayerDetails}
-        labels={{
-          addToFavorites: t('follows.cards.addToFavorites'),
-          follow: t('follows.actions.follow'),
-          unfollow: t('follows.actions.unfollow'),
-          noNextMatch: t('follows.cards.noNextMatch'),
-          goals: t('follows.cards.goals'),
-          assists: t('follows.cards.assists'),
-        }}
-      />
+      {model.search.hasEnoughChars ? null : (
+        <>
+          <FollowsFollowedSection
+            selectedTab={model.selectedTab}
+            teamCards={model.teamCards}
+            playerCards={model.playerCards}
+            isEditMode={false}
+            onPressAdd={() => {
+              // Now handled by typing in the search bar above
+            }}
+            onUnfollowTeam={model.handleToggleTeam}
+            onUnfollowPlayer={model.handleTogglePlayer}
+            onPressTeam={model.handleOpenTeamDetails}
+            onPressPlayer={model.handleOpenPlayerDetails}
+            labels={{
+              addToFavorites: t('follows.cards.addToFavorites'),
+              follow: t('follows.actions.follow'),
+              unfollow: t('follows.actions.unfollow'),
+              noNextMatch: t('follows.cards.noNextMatch'),
+              goals: t('follows.cards.goals'),
+              assists: t('follows.cards.assists'),
+            }}
+          />
+        </>
+      )}
 
-      {model.isSectionLoading ? (
-        <Text style={styles.infoText}>{t('follows.states.loading')}</Text>
+      {model.isSectionLoading || model.search.isLoading ? (
+        <Text style={styles.infoText}>
+          {model.search.hasEnoughChars
+            ? t('follows.search.loading')
+            : t('follows.states.loading')}
+        </Text>
       ) : null}
 
-      <View style={styles.trendsSection}>
-        <View style={styles.trendsHeader}>
-          <Text style={styles.trendsTitle}>{t('follows.trends.title')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              model
-                .updateHideTrends(model.selectedTab, !model.hideTrendsCurrentTab)
-                .catch(() => undefined);
-            }}
-            accessibilityLabel={
-              model.hideTrendsCurrentTab
-                ? t('follows.trends.show')
-                : t('follows.trends.hide')
-            }
-          >
-            <Text style={styles.trendsActionText}>
-              {model.hideTrendsCurrentTab
-                ? t('follows.trends.show')
-                : t('follows.trends.hide')}
-            </Text>
-          </Pressable>
+      {!model.search.hasEnoughChars ? (
+        <View style={styles.trendsSection}>
+          <View style={styles.trendsHeader}>
+            <Text style={styles.trendsTitle}>{t('follows.trends.title')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                model
+                  .updateHideTrends(model.selectedTab, !model.hideTrendsCurrentTab)
+                  .catch(() => undefined);
+              }}
+              accessibilityLabel={
+                model.hideTrendsCurrentTab
+                  ? t('follows.trends.show')
+                  : t('follows.trends.hide')
+              }
+            >
+              <Text style={styles.trendsActionText}>
+                {model.hideTrendsCurrentTab
+                  ? t('follows.trends.show')
+                  : t('follows.trends.hide')}
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      ) : null}
     </>
   );
 

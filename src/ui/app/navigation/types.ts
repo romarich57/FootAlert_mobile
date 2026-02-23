@@ -15,7 +15,6 @@ export type RootStackParamList = {
   TeamDetails: { teamId: string };
   PlayerDetails: { playerId: string };
   SearchPlaceholder: undefined;
-  FollowsSearch: { initialTab: 'teams' | 'players' };
 };
 
 declare global {

@@ -34,17 +34,21 @@ function useDebouncedValue(value: string, delayMs: number): string {
 type UseFollowsSearchParams = {
   tab: FollowEntityTab;
   query: string;
+  localTeams: FollowsSearchResultTeam[];
+  localPlayers: FollowsSearchResultPlayer[];
 };
 
-export function useFollowsSearch({ tab, query }: UseFollowsSearchParams) {
+export function useFollowsSearch({ tab, query, localTeams, localPlayers }: UseFollowsSearchParams) {
   const season = getCurrentSeasonYear();
   const trimmedQuery = query.trim();
   const debouncedQuery = useDebouncedValue(trimmedQuery, appEnv.followsSearchDebounceMs);
-  const hasEnoughChars = debouncedQuery.length >= appEnv.followsSearchMinChars;
+  const hasEnoughCharsForLocal = debouncedQuery.length >= appEnv.followsSearchMinChars;
+  const minCharsApi = 3;
+  const hasEnoughCharsForApi = debouncedQuery.length >= minCharsApi;
 
   const searchQuery = useQuery({
     queryKey: queryKeys.follows.search(tab, debouncedQuery, season),
-    enabled: hasEnoughChars,
+    enabled: hasEnoughCharsForApi,
     queryFn: async ({ signal }): Promise<
       FollowsSearchResultTeam[] | FollowsSearchResultPlayer[]
     > => {
@@ -59,17 +63,44 @@ export function useFollowsSearch({ tab, query }: UseFollowsSearchParams) {
   });
 
   const results = useMemo(() => {
-    if (!hasEnoughChars) {
+    if (!hasEnoughCharsForLocal) {
       return [];
     }
 
-    return searchQuery.data ?? [];
-  }, [hasEnoughChars, searchQuery.data]);
+    const lowerQuery = debouncedQuery.toLowerCase();
+
+    if (tab === 'teams') {
+      const localMatches = localTeams.filter(t => t.teamName.toLowerCase().includes(lowerQuery));
+      const apiMatches = (searchQuery.data as FollowsSearchResultTeam[]) || [];
+      const merged = [...localMatches];
+      const seen = new Set(localMatches.map(t => t.teamId));
+      for (const apiMatch of apiMatches) {
+        if (!seen.has(apiMatch.teamId)) {
+          seen.add(apiMatch.teamId);
+          merged.push(apiMatch);
+        }
+      }
+      return merged;
+    }
+
+    const localMatches = localPlayers.filter(p => p.playerName.toLowerCase().includes(lowerQuery));
+    const apiMatches = (searchQuery.data as FollowsSearchResultPlayer[]) || [];
+    const merged = [...localMatches];
+    const seen = new Set(localMatches.map(p => p.playerId));
+    for (const apiMatch of apiMatches) {
+      if (!seen.has(apiMatch.playerId)) {
+        seen.add(apiMatch.playerId);
+        merged.push(apiMatch);
+      }
+    }
+    return merged;
+  }, [hasEnoughCharsForLocal, debouncedQuery, tab, localTeams, localPlayers, searchQuery.data]);
 
   return {
     ...searchQuery,
+    isLoading: searchQuery.isLoading && hasEnoughCharsForApi,
     debouncedQuery,
-    hasEnoughChars,
+    hasEnoughChars: hasEnoughCharsForLocal,
     results,
   };
 }

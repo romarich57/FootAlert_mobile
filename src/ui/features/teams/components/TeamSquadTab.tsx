@@ -11,6 +11,7 @@ import type {
 } from '@ui/features/teams/types/teams.types';
 import { toDisplayNumber, toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 type TeamSquadTabProps = {
   data: TeamSquadData | undefined;
@@ -191,13 +192,17 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function matchesSearch(player: TeamSquadPlayer, query: string): boolean {
+function matchesSearch(
+  player: TeamSquadPlayer,
+  query: string,
+  localizePositionLabel: (value: string | null | undefined) => string,
+): boolean {
   if (!query) {
     return true;
   }
 
   const normalizedQuery = query.toLowerCase();
-  const fields = [player.name ?? '', player.position ?? ''];
+  const fields = [player.name ?? '', player.position ?? '', localizePositionLabel(player.position)];
 
   return fields.some(field => field.toLowerCase().includes(normalizedQuery));
 }
@@ -207,13 +212,16 @@ function buildFeedItems(
   filter: SquadFilter,
   query: string,
   labels: Record<Exclude<TeamSquadRole, 'coach'>, string>,
+  localizePositionLabel: (value: string | null | undefined) => string,
 ): SquadFeedItem[] {
   const filteredByRole =
     filter === 'all'
       ? players
       : players.filter(player => player.role === filter);
 
-  const filteredBySearch = filteredByRole.filter(player => matchesSearch(player, query));
+  const filteredBySearch = filteredByRole.filter(player =>
+    matchesSearch(player, query, localizePositionLabel),
+  );
 
   const grouped = new Map<Exclude<TeamSquadRole, 'coach'>, TeamSquadPlayer[]>();
 
@@ -246,10 +254,12 @@ function buildFeedItems(
 const SquadPlayerRow = memo(function SquadPlayerRow({
   player,
   yearsSuffixLabel,
+  positionLabel,
   styles,
 }: {
   player: TeamSquadPlayer;
   yearsSuffixLabel: string;
+  positionLabel: string;
   styles: ReturnType<typeof createStyles>;
 }) {
   return (
@@ -260,7 +270,7 @@ const SquadPlayerRow = memo(function SquadPlayerRow({
           <Text numberOfLines={1} style={styles.playerName}>
             {toDisplayValue(player.name)}
           </Text>
-          <Text style={styles.playerPosition}>{toDisplayValue(player.position)}</Text>
+          <Text style={styles.playerPosition}>{positionLabel}</Text>
         </View>
       </View>
       <Text style={styles.playerAge}>
@@ -277,6 +287,10 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
 
   const [searchValue, setSearchValue] = useState('');
   const [roleFilter, setRoleFilter] = useState<SquadFilter>('all');
+  const localizePositionLabel = useCallback(
+    (value: string | null | undefined) => localizePlayerPosition(value, t),
+    [t],
+  );
 
   const roleLabels = useMemo(
     () => ({
@@ -290,8 +304,15 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
   );
 
   const feedItems = useMemo(
-    () => buildFeedItems(data?.players ?? [], roleFilter, searchValue.trim(), roleLabels),
-    [data?.players, roleFilter, roleLabels, searchValue],
+    () =>
+      buildFeedItems(
+        data?.players ?? [],
+        roleFilter,
+        searchValue.trim(),
+        roleLabels,
+        localizePositionLabel,
+      ),
+    [data?.players, localizePositionLabel, roleFilter, roleLabels, searchValue],
   );
   const keyExtractor = useCallback((item: SquadFeedItem) => item.key, []);
 
@@ -305,11 +326,12 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
         <SquadPlayerRow
           player={item.player}
           yearsSuffixLabel={t('teamDetails.labels.yearsSuffix')}
+          positionLabel={localizePositionLabel(item.player.position)}
           styles={styles}
         />
       );
     },
-    [styles, t],
+    [localizePositionLabel, styles, t],
   );
 
   return (

@@ -20,6 +20,14 @@ import '@ui/shared/i18n';
 
 function AppContent() {
   const { navigationTheme, statusBarStyle } = useAppTheme();
+
+  useEffect(() => {
+    if (typeof __DEV__ === 'boolean' && __DEV__) {
+      // Helpful when switching ENVFILE (.env / .env.staging) to confirm active API target.
+      console.info(`[FootAlert] MOBILE_API_BASE_URL=${appEnv.mobileApiBaseUrl}`);
+    }
+  }, []);
+
   useEffect(() => {
     const appVersion = getAppVersion();
     incrementAppLaunchCount()
