@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { fetchLeagueTransfers } from '@data/endpoints/competitionsApi';
 import type { Transfer } from '../types/competitions.types';
 
 export const COMPETITION_TRANSFERS_QUERY_KEY = 'competition_transfers';
@@ -6,17 +7,29 @@ export const COMPETITION_TRANSFERS_QUERY_KEY = 'competition_transfers';
 export function useCompetitionTransfers(leagueId: number | undefined, season: number | undefined) {
     return useQuery<Transfer[], Error>({
         queryKey: [COMPETITION_TRANSFERS_QUERY_KEY, leagueId, season],
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             if (!leagueId || !season) {
                 return [];
             }
 
-            // Note: API-Football doesn't natively support /transfers?league=XX
-            // Implementing a proper transfer feed for a whole league requires querying all teams in that league.
-            // For now, we return an empty array or handle limitation.
-            // You can enhance this by fetching all teams first and then their transfers, but it's cost-heavy.
+            const dtos = await fetchLeagueTransfers(leagueId, season, signal);
 
-            return [];
+            // Map the BFF DTO format recursively to the flattened domain model
+            const transfers: Transfer[] = [];
+            for (const dto of dtos) {
+                for (const t of dto.transfers) {
+                    transfers.push({
+                        playerId: dto.player.id,
+                        playerName: dto.player.name,
+                        date: t.date,
+                        type: t.type,
+                        teamIn: t.teams.in,
+                        teamOut: t.teams.out,
+                    });
+                }
+            }
+
+            return transfers;
         },
         enabled: !!leagueId && !!season,
         staleTime: 12 * 60 * 60 * 1000,

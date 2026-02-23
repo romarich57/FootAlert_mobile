@@ -1,11 +1,12 @@
-import { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, ActivityIndicator, Pressable } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { Fixture } from '../types/competitions.types';
 import { useCompetitionFixtures } from '../hooks/useCompetitionFixtures';
+import { MatchesFilterBottomSheet, MatchesFilterState } from './MatchesFilterBottomSheet';
 
 type CompetitionMatchesTabProps = {
     competitionId: number;
@@ -30,6 +31,30 @@ function createStyles(colors: ThemeColors) {
         emptyText: {
             color: colors.textMuted,
             fontSize: 16,
+            textAlign: 'center',
+            lineHeight: 24,
+            marginTop: 24,
+        },
+        headerRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+        },
+        headerTitle: {
+            color: colors.text,
+            fontSize: 16,
+            fontWeight: '600',
+        },
+        headerActions: {
+            flexDirection: 'row',
+            gap: 16,
+        },
+        headerActionText: {
+            color: colors.textMuted,
+            fontSize: 14,
+            fontWeight: '500',
         },
         roundHeader: {
             backgroundColor: colors.surfaceElevated,
@@ -148,20 +173,83 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
 
     const { data: fixtures, isLoading, error } = useCompetitionFixtures(competitionId, season);
 
-    const listData = useMemo(() => {
+    const [filterModalVisible, setFilterModalVisible] = useState(false);
+    const [filterState, setFilterState] = useState<MatchesFilterState>({
+        sortBy: 'round_asc', // Default sort
+        teamId: null,
+    });
+
+    const flashListRef = useRef<any>(null);
+    const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
+
+    const uniqueTeams = useMemo(() => {
         if (!fixtures) return [];
+        const map = new Map<number, { id: number, name: string }>();
+        fixtures.forEach(f => {
+            if (f.homeTeam.id && f.homeTeam.name && !map.has(f.homeTeam.id)) {
+                map.set(f.homeTeam.id, { id: f.homeTeam.id, name: f.homeTeam.name });
+            }
+            if (f.awayTeam.id && f.awayTeam.name && !map.has(f.awayTeam.id)) {
+                map.set(f.awayTeam.id, { id: f.awayTeam.id, name: f.awayTeam.name });
+            }
+        });
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    }, [fixtures]);
+
+    const processedFixtures = useMemo(() => {
+        if (!fixtures) return [];
+
+        // Filter
+        let result = filterState.teamId === null
+            ? [...fixtures]
+            : fixtures.filter(f => f.homeTeam.id === filterState.teamId || f.awayTeam.id === filterState.teamId);
+
+        // Sort
+        result.sort((a, b) => {
+            if (filterState.sortBy === 'date_asc' || filterState.sortBy === 'date_desc') {
+                const dateA = new Date(a.date).getTime();
+                const dateB = new Date(b.date).getTime();
+                return filterState.sortBy === 'date_asc' ? dateA - dateB : dateB - dateA;
+            } else {
+                // round_asc or round_desc
+                // Basic implementation extracting round number if possible
+                const getRoundNum = (roundStr: string) => {
+                    const match = roundStr.match(/\d+/);
+                    return match ? parseInt(match[0], 10) : 0;
+                };
+                const roundA = getRoundNum(a.round);
+                const roundB = getRoundNum(b.round);
+                if (roundA !== roundB) {
+                    return filterState.sortBy === 'round_asc' ? roundA - roundB : roundB - roundA;
+                }
+                // Fallback to date sorting within the same round
+                const dateA = new Date(a.date).getTime();
+                const dateB = new Date(b.date).getTime();
+                return dateA - dateB;
+            }
+        });
+
+        return result;
+    }, [fixtures, filterState]);
+
+    const listData = useMemo(() => {
+        if (!processedFixtures.length) return [];
         const items: ListItem[] = [];
         let currentRound = '';
         const roundOccurrences = new Map<string, number>();
 
-        fixtures.forEach(fixture => {
+        processedFixtures.forEach(fixture => {
             const roundName = displayValue(fixture.round).toString();
+            // If sorting by date, maybe we shouldn't insert round headers if it jumbles them,
+            // but since a round usually happens sequentially, we group them. 
+            // If they are strictly sorted by date, round headers might repeat.
+            // But we will keep the grouping.
             if (roundName !== currentRound) {
                 const occurrence = (roundOccurrences.get(roundName) ?? 0) + 1;
                 roundOccurrences.set(roundName, occurrence);
                 items.push({
                     type: 'header',
-                    key: `round-${roundName}-${occurrence}`,
+                    key: `round-${roundName}-${occurrence}-${fixture.id}`, // made key more unique
                     title: roundName,
                 });
                 currentRound = roundName;
@@ -173,7 +261,28 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
             });
         });
         return items;
-    }, [fixtures]);
+    }, [processedFixtures]);
+
+    // Auto-scroll to current/next match
+    useEffect(() => {
+        if (!hasAutoScrolled && listData.length > 0 && flashListRef.current) {
+            const firstUnfinishedIndex = listData.findIndex((item) => {
+                if (item.type !== 'fixture') return false;
+                const status = item.data.status;
+                return !['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD'].includes(status);
+            });
+
+            if (firstUnfinishedIndex !== -1) {
+                // Delay scroll slightly to allow layout
+                setTimeout(() => {
+                    flashListRef.current?.scrollToIndex({ index: firstUnfinishedIndex, animated: true, viewPosition: 0 });
+                    setHasAutoScrolled(true);
+                }, 500);
+            } else {
+                setHasAutoScrolled(true); // if all are finished, nothing to scroll to
+            }
+        }
+    }, [listData, hasAutoScrolled]);
 
     const keyExtractor = useCallback((item: ListItem) => item.key, []);
 
@@ -247,11 +356,30 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
 
     return (
         <View style={styles.container}>
+            <View style={styles.headerRow}>
+                <Text style={styles.headerTitle}>{t('competitionDetails.matches.allMatches', { defaultValue: 'Tous les matchs' })}</Text>
+                <Pressable style={styles.headerActions} onPress={() => setFilterModalVisible(true)}>
+                    <Text style={styles.headerActionText}>{t('competitionDetails.matches.filtersAndSort', { defaultValue: 'Trier / Filtrer ▾' })}</Text>
+                </Pressable>
+            </View>
+
             <FlashList
+                ref={flashListRef}
                 data={listData}
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 getItemType={(item) => item.type}
+                // @ts-ignore - TS types are currently flawed for estimatedItemSize in FlashList in this environment
+                estimatedItemSize={70}
+                showsVerticalScrollIndicator={false}
+            />
+
+            <MatchesFilterBottomSheet
+                visible={filterModalVisible}
+                initialState={filterState}
+                teams={uniqueTeams}
+                onApply={setFilterState}
+                onClose={() => setFilterModalVisible(false)}
             />
         </View>
     );
