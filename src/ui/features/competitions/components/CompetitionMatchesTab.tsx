@@ -142,26 +142,26 @@ function createStyles(colors: ThemeColors) {
 }
 
 function displayValue(value: string | number | null | undefined): string | number {
-    return value !== null && value !== undefined && value !== '' ? value : '?';
+    return value !== null && value !== undefined && value !== '' ? value : '';
 }
 
 function formatMatchTime(dateString: string, locale: string) {
-    if (!dateString || dateString === '?') return '?';
+    if (!dateString) return '';
     try {
         const date = new Date(dateString);
         return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     } catch {
-        return '?';
+        return '';
     }
 }
 
 function formatMatchDate(dateString: string, locale: string) {
-    if (!dateString || dateString === '?') return '?';
+    if (!dateString) return '';
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch {
-        return '?';
+        return '';
     }
 }
 
@@ -239,12 +239,8 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
         const roundOccurrences = new Map<string, number>();
 
         processedFixtures.forEach(fixture => {
-            const roundName = displayValue(fixture.round).toString();
-            // If sorting by date, maybe we shouldn't insert round headers if it jumbles them,
-            // but since a round usually happens sequentially, we group them. 
-            // If they are strictly sorted by date, round headers might repeat.
-            // But we will keep the grouping.
-            if (roundName !== currentRound) {
+            const roundName = typeof fixture.round === 'string' ? fixture.round.trim() : '';
+            if (roundName && roundName !== currentRound) {
                 const occurrence = (roundOccurrences.get(roundName) ?? 0) + 1;
                 roundOccurrences.set(roundName, occurrence);
                 items.push({
@@ -325,7 +321,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
                                 {displayValue(f.goalsHome)} - {displayValue(f.goalsAway)}
                             </Text>
                         ) : (
-                            <Text style={styles.scoreText}>- : -</Text>
+                            <Text style={styles.scoreText} />
                         )}
                     </View>
 

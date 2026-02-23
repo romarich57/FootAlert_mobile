@@ -1,6 +1,7 @@
 import {
   mapFixtureToTeamMatch,
   mapFixturesToTeamMatches,
+  mapPlayersToTopPlayers,
   mapTeamDetails,
   mapTeamLeaguesToCompetitionOptions,
   mapTransfersToTeamTransfers,
@@ -97,5 +98,38 @@ describe('teamsMapper', () => {
     expect(mapped.arrivals).toHaveLength(1);
     expect(mapped.departures).toHaveLength(0);
     expect(mapped.arrivals[0].direction).toBe('arrival');
+  });
+
+  it('selects top player stats using season/league/team context instead of first statistics row', () => {
+    const mapped = mapPlayersToTopPlayers(
+      [
+        {
+          player: { id: 11, name: 'Player A', photo: 'a.png' },
+          statistics: [
+            {
+              team: { id: 999, name: 'Old Team' },
+              league: { id: 39, season: 2025 },
+              games: { position: 'Midfielder', rating: '6.9', minutes: 700, appearences: 11 },
+              goals: { total: 2, assists: 1 },
+            },
+            {
+              team: { id: 1, name: 'Target Team' },
+              league: { id: 39, season: 2025 },
+              games: { position: 'Attacker', rating: '7.8', minutes: 1500, appearences: 20 },
+              goals: { total: 9, assists: 5 },
+            },
+          ],
+        },
+      ],
+      8,
+      { teamId: '1', leagueId: '39', season: 2025 },
+    );
+
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]?.playerId).toBe('11');
+    expect(mapped[0]?.position).toBe('Attacker');
+    expect(mapped[0]?.goals).toBe(9);
+    expect(mapped[0]?.assists).toBe(5);
+    expect(mapped[0]?.rating).toBe(7.8);
   });
 });

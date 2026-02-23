@@ -9,11 +9,11 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 
 function toDisplayValue(value: string | null | undefined): string {
   if (typeof value !== 'string') {
-    return '?';
+    return '';
   }
 
   const normalized = value.trim();
-  return normalized.length > 0 ? normalized : '?';
+  return normalized.length > 0 ? normalized : '';
 }
 
 function formatMatchDate(dateIso: string): string {
@@ -125,12 +125,14 @@ export function FollowedTeamCard({
 }: FollowedTeamCardProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const teamName = toDisplayValue(card.teamName);
+  const opponentTeamName = toDisplayValue(card.nextMatch?.opponentTeamName);
 
   return (
     <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={toDisplayValue(card.teamName)}
+        accessibilityLabel={teamName}
         onPress={() => {
           if (isEditMode || !onPressTeam) {
             return;
@@ -143,16 +145,18 @@ export function FollowedTeamCard({
         <View style={styles.topRow}>
           <Image source={{ uri: card.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
           <Text numberOfLines={1} style={styles.teamName}>
-            {toDisplayValue(card.teamName)}
+            {teamName}
           </Text>
         </View>
 
         <View style={styles.nextRow}>
           {card.nextMatch ? (
             <>
-              <Text numberOfLines={1} style={styles.nextMatchLabel}>
-                vs {toDisplayValue(card.nextMatch.opponentTeamName)}
-              </Text>
+              {opponentTeamName ? (
+                <Text numberOfLines={1} style={styles.nextMatchLabel}>
+                  vs {opponentTeamName}
+                </Text>
+              ) : null}
               <Text style={styles.nextMatchDate}>{formatMatchDate(card.nextMatch.startDate)}</Text>
             </>
           ) : (
@@ -172,7 +176,7 @@ export function FollowedTeamCard({
             onPress={() => onUnfollow(card.teamId)}
             followLabel={followLabel!}
             unfollowLabel={unfollowLabel!}
-            accessibilityLabel={`${unfollowLabel} ${toDisplayValue(card.teamName)}`}
+            accessibilityLabel={`${unfollowLabel} ${teamName}`}
           />
         )}
       </View>

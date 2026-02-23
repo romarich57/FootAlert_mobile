@@ -95,11 +95,6 @@ function createStyles(colors: ThemeColors, topInset: number) {
       width: 40,
       height: 40,
     },
-    logoFallbackText: {
-      color: colors.textMuted,
-      fontSize: 24,
-      fontWeight: '800',
-    },
     profileTextWrap: {
       flex: 1,
       gap: 4,
@@ -170,7 +165,7 @@ export function TeamHeader({
           {hasLogo ? (
             <Image source={{ uri: team.logo ?? undefined }} style={styles.logo} resizeMode="contain" />
           ) : (
-            <Text style={styles.logoFallbackText}>?</Text>
+            <View style={styles.logo} />
           )}
         </View>
         <View style={styles.profileTextWrap}>

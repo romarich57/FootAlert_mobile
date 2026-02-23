@@ -31,7 +31,7 @@ function toId(value: number | string | undefined): string {
   return normalized.length > 0 ? normalized : '';
 }
 
-function normalizeText(value: string | undefined | null, fallback = '?'): string {
+function normalizeText(value: string | undefined | null, fallback = ''): string {
   if (typeof value !== 'string') {
     return fallback;
   }
@@ -242,15 +242,20 @@ export function mapTrendingTeamsFromStandings(
 export function mapTrendingPlayersFromTopScorers(
   payload: FollowsApiTopScorerDto[],
   limit: number,
+  season?: number,
 ): TrendPlayerItem[] {
-  const mapped = payload.map(item => ({
-    playerId: toId(item.player?.id),
-    playerName: normalizeText(item.player?.name),
-    playerPhoto: normalizeImageUri(item.player?.photo),
-    position: normalizeText(item.statistics?.[0]?.games?.position),
-    teamName: normalizeText(item.statistics?.[0]?.team?.name),
-    teamLogo: normalizeImageUri(item.statistics?.[0]?.team?.logo),
-  }));
+  const mapped = payload.map(item => {
+    const stat = resolvePrimaryStat(item.statistics, season);
+
+    return {
+      playerId: toId(item.player?.id),
+      playerName: normalizeText(item.player?.name),
+      playerPhoto: normalizeImageUri(item.player?.photo),
+      position: normalizeText(stat?.games?.position),
+      teamName: normalizeText(stat?.team?.name),
+      teamLogo: normalizeImageUri(stat?.team?.logo),
+    };
+  });
 
   return uniqueById(mapped, item => item.playerId)
     .filter(item => Boolean(item.playerId))

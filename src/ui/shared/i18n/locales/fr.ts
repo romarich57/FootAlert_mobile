@@ -285,10 +285,41 @@ export const fr = {
       },
     },
     transfers: {
-      unavailable:
-        "Les transferts globaux d'une ligue ne sont pas disponibles via l'API (limitation endpoint).",
-      notImplemented:
-        "Le flux transferts est disponible mais son affichage détaillé n'est pas encore implémenté.",
+      filters: {
+        all: 'Tous',
+        arrivals: 'Arrivées',
+        departures: 'Départs',
+      },
+      sort: {
+        latest: 'Plus récents',
+        oldest: 'Plus anciens',
+      },
+      states: {
+        empty: 'Aucun transfert disponible pour cette ligue et cette saison.',
+        emptyFiltered: 'Aucun transfert ne correspond au filtre sélectionné.',
+      },
+      labels: {
+        transferType: 'Type',
+        unknownTeam: 'Club inconnu',
+        resultCount: '{{count}} transfert',
+        resultCount_plural: '{{count}} transferts',
+      },
+      direction: {
+        arrival: 'Arrivée',
+        departure: 'Départ',
+        internal: 'Interne',
+      },
+      relative: {
+        today: "Aujourd'hui",
+        yesterday: 'Hier',
+        daysAgo: 'Il y a {{count}} jour',
+        daysAgo_plural: 'Il y a {{count}} jours',
+      },
+      types: {
+        free: 'Transfert libre',
+        loan: 'Prêt',
+        unknown: 'Non communiqué',
+      },
     },
     totw: {
       title: 'Équipe de la semaine',
@@ -367,8 +398,13 @@ export const fr = {
       labels: {
         seeAllSeasons: 'Voir toutes les saisons',
         professionalCareer: 'Carrière professionnelle',
+        nationalTeam: 'Équipe nationale',
         matchesPlayed: 'MATCHS JOUÉS',
         goals: 'BUTS',
+      },
+      states: {
+        emptySeason: 'Aucune donnée de carrière disponible par saison.',
+        emptyTeam: 'Aucune donnée de carrière disponible par équipe.',
       },
     },
     states: {

@@ -117,12 +117,12 @@ export function localizePlayerPosition(
   t: TFunction,
 ): string {
   if (!value) {
-    return '?';
+    return '';
   }
 
   const raw = value.trim();
   if (!raw) {
-    return '?';
+    return '';
   }
 
   const normalized = normalizePosition(raw);

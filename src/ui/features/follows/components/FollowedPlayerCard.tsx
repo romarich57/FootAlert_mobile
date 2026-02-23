@@ -11,15 +11,15 @@ import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 function toDisplayValue(value: string | number | null | undefined): string {
   if (typeof value === 'number') {
-    return Number.isFinite(value) ? String(value) : '?';
+    return Number.isFinite(value) ? String(value) : '';
   }
 
   if (typeof value === 'string') {
     const normalized = value.trim();
-    return normalized.length > 0 ? normalized : '?';
+    return normalized.length > 0 ? normalized : '';
   }
 
-  return '?';
+  return '';
 }
 
 function createStyles(colors: ThemeColors) {

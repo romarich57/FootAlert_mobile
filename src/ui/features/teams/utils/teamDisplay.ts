@@ -1,4 +1,4 @@
-const UNKNOWN_VALUE = '?';
+const UNKNOWN_VALUE = '';
 
 export function toDisplayValue(
   value: string | number | null | undefined,
@@ -86,7 +86,7 @@ export function toDisplayHour(
 
 export function toDisplaySeasonLabel(season: number | null | undefined): string {
   if (typeof season !== 'number' || !Number.isFinite(season)) {
-    return `${UNKNOWN_VALUE}/${UNKNOWN_VALUE}`;
+    return '';
   }
 
   return `${season}/${season + 1}`;
@@ -94,7 +94,7 @@ export function toDisplaySeasonLabel(season: number | null | undefined): string 
 
 export function toDisplayScore(homeGoals: number | null, awayGoals: number | null): string {
   if (homeGoals === null || awayGoals === null) {
-    return UNKNOWN_VALUE;
+    return '';
   }
 
   return `${homeGoals}-${awayGoals}`;
@@ -102,7 +102,7 @@ export function toDisplayScore(homeGoals: number | null, awayGoals: number | nul
 
 export function toPercent(value: number | null | undefined): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return UNKNOWN_VALUE;
+    return '';
   }
 
   return `${Math.max(0, Math.min(100, value))}%`;

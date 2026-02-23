@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlashList } from '@shopify/flash-list';
 
@@ -14,16 +14,44 @@ type CompetitionTransfersTabProps = {
     season: number;
 };
 
+type TransfersFilter = 'all' | 'arrivals' | 'departures';
+type TransfersSort = 'latest' | 'oldest';
+
 export function CompetitionTransfersTab({ competitionId, season }: CompetitionTransfersTabProps) {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const [activeFilter, setActiveFilter] = useState<TransfersFilter>('all');
+    const [activeSort, setActiveSort] = useState<TransfersSort>('latest');
 
-    const { data: transfers, isLoading, isError } = useCompetitionTransfers(competitionId, season);
+    const { data: transfers, isLoading, isError, refetch } = useCompetitionTransfers(competitionId, season);
 
-    const renderItem = ({ item }: { item: Transfer }) => {
+    const filteredTransfers = useMemo(() => {
+        const baseTransfers = transfers ?? [];
+        if (activeFilter === 'arrivals') {
+            return baseTransfers.filter(item => item.isArrival);
+        }
+
+        if (activeFilter === 'departures') {
+            return baseTransfers.filter(item => item.isDeparture);
+        }
+
+        return baseTransfers;
+    }, [activeFilter, transfers]);
+
+    const displayedTransfers = useMemo(() => {
+        const sorted = [...filteredTransfers];
+        sorted.sort((first, second) =>
+            activeSort === 'latest'
+                ? second.timestamp - first.timestamp
+                : first.timestamp - second.timestamp,
+        );
+        return sorted;
+    }, [activeSort, filteredTransfers]);
+
+    const renderItem = useCallback(({ item }: { item: Transfer }) => {
         return <TransferCard transfer={item} />;
-    };
+    }, []);
 
     if (isLoading) {
         return (
@@ -37,6 +65,13 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
         return (
             <View style={styles.centerContainer}>
                 <Text style={styles.emptyText}>{t('competitionDetails.states.loadError')}</Text>
+                <Pressable
+                    onPress={() => {
+                        refetch();
+                    }}
+                >
+                    <Text style={styles.retryText}>{t('actions.retry')}</Text>
+                </Pressable>
             </View>
         );
     }
@@ -44,29 +79,58 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
     if (!transfers || transfers.length === 0) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>{t('competitionDetails.transfers.unavailable')}</Text>
+                <Text style={styles.emptyText}>{t('competitionDetails.transfers.states.empty')}</Text>
             </View>
         );
     }
 
     return (
         <View style={styles.container}>
-            <View style={styles.headerRow}>
-                <Text style={styles.headerTitle}>Tous les transferts</Text>
-                <View style={styles.headerActions}>
-                    <Text style={styles.headerActionText}>Filtres ▾</Text>
-                    <Text style={styles.headerActionText}>Trier ▾</Text>
+            <View style={styles.toolbarRow}>
+                <View style={styles.filtersRow}>
+                    {(['all', 'arrivals', 'departures'] as const).map(filterKey => {
+                        const isActive = activeFilter === filterKey;
+                        return (
+                            <Pressable
+                                key={filterKey}
+                                style={[styles.filterPill, isActive ? styles.filterPillActive : null]}
+                                onPress={() => setActiveFilter(filterKey)}
+                            >
+                                <Text style={[styles.filterText, isActive ? styles.filterTextActive : null]}>
+                                    {t(`competitionDetails.transfers.filters.${filterKey}`)}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
                 </View>
+
+                <Pressable
+                    style={styles.sortPill}
+                    onPress={() => setActiveSort(current => (current === 'latest' ? 'oldest' : 'latest'))}
+                >
+                    <Text style={styles.sortText}>
+                        {t(`competitionDetails.transfers.sort.${activeSort}`)}
+                    </Text>
+                </Pressable>
+            </View>
+
+            <View style={styles.metaRow}>
+                <Text style={styles.metaText}>
+                    {t('competitionDetails.transfers.labels.resultCount', { count: displayedTransfers.length })}
+                </Text>
             </View>
 
             <FlashList
-                data={transfers}
+                data={displayedTransfers}
                 renderItem={renderItem}
-                keyExtractor={(item, index) => `${item.playerId}-${item.date}-${index}`}
+                keyExtractor={item => item.id}
                 // @ts-ignore - TS types are currently flawed for estimatedItemSize in FlashList in this environment
                 estimatedItemSize={150}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                    <Text style={styles.emptyText}>{t('competitionDetails.transfers.states.emptyFiltered')}</Text>
+                }
             />
         </View>
     );
@@ -91,31 +155,79 @@ function createStyles(colors: ThemeColors) {
             textAlign: 'center',
             lineHeight: 24,
         },
-        headerRow: {
+        retryText: {
+            color: colors.primary,
+            fontSize: 15,
+            fontWeight: '700',
+            marginTop: 10,
+        },
+        toolbarRow: {
             flexDirection: 'row',
             justifyContent: 'space-between',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             paddingHorizontal: 16,
             paddingVertical: 12,
+            gap: 12,
         },
-        headerTitle: {
-            color: colors.text,
-            fontSize: 16,
-            fontWeight: '600',
-        },
-        headerActions: {
+        filtersRow: {
             flexDirection: 'row',
-            gap: 16,
+            alignItems: 'center',
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.chipBorder,
+            backgroundColor: colors.chipBackground,
+            padding: 4,
+            gap: 4,
+            flex: 1,
         },
-        headerActionText: {
+        filterPill: {
+            minHeight: 34,
+            borderRadius: 999,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+        },
+        filterPillActive: {
+            backgroundColor: 'rgba(21,248,106,0.2)',
+            borderWidth: 1,
+            borderColor: colors.primary,
+        },
+        filterText: {
             color: colors.textMuted,
-            fontSize: 14,
-            fontWeight: '500',
+            fontSize: 13,
+            fontWeight: '700',
+        },
+        filterTextActive: {
+            color: colors.primary,
+        },
+        sortPill: {
+            minHeight: 34,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.chipBorder,
+            backgroundColor: colors.chipBackground,
+            paddingHorizontal: 12,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        sortText: {
+            color: colors.text,
+            fontSize: 12,
+            fontWeight: '700',
+        },
+        metaRow: {
+            paddingHorizontal: 16,
+            paddingBottom: 8,
+        },
+        metaText: {
+            color: colors.textMuted,
+            fontSize: 12,
+            fontWeight: '600',
         },
         listContent: {
             paddingHorizontal: 16,
             paddingBottom: 24,
-            paddingTop: 8,
+            paddingTop: 4,
         },
     });
 }

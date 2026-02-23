@@ -276,10 +276,41 @@ export const en = {
       },
     },
     transfers: {
-      unavailable:
-        'League-wide transfer data is not available from the API (endpoint limitation).',
-      notImplemented:
-        'Transfer feed available but detailed rendering is not implemented yet.',
+      filters: {
+        all: 'All',
+        arrivals: 'Arrivals',
+        departures: 'Departures',
+      },
+      sort: {
+        latest: 'Latest',
+        oldest: 'Oldest',
+      },
+      states: {
+        empty: 'No transfers available for this league and season.',
+        emptyFiltered: 'No transfers match the selected filter.',
+      },
+      labels: {
+        transferType: 'Type',
+        unknownTeam: 'Unknown team',
+        resultCount: '{{count}} transfer',
+        resultCount_plural: '{{count}} transfers',
+      },
+      direction: {
+        arrival: 'Arrival',
+        departure: 'Departure',
+        internal: 'Internal',
+      },
+      relative: {
+        today: 'Today',
+        yesterday: 'Yesterday',
+        daysAgo: '{{count}} day ago',
+        daysAgo_plural: '{{count}} days ago',
+      },
+      types: {
+        free: 'Free transfer',
+        loan: 'Loan',
+        unknown: 'Undisclosed',
+      },
     },
     totw: {
       title: 'Team of the Week',
@@ -358,8 +389,13 @@ export const en = {
       labels: {
         seeAllSeasons: 'See all seasons',
         professionalCareer: 'Professional career',
+        nationalTeam: 'National team',
         matchesPlayed: 'MATCHES PLAYED',
         goals: 'GOALS',
+      },
+      states: {
+        emptySeason: 'No career data available by season.',
+        emptyTeam: 'No career data available by team.',
       },
     },
     states: {

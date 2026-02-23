@@ -117,11 +117,11 @@ function createStyles(colors: ThemeColors) {
 
 function formatDateTime(dateIso: string | undefined): string {
   if (!dateIso) {
-    return '?';
+    return '';
   }
   const date = new Date(dateIso);
   if (Number.isNaN(date.getTime())) {
-    return '?';
+    return '';
   }
 
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {
@@ -132,7 +132,7 @@ function formatDateTime(dateIso: string | undefined): string {
 
 function formatScore(home: number | null, away: number | null): string {
   if (home === null || away === null) {
-    return '-';
+    return '';
   }
   return `${home} - ${away}`;
 }
@@ -217,7 +217,7 @@ export function MatchDetailsScreen() {
           </Text>
 
           <Text style={styles.detailsLabel}>{t('matchDetails.labels.venue')}</Text>
-          <Text style={styles.detailsValue}>{fixture.fixture.venue.name ?? '-'}</Text>
+          <Text style={styles.detailsValue}>{fixture.fixture.venue.name ?? ''}</Text>
         </View>
       </View>
     </View>

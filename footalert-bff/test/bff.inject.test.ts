@@ -311,6 +311,180 @@ test('GET /v1/follows/trends/teams aggregates league calls with bounded concurre
   assert.equal(maxConcurrentRequests <= 3, true);
 });
 
+test('GET /v1/competitions/:id/transfers filters, deduplicates and enriches transfer context', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const pathname = url.pathname;
+
+    if (pathname.endsWith('/teams')) {
+      return jsonResponse({
+        response: [
+          { team: { id: 1 } },
+          { team: { id: 2 } },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/transfers') && url.searchParams.get('team') === '1') {
+      return jsonResponse({
+        response: [
+          {
+            player: { id: 10, name: 'Player A' },
+            update: '2026-01-01',
+            transfers: [
+              {
+                date: '2025-08-10',
+                type: 'Loan',
+                teams: {
+                  in: { id: 1, name: 'League Team 1', logo: 'in1.png' },
+                  out: { id: 90, name: 'External Team', logo: 'out1.png' },
+                },
+              },
+              {
+                date: '2025-02-10',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 1, name: 'League Team 1', logo: 'in1.png' },
+                  out: { id: 91, name: 'External Team 2', logo: 'out2.png' },
+                },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/transfers') && url.searchParams.get('team') === '2') {
+      return jsonResponse({
+        response: [
+          // Duplicate of Player A transfer, should be deduplicated.
+          {
+            player: { id: 10, name: 'Player A' },
+            update: '2026-01-01',
+            transfers: [
+              {
+                date: '2025-08-10',
+                type: 'Loan',
+                teams: {
+                  in: { id: 1, name: 'League Team 1', logo: 'in1.png' },
+                  out: { id: 90, name: 'External Team', logo: 'out1.png' },
+                },
+              },
+            ],
+          },
+          {
+            player: { id: 30, name: 'Player B' },
+            update: '2026-01-01',
+            transfers: [
+              {
+                date: '2025-09-12',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 2, name: 'League Team 2', logo: 'in2.png' },
+                  out: { id: 1, name: 'League Team 1', logo: 'out2.png' },
+                },
+              },
+              {
+                date: '2026-07-02',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 2, name: 'League Team 2', logo: 'in2.png' },
+                  out: { id: 1, name: 'League Team 1', logo: 'out2.png' },
+                },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions/39/transfers?season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(Array.isArray(payload.response), true);
+  assert.equal(payload.response.length, 2);
+  assert.equal(calls.length, 3);
+
+  const first = payload.response[0];
+  const second = payload.response[1];
+
+  assert.equal(first.player.id, 30);
+  assert.equal(first.context.teamInInLeague, true);
+  assert.equal(first.context.teamOutInLeague, true);
+  assert.equal(first.transfers[0].date, '2025-09-12');
+
+  assert.equal(second.player.id, 10);
+  assert.equal(second.context.teamInInLeague, true);
+  assert.equal(second.context.teamOutInLeague, false);
+  assert.equal(second.transfers[0].date, '2025-08-10');
+});
+
+test('GET /v1/competitions/:id/transfers keeps partial data when one team transfer call fails', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const pathname = url.pathname;
+
+    if (pathname.endsWith('/teams')) {
+      return jsonResponse({
+        response: [
+          { team: { id: 1 } },
+          { team: { id: 2 } },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/transfers') && url.searchParams.get('team') === '1') {
+      return jsonResponse({
+        response: [
+          {
+            player: { id: 99, name: 'Player Stable' },
+            update: '2026-01-01',
+            transfers: [
+              {
+                date: '2025-10-12',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 1, name: 'League Team 1', logo: 'in1.png' },
+                  out: { id: 50, name: 'External Team', logo: 'out1.png' },
+                },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/transfers') && url.searchParams.get('team') === '2') {
+      throw new TypeError('upstream timeout');
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions/61/transfers?season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(Array.isArray(payload.response), true);
+  assert.equal(payload.response.length, 1);
+  assert.equal(payload.response[0].player.id, 99);
+  assert.equal(calls.length >= 3, true);
+});
+
 test('players and teams endpoints reject out-of-range volumetric params', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
   const app = await buildApp(t);

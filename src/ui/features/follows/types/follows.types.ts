@@ -114,6 +114,11 @@ export type FollowsApiPlayerSearchDto = {
     };
     games?: {
       position?: string;
+      minutes?: number;
+      appearences?: number;
+    };
+    goals?: {
+      total?: number | null;
     };
   }>;
 };
@@ -155,6 +160,8 @@ export type FollowsApiPlayerSeasonDto = {
     };
     games?: {
       position?: string;
+      minutes?: number;
+      appearences?: number;
     };
     goals?: {
       total?: number | null;
@@ -189,8 +196,16 @@ export type FollowsApiTopScorerDto = {
       name?: string;
       logo?: string;
     };
+    league?: {
+      season?: number;
+    };
     games?: {
       position?: string;
+      minutes?: number;
+      appearences?: number;
+    };
+    goals?: {
+      total?: number | null;
     };
   }>;
 };

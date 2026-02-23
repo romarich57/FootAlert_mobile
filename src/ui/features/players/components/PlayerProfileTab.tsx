@@ -185,10 +185,12 @@ export function PlayerProfileTab({ profile, stats, characteristics }: PlayerProf
     const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const seasonStart = profile.league.season;
-    const seasonLabel = t('playerDetails.profile.labels.season', {
-        start: typeof seasonStart === 'number' ? seasonStart : '?',
-        end: typeof seasonStart === 'number' ? seasonStart + 1 : '?',
-    });
+    const seasonLabel = typeof seasonStart === 'number'
+        ? t('playerDetails.profile.labels.season', {
+            start: seasonStart,
+            end: seasonStart + 1,
+        })
+        : '';
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentPadding}>

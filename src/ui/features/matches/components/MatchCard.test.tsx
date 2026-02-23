@@ -46,15 +46,15 @@ function renderCard(match: MatchItem) {
 }
 
 describe('MatchCard', () => {
-  it('shows fallback logos when team logos are missing', () => {
+  it('shows neutral logo placeholders when team logos are missing', () => {
     renderCard({
       ...baseMatch,
       homeTeamLogo: '',
       awayTeamLogo: '',
     });
 
-    expect(screen.getByTestId('match-team-logo-fallback-home-10')).toBeTruthy();
-    expect(screen.getByTestId('match-team-logo-fallback-away-10')).toBeTruthy();
+    expect(screen.getByTestId('match-team-logo-placeholder-home-10')).toBeTruthy();
+    expect(screen.getByTestId('match-team-logo-placeholder-away-10')).toBeTruthy();
   });
 
   it('renders score values for live matches', () => {

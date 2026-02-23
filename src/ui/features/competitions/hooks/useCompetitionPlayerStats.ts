@@ -33,7 +33,7 @@ export function useCompetitionPlayerStats(leagueId: number | undefined, season: 
                     return [];
             }
 
-            return mapPlayerStatsDtoToPlayerStats(dtos);
+            return mapPlayerStatsDtoToPlayerStats(dtos, season);
         },
         enabled: !!leagueId && !!season,
         staleTime: 60 * 60 * 1000, // 1 hour cache since it doesn't change rapidly

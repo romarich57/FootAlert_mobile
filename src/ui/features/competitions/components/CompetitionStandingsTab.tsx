@@ -135,7 +135,7 @@ function createStyles(colors: ThemeColors) {
 }
 
 function displayValue(value: string | number | null | undefined): string | number {
-    return value !== null && value !== undefined && value !== '' ? value : '?';
+    return value !== null && value !== undefined && value !== '' ? value : '';
 }
 
 function getFormStyle(char: string, styles: any) {
@@ -160,7 +160,7 @@ function getDescriptionColor(desc: string | null, styles: any) {
 }
 
 function createFormBadges(form: string, teamId: number) {
-    const chars = form !== '?' ? form.split('').slice(0, 5) : [];
+    const chars = form.trim().length > 0 ? form.split('').slice(0, 5) : [];
     const seen = new Map<string, number>();
 
     return chars.map(char => {

@@ -132,9 +132,41 @@ describe('followsMapper', () => {
     expect(trends[1].playerId).toBe('11');
   });
 
-  it('exposes missing fields with explicit placeholders instead of synthetic entities', () => {
+  it('selects trending player stat from the requested season instead of first stat row', () => {
+    const trends = mapTrendingPlayersFromTopScorers(
+      [
+        {
+          player: { id: 12, name: 'Player Seasoned', photo: 'p12.png' },
+          statistics: [
+            {
+              league: { season: 2024 },
+              team: { name: 'Old Team', logo: 'old.png' },
+              games: { position: 'Midfielder', minutes: 1800, appearences: 20 },
+              goals: { total: 5 },
+            },
+            {
+              league: { season: 2025 },
+              team: { name: 'New Team', logo: 'new.png' },
+              games: { position: 'Attacker', minutes: 2200, appearences: 25 },
+              goals: { total: 14 },
+            },
+          ],
+        },
+      ],
+      10,
+      2025,
+    );
+
+    expect(trends).toHaveLength(1);
+    expect(trends[0]?.playerId).toBe('12');
+    expect(trends[0]?.position).toBe('Attacker');
+    expect(trends[0]?.teamName).toBe('New Team');
+    expect(trends[0]?.teamLogo).toBe('new.png');
+  });
+
+  it('keeps missing fields empty instead of injecting placeholders', () => {
     const teamCard = mapTeamDetailsAndFixtureToFollowedCard('85', null, null);
-    expect(teamCard.teamName).toBe('?');
+    expect(teamCard.teamName).toBe('');
     expect(teamCard.teamLogo).toBe('');
 
     const playerCard = mapPlayerSeasonToFollowedCard('154', {
@@ -151,10 +183,10 @@ describe('followsMapper', () => {
       ],
     });
 
-    expect(playerCard.playerName).toBe('?');
-    expect(playerCard.position).toBe('?');
-    expect(playerCard.teamName).toBe('?');
-    expect(playerCard.leagueName).toBe('?');
+    expect(playerCard.playerName).toBe('');
+    expect(playerCard.position).toBe('');
+    expect(playerCard.teamName).toBe('');
+    expect(playerCard.leagueName).toBe('');
     expect(playerCard.goals).toBeNull();
     expect(playerCard.assists).toBeNull();
   });

@@ -53,14 +53,6 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.border,
       backgroundColor: colors.surface,
     },
-    logoFallback: {
-      width: 26,
-      height: 26,
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceElevated,
-    },
     title: {
       color: colors.text,
       fontSize: 17,
@@ -121,7 +113,7 @@ export function CompetitionSection({
           {section.logo ? (
             <Image source={{ uri: section.logo }} style={styles.logo} />
           ) : (
-            <View style={styles.logoFallback} />
+            <View style={styles.logo} />
           )}
           <View style={styles.titleRow}>
             <Text numberOfLines={1} style={styles.title}>

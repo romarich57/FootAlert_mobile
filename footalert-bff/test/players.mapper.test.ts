@@ -77,6 +77,55 @@ test('dedupeCareerSeasons and aggregateCareerTeams collapse duplicate season-tea
   assert.equal(teams[0]?.period, '2023 - 2024');
 });
 
+test('dedupeCareerSeasons merges non-identical league duplicates and ignores exact duplicates', async () => {
+  const { dedupeCareerSeasons } = await loadPlayersMappers();
+
+  const deduped = dedupeCareerSeasons([
+    {
+      season: '2024',
+      leagueId: '1',
+      team: { id: '33', name: 'Team A', logo: 'https://logo-a' },
+      matches: 10,
+      goals: 4,
+      assists: 1,
+      rating: '7.00',
+    },
+    {
+      season: '2024',
+      leagueId: '1',
+      team: { id: '33', name: 'Team A', logo: 'https://logo-a' },
+      matches: 8,
+      goals: 2,
+      assists: 1,
+      rating: '6.50',
+    },
+    {
+      season: '2024',
+      leagueId: '2',
+      team: { id: '33', name: 'Team A', logo: 'https://logo-a' },
+      matches: 20,
+      goals: 8,
+      assists: 2,
+      rating: '8.00',
+    },
+    {
+      season: '2024',
+      leagueId: '2',
+      team: { id: '33', name: 'Team A', logo: 'https://logo-a' },
+      matches: 20,
+      goals: 8,
+      assists: 2,
+      rating: '8.00',
+    },
+  ]);
+
+  assert.equal(deduped.length, 1);
+  assert.equal(deduped[0]?.matches, 38);
+  assert.equal(deduped[0]?.goals, 14);
+  assert.equal(deduped[0]?.assists, 4);
+  assert.equal(deduped[0]?.rating, '7.42');
+});
+
 test('mapPlayerMatchPerformance maps fixture and player statistics', async () => {
   const { mapPlayerMatchPerformance } = await loadPlayersMappers();
 
@@ -115,5 +164,53 @@ test('mapPlayerMatchPerformance maps fixture and player statistics', async () =>
   assert.equal(mapped?.fixtureId, '9001');
   assert.equal(mapped?.playerStats.minutes, 90);
   assert.equal(mapped?.playerStats.rating, '7.8');
+  assert.equal(mapped?.playerStats.isStarter, true);
+});
+
+test('mapPlayerMatchPerformance picks the most representative stat row when multiple rows exist', async () => {
+  const { mapPlayerMatchPerformance } = await loadPlayersMappers();
+
+  const mapped = mapPlayerMatchPerformance(
+    '278',
+    {
+      fixture: { id: 9002, date: '2026-02-21T20:00:00Z' },
+      league: { id: 39, name: 'Premier League', logo: 'https://league-logo' },
+      teams: {
+        home: { id: 40, name: 'Team A', logo: 'https://team-a' },
+        away: { id: 50, name: 'Team B', logo: 'https://team-b' },
+      },
+      goals: { home: 3, away: 2 },
+    },
+    {
+      players: [
+        {
+          players: [
+            {
+              player: { id: 278 },
+              statistics: [
+                {
+                  games: { minutes: 12, rating: '6.0', substitute: true },
+                  goals: { total: 0, assists: 0 },
+                  cards: { yellow: 0, red: 0 },
+                },
+                {
+                  games: { minutes: 78, rating: '7.6', substitute: false },
+                  goals: { total: 2, assists: 1 },
+                  cards: { yellow: 1, red: 0 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  );
+
+  assert.ok(mapped);
+  assert.equal(mapped?.playerStats.minutes, 78);
+  assert.equal(mapped?.playerStats.rating, '7.6');
+  assert.equal(mapped?.playerStats.goals, 2);
+  assert.equal(mapped?.playerStats.assists, 1);
+  assert.equal(mapped?.playerStats.yellowCards, 1);
   assert.equal(mapped?.playerStats.isStarter, true);
 });

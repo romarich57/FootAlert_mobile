@@ -58,7 +58,7 @@ export type TeamMatchItem = {
 
 export type TeamFormEntry = {
   fixtureId: string;
-  result: 'W' | 'D' | 'L' | '?';
+  result: 'W' | 'D' | 'L' | '';
   score: string | null;
   opponentName: string | null;
   opponentLogo: string | null;
@@ -382,9 +382,20 @@ export type TeamApiPlayerDto = {
     photo?: string;
   };
   statistics?: Array<{
+    team?: {
+      id?: number;
+      name?: string;
+      logo?: string;
+    };
+    league?: {
+      id?: number;
+      season?: number;
+    };
     games?: {
       position?: string;
       rating?: string | null;
+      minutes?: number | null;
+      appearences?: number | null;
     };
     goals?: {
       total?: number | null;

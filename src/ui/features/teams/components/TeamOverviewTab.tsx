@@ -167,7 +167,7 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function resolveFormBadgeStyle(result: 'W' | 'D' | 'L' | '?', styles: ReturnType<typeof createStyles>) {
+function resolveFormBadgeStyle(result: 'W' | 'D' | 'L' | '', styles: ReturnType<typeof createStyles>) {
   if (result === 'W') {
     return styles.formBadgeWin;
   }

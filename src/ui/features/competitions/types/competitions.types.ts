@@ -154,6 +154,10 @@ export type CompetitionsApiTransferDto = {
             };
         };
     }>;
+    context?: {
+        teamInInLeague: boolean;
+        teamOutInLeague: boolean;
+    };
 };
 
 // Players Stats uses existing types from players, but we can define a simplified DTO
@@ -292,11 +296,19 @@ export type Fixture = {
     penaltyAway: number | null;
 };
 
+export type TransferDirection = 'arrival' | 'departure' | 'internal';
+
 export type Transfer = {
+    id: string;
     playerId: number;
     playerName: string;
+    playerPhoto: string;
     date: string;
+    timestamp: number;
     type: string;
+    direction: TransferDirection;
+    isArrival: boolean;
+    isDeparture: boolean;
     teamIn: {
         id: number;
         name: string;

@@ -1,20 +1,57 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
-// You can also use react-native-vector-icons if necessary, e.g. import Icon from 'react-native-vector-icons/Feather';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { Transfer } from '../types/competitions.types';
 
-// Simple helper to calculate days ago or formate date
-const getDaysAgo = (dateString: string) => {
-    const today = new Date();
-    const transferDate = new Date(dateString);
-    const diffTime = Math.abs(today.getTime() - transferDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-};
+function formatRelativeDate(value: string, locale: string, t: (key: string, options?: any) => string): string {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return value;
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const transferDay = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    const diffInDays = Math.floor((today.getTime() - transferDay.getTime()) / (24 * 60 * 60 * 1000));
+
+    if (diffInDays === 0) {
+        return t('competitionDetails.transfers.relative.today');
+    }
+
+    if (diffInDays === 1) {
+        return t('competitionDetails.transfers.relative.yesterday');
+    }
+
+    if (diffInDays > 1 && diffInDays <= 7) {
+        return t('competitionDetails.transfers.relative.daysAgo', { count: diffInDays });
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(parsed);
+}
+
+function toDisplayTransferType(type: string, t: (key: string) => string): string {
+    const normalized = type.trim().toLowerCase();
+    if (!normalized) {
+        return t('competitionDetails.transfers.types.unknown');
+    }
+
+    if (normalized.includes('loan')) {
+        return t('competitionDetails.transfers.types.loan');
+    }
+
+    if (normalized.includes('free')) {
+        return t('competitionDetails.transfers.types.free');
+    }
+
+    return type;
+}
 
 type TransferCardProps = {
     transfer: Transfer;
@@ -22,69 +59,59 @@ type TransferCardProps = {
 
 export function TransferCard({ transfer }: TransferCardProps) {
     const { colors } = useAppTheme();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
-
-    const playerImageUrl = `https://media.api-sports.io/football/players/${transfer.playerId}.png`;
-
-    // Type parsing logic
-    let displayType = transfer.type || 'N/A';
-    if (displayType.toLowerCase().includes('free')) {
-        displayType = t('teamDetails.labels.transferType', { defaultValue: 'Transfert gratuit' });
-    } else if (displayType.toLowerCase().includes('loan')) {
-        displayType = t('teamDetails.labels.transferType', { defaultValue: 'Prêt' });
-    }
-
-    const daysAgo = getDaysAgo(transfer.date);
-    const daysLabel = daysAgo === 0 ? "Aujourd'hui" : `Il y a ${daysAgo} jour${daysAgo > 1 ? 's' : ''}`;
+    const transferType = toDisplayTransferType(transfer.type, t);
+    const relativeDate = formatRelativeDate(transfer.date, i18n.language, t);
+    const directionKey = `competitionDetails.transfers.direction.${transfer.direction}`;
+    const fromTeamName = transfer.teamOut.name.trim();
+    const toTeamName = transfer.teamIn.name.trim();
 
     return (
         <View style={styles.cardContainer}>
             <View style={styles.topRow}>
                 <View style={styles.avatarContainer}>
                     <Image
-                        source={{ uri: playerImageUrl }}
+                        source={{ uri: transfer.playerPhoto }}
                         style={styles.avatar}
                         resizeMode="cover"
                     />
                 </View>
-                <Text style={styles.dateText}>{daysLabel}</Text>
+                <Text style={styles.dateText}>{relativeDate}</Text>
             </View>
 
             <Text style={styles.playerName} numberOfLines={1}>{transfer.playerName}</Text>
 
             <View style={styles.clubsRow}>
-                {transfer.teamOut.id ? (
-                    <View style={styles.clubItem}>
-                        <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
-                            {transfer.teamOut.name}
-                        </Text>
+                <View style={styles.clubItem}>
+                    {transfer.teamOut.logo ? (
                         <Image source={{ uri: transfer.teamOut.logo }} style={styles.clubLogo} />
-                    </View>
-                ) : (
-                    <Text style={styles.clubName}>Transfert Libre</Text>
-                )}
-
-                <View style={styles.arrowContainer}>
-                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>→</Text>
+                    ) : null}
+                    <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
+                        {fromTeamName}
+                    </Text>
                 </View>
 
-                {transfer.teamIn.id ? (
-                    <View style={styles.clubItem}>
+                <View style={styles.arrowContainer}>
+                    <Text style={styles.arrowText}>→</Text>
+                </View>
+
+                <View style={styles.clubItem}>
+                    {transfer.teamIn.logo ? (
                         <Image source={{ uri: transfer.teamIn.logo }} style={styles.clubLogo} />
-                        <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
-                            {transfer.teamIn.name}
-                        </Text>
-                    </View>
-                ) : (
-                    <Text style={styles.clubName}>Agent Libre</Text>
-                )}
+                    ) : null}
+                    <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
+                        {toTeamName}
+                    </Text>
+                </View>
             </View>
 
             <View style={styles.footerRow}>
-                <Text style={styles.footerText}>
-                    <Text style={styles.footerBold}>Type </Text>
-                    {displayType}
+                <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{t(directionKey)}</Text>
+                </View>
+                <Text style={styles.footerText} numberOfLines={1}>
+                    {t('competitionDetails.transfers.labels.transferType')}: {transferType}
                 </Text>
             </View>
         </View>
@@ -108,10 +135,9 @@ function createStyles(colors: ThemeColors) {
         },
         topRow: {
             flexDirection: 'row',
-            justifyContent: 'center',
+            justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: 8,
-            position: 'relative',
         },
         avatarContainer: {
             width: 56,
@@ -125,11 +151,9 @@ function createStyles(colors: ThemeColors) {
             height: '100%',
         },
         dateText: {
-            position: 'absolute',
-            top: 0,
-            right: 0,
             color: colors.textMuted,
             fontSize: 12,
+            fontWeight: '600',
         },
         playerName: {
             color: colors.text,
@@ -143,7 +167,7 @@ function createStyles(colors: ThemeColors) {
             justifyContent: 'center',
             alignItems: 'center',
             gap: 12,
-            marginBottom: 16,
+            marginBottom: 14,
         },
         clubItem: {
             flexDirection: 'row',
@@ -162,28 +186,44 @@ function createStyles(colors: ThemeColors) {
             maxWidth: 100,
         },
         arrowContainer: {
-            width: 24,
-            height: 24,
-            borderRadius: 12,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
             backgroundColor: colors.primary + '20', // slight primary tint
             justifyContent: 'center',
             alignItems: 'center',
         },
+        arrowText: {
+            color: colors.primary,
+            fontWeight: '700',
+        },
         footerRow: {
             flexDirection: 'row',
-            justifyContent: 'center',
+            justifyContent: 'space-between',
             alignItems: 'center',
             paddingTop: 12,
             borderTopWidth: 1,
             borderTopColor: colors.border,
+            gap: 8,
+        },
+        badge: {
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: colors.primary,
+            backgroundColor: colors.primary + '18',
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+        },
+        badgeText: {
+            color: colors.primary,
+            fontSize: 11,
+            fontWeight: '700',
         },
         footerText: {
             color: colors.textMuted,
             fontSize: 13,
-        },
-        footerBold: {
-            fontWeight: '600',
-            color: colors.text,
+            flex: 1,
+            textAlign: 'right',
         },
     });
 }

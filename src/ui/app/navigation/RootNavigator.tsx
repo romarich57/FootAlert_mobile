@@ -113,7 +113,7 @@ export function RootNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="TeamDetails" component={TeamDetailsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="PlayerDetails" component={PlayerDetailsScreen} />
+      <Stack.Screen name="PlayerDetails" component={PlayerDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="SearchPlaceholder"
         component={SearchPlaceholderScreen}

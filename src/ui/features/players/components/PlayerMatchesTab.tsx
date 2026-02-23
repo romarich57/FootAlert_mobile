@@ -176,7 +176,7 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
 
             const dateObj = new Date(date ?? '');
             const dateString = Number.isNaN(dateObj.getTime())
-                ? '?'
+                ? ''
                 : dateObj.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 
             // Build badges only from available API values
@@ -213,12 +213,14 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                     color: colors.danger,
                 });
             }
-            icons.push({
-                key: 'minutes',
-                icon: 'clock-outline',
-                text: `${toDisplayValue(playerStats.minutes)}'`,
-                color: colors.textMuted,
-            });
+            if (typeof playerStats.minutes === 'number') {
+                icons.push({
+                    key: 'minutes',
+                    icon: 'clock-outline',
+                    text: `${playerStats.minutes}'`,
+                    color: colors.textMuted,
+                });
+            }
 
             return (
                 <Pressable

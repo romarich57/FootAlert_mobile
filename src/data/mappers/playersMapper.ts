@@ -16,6 +16,11 @@ import type {
 } from '@ui/features/players/types/players.types';
 
 type PlayerApiStat = NonNullable<PlayerApiDetailsDto['statistics']>[number];
+type PlayerApiMatchStat = NonNullable<
+    NonNullable<
+        NonNullable<PlayerApiMatchPerformanceDto['players']>[number]['players']
+    >[number]['statistics']
+>[number];
 
 export function normalizeString(value: string | undefined | null): string | null {
     if (typeof value !== 'string') {
@@ -159,6 +164,34 @@ function resolvePrimaryStatistic(
     })[0] ?? null;
 }
 
+function resolveSeasonStatistics(
+    statistics: PlayerApiDetailsDto['statistics'],
+    season?: number,
+): PlayerApiStat[] {
+    if (!statistics || statistics.length === 0) {
+        return [];
+    }
+
+    const seasonScoped = typeof season === 'number'
+        ? statistics.filter(item => item.league?.season === season)
+        : statistics;
+
+    return seasonScoped.length > 0 ? seasonScoped : statistics;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string') {
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
 function sumOrNull(a: number | null, b: number | null): number | null {
     if (a === null && b === null) {
         return null;
@@ -244,8 +277,8 @@ export function mapPlayerDetailsToSeasonStats(
     dto: PlayerApiDetailsDto,
     season?: number,
 ): PlayerSeasonStats {
-    const s = resolvePrimaryStatistic(dto.statistics, season);
-    if (!s) {
+    const stats = resolveSeasonStatistics(dto.statistics, season);
+    if (stats.length === 0) {
         return {
             matches: null, starts: null, minutes: null, goals: null, assists: null, rating: null,
             shots: null, shotsOnTarget: null, passes: null, passesAccuracy: null,
@@ -253,21 +286,89 @@ export function mapPlayerDetailsToSeasonStats(
         };
     }
 
+    let matches: number | null = null;
+    let starts: number | null = null;
+    let minutes: number | null = null;
+    let goals: number | null = null;
+    let assists: number | null = null;
+    let shots: number | null = null;
+    let shotsOnTarget: number | null = null;
+    let passes: number | null = null;
+    let tackles: number | null = null;
+    let interceptions: number | null = null;
+    let yellowCards: number | null = null;
+    let redCards: number | null = null;
+
+    let ratingWeightedSum = 0;
+    let ratingWeight = 0;
+
+    let passesAccuracyWeightedSum = 0;
+    let passesAccuracyWeight = 0;
+
+    stats.forEach(stat => {
+        const appearances = normalizeNumber(stat.games?.appearences);
+        const lineups = normalizeNumber(stat.games?.lineups);
+        const playedMinutes = normalizeNumber(stat.games?.minutes);
+        const goalsValue = normalizeNumber(stat.goals?.total);
+        const assistsValue = normalizeNumber(stat.goals?.assists);
+        const shotsValue = normalizeNumber(stat.shots?.total);
+        const shotsOnTargetValue = normalizeNumber(stat.shots?.on);
+        const passesValue = normalizeNumber(stat.passes?.total);
+        const tacklesValue = normalizeNumber(stat.tackles?.total);
+        const interceptionsValue = normalizeNumber(stat.tackles?.interceptions);
+        const yellowCardsValue = normalizeNumber(stat.cards?.yellow);
+        const redCardsValue = normalizeNumber(stat.cards?.red);
+
+        matches = sumOrNull(matches, appearances);
+        starts = sumOrNull(starts, lineups);
+        minutes = sumOrNull(minutes, playedMinutes);
+        goals = sumOrNull(goals, goalsValue);
+        assists = sumOrNull(assists, assistsValue);
+        shots = sumOrNull(shots, shotsValue);
+        shotsOnTarget = sumOrNull(shotsOnTarget, shotsOnTargetValue);
+        passes = sumOrNull(passes, passesValue);
+        tackles = sumOrNull(tackles, tacklesValue);
+        interceptions = sumOrNull(interceptions, interceptionsValue);
+        yellowCards = sumOrNull(yellowCards, yellowCardsValue);
+        redCards = sumOrNull(redCards, redCardsValue);
+
+        const ratingValue = toFiniteNumber(stat.games?.rating);
+        if (ratingValue !== null) {
+            const weight = playedMinutes ?? appearances ?? 1;
+            if (weight > 0) {
+                ratingWeightedSum += ratingValue * weight;
+                ratingWeight += weight;
+            }
+        }
+
+        const passesAccuracyValue = toFiniteNumber(stat.passes?.accuracy);
+        if (passesAccuracyValue !== null) {
+            const weight = passesValue ?? playedMinutes ?? appearances ?? 1;
+            if (weight > 0) {
+                passesAccuracyWeightedSum += passesAccuracyValue * weight;
+                passesAccuracyWeight += weight;
+            }
+        }
+    });
+
     return {
-        matches: normalizeNumber(s.games?.appearences),
-        starts: normalizeNumber(s.games?.lineups),
-        minutes: normalizeNumber(s.games?.minutes),
-        goals: normalizeNumber(s.goals?.total),
-        assists: normalizeNumber(s.goals?.assists),
-        rating: normalizeRating(s.games?.rating, 2),
-        shots: normalizeNumber(s.shots?.total),
-        shotsOnTarget: normalizeNumber(s.shots?.on),
-        passes: normalizeNumber(s.passes?.total),
-        passesAccuracy: normalizeNumber(s.passes?.accuracy),
-        tackles: normalizeNumber(s.tackles?.total),
-        interceptions: normalizeNumber(s.tackles?.interceptions),
-        yellowCards: normalizeNumber(s.cards?.yellow),
-        redCards: normalizeNumber(s.cards?.red),
+        matches,
+        starts,
+        minutes,
+        goals,
+        assists,
+        rating: ratingWeight > 0 ? normalizeRating(ratingWeightedSum / ratingWeight, 2) : null,
+        shots,
+        shotsOnTarget,
+        passes,
+        passesAccuracy:
+            passesAccuracyWeight > 0
+                ? Number((passesAccuracyWeightedSum / passesAccuracyWeight).toFixed(2))
+                : null,
+        tackles,
+        interceptions,
+        yellowCards,
+        redCards,
     };
 }
 
@@ -304,11 +405,40 @@ export function mapPlayerMatchPerformance(
         isStarter: null,
     };
 
+    const resolvePrimaryMatchStatistic = (
+        statistics: PlayerApiMatchStat[] | undefined,
+    ): PlayerApiMatchStat | null => {
+        if (!statistics || statistics.length === 0) {
+            return null;
+        }
+
+        return [...statistics].sort((a, b) => {
+            const aMinutes = normalizeNumber(a.games?.minutes) ?? 0;
+            const bMinutes = normalizeNumber(b.games?.minutes) ?? 0;
+            if (bMinutes !== aMinutes) {
+                return bMinutes - aMinutes;
+            }
+
+            const aGoals = normalizeNumber(a.goals?.total) ?? 0;
+            const bGoals = normalizeNumber(b.goals?.total) ?? 0;
+            if (bGoals !== aGoals) {
+                return bGoals - aGoals;
+            }
+
+            const aRating = toFiniteNumber(a.games?.rating) ?? 0;
+            const bRating = toFiniteNumber(b.games?.rating) ?? 0;
+            return bRating - aRating;
+        })[0] ?? null;
+    };
+
     if (performanceDto?.players) {
         for (const teamTeam of performanceDto.players) {
             const matchPlayer = teamTeam.players?.find(p => String(p.player?.id) === playerId);
             if (matchPlayer && matchPlayer.statistics && matchPlayer.statistics.length > 0) {
-                const s = matchPlayer.statistics[0];
+                const s = resolvePrimaryMatchStatistic(matchPlayer.statistics);
+                if (!s) {
+                    continue;
+                }
                 playerStats = {
                     minutes: normalizeNumber(s.games?.minutes),
                     rating: normalizeRating(s.games?.rating, 1),

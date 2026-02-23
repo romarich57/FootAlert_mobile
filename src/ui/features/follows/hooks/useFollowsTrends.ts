@@ -43,7 +43,11 @@ export function useFollowsTrends({ tab, hidden }: UseFollowsTrendsParams) {
 
       try {
         const payload = await fetchTrendingPlayers(getTopLeagueIds(), season, signal);
-        return mapTrendingPlayersFromTopScorers(payload, appEnv.followsTrendsPlayersLimit);
+        return mapTrendingPlayersFromTopScorers(
+          payload,
+          appEnv.followsTrendsPlayersLimit,
+          season,
+        );
       } catch {
         return [];
       }

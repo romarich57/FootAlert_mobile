@@ -73,7 +73,11 @@ export function useTeamStats({
       ]);
 
       const standings = mapStandingsToTeamData(standingsPayload, teamId);
-      const topPlayers = mapPlayersToTopPlayers(playersPayload.response ?? []);
+      const topPlayers = mapPlayersToTopPlayers(
+        playersPayload.response ?? [],
+        8,
+        { teamId, leagueId, season },
+      );
 
       return mapTeamStatisticsToStats(statisticsPayload, standings, topPlayers);
     },

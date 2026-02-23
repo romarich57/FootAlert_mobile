@@ -31,21 +31,8 @@ function formatKickoffTime(date: string): string {
   });
 }
 
-function buildTeamInitials(name: string): string {
-  const words = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (words.length === 0) {
-    return '--';
-  }
-
-  if (words.length === 1) {
-    return words[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+function formatGoalValue(goal: number | null): string {
+  return typeof goal === 'number' && Number.isFinite(goal) ? String(goal) : '';
 }
 
 function createStyles(colors: ThemeColors) {
@@ -109,14 +96,6 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surfaceElevated,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    teamLogoFallbackText: {
-      color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: '800',
-      letterSpacing: 0.6,
     },
     teamName: {
       color: colors.text,
@@ -215,13 +194,10 @@ export function MatchCard({
     logoUrl: string,
     isUnavailable: boolean,
     onError: () => void,
-    teamName: string,
   ) => {
     if (isUnavailable) {
       return (
-        <View style={styles.teamLogoFallback} testID={`match-team-logo-fallback-${side}-${match.fixtureId}`}>
-          <Text style={styles.teamLogoFallbackText}>{buildTeamInitials(teamName)}</Text>
-        </View>
+        <View style={styles.teamLogoFallback} testID={`match-team-logo-placeholder-${side}-${match.fixtureId}`} />
       );
     }
 
@@ -261,7 +237,6 @@ export function MatchCard({
             match.homeTeamLogo,
             homeLogoUnavailable,
             () => setHomeLogoUnavailable(true),
-            match.homeTeamName,
           )}
           <Text numberOfLines={1} style={styles.teamName}>
             {match.homeTeamName}
@@ -271,9 +246,9 @@ export function MatchCard({
         <View style={styles.scoreWrapper}>
           {canDisplayScore ? (
             <View style={styles.teamsRow}>
-              <Text style={styles.scoreText}>{match.homeGoals ?? 0}</Text>
+              <Text style={styles.scoreText}>{formatGoalValue(match.homeGoals)}</Text>
               <Text style={styles.dividerText}>-</Text>
-              <Text style={styles.scoreText}>{match.awayGoals ?? 0}</Text>
+              <Text style={styles.scoreText}>{formatGoalValue(match.awayGoals)}</Text>
             </View>
           ) : (
             <Text style={styles.kickoffTime}>{kickoffTime}</Text>
@@ -289,7 +264,6 @@ export function MatchCard({
             match.awayTeamLogo,
             awayLogoUnavailable,
             () => setAwayLogoUnavailable(true),
-            match.awayTeamName,
           )}
           <Text numberOfLines={1} style={styles.teamName}>
             {match.awayTeamName}

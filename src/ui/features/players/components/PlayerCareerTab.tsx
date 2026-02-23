@@ -6,381 +6,554 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerCareerSeason, PlayerCareerTeam } from '@ui/features/players/types/players.types';
-import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
-import { toDisplayValue, getRatingColor } from '@ui/features/players/utils/playerDisplay';
-import { FollowsSegmentedControl } from '@ui/features/follows/components/FollowsSegmentedControl'; // Reusing for aesthetic consistency
+import { getRatingColor } from '@ui/features/players/utils/playerDisplay';
 
 type PlayerCareerTabProps = {
-    seasons: PlayerCareerSeason[];
-    teams: PlayerCareerTeam[];
-    nationality?: string;
+  seasons: PlayerCareerSeason[];
+  teams: PlayerCareerTeam[];
+  nationality?: string;
 };
 
+type CareerViewMode = 'season' | 'team';
+
+function formatStatValue(value: number | null): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return String(value);
+}
+
+function formatSeasonValue(season: string | null): string | null {
+  if (!season) {
+    return null;
+  }
+
+  const seasonYear = Number.parseInt(season, 10);
+  if (!Number.isFinite(seasonYear)) {
+    return season;
+  }
+
+  return `${seasonYear}/${seasonYear + 1}`;
+}
+
+function formatLabelValue(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function formatRatingValue(
+  rating: string | null,
+  languageTag: string,
+): string | null {
+  if (!rating) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(rating);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return new Intl.NumberFormat(languageTag, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(parsed);
+}
+
+function looksLikeNationalTeam(teamName: string | null, nationality?: string): boolean {
+  if (!teamName) {
+    return false;
+  }
+
+  const normalizedTeamName = teamName.trim();
+  if (!normalizedTeamName) {
+    return false;
+  }
+
+  if (nationality && normalizedTeamName.toLowerCase() === nationality.trim().toLowerCase()) {
+    return true;
+  }
+
+  return /(U21|U20|U19|U18|U17|National)/i.test(normalizedTeamName);
+}
+
 function createStyles(colors: ThemeColors) {
-    return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
-        contentPadding: {
-            paddingHorizontal: 20,
-            paddingVertical: 24,
-            paddingBottom: 40,
-        },
-        tableHeaderRow: {
-            flexDirection: 'row',
-            marginBottom: 12,
-            paddingHorizontal: 16,
-        },
-        headerText: {
-            color: colors.textMuted,
-            fontSize: 10,
-            fontWeight: '700',
-            textTransform: 'uppercase',
-            letterSpacing: 1,
-        },
-        colLogo: { width: 50 },
-        colSeason: { flex: 1 },
-        colM: { width: 40, alignItems: 'center' },
-        colB: { width: 40, alignItems: 'center' },
-        colP: { width: 40, alignItems: 'center' },
-        colNote: { width: 60, alignItems: 'flex-end' },
-        rowItem: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: colors.surface,
-            paddingVertical: 16,
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-        },
-        rowItemFirst: {
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-        },
-        rowItemLast: {
-            borderBottomLeftRadius: 16,
-            borderBottomRightRadius: 16,
-            borderBottomWidth: 0,
-        },
-        teamLogo: {
-            width: 28,
-            height: 28,
-            borderRadius: 14,
-        },
-        seasonText: {
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: '700',
-            marginBottom: 2,
-        },
-        teamNameSub: {
-            color: colors.textMuted,
-            fontSize: 12,
-        },
-        valText: {
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: '700',
-        },
-        noteVal: {
-            color: '#FFFFFF',
-            fontSize: 12,
-            fontWeight: '800',
-            textAlign: 'center',
-            lineHeight: 16,
-        },
-        noteBadge: {
-            borderRadius: 6,
-            paddingHorizontal: 6,
-            paddingVertical: 4,
-            minWidth: 32,
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        seeAllRow: {
-            backgroundColor: colors.surface,
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingVertical: 16,
-            borderBottomLeftRadius: 16,
-            borderBottomRightRadius: 16,
-            flexDirection: 'row',
-            gap: 8,
-        },
-        seeAllText: {
-            color: colors.textMuted,
-            fontSize: 12,
-            fontWeight: '700',
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-        },
-        sectionTitleRow: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 16,
-            marginTop: 24,
-        },
-        sectionTitle: {
-            color: colors.text,
-            fontSize: 18,
-            fontWeight: '700',
-        },
-        sectionIcons: {
-            flexDirection: 'row',
-            gap: 16,
-        },
-        segmentedTopSpacing: {
-            paddingTop: 20,
-        },
-        noteCellContent: {
-            flexDirection: 'row',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-        },
-        teamCareerItem: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 24,
-        },
-        teamCareerInfo: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 16,
-        },
-        teamCareerLogo: {
-            width: 40,
-            height: 40,
-        },
-        teamCareerName: {
-            color: colors.text,
-            fontSize: 16,
-            fontWeight: '700',
-            marginBottom: 4,
-        },
-        teamCareerPeriod: {
-            color: colors.textMuted,
-            fontSize: 12,
-        },
-        teamCareerStatsRow: {
-            flexDirection: 'row',
-            gap: 16,
-        },
-        teamCareerMatches: {
-            color: colors.text,
-            fontSize: 16,
-            fontWeight: '700',
-        },
-        teamCareerGoals: {
-            color: colors.primary,
-            fontSize: 16,
-            fontWeight: '800',
-        },
-        legendRow: {
-            flexDirection: 'row',
-            gap: 24,
-            marginTop: 20,
-            paddingTop: 20,
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-        },
-        legendItem: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-        },
-        legendText: {
-            color: colors.textMuted,
-            fontSize: 10,
-            fontWeight: '700',
-            textTransform: 'uppercase',
-            letterSpacing: 1,
-        },
-    });
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      paddingBottom: 40,
+      gap: 14,
+    },
+    segmentedContainer: {
+      marginBottom: 8,
+      borderRadius: 24,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 4,
+      flexDirection: 'row',
+    },
+    segmentedButton: {
+      flex: 1,
+      borderRadius: 20,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    segmentedButtonActive: {
+      backgroundColor: colors.surfaceElevated,
+    },
+    segmentedLabel: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: colors.textMuted,
+    },
+    segmentedLabelActive: {
+      color: colors.text,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    cardTitle: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '800',
+      flex: 1,
+      paddingRight: 10,
+    },
+    rowSeparator: {
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    seasonRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      gap: 10,
+    },
+    teamLogo: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+    },
+    teamLogoFallback: {
+      opacity: 0,
+    },
+    seasonIdentity: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: 'center',
+    },
+    teamName: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    subText: {
+      color: colors.textMuted,
+      fontSize: 15,
+      marginTop: 2,
+    },
+    seasonStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    statCell: {
+      width: 34,
+      alignItems: 'center',
+    },
+    statValue: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    ratingBadge: {
+      minWidth: 46,
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ratingText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    ratingPlaceholder: {
+      minWidth: 46,
+      height: 26,
+    },
+    metricHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    metricHeaderCell: {
+      width: 34,
+      alignItems: 'center',
+    },
+    teamRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+      paddingVertical: 16,
+    },
+    teamIdentity: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+      minWidth: 0,
+    },
+    teamStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 18,
+    },
+    teamStatValue: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '700',
+      minWidth: 26,
+      textAlign: 'right',
+    },
+    sectionSpacer: {
+      marginTop: 14,
+    },
+    legend: {
+      flexDirection: 'row',
+      gap: 22,
+      marginTop: 8,
+      paddingLeft: 6,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    legendText: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 15,
+      paddingVertical: 12,
+      textAlign: 'center',
+    },
+  });
+}
+
+function TeamLogo({
+  logo,
+  styles,
+  size = 36,
+}: {
+  logo: string | null;
+  styles: ReturnType<typeof createStyles>;
+  size?: number;
+}) {
+  if (logo) {
+    return (
+      <Image
+        source={{ uri: logo }}
+        style={[styles.teamLogo, { width: size, height: size, borderRadius: size / 2 }]}
+      />
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.teamLogo,
+        styles.teamLogoFallback,
+        { width: size, height: size, borderRadius: size / 2 },
+      ]}
+    />
+  );
 }
 
 export function PlayerCareerTab({ seasons, teams, nationality }: PlayerCareerTabProps) {
-    const { colors } = useAppTheme();
-    const { t } = useTranslation();
-    const styles = useMemo(() => createStyles(colors), [colors]);
-    const [activeTab, setActiveTab] = useState<'saison' | 'equipe'>('saison');
-    const segmentedTab: FollowEntityTab = activeTab === 'saison' ? 'teams' : 'players';
+  const { colors } = useAppTheme();
+  const { t, i18n } = useTranslation();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const [mode, setMode] = useState<CareerViewMode>('season');
 
-    const seasonRows = useMemo(() => {
-        const occurrences = new Map<string, number>();
-        return seasons.map(season => {
-            const baseKey = `${season.season ?? 'unknown'}-${season.team.id ?? season.team.name ?? 'unknown'}`;
-            const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
-            occurrences.set(baseKey, occurrence);
+  const seasonRows = useMemo(() => {
+    return [...seasons]
+      .filter(season => !looksLikeNationalTeam(season.team.name, nationality))
+      .sort((first, second) => {
+      const firstYear = first.season ? Number.parseInt(first.season, 10) : Number.NEGATIVE_INFINITY;
+      const secondYear = second.season ? Number.parseInt(second.season, 10) : Number.NEGATIVE_INFINITY;
+      if (secondYear !== firstYear) {
+        return secondYear - firstYear;
+      }
 
-            return {
-                key: `season-${baseKey}-${occurrence}`,
-                data: season,
-            };
-        });
-    }, [seasons]);
-    const { professionalTeams, nationalTeams } = useMemo(() => {
-        const occurrences = new Map<string, number>();
+      const firstMatches = typeof first.matches === 'number' ? first.matches : Number.NEGATIVE_INFINITY;
+      const secondMatches = typeof second.matches === 'number' ? second.matches : Number.NEGATIVE_INFINITY;
+      if (secondMatches !== firstMatches) {
+        return secondMatches - firstMatches;
+      }
 
-        const mappedTeams = teams.map(team => {
-            const baseKey = `${team.team.id ?? team.team.name ?? 'unknown'}-${team.period ?? 'unknown'}`;
-            const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
-            occurrences.set(baseKey, occurrence);
+      const firstGoals = typeof first.goals === 'number' ? first.goals : Number.NEGATIVE_INFINITY;
+      const secondGoals = typeof second.goals === 'number' ? second.goals : Number.NEGATIVE_INFINITY;
+      return secondGoals - firstGoals;
+      });
+  }, [seasons, nationality]);
 
-            return {
-                key: `team-${baseKey}-${occurrence}`,
-                data: team,
-            };
-        });
+  const { professionalTeams, nationalTeams } = useMemo(() => {
+    const sortedTeams = [...teams].sort((first, second) => {
+      const firstStartYear = first.period ? Number.parseInt(first.period, 10) : Number.NEGATIVE_INFINITY;
+      const secondStartYear = second.period ? Number.parseInt(second.period, 10) : Number.NEGATIVE_INFINITY;
+      if (secondStartYear !== firstStartYear) {
+        return secondStartYear - firstStartYear;
+      }
 
-        const natRegex = nationality ? new RegExp(`^${nationality}$`, 'i') : null;
+      const firstMatches = typeof first.matches === 'number' ? first.matches : Number.NEGATIVE_INFINITY;
+      const secondMatches = typeof second.matches === 'number' ? second.matches : Number.NEGATIVE_INFINITY;
+      return secondMatches - firstMatches;
+    });
 
-        const profs: typeof mappedTeams = [];
-        const nats: typeof mappedTeams = [];
+    const professional: PlayerCareerTeam[] = [];
+    const national: PlayerCareerTeam[] = [];
 
-        for (const item of mappedTeams) {
-            const teamName = item.data.team.name ?? '';
-            const isNat =
-                (natRegex && natRegex.test(teamName)) ||
-                /(U21|U20|U19|U18|U17|National)/i.test(teamName);
+    sortedTeams.forEach(team => {
+      if (looksLikeNationalTeam(team.team.name, nationality)) {
+        national.push(team);
+        return;
+      }
 
-            if (isNat) {
-                nats.push(item);
-            } else {
-                profs.push(item);
-            }
-        }
+      professional.push(team);
+    });
 
-        return { professionalTeams: profs, nationalTeams: nats };
-    }, [teams, nationality]);
-
-    const handleSegmentedTabChange = (tab: FollowEntityTab) => {
-        setActiveTab(tab === 'teams' ? 'saison' : 'equipe');
+    return {
+      professionalTeams: professional,
+      nationalTeams: national,
     };
+  }, [teams, nationality]);
+
+  const renderTeamSection = (
+    sectionTitle: string,
+    sectionTeams: PlayerCareerTeam[],
+  ) => {
+    if (sectionTeams.length === 0) {
+      return null;
+    }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.segmentedTopSpacing}>
-                {/* We reuse the Segmented Control but adapt the types */}
-                <FollowsSegmentedControl
-                    selectedTab={segmentedTab}
-                    onChangeTab={handleSegmentedTabChange}
-                    teamsLabel={t('playerDetails.career.tabs.season')}
-                    playersLabel={t('playerDetails.career.tabs.team')}
-                />
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{sectionTitle}</Text>
+          <View style={styles.metricHeader}>
+            <MaterialCommunityIcons
+              name="ticket-confirmation-outline"
+              size={21}
+              color={colors.textMuted}
+            />
+            <MaterialCommunityIcons name="soccer" size={21} color={colors.textMuted} />
+          </View>
+        </View>
+
+        {sectionTeams.map((team, index) => (
+          <View
+            key={`team-${team.team.id ?? team.team.name ?? 'unknown'}-${team.period ?? index}`}
+            style={[styles.teamRow, index > 0 ? styles.rowSeparator : null]}
+          >
+            <View style={styles.teamIdentity}>
+              <TeamLogo logo={team.team.logo} styles={styles} />
+              <View style={styles.seasonIdentity}>
+                {formatLabelValue(team.team.name) ? (
+                  <Text style={styles.teamName} numberOfLines={1}>
+                    {formatLabelValue(team.team.name)}
+                  </Text>
+                ) : null}
+                {formatLabelValue(team.period) ? (
+                  <Text style={styles.subText}>{formatLabelValue(team.period)}</Text>
+                ) : null}
+              </View>
             </View>
 
-            <ScrollView contentContainerStyle={styles.contentPadding}>
-                {activeTab === 'saison' ? (
-                    <View>
-                        <View style={styles.tableHeaderRow}>
-                            <View style={styles.colLogo}><Text style={styles.headerText}>{t('playerDetails.career.table.logo')}</Text></View>
-                            <View style={styles.colSeason}><Text style={styles.headerText}>{t('playerDetails.career.table.season')}</Text></View>
-                            <View style={styles.colM}><Text style={styles.headerText}>{t('playerDetails.career.table.matches')}</Text></View>
-                            <View style={styles.colB}><Text style={styles.headerText}>{t('playerDetails.career.table.goals')}</Text></View>
-                            <View style={styles.colP}><Text style={styles.headerText}>{t('playerDetails.career.table.assists')}</Text></View>
-                            <View style={styles.colNote}><Text style={styles.headerText}>{t('playerDetails.career.table.rating')}</Text></View>
-                        </View>
-
-                        {seasonRows.map(({ key, data: s }, i) => (
-                            <View key={key} style={[
-                                styles.rowItem,
-                                i === 0 && styles.rowItemFirst,
-                                i === seasonRows.length - 1 && styles.rowItemLast,
-                            ]}>
-                                <View style={styles.colLogo}>
-                                    <Image source={{ uri: s.team.logo ?? undefined }} style={styles.teamLogo} />
-                                </View>
-                                <View style={styles.colSeason}>
-                                    <Text style={styles.seasonText} numberOfLines={1}>{toDisplayValue(s.team.name)}</Text>
-                                    <Text style={styles.teamNameSub}>
-                                        {s.season ? `${s.season}/${parseInt(s.season) + 1}` : '?'}
-                                    </Text>
-                                </View>
-                                <View style={styles.colM}><Text style={styles.valText}>{toDisplayValue(s.matches)}</Text></View>
-                                <View style={styles.colB}><Text style={styles.valText}>{toDisplayValue(s.goals)}</Text></View>
-                                <View style={styles.colP}><Text style={styles.valText}>{toDisplayValue(s.assists)}</Text></View>
-                                <View style={[styles.colNote, styles.noteCellContent]}>
-                                    <View style={[styles.noteBadge, { backgroundColor: getRatingColor(s.rating) }]}>
-                                        <Text style={styles.noteVal}>{toDisplayValue(s.rating)}</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        ))}
-                    </View>
-                ) : (
-                    <View>
-                        {professionalTeams.length > 0 && (
-                            <>
-                                <View style={styles.sectionTitleRow}>
-                                    <Text style={styles.sectionTitle}>{t('playerDetails.career.labels.professionalCareer')}</Text>
-                                    <View style={styles.sectionIcons}>
-                                        <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.textMuted} />
-                                        <MaterialCommunityIcons name="soccer" size={20} color={colors.textMuted} />
-                                    </View>
-                                </View>
-
-                                {professionalTeams.map(({ key, data: team }) => (
-                                    <View key={key} style={styles.teamCareerItem}>
-                                        <View style={styles.teamCareerInfo}>
-                                            <Image source={{ uri: team.team.logo ?? undefined }} style={styles.teamCareerLogo} />
-                                            <View>
-                                                <Text style={styles.teamCareerName}>{toDisplayValue(team.team.name)}</Text>
-                                                <Text style={styles.teamCareerPeriod}>{toDisplayValue(team.period)}</Text>
-                                            </View>
-                                        </View>
-                                        <View style={styles.teamCareerStatsRow}>
-                                            <Text style={styles.teamCareerMatches}>{toDisplayValue(team.matches)}</Text>
-                                            <Text style={styles.teamCareerGoals}>{toDisplayValue(team.goals)}</Text>
-                                        </View>
-                                    </View>
-                                ))}
-                            </>
-                        )}
-
-                        {nationalTeams.length > 0 && (
-                            <>
-                                <View style={[styles.sectionTitleRow, { marginTop: professionalTeams.length > 0 ? 32 : 24 }]}>
-                                    <Text style={styles.sectionTitle}>{t('playerDetails.career.labels.nationalTeam', { defaultValue: 'Équipe nationale' })}</Text>
-                                    <View style={styles.sectionIcons}>
-                                        <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.textMuted} />
-                                        <MaterialCommunityIcons name="soccer" size={20} color={colors.textMuted} />
-                                    </View>
-                                </View>
-
-                                {nationalTeams.map(({ key, data: team }) => (
-                                    <View key={key} style={styles.teamCareerItem}>
-                                        <View style={styles.teamCareerInfo}>
-                                            <Image source={{ uri: team.team.logo ?? undefined }} style={styles.teamCareerLogo} />
-                                            <View>
-                                                <Text style={styles.teamCareerName}>{toDisplayValue(team.team.name)}</Text>
-                                                <Text style={styles.teamCareerPeriod}>{toDisplayValue(team.period)}</Text>
-                                            </View>
-                                        </View>
-                                        <View style={styles.teamCareerStatsRow}>
-                                            <Text style={styles.teamCareerMatches}>{toDisplayValue(team.matches)}</Text>
-                                            <Text style={styles.teamCareerGoals}>{toDisplayValue(team.goals)}</Text>
-                                        </View>
-                                    </View>
-                                ))}
-                            </>
-                        )}
-
-                        <View style={styles.legendRow}>
-                            <View style={styles.legendItem}>
-                                <MaterialCommunityIcons name="format-list-bulleted" size={16} color={colors.textMuted} />
-                                <Text style={styles.legendText}>{t('playerDetails.career.labels.matchesPlayed')}</Text>
-                            </View>
-                            <View style={styles.legendItem}>
-                                <MaterialCommunityIcons name="soccer" size={16} color={colors.textMuted} />
-                                <Text style={styles.legendText}>{t('playerDetails.career.labels.goals')}</Text>
-                            </View>
-                        </View>
-                    </View>
-                )}
-            </ScrollView>
-        </View>
+            <View style={styles.teamStats}>
+              {formatStatValue(team.matches) ? (
+                <Text style={styles.teamStatValue}>{formatStatValue(team.matches)}</Text>
+              ) : null}
+              {formatStatValue(team.goals) ? (
+                <Text style={styles.teamStatValue}>{formatStatValue(team.goals)}</Text>
+              ) : null}
+            </View>
+          </View>
+        ))}
+      </View>
     );
+  };
+
+  return (
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.segmentedContainer} accessibilityRole="tablist">
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === 'season' }}
+            onPress={() => setMode('season')}
+            style={[styles.segmentedButton, mode === 'season' ? styles.segmentedButtonActive : null]}
+          >
+            <Text style={[styles.segmentedLabel, mode === 'season' ? styles.segmentedLabelActive : null]}>
+              {t('playerDetails.career.tabs.season')}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === 'team' }}
+            onPress={() => setMode('team')}
+            style={[styles.segmentedButton, mode === 'team' ? styles.segmentedButtonActive : null]}
+          >
+            <Text style={[styles.segmentedLabel, mode === 'team' ? styles.segmentedLabelActive : null]}>
+              {t('playerDetails.career.tabs.team')}
+            </Text>
+          </Pressable>
+        </View>
+
+        {mode === 'season' ? (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{t('playerDetails.career.labels.professionalCareer')}</Text>
+              <View style={styles.metricHeader}>
+                <View style={styles.metricHeaderCell}>
+                  <MaterialCommunityIcons
+                    name="ticket-confirmation-outline"
+                    size={20}
+                    color={colors.textMuted}
+                  />
+                </View>
+                <View style={styles.metricHeaderCell}>
+                  <MaterialCommunityIcons name="soccer" size={20} color={colors.textMuted} />
+                </View>
+                <View style={styles.metricHeaderCell}>
+                  <MaterialCommunityIcons name="shoe-cleat" size={20} color={colors.textMuted} />
+                </View>
+                <View style={styles.metricHeaderCell}>
+                  <MaterialCommunityIcons name="star" size={20} color={colors.textMuted} />
+                </View>
+              </View>
+            </View>
+
+            {seasonRows.length === 0 ? (
+              <Text style={styles.emptyText}>{t('playerDetails.career.states.emptySeason')}</Text>
+            ) : (
+              seasonRows.map((season, index) => {
+                const ratingLabel = formatRatingValue(season.rating, i18n.language);
+
+                return (
+                  <View
+                    key={`season-${season.season ?? 'unknown'}-${season.team.id ?? season.team.name ?? 'unknown'}-${index}`}
+                    style={[styles.seasonRow, index > 0 ? styles.rowSeparator : null]}
+                  >
+                    <TeamLogo logo={season.team.logo} styles={styles} />
+
+                    <View style={styles.seasonIdentity}>
+                      {formatLabelValue(season.team.name) ? (
+                        <Text style={styles.teamName} numberOfLines={1}>
+                          {formatLabelValue(season.team.name)}
+                        </Text>
+                      ) : null}
+                      {formatSeasonValue(season.season) ? (
+                        <Text style={styles.subText}>{formatSeasonValue(season.season)}</Text>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.seasonStats}>
+                      <View style={styles.statCell}>
+                        {formatStatValue(season.matches) ? (
+                          <Text style={styles.statValue}>{formatStatValue(season.matches)}</Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.statCell}>
+                        {formatStatValue(season.goals) ? (
+                          <Text style={styles.statValue}>{formatStatValue(season.goals)}</Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.statCell}>
+                        {formatStatValue(season.assists) ? (
+                          <Text style={styles.statValue}>{formatStatValue(season.assists)}</Text>
+                        ) : null}
+                      </View>
+                      {ratingLabel ? (
+                        <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(season.rating) }]}>
+                          <Text style={styles.ratingText}>
+                            {ratingLabel}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.ratingPlaceholder} />
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        ) : (
+          <>
+            {renderTeamSection(
+              t('playerDetails.career.labels.professionalCareer'),
+              professionalTeams,
+            )}
+
+            {nationalTeams.length > 0 ? (
+              <View style={professionalTeams.length > 0 ? styles.sectionSpacer : null}>
+                {renderTeamSection(
+                  t('playerDetails.career.labels.nationalTeam'),
+                  nationalTeams,
+                )}
+              </View>
+            ) : null}
+
+            {professionalTeams.length === 0 && nationalTeams.length === 0 ? (
+              <Text style={styles.emptyText}>{t('playerDetails.career.states.emptyTeam')}</Text>
+            ) : null}
+
+            <View style={styles.legend}>
+              <View style={styles.legendItem}>
+                <MaterialCommunityIcons
+                  name="ticket-confirmation-outline"
+                  size={18}
+                  color={colors.textMuted}
+                />
+                <Text style={styles.legendText}>{t('playerDetails.career.labels.matchesPlayed')}</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <MaterialCommunityIcons name="soccer" size={18} color={colors.textMuted} />
+                <Text style={styles.legendText}>{t('playerDetails.career.labels.goals')}</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
 }

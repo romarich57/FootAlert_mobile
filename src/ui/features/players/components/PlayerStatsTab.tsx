@@ -138,7 +138,7 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
         typeof stats.shotsOnTarget === 'number' &&
         stats.shots > 0
             ? String(Math.round((stats.shotsOnTarget / stats.shots) * 100))
-            : '?';
+            : '';
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentPadding}>
@@ -193,7 +193,7 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
                         <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.goals')}</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={styles.statSubValue}>?</Text>
+                        <Text style={styles.statSubValue} />
                         <Text style={styles.statSubLabel}>{t('playerDetails.stats.labels.xg')}</Text>
                     </View>
                 </View>

@@ -62,7 +62,8 @@ export function ShotMap({ shots, accuracy }: ShotMapProps) {
     const pitchWidth = 320;
     const pitchHeight = 200; // Half pitch
 
-    const accuracyLabel = accuracy === '?' ? '?' : `${accuracy}%`;
+    const normalizedAccuracy = accuracy.trim();
+    const accuracyLabel = normalizedAccuracy ? `${normalizedAccuracy}%` : '';
     const renderedShots = useMemo(() => {
         const occurrences = new Map<string, number>();
         return shots.map(shot => {
@@ -83,7 +84,7 @@ export function ShotMap({ shots, accuracy }: ShotMapProps) {
                 <Text style={styles.title}>{t('playerDetails.stats.labels.seasonShotMap')}</Text>
                 <View style={styles.badge}>
                     <Text style={styles.badgeText}>
-                        {accuracyLabel} {t('playerDetails.stats.labels.accuracy')}
+                        {accuracyLabel ? `${accuracyLabel} ${t('playerDetails.stats.labels.accuracy')}` : ''}
                     </Text>
                 </View>
             </View>

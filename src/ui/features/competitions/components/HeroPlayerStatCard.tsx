@@ -12,7 +12,7 @@ type HeroPlayerStatCardProps = {
 };
 
 function displayValue(value: string | number | null | undefined): string | number {
-    return value !== null && value !== undefined && value !== '' ? value : '?';
+    return value !== null && value !== undefined && value !== '' ? value : '';
 }
 
 function createStyles(colors: ThemeColors) {

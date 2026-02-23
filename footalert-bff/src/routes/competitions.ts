@@ -31,6 +31,96 @@ const playerStatsQuerySchema = z
   })
   .strict();
 
+const COMPETITION_TRANSFERS_MAX_CONCURRENCY = 3;
+
+type CompetitionTransferTeamPayload = {
+  id: number;
+  name: string;
+  logo: string;
+};
+
+function toFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function toText(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function toTransferTimestamp(value: string | null): number {
+  if (!value) {
+    return Number.MIN_SAFE_INTEGER;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.MIN_SAFE_INTEGER;
+}
+
+function isDateInSeason(dateIso: string | null, season: number): boolean {
+  if (!dateIso) {
+    return false;
+  }
+
+  const parsed = new Date(dateIso);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  const seasonStart = new Date(Date.UTC(season, 6, 1, 0, 0, 0));
+  const seasonEnd = new Date(Date.UTC(season + 1, 5, 30, 23, 59, 59));
+
+  return parsed >= seasonStart && parsed <= seasonEnd;
+}
+
+function mapTransferTeamPayload(team: unknown): CompetitionTransferTeamPayload {
+  const raw = (team ?? {}) as Record<string, unknown>;
+  return {
+    id: toFiniteNumber(raw.id) ?? 0,
+    name: toText(raw.name, ''),
+    logo: toText(raw.logo, ''),
+  };
+}
+
+function buildTransferKey(
+  playerId: number,
+  transferDate: string,
+  transferType: string,
+  teamInId: number,
+  teamOutId: number,
+): string {
+  return `${playerId}:${transferDate}:${transferType}:${teamInId}:${teamOutId}`;
+}
+
+async function mapWithConcurrency<T, U>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<U>,
+): Promise<U[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const boundedConcurrency = Math.max(1, Math.min(concurrency, items.length));
+  const results = new Array<U>(items.length);
+  let nextIndex = 0;
+
+  const consume = async (): Promise<void> => {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+
+      if (currentIndex >= items.length) {
+        return;
+      }
+
+      results[currentIndex] = await worker(items[currentIndex] as T);
+    }
+  };
+
+  await Promise.all(Array.from({ length: boundedConcurrency }, () => consume()));
+  return results;
+}
+
 function buildPlayerStatsPath(type: string, leagueId: string, season: number): string {
   return `/players/${type}?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`;
 }
@@ -123,12 +213,13 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
     const query = parseOrThrow(z.object({ season: seasonSchema.optional() }).strict(), request.query);
 
     const cacheKey = `competition:transfers:${request.url}`;
+    const selectedSeason = query.season ?? new Date().getFullYear();
 
     // Cache for 1 hour to heavily preserve API quotas since it does many requests
     return withCache(cacheKey, 3_600_000, async () => {
       // 1. Fetch teams for the league
       const teamsResponse = (await apiFootballGet(
-        `/teams?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(query.season ?? new Date().getFullYear()))}`
+        `/teams?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(selectedSeason))}`
       )) as any;
 
       const teams = teamsResponse?.response || [];
@@ -136,67 +227,111 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
         return { response: [] };
       }
 
-      // 2. Fetch transfers for each team concurrently (using Promise.allSettled to avoid failing the whole request if one team fails)
-      const transfersPromises = teams.map((teamData: any) => {
-        const teamId = teamData.team.id;
-        // The /transfers endpoint by team returns all transfers for the player if they have one transfer involving this team
-        return apiFootballGet(`/transfers?team=${teamId}`);
+      const leagueTeamIds = new Set<number>();
+      teams.forEach((teamData: any) => {
+        const teamId = toFiniteNumber(teamData?.team?.id);
+        if (teamId !== null) {
+          leagueTeamIds.add(teamId);
+        }
       });
 
-      const transfersResponses = await Promise.allSettled(transfersPromises);
-
-      // 3. Aggregate and deduplicate transfers
-      const allTransfers = new Map<string, any>();
-
-      for (const result of transfersResponses) {
-        if (result.status === 'fulfilled' && result.value.response) {
-          const teamTransfers = result.value.response;
-
-          for (const playerTransfer of teamTransfers) {
-            // Uniquely identify a player's transfer block by player ID
-            if (!allTransfers.has(String(playerTransfer.player.id))) {
-              allTransfers.set(String(playerTransfer.player.id), playerTransfer);
-            } else {
-              // If player already exists, we might need to merge their transfers array if new ones exist
-              // But usually the API returns the complete transfer history for that player anyway,
-              // so the first one we get is sufficient.
-            }
+      const transfersResponses = await mapWithConcurrency(
+        teams,
+        COMPETITION_TRANSFERS_MAX_CONCURRENCY,
+        async (teamData: any) => {
+          const teamId = toFiniteNumber(teamData?.team?.id);
+          if (teamId === null) {
+            return { response: [] };
           }
-        }
-      }
 
-      // 4. Flatten the specific transfers that involve teams from this league (Optional, but good for filtering to current season)
-      // Since the API returns ALL transfers for a player, we should ideally filter the inner `transfers` array
-      // to only those happening recently or involving the league's teams.
-      // However, to match the app's needs (showing recent transfers), we can just return all unique player transfer blocks
-      // and let the frontend flatten & filter by date, or we can flatten and sort by date here.
+          try {
+            return (await apiFootballGet(`/transfers?team=${teamId}`)) as {
+              response?: unknown[];
+            };
+          } catch {
+            // Ignore one failing team call and keep the rest of the league transfers.
+            return { response: [] };
+          }
+        },
+      );
 
-      // Let's flatten to a structure where each item is { player, update, transfer }
-      const flattenedTransfers: any[] = [];
+      const flattenedTransfersMap = new Map<string, any>();
 
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      for (const teamTransfersResponse of transfersResponses) {
+        const playerTransfers = Array.isArray(teamTransfersResponse?.response)
+          ? teamTransfersResponse.response
+          : [];
 
-      for (const playerTransfer of allTransfers.values()) {
-        const { player, update, transfers } = playerTransfer;
+        for (const playerTransfer of playerTransfers) {
+          const transferBlock = (playerTransfer ?? {}) as Record<string, unknown>;
+          const player = (transferBlock.player ?? {}) as Record<string, unknown>;
+          const playerId = toFiniteNumber(player.id);
+          if (playerId === null) {
+            continue;
+          }
 
-        for (const transfer of transfers) {
-          const transferDate = new Date(transfer.date);
-          // We can optionally filter out very old transfers to reduce payload size
-          if (transferDate >= oneYearAgo) {
-            flattenedTransfers.push({
-              player,
-              update,
-              transfers: [transfer] // Keep nested structure for compatibility
+          const transferItems = Array.isArray(transferBlock.transfers)
+            ? transferBlock.transfers
+            : [];
+
+          for (const transferItem of transferItems) {
+            const transfer = (transferItem ?? {}) as Record<string, unknown>;
+            const transferDate = toText(transfer.date);
+            if (!isDateInSeason(transferDate, selectedSeason)) {
+              continue;
+            }
+
+            const transferType = toText(transfer.type);
+            const transferTeams = (transfer.teams ?? {}) as Record<string, unknown>;
+            const teamInPayload = mapTransferTeamPayload(transferTeams.in);
+            const teamOutPayload = mapTransferTeamPayload(transferTeams.out);
+
+            const teamInInLeague = teamInPayload.id > 0 && leagueTeamIds.has(teamInPayload.id);
+            const teamOutInLeague = teamOutPayload.id > 0 && leagueTeamIds.has(teamOutPayload.id);
+            if (!teamInInLeague && !teamOutInLeague) {
+              continue;
+            }
+
+            const transferKey = buildTransferKey(
+              playerId,
+              transferDate,
+              transferType,
+              teamInPayload.id,
+              teamOutPayload.id,
+            );
+
+            if (flattenedTransfersMap.has(transferKey)) {
+              continue;
+            }
+
+            flattenedTransfersMap.set(transferKey, {
+              player: {
+                id: playerId,
+                name: toText(player.name, ''),
+              },
+              update: toText(transferBlock.update),
+              transfers: [
+                {
+                  date: transferDate,
+                  type: transferType,
+                  teams: {
+                    in: teamInPayload,
+                    out: teamOutPayload,
+                  },
+                },
+              ],
+              context: {
+                teamInInLeague,
+                teamOutInLeague,
+              },
             });
           }
         }
       }
 
-      // Sort by date descending
-      flattenedTransfers.sort((a, b) => {
-        const dateA = new Date(a.transfers[0].date).getTime();
-        const dateB = new Date(b.transfers[0].date).getTime();
+      const flattenedTransfers = Array.from(flattenedTransfersMap.values()).sort((a, b) => {
+        const dateA = toTransferTimestamp(a.transfers?.[0]?.date ?? null);
+        const dateB = toTransferTimestamp(b.transfers?.[0]?.date ?? null);
         return dateB - dateA;
       });
 

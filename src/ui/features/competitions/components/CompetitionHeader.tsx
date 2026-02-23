@@ -19,7 +19,7 @@ type CompetitionHeaderProps = {
 };
 
 function displayValue(value: string | null | undefined): string {
-    return value && value.trim().length > 0 ? value : '?';
+    return value && value.trim().length > 0 ? value : '';
 }
 
 function createStyles(colors: ThemeColors, topInset: number) {
