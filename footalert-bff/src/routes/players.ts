@@ -255,19 +255,51 @@ export function mapCareerSeasons(detailsDto: PlayerDetailsResponseDto): PlayerCa
 export function dedupeCareerSeasons(
   seasons: PlayerCareerSeasonAggregate[],
 ): PlayerCareerSeasonAggregate[] {
-  const deduped = new Map<string, PlayerCareerSeasonAggregate>();
+  const deduped = new Map<
+    string,
+    PlayerCareerSeasonAggregate & { ratingSum: number; ratingCount: number }
+  >();
 
   seasons.forEach((season, index) => {
     const seasonKey = season.season ?? `unknown-season-${index}`;
     const teamKey = season.team.id ?? season.team.name ?? `unknown-team-${index}`;
-    deduped.set(`${seasonKey}-${teamKey}`, season);
+    const key = `${seasonKey}-${teamKey}`;
+
+    const existing = deduped.get(key);
+
+    if (!existing) {
+      const initialRating = season.rating ? Number.parseFloat(season.rating) : null;
+      deduped.set(key, {
+        ...season,
+        ratingSum: initialRating ?? 0,
+        ratingCount: initialRating !== null ? 1 : 0,
+      });
+      return;
+    }
+
+    existing.matches = sumNullable(existing.matches, season.matches);
+    existing.goals = sumNullable(existing.goals, season.goals);
+    existing.assists = sumNullable(existing.assists, season.assists);
+
+    if (season.rating) {
+      existing.ratingSum += Number.parseFloat(season.rating);
+      existing.ratingCount += 1;
+    }
   });
 
-  return Array.from(deduped.values()).sort((a, b) => {
-    const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
-    const bYear = b.season ? Number.parseInt(b.season, 10) : Number.NEGATIVE_INFINITY;
-    return bYear - aYear;
-  });
+  return Array.from(deduped.values())
+    .map(item => {
+      const { ratingSum, ratingCount, ...rest } = item;
+      return {
+        ...rest,
+        rating: ratingCount > 0 ? (ratingSum / ratingCount).toFixed(2) : null,
+      };
+    })
+    .sort((a, b) => {
+      const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
+      const bYear = b.season ? Number.parseInt(b.season, 10) : Number.NEGATIVE_INFINITY;
+      return bYear - aYear;
+    });
 }
 
 export function aggregateCareerTeams(
