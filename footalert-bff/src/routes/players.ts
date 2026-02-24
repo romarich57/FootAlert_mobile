@@ -80,10 +80,19 @@ type PlayerFixtureStatsDto = {
         goals?: {
           total?: number | null;
           assists?: number | null;
+          saves?: number | null;
         };
         cards?: {
           yellow?: number | null;
+          yellowred?: number | null;
           red?: number | null;
+        };
+        penalty?: {
+          won?: number | null;
+          commited?: number | null;
+          scored?: number | null;
+          missed?: number | null;
+          saved?: number | null;
         };
       }>;
     }>;
@@ -126,6 +135,7 @@ type PlayerCareerTeamAggregate = {
 type PlayerMatchPerformanceAggregate = {
   fixtureId: string;
   date: string | null;
+  playerTeamId: string | null;
   competition: {
     id: string | null;
     name: string | null;
@@ -149,7 +159,11 @@ type PlayerMatchPerformanceAggregate = {
     goals: number | null;
     assists: number | null;
     yellowCards: number | null;
+    secondYellowCards: number | null;
     redCards: number | null;
+    saves: number | null;
+    penaltiesSaved: number | null;
+    penaltiesMissed: number | null;
     isStarter: boolean | null;
   };
 };
@@ -485,8 +499,8 @@ export function aggregateCareerTeams(
 
       const period = hasValidRange
         ? (team.firstSeason === team.lastSeason
-            ? `${team.firstSeason}`
-            : `${team.firstSeason} - ${team.lastSeason}`)
+          ? `${team.firstSeason}`
+          : `${team.firstSeason} - ${team.lastSeason}`)
         : null;
 
       return {
@@ -512,6 +526,7 @@ export function aggregateCareerTeams(
 
 export function mapPlayerMatchPerformance(
   playerId: string,
+  teamId: string,
   fixtureDto: PlayerFixtureDto,
   performanceDto: PlayerFixtureStatsDto | null,
 ): PlayerMatchPerformanceAggregate | null {
@@ -526,7 +541,11 @@ export function mapPlayerMatchPerformance(
     goals: null,
     assists: null,
     yellowCards: null,
+    secondYellowCards: null,
     redCards: null,
+    saves: null,
+    penaltiesSaved: null,
+    penaltiesMissed: null,
     isStarter: null,
   };
 
@@ -578,7 +597,11 @@ export function mapPlayerMatchPerformance(
         goals: normalizeNumber(stat.goals?.total),
         assists: normalizeNumber(stat.goals?.assists),
         yellowCards: normalizeNumber(stat.cards?.yellow),
+        secondYellowCards: normalizeNumber(stat.cards?.yellowred),
         redCards: normalizeNumber(stat.cards?.red),
+        saves: normalizeNumber(stat.goals?.saves),
+        penaltiesSaved: normalizeNumber(stat.penalty?.saved),
+        penaltiesMissed: normalizeNumber(stat.penalty?.missed),
         isStarter:
           typeof stat.games?.substitute === 'boolean'
             ? stat.games.substitute === false
@@ -591,6 +614,7 @@ export function mapPlayerMatchPerformance(
   return {
     fixtureId,
     date: normalizeString(fixtureDto.fixture?.date),
+    playerTeamId: teamId,
     competition: {
       id: toId(fixtureDto.league?.id),
       name: normalizeString(fixtureDto.league?.name),
@@ -752,9 +776,9 @@ export async function registerPlayersRoutes(app: FastifyInstance): Promise<void>
               );
 
               const fixtureStats = fixtureStatsPayload.response?.[0] ?? null;
-              return mapPlayerMatchPerformance(params.id, fixture, fixtureStats);
+              return mapPlayerMatchPerformance(params.id, query.teamId, fixture, fixtureStats);
             } catch {
-              return mapPlayerMatchPerformance(params.id, fixture, null);
+              return mapPlayerMatchPerformance(params.id, query.teamId, fixture, null);
             }
           }),
       );
