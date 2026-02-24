@@ -111,6 +111,7 @@ describe('TeamDetailsScreen', () => {
       selectedSeason: 2025,
       seasonsForSelectedLeague: [2025, 2024],
       setLeague: jest.fn(),
+      setLeagueSeason: jest.fn(),
       setSeason: jest.fn(),
       isLoading: false,
       isError: false,
@@ -178,6 +179,20 @@ describe('TeamDetailsScreen', () => {
         awayDraws: 1,
         awayLosses: 4,
         expectedGoalsFor: 61.6,
+        pointsByVenue: {
+          home: null,
+          away: null,
+        },
+        goalsForPerMatch: 2.7,
+        goalsAgainstPerMatch: 1,
+        cleanSheets: 8,
+        failedToScore: 2,
+        topPlayersByCategory: {
+          ratings: [],
+          scorers: [],
+          assisters: [],
+        },
+        comparisonMetrics: [],
         goalBreakdown: [],
         topPlayers: [],
       },
@@ -228,13 +243,28 @@ describe('TeamDetailsScreen', () => {
     );
   });
 
-  it('shows only season picker on standings tab', () => {
+  it('shows the dynamic competition-season selector on league tabs', () => {
     renderScreen();
 
-    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.standings')));
+    expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
 
-    expect(screen.queryByText(i18n.t('teamDetails.filters.competition'))).toBeNull();
-    expect(screen.getByText(i18n.t('teamDetails.filters.season'))).toBeTruthy();
+    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.matches')));
+    expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
+
+    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.standings')));
+    expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
+
+    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.stats')));
+    expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
+  });
+
+  it('keeps season-only selector on transfers tab', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.transfers')));
+
+    expect(screen.queryByTestId('team-competition-season-trigger')).toBeNull();
+    expect(screen.getAllByText('2025/2026').length).toBeGreaterThan(0);
   });
 
   it('navigates back when pressing back button', () => {
@@ -268,6 +298,7 @@ describe('TeamDetailsScreen', () => {
       selectedSeason: null,
       seasonsForSelectedLeague: [],
       setLeague: jest.fn(),
+      setLeagueSeason: jest.fn(),
       setSeason: jest.fn(),
       isLoading: false,
       isError: false,

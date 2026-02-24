@@ -4,6 +4,7 @@ export {
   mapFixtureToTeamMatch,
   mapFixturesToTeamMatches,
   mapPlayersToTopPlayers,
+  mapPlayersToTopPlayersByCategory,
   mapRecentTeamForm,
   mapSquadToTeamSquad,
   mapStandingsToTeamData,

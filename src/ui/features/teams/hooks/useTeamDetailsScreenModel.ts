@@ -22,10 +22,6 @@ import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions'
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
 
-function isLeagueCompetition(type: string | null | undefined): boolean {
-  return (type ?? '').trim().toLowerCase() === 'league';
-}
-
 export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
   const navigation = useNavigation<TeamDetailsNavigation>();
@@ -53,6 +49,7 @@ export function useTeamDetailsScreenModel() {
     selectedLeagueId,
     selectedSeason,
     setLeague,
+    setLeagueSeason,
     setSeason,
     isLoading: isContextLoading,
     isError: isContextError,
@@ -62,20 +59,6 @@ export function useTeamDetailsScreenModel() {
   } = useTeamContext({ teamId });
 
   const hasLeagueSelection = Boolean(selectedLeagueId) && typeof selectedSeason === 'number';
-
-  const standingsCompetitions = useMemo(
-    () => competitions.filter(c => isLeagueCompetition(c.type)),
-    [competitions]
-  );
-
-  useEffect(() => {
-    if (activeTab === 'standings' && selectedLeagueId) {
-      const currentComp = competitions.find(c => c.leagueId === selectedLeagueId);
-      if (currentComp && !isLeagueCompetition(currentComp.type) && standingsCompetitions.length > 0) {
-        setLeague(standingsCompetitions[0].leagueId);
-      }
-    }
-  }, [activeTab, selectedLeagueId, competitions, standingsCompetitions, setLeague]);
 
   const overviewQuery = useTeamOverview({
     teamId,
@@ -141,7 +124,7 @@ export function useTeamDetailsScreenModel() {
       return;
     }
 
-    const selectedCompetition = standingsCompetitions.find(c => c.leagueId === selectedLeagueId);
+    const selectedCompetition = competitions.find(c => c.leagueId === selectedLeagueId);
     if (!selectedCompetition) {
       return;
     }
@@ -165,7 +148,7 @@ export function useTeamDetailsScreenModel() {
     standingsQuery.data,
     standingsQuery.isError,
     standingsQuery.isLoading,
-    standingsCompetitions,
+    competitions,
     setSeason,
   ]);
 
@@ -285,7 +268,6 @@ export function useTeamDetailsScreenModel() {
     activeTab,
     tabs,
     competitions,
-    standingsCompetitions,
     selectedLeagueId,
     selectedSeason,
     isContextLoading,
@@ -302,6 +284,7 @@ export function useTeamDetailsScreenModel() {
     squadQuery,
     trophiesQuery,
     setLeague,
+    setLeagueSeason,
     setSeason,
     refetchContext,
     handleChangeTab,

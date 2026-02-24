@@ -452,6 +452,164 @@ test('GET /v1/teams/:id/transfers deduplicates one-day-apart duplicates by keepi
   assert.equal(calls.length, 1);
 });
 
+test('GET /v1/teams/:id/advanced-stats aggregates fixture statistics and returns team rankings', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const pathname = url.pathname;
+
+    if (pathname.endsWith('/fixtures') && url.searchParams.get('league') === '39') {
+      return jsonResponse({
+        response: [
+          { fixture: { id: 7001, status: { short: 'FT' } } },
+          { fixture: { id: 7002, status: { short: 'NS' } } },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/standings')) {
+      return jsonResponse({
+        response: [
+          {
+            league: {
+              standings: [
+                [
+                  { team: { id: 10, name: 'Alpha FC', logo: 'alpha.png' } },
+                  { team: { id: 20, name: 'Beta FC', logo: 'beta.png' } },
+                ],
+              ],
+            },
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/fixtures/statistics') && url.searchParams.get('fixture') === '7001') {
+      return jsonResponse({
+        response: [
+          {
+            team: { id: 10, name: 'Alpha FC', logo: 'alpha.png' },
+            statistics: [
+              { type: 'Ball Possession', value: '55%' },
+              { type: 'Shots on Goal', value: 6 },
+              { type: 'Total Shots', value: 12 },
+              { type: 'Expected Goals', value: '1.9' },
+            ],
+          },
+          {
+            team: { id: 20, name: 'Beta FC', logo: 'beta.png' },
+            statistics: [
+              { type: 'Ball Possession', value: '45%' },
+              { type: 'Shots on Goal', value: 2 },
+              { type: 'Total Shots', value: 8 },
+              { type: 'Expected Goals', value: '0.8' },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/10/advanced-stats?leagueId=39&season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.response.teamId, 10);
+  assert.equal(payload.response.leagueId, 39);
+  assert.equal(payload.response.season, 2025);
+  assert.equal(payload.response.metrics.possession?.value, 55);
+  assert.equal(payload.response.metrics.possession?.rank, 1);
+  assert.equal(payload.response.metrics.possession?.leaders.length, 2);
+  assert.equal(payload.response.metrics.shotsOnTargetPerMatch?.value, 6);
+  assert.equal(payload.response.metrics.shotsPerMatch?.value, 12);
+  assert.equal(payload.response.metrics.expectedGoalsPerMatch?.value, 1.9);
+
+  assert.equal(calls.length, 3);
+});
+
+test('GET /v1/teams/:id/advanced-stats reuses league-season cache for other team ids', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const pathname = url.pathname;
+
+    if (pathname.endsWith('/fixtures') && url.searchParams.get('league') === '39') {
+      return jsonResponse({
+        response: [{ fixture: { id: 7001, status: { short: 'FT' } } }],
+      });
+    }
+
+    if (pathname.endsWith('/standings')) {
+      return jsonResponse({
+        response: [
+          {
+            league: {
+              standings: [
+                [
+                  { team: { id: 10, name: 'Alpha FC', logo: 'alpha.png' } },
+                  { team: { id: 20, name: 'Beta FC', logo: 'beta.png' } },
+                ],
+              ],
+            },
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/fixtures/statistics') && url.searchParams.get('fixture') === '7001') {
+      return jsonResponse({
+        response: [
+          {
+            team: { id: 10, name: 'Alpha FC', logo: 'alpha.png' },
+            statistics: [
+              { type: 'Ball Possession', value: '55%' },
+              { type: 'Shots on Goal', value: 6 },
+              { type: 'Total Shots', value: 12 },
+              { type: 'Expected Goals', value: '1.9' },
+            ],
+          },
+          {
+            team: { id: 20, name: 'Beta FC', logo: 'beta.png' },
+            statistics: [
+              { type: 'Ball Possession', value: '45%' },
+              { type: 'Shots on Goal', value: 2 },
+              { type: 'Total Shots', value: 8 },
+              { type: 'Expected Goals', value: '0.8' },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const firstResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/10/advanced-stats?leagueId=39&season=2024',
+  });
+  assert.equal(firstResponse.statusCode, 200);
+  assert.equal(calls.length, 3);
+
+  const secondResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/20/advanced-stats?leagueId=39&season=2024',
+  });
+  assert.equal(secondResponse.statusCode, 200);
+  const secondPayload = secondResponse.json();
+  assert.equal(secondPayload.response.teamId, 20);
+  assert.equal(secondPayload.response.metrics.possession?.value, 45);
+  assert.equal(secondPayload.response.metrics.possession?.rank, 2);
+  assert.equal(calls.length, 3);
+});
+
 test('GET /v1/players/:id maps network failures to 502', async t => {
   const calls = installFetchMock(async () => {
     throw new TypeError('network down');

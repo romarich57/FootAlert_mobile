@@ -1,6 +1,6 @@
 export { TeamHeader } from './TeamHeader';
 export { TeamTabs } from './TeamTabs';
-export { TeamSeasonCompetitionPicker } from './TeamSeasonCompetitionPicker';
+export { TeamCompetitionSeasonSelector } from './TeamCompetitionSeasonSelector';
 export { TeamOverviewTab } from './TeamOverviewTab';
 export { TeamMatchesTab } from './TeamMatchesTab';
 export { TeamStandingsTab } from './TeamStandingsTab';

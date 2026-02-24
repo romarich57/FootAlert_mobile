@@ -2,6 +2,9 @@ import {
   mapFixtureToTeamMatch,
   mapFixturesToTeamMatches,
   mapPlayersToTopPlayers,
+  mapPlayersToTopPlayersByCategory,
+  mapStandingsToTeamData,
+  mapTeamStatisticsToStats,
   mapTeamDetails,
   mapTeamLeaguesToCompetitionOptions,
   mapTransfersToTeamTransfers,
@@ -17,17 +20,21 @@ describe('teamsMapper', () => {
     expect(mapped.venueName).toBeNull();
   });
 
-  it('resolves default selection from current season first', () => {
+  it('resolves default selection with league current season priority', () => {
     const options = mapTeamLeaguesToCompetitionOptions([
       {
-        league: { id: 140, name: 'LaLiga' },
+        league: { id: 2, name: 'Champions League', type: 'Cup' },
+        seasons: [{ year: 2025, current: true }],
+      },
+      {
+        league: { id: 140, name: 'LaLiga', type: 'League' },
         seasons: [
           { year: 2024, current: false },
           { year: 2025, current: true },
         ],
       },
       {
-        league: { id: 39, name: 'Premier League' },
+        league: { id: 39, name: 'Premier League', type: 'League' },
         seasons: [{ year: 2025, current: false }],
       },
     ]);
@@ -36,6 +43,46 @@ describe('teamsMapper', () => {
 
     expect(selection.leagueId).toBe('140');
     expect(selection.season).toBe(2025);
+  });
+
+  it('falls back to the most recent league season when no current season exists', () => {
+    const options = mapTeamLeaguesToCompetitionOptions([
+      {
+        league: { id: 200, name: 'Cup', type: 'Cup' },
+        seasons: [{ year: 2026, current: false }],
+      },
+      {
+        league: { id: 39, name: 'Premier League', type: 'League' },
+        seasons: [{ year: 2024, current: false }],
+      },
+      {
+        league: { id: 140, name: 'LaLiga', type: 'League' },
+        seasons: [{ year: 2025, current: false }],
+      },
+    ]);
+
+    const selection = resolveDefaultTeamSelection(options);
+
+    expect(selection.leagueId).toBe('140');
+    expect(selection.season).toBe(2025);
+  });
+
+  it('falls back to the most recent season overall when no league is available', () => {
+    const options = mapTeamLeaguesToCompetitionOptions([
+      {
+        league: { id: 2, name: 'Champions League', type: 'Cup' },
+        seasons: [{ year: 2024, current: false }],
+      },
+      {
+        league: { id: 9, name: 'FA Cup', type: 'Cup' },
+        seasons: [{ year: 2026, current: false }],
+      },
+    ]);
+
+    const selection = resolveDefaultTeamSelection(options);
+
+    expect(selection.leagueId).toBe('9');
+    expect(selection.season).toBe(2026);
   });
 
   it('classifies fixtures into upcoming/live/past buckets', () => {
@@ -240,5 +287,166 @@ describe('teamsMapper', () => {
     expect(mapped[0]?.goals).toBe(9);
     expect(mapped[0]?.assists).toBe(5);
     expect(mapped[0]?.rating).toBe(7.8);
+  });
+
+  it('maps venue points, per-match metrics and competition comparisons', () => {
+    const standings = mapStandingsToTeamData(
+      {
+        league: {
+          standings: [
+            [
+              {
+                rank: 1,
+                team: { id: 1, name: 'Team A', logo: 'a.png' },
+                points: 60,
+                all: { played: 24, goals: { for: 58, against: 20 } },
+                home: { played: 12, win: 10, draw: 1, lose: 1, goals: { for: 30, against: 7 } },
+                away: { played: 12, win: 9, draw: 2, lose: 1, goals: { for: 28, against: 13 } },
+              },
+              {
+                rank: 2,
+                team: { id: 2, name: 'Target', logo: 'b.png' },
+                points: 54,
+                all: { played: 24, goals: { for: 52, against: 19 } },
+                home: { played: 11, win: 10, draw: 1, lose: 0, goals: { for: 30, against: 4 } },
+                away: { played: 12, win: 7, draw: 2, lose: 3, goals: { for: 22, against: 15 } },
+              },
+              {
+                rank: 3,
+                team: { id: 3, name: 'Team C', logo: 'c.png' },
+                points: 47,
+                all: { played: 24, goals: { for: 45, against: 24 } },
+                home: { played: 12, win: 8, draw: 3, lose: 1, goals: { for: 24, against: 8 } },
+                away: { played: 12, win: 5, draw: 5, lose: 2, goals: { for: 21, against: 16 } },
+              },
+            ],
+          ],
+        },
+      },
+      '2',
+    );
+
+    const mapped = mapTeamStatisticsToStats(
+      {
+        fixtures: {
+          played: { total: 24, home: 12, away: 12 },
+          wins: { total: 17, home: 10, away: 7 },
+          draws: { total: 3, home: 1, away: 2 },
+          loses: { total: 4, home: 1, away: 3 },
+          clean_sheet: { total: 10 },
+          failed_to_score: { total: 4 },
+        },
+        goals: {
+          for: {
+            total: { total: 52, home: 30, away: 22 },
+            average: { total: '2.2' },
+          },
+          against: {
+            total: { total: 19, home: 4, away: 15 },
+            average: { total: '0.8' },
+          },
+        },
+      },
+      standings,
+      [],
+      {
+        ratings: [],
+        scorers: [],
+        assisters: [],
+      },
+      {
+        metrics: {
+          possession: {
+            value: 61.2,
+            rank: 2,
+            totalTeams: 18,
+            leaders: [
+              { teamId: 1, teamName: 'Team A', teamLogo: 'a.png', value: 63.1 },
+              { teamId: 2, teamName: 'Target', teamLogo: 'b.png', value: 61.2 },
+            ],
+          },
+        },
+      },
+    );
+
+    expect(mapped.pointsByVenue.home?.points).toBe(31);
+    expect(mapped.pointsByVenue.home?.goalDiff).toBe(26);
+    expect(mapped.pointsByVenue.away?.points).toBe(23);
+    expect(mapped.goalsForPerMatch).toBe(2.2);
+    expect(mapped.goalsAgainstPerMatch).toBe(0.8);
+    expect(mapped.cleanSheets).toBe(10);
+    expect(mapped.failedToScore).toBe(4);
+
+    const possessionComparison = mapped.comparisonMetrics.find(metric => metric.key === 'possession');
+    expect(possessionComparison?.rank).toBe(2);
+    expect(possessionComparison?.totalTeams).toBe(18);
+
+    const goalsConcededComparison = mapped.comparisonMetrics.find(
+      metric => metric.key === 'goalsConcededPerMatch',
+    );
+    expect(goalsConcededComparison).toBeTruthy();
+  });
+
+  it('sorts player leaders by rating, goals and assists', () => {
+    const categories = mapPlayersToTopPlayersByCategory(
+      [
+        {
+          player: { id: 1, name: 'Player A', photo: 'a.png' },
+          statistics: [
+            {
+              league: { id: 39, season: 2025 },
+              team: { id: 529 },
+              games: { rating: '7.90' },
+              goals: { total: 8, assists: 2 },
+            },
+          ],
+        },
+        {
+          player: { id: 2, name: 'Player B', photo: 'b.png' },
+          statistics: [
+            {
+              league: { id: 39, season: 2025 },
+              team: { id: 529 },
+              games: { rating: '7.10' },
+              goals: { total: 11, assists: 6 },
+            },
+          ],
+        },
+        {
+          player: { id: 3, name: 'Player C', photo: 'c.png' },
+          statistics: [
+            {
+              league: { id: 39, season: 2025 },
+              team: { id: 529 },
+              games: { rating: '7.75' },
+              goals: { total: 5, assists: 7 },
+            },
+          ],
+        },
+      ],
+      3,
+      { teamId: '529', leagueId: '39', season: 2025 },
+    );
+
+    expect(categories.ratings[0]?.name).toBe('Player A');
+    expect(categories.scorers[0]?.name).toBe('Player B');
+    expect(categories.assisters[0]?.name).toBe('Player C');
+  });
+
+  it('masks comparison metrics when source data is absent', () => {
+    const mapped = mapTeamStatisticsToStats(
+      null,
+      { groups: [] },
+      [],
+      {
+        ratings: [],
+        scorers: [],
+        assisters: [],
+      },
+      null,
+    );
+
+    expect(mapped.comparisonMetrics).toHaveLength(0);
+    expect(mapped.goalBreakdown).toHaveLength(0);
   });
 });

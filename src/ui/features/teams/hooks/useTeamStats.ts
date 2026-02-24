@@ -1,16 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  fetchTeamAdvancedStats,
   fetchLeagueStandings,
   fetchTeamPlayers,
   fetchTeamStatistics,
 } from '@data/endpoints/teamsApi';
 import {
   mapPlayersToTopPlayers,
+  mapPlayersToTopPlayersByCategory,
   mapStandingsToTeamData,
   mapTeamStatisticsToStats,
 } from '@data/mappers/teamsMapper';
-import type { TeamStatsData } from '@ui/features/teams/types/teams.types';
+import type { TeamApiPlayerDto, TeamStatsData } from '@ui/features/teams/types/teams.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
@@ -39,9 +41,61 @@ const EMPTY_TEAM_STATS: TeamStatsData = {
   awayDraws: null,
   awayLosses: null,
   expectedGoalsFor: null,
+  pointsByVenue: {
+    home: null,
+    away: null,
+  },
+  goalsForPerMatch: null,
+  goalsAgainstPerMatch: null,
+  cleanSheets: null,
+  failedToScore: null,
+  topPlayersByCategory: {
+    ratings: [],
+    scorers: [],
+    assisters: [],
+  },
+  comparisonMetrics: [],
   goalBreakdown: [],
   topPlayers: [],
 };
+
+async function fetchAllTeamPlayers(
+  teamId: string,
+  leagueId: string,
+  season: number,
+  signal?: AbortSignal,
+): Promise<TeamApiPlayerDto[]> {
+  const firstPage = await fetchTeamPlayers(
+    {
+      teamId,
+      leagueId,
+      season,
+      page: 1,
+    },
+    signal,
+  );
+
+  const totalPages = Math.max(1, firstPage.paging?.total ?? 1);
+  if (totalPages <= 1) {
+    return firstPage.response ?? [];
+  }
+
+  const nextPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      fetchTeamPlayers(
+        {
+          teamId,
+          leagueId,
+          season,
+          page: index + 2,
+        },
+        signal,
+      ),
+    ),
+  );
+
+  return [firstPage, ...nextPages].flatMap(page => page.response ?? []);
+}
 
 export function useTeamStats({
   teamId,
@@ -58,28 +112,33 @@ export function useTeamStats({
         return EMPTY_TEAM_STATS;
       }
 
-      const [statisticsPayload, standingsPayload, playersPayload] = await Promise.all([
-        fetchTeamStatistics(leagueId, season, teamId, signal),
-        fetchLeagueStandings(leagueId, season, signal),
-        fetchTeamPlayers(
-          {
-            teamId,
-            leagueId,
-            season,
-            page: 1,
-          },
-          signal,
-        ),
-      ]);
+      const [statisticsPayload, standingsPayload, playersPayload, advancedStatsPayload] =
+        await Promise.all([
+          fetchTeamStatistics(leagueId, season, teamId, signal),
+          fetchLeagueStandings(leagueId, season, signal),
+          fetchAllTeamPlayers(teamId, leagueId, season, signal),
+          fetchTeamAdvancedStats(leagueId, season, teamId, signal),
+        ]);
 
       const standings = mapStandingsToTeamData(standingsPayload, teamId);
-      const topPlayers = mapPlayersToTopPlayers(playersPayload.response ?? [], 8, {
+      const topPlayers = mapPlayersToTopPlayers(playersPayload, 8, {
+        teamId,
+        leagueId,
+        season,
+      });
+      const topPlayersByCategory = mapPlayersToTopPlayersByCategory(playersPayload, 3, {
         teamId,
         leagueId,
         season,
       });
 
-      return mapTeamStatisticsToStats(statisticsPayload, standings, topPlayers);
+      return mapTeamStatisticsToStats(
+        statisticsPayload,
+        standings,
+        topPlayers,
+        topPlayersByCategory,
+        advancedStatsPayload,
+      );
     },
   });
 }

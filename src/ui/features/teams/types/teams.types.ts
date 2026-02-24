@@ -137,6 +137,47 @@ export type TeamTopPlayer = {
   rating: number | null;
 };
 
+export type TeamStatsRecord = {
+  played: number | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+  goalsFor: number | null;
+  goalsAgainst: number | null;
+  goalDiff: number | null;
+  points: number | null;
+};
+
+export type TeamTopPlayersByCategory = {
+  ratings: TeamTopPlayer[];
+  scorers: TeamTopPlayer[];
+  assisters: TeamTopPlayer[];
+};
+
+export type TeamComparisonMetricKey =
+  | 'pointsPerMatch'
+  | 'goalsScoredPerMatch'
+  | 'goalsConcededPerMatch'
+  | 'possession'
+  | 'shotsOnTargetPerMatch'
+  | 'shotsPerMatch'
+  | 'expectedGoalsPerMatch';
+
+export type TeamComparisonLeader = {
+  teamId: string;
+  teamName: string | null;
+  teamLogo: string | null;
+  value: number;
+};
+
+export type TeamComparisonMetric = {
+  key: TeamComparisonMetricKey;
+  value: number;
+  rank: number;
+  totalTeams: number;
+  leaders: TeamComparisonLeader[];
+};
+
 export type TeamStatsData = {
   rank: number | null;
   points: number | null;
@@ -155,6 +196,16 @@ export type TeamStatsData = {
   awayDraws: number | null;
   awayLosses: number | null;
   expectedGoalsFor: number | null;
+  pointsByVenue: {
+    home: TeamStatsRecord | null;
+    away: TeamStatsRecord | null;
+  };
+  goalsForPerMatch: number | null;
+  goalsAgainstPerMatch: number | null;
+  cleanSheets: number | null;
+  failedToScore: number | null;
+  topPlayersByCategory: TeamTopPlayersByCategory;
+  comparisonMetrics: TeamComparisonMetric[];
   goalBreakdown: TeamGoalBreakdownItem[];
   topPlayers: TeamTopPlayer[];
 };
@@ -385,14 +436,28 @@ export type TeamApiStatisticsDto = {
       home?: number;
       away?: number;
     };
+    clean_sheet?: {
+      total?: number;
+      home?: number;
+      away?: number;
+    };
+    failed_to_score?: {
+      total?: number;
+      home?: number;
+      away?: number;
+    };
   };
   goals?: {
     for?: {
       total?: {
         total?: number;
+        home?: number;
+        away?: number;
       };
       average?: {
         total?: string;
+        home?: string;
+        away?: string;
       };
       minute?: Record<
         string,
@@ -404,8 +469,41 @@ export type TeamApiStatisticsDto = {
     against?: {
       total?: {
         total?: number;
+        home?: number;
+        away?: number;
+      };
+      average?: {
+        total?: string;
+        home?: string;
+        away?: string;
       };
     };
+  };
+};
+
+export type TeamAdvancedMetricRankEntryDto = {
+  teamId?: number;
+  teamName?: string;
+  teamLogo?: string;
+  value?: number;
+};
+
+export type TeamAdvancedMetricDto = {
+  value?: number | null;
+  rank?: number | null;
+  totalTeams?: number;
+  leaders?: TeamAdvancedMetricRankEntryDto[];
+};
+
+export type TeamAdvancedStatsDto = {
+  teamId?: number;
+  leagueId?: number;
+  season?: number;
+  metrics?: {
+    possession?: TeamAdvancedMetricDto | null;
+    shotsOnTargetPerMatch?: TeamAdvancedMetricDto | null;
+    shotsPerMatch?: TeamAdvancedMetricDto | null;
+    expectedGoalsPerMatch?: TeamAdvancedMetricDto | null;
   };
 };
 

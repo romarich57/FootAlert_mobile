@@ -84,9 +84,25 @@ export function mapTeamLeaguesToCompetitionOptions(
 export function resolveDefaultTeamSelection(
   options: TeamCompetitionOption[],
 ): TeamSelection {
-  const withCurrentSeason = options.find(
-    option => typeof option.currentSeason === 'number',
+  const selectMostRecent = (items: TeamCompetitionOption[]): TeamCompetitionOption | null =>
+    [...items]
+      .filter(item => item.seasons.length > 0)
+      .sort((first, second) => (second.seasons[0] ?? 0) - (first.seasons[0] ?? 0))[0] ?? null;
+
+  const leagueWithCurrentSeason = options.find(
+    option =>
+      option.type?.toLowerCase() === 'league' &&
+      typeof option.currentSeason === 'number',
   );
+
+  if (leagueWithCurrentSeason) {
+    return {
+      leagueId: leagueWithCurrentSeason.leagueId,
+      season: leagueWithCurrentSeason.currentSeason,
+    };
+  }
+
+  const withCurrentSeason = options.find(option => typeof option.currentSeason === 'number');
 
   if (withCurrentSeason) {
     return {
@@ -95,8 +111,18 @@ export function resolveDefaultTeamSelection(
     };
   }
 
-  const withRecentSeason = options.find(option => option.seasons.length > 0);
+  const leagueWithRecentSeason = selectMostRecent(
+    options.filter(option => option.type?.toLowerCase() === 'league'),
+  );
 
+  if (leagueWithRecentSeason) {
+    return {
+      leagueId: leagueWithRecentSeason.leagueId,
+      season: leagueWithRecentSeason.seasons[0] ?? null,
+    };
+  }
+
+  const withRecentSeason = selectMostRecent(options);
   if (withRecentSeason) {
     return {
       leagueId: withRecentSeason.leagueId,

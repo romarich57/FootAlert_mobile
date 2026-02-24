@@ -5,9 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import {
+  TeamCompetitionSeasonSelector,
   TeamDetailsTabContent,
   TeamHeader,
-  TeamSeasonCompetitionPicker,
   TeamSeasonDropdown,
   TeamTabs,
 } from '@ui/features/teams/components';
@@ -66,11 +66,6 @@ export function TeamDetailsScreen() {
     [model.competitions]
   );
 
-  const standingsPickerCompetitions = useMemo(
-    () => (model.standingsCompetitions.length > 0 ? model.standingsCompetitions : model.competitions),
-    [model.competitions, model.standingsCompetitions],
-  );
-
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <TeamHeader
@@ -95,15 +90,13 @@ export function TeamDetailsScreen() {
       model.activeTab !== 'squad' &&
         model.activeTab !== 'trophies' &&
         model.activeTab !== 'transfers' ? (
-        <TeamSeasonCompetitionPicker
-          competitions={model.activeTab === 'standings' ? standingsPickerCompetitions : model.competitions}
+        <TeamCompetitionSeasonSelector
+          competitions={model.competitions}
           selectedLeagueId={model.selectedLeagueId}
           selectedSeason={model.selectedSeason}
-          onSelectLeague={model.setLeague}
-          onSelectSeason={model.setSeason}
-          competitionLabel={t('teamDetails.filters.competition')}
-          seasonLabel={t('teamDetails.filters.season')}
-          hideCompetitions={model.activeTab === 'standings'}
+          onSelect={model.setLeagueSeason}
+          modalTitle={t('teamDetails.filters.selectCompetitionSeason')}
+          doneLabel={t('common.done')}
         />
       ) : null}
 

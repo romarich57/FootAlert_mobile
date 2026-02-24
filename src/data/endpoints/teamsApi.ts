@@ -2,6 +2,7 @@ import { bffGet } from '@data/endpoints/bffClient';
 import type {
   ApiFootballListResponse,
   ApiFootballPagedResponse,
+  TeamAdvancedStatsDto,
   TeamApiFixtureDto,
   TeamApiLeagueDto,
   TeamApiPlayerDto,
@@ -106,6 +107,24 @@ export async function fetchTeamStatistics(
 ): Promise<TeamApiStatisticsDto | null> {
   const payload = await bffGet<{ response?: TeamApiStatisticsDto }>(
     `/teams/${encodeURIComponent(teamId)}/stats`,
+    {
+      leagueId,
+      season,
+    },
+    { signal },
+  );
+
+  return payload.response ?? null;
+}
+
+export async function fetchTeamAdvancedStats(
+  leagueId: string,
+  season: number,
+  teamId: string,
+  signal?: AbortSignal,
+): Promise<TeamAdvancedStatsDto | null> {
+  const payload = await bffGet<{ response?: TeamAdvancedStatsDto }>(
+    `/teams/${encodeURIComponent(teamId)}/advanced-stats`,
     {
       leagueId,
       season,

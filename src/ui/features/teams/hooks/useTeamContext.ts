@@ -86,6 +86,19 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     [competitions],
   );
 
+  const setLeagueSeason = useCallback(
+    (leagueId: string, season: number) => {
+      const selectedCompetition = competitions.find(item => item.leagueId === leagueId);
+      const fallbackSeason = selectedCompetition?.currentSeason ?? selectedCompetition?.seasons[0] ?? null;
+
+      setSelection({
+        leagueId,
+        season: selectedCompetition?.seasons.includes(season) ? season : fallbackSeason,
+      });
+    },
+    [competitions],
+  );
+
   const setSeason = useCallback((season: number) => {
     setSelection(current => ({
       ...current,
@@ -109,6 +122,7 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     selectedSeason: selection.season,
     seasonsForSelectedLeague,
     setLeague,
+    setLeagueSeason,
     setSeason,
     isLoading: teamQuery.isLoading || leaguesQuery.isLoading,
     isError: teamQuery.isError || leaguesQuery.isError,

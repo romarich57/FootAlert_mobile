@@ -150,6 +150,7 @@ export const fr = {
     filters: {
       competition: 'Compétition',
       season: 'Saison',
+      selectCompetitionSeason: 'Choix de la saison',
     },
     states: {
       loading: 'Chargement des données API...',
@@ -198,8 +199,34 @@ export const fr = {
     },
     stats: {
       pointsCard: 'Points',
+      goalsCard: 'Buts',
       goalsBreakdown: 'Répartition des buts',
+      venue: 'Lieu',
+      home: 'Domicile',
+      away: 'Extérieur',
+      goalsScoredPerMatch: 'Buts marqués par match',
+      goalsConcededPerMatch: 'Buts encaissés par match',
+      cleanSheets: 'Clean sheets',
+      failedToScore: 'Matchs sans marquer',
       topPlayers: 'Meilleurs joueurs',
+      categories: {
+        rating: 'Note',
+        scorers: 'Buteurs',
+        assisters: 'Passeurs',
+      },
+      comparisons: {
+        title: 'Comparaisons',
+        rank: 'Rang {{rank}} / {{total}}',
+        metrics: {
+          pointsPerMatch: 'Points par match',
+          goalsScoredPerMatch: 'Buts marqués par match',
+          goalsConcededPerMatch: 'Buts encaissés par match',
+          possession: 'Possession moyenne',
+          shotsOnTargetPerMatch: 'Tirs cadrés par match',
+          shotsPerMatch: 'Tirs par match',
+          expectedGoalsPerMatch: 'xG par match',
+        },
+      },
     },
     transfers: {
       arrivals: 'Arrivées',

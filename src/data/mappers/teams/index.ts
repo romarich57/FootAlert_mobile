@@ -18,6 +18,7 @@ export {
 
 export {
   mapPlayersToTopPlayers,
+  mapPlayersToTopPlayersByCategory,
   mapTeamStatisticsToStats,
 } from './statsMapper';
 

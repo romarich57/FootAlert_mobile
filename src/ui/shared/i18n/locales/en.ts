@@ -149,6 +149,7 @@ export const en = {
     filters: {
       competition: 'Competition',
       season: 'Season',
+      selectCompetitionSeason: 'Season selection',
     },
     states: {
       loading: 'Loading API data...',
@@ -197,8 +198,34 @@ export const en = {
     },
     stats: {
       pointsCard: 'Points',
+      goalsCard: 'Goals',
       goalsBreakdown: 'Goals breakdown',
+      venue: 'Venue',
+      home: 'Home',
+      away: 'Away',
+      goalsScoredPerMatch: 'Goals scored per match',
+      goalsConcededPerMatch: 'Goals conceded per match',
+      cleanSheets: 'Clean sheets',
+      failedToScore: 'Matches without scoring',
       topPlayers: 'Top players',
+      categories: {
+        rating: 'Rating',
+        scorers: 'Scorers',
+        assisters: 'Assisters',
+      },
+      comparisons: {
+        title: 'Comparisons',
+        rank: 'Rank {{rank}} / {{total}}',
+        metrics: {
+          pointsPerMatch: 'Points per match',
+          goalsScoredPerMatch: 'Goals scored per match',
+          goalsConcededPerMatch: 'Goals conceded per match',
+          possession: 'Average possession',
+          shotsOnTargetPerMatch: 'Shots on target per match',
+          shotsPerMatch: 'Shots per match',
+          expectedGoalsPerMatch: 'xG per match',
+        },
+      },
     },
     transfers: {
       arrivals: 'Arrivals',
