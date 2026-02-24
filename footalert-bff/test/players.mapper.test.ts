@@ -126,6 +126,52 @@ test('dedupeCareerSeasons merges non-identical league duplicates and ignores exa
   assert.equal(deduped[0]?.rating, '7.42');
 });
 
+test('dedupeCareerSeasons removes season rows with zero appearances and no stats', async () => {
+  const { dedupeCareerSeasons } = await loadPlayersMappers();
+
+  const deduped = dedupeCareerSeasons([
+    {
+      season: '2024',
+      team: { id: '50', name: 'PSG', logo: 'https://logo-psg' },
+      matches: 0,
+      goals: 0,
+      assists: 0,
+      rating: null,
+    },
+    {
+      season: '2024',
+      team: { id: '60', name: 'Real Madrid', logo: 'https://logo-real' },
+      matches: 28,
+      goals: 15,
+      assists: 9,
+      rating: '7.80',
+    },
+  ]);
+
+  assert.equal(deduped.length, 1);
+  assert.equal(deduped[0]?.team.id, '60');
+  assert.equal(deduped[0]?.matches, 28);
+});
+
+test('dedupeCareerSeasons keeps zero-appearance rows when they still carry a valid rating', async () => {
+  const { dedupeCareerSeasons } = await loadPlayersMappers();
+
+  const deduped = dedupeCareerSeasons([
+    {
+      season: '2024',
+      team: { id: '70', name: 'Test FC', logo: 'https://logo-test' },
+      matches: 0,
+      goals: 0,
+      assists: 0,
+      rating: '7.10',
+    },
+  ]);
+
+  assert.equal(deduped.length, 1);
+  assert.equal(deduped[0]?.team.id, '70');
+  assert.equal(deduped[0]?.rating, '7.10');
+});
+
 test('mapPlayerMatchPerformance maps fixture and player statistics', async () => {
   const { mapPlayerMatchPerformance } = await loadPlayersMappers();
 

@@ -103,6 +103,7 @@ export function TeamDetailsScreen() {
           onSelectSeason={model.setSeason}
           competitionLabel={t('teamDetails.filters.competition')}
           seasonLabel={t('teamDetails.filters.season')}
+          hideCompetitions={model.activeTab === 'standings'}
         />
       ) : null}
 

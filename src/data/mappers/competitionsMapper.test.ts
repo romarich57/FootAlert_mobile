@@ -108,8 +108,8 @@ describe('competitionsMapper transfers', () => {
             date: '2026-06-30',
             type: 'Transfer',
             teams: {
-              in: { id: 1, name: 'In', logo: '' },
-              out: { id: 2, name: 'Out', logo: '' },
+              in: { id: 3, name: 'In 2', logo: '' },
+              out: { id: 4, name: 'Out 2', logo: '' },
             },
           },
           {
@@ -166,6 +166,44 @@ describe('competitionsMapper transfers', () => {
     expect(mapped[0]?.playerId).toBe(111);
     expect(mapped[0]?.teamIn.id).toBe(42);
     expect(mapped[0]?.teamOut.id).toBe(160);
+  });
+
+  it('deduplicates one-day-apart duplicates and keeps the most recent transfer date', () => {
+    const payload: CompetitionsApiTransferDto[] = [
+      {
+        player: { id: 2032, name: 'J. Strand Larsen' },
+        update: '2026-01-01',
+        context: {
+          teamInInLeague: false,
+          teamOutInLeague: true,
+        },
+        transfers: [
+          {
+            date: '2026-02-01',
+            type: 'Transfer',
+            teams: {
+              in: { id: 52, name: 'Crystal Palace', logo: 'cp.png' },
+              out: { id: 39, name: 'Wolves', logo: 'wolves.png' },
+            },
+          },
+          {
+            date: '2026-01-31',
+            type: 'Transfer',
+            teams: {
+              in: { id: 52, name: 'Crystal Palace', logo: 'cp.png' },
+              out: { id: 39, name: 'Wolves', logo: 'wolves.png' },
+            },
+          },
+        ],
+      },
+    ];
+
+    const mapped = mapTransfersDtoToCompetitionTransfers(payload, 2025);
+
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]?.date).toBe('2026-02-01');
+    expect(mapped[0]?.teamIn.id).toBe(52);
+    expect(mapped[0]?.teamOut.id).toBe(39);
   });
 
   it('selects player stats from the requested season when multiple statistics rows exist', () => {

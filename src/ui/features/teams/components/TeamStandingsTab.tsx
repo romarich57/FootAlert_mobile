@@ -21,7 +21,7 @@ type StandingFeedItem =
   | {
     type: 'header';
     key: string;
-    title: string | null;
+    title: string;
   }
   | {
     type: 'row';
@@ -44,7 +44,10 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       paddingHorizontal: 16,
       paddingBottom: 22,
-      gap: 12,
+      backgroundColor: colors.background,
+    },
+    listContent: {
+      paddingBottom: 8,
     },
     filterBar: {
       flexDirection: 'row',
@@ -119,9 +122,7 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 10,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: 12,
-      borderTopRightRadius: 12,
+      backgroundColor: colors.surfaceElevated,
     },
     tableHeaderText: {
       color: colors.textMuted,
@@ -245,19 +246,23 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function buildFeedItems(data: TeamStandingsData | undefined, subFilter: SubFilter): StandingFeedItem[] {
+function buildFeedItems(
+  data: TeamStandingsData | undefined,
+  subFilter: SubFilter,
+  defaultGroupTitle: string,
+): StandingFeedItem[] {
   if (!data) return [];
   const headerOccurrences = new Map<string, number>();
 
   return data.groups.flatMap(group => {
-    const groupIdentity = group.groupName ?? 'standings';
+    const groupIdentity = group.groupName ?? defaultGroupTitle;
     const headerOccurrence = (headerOccurrences.get(groupIdentity) ?? 0) + 1;
     headerOccurrences.set(groupIdentity, headerOccurrence);
 
     const header: StandingFeedItem = {
       type: 'header',
       key: `group-${groupIdentity}-${headerOccurrence}`,
-      title: group.groupName,
+      title: group.groupName?.trim() || defaultGroupTitle,
     };
 
     let processedRows = group.rows;
@@ -409,12 +414,80 @@ export function TeamStandingsTab({
     [t],
   );
 
-  const feedItems = useMemo(() => buildFeedItems(data, subFilter), [data, subFilter]);
+  const defaultGroupTitle = t('teamDetails.standings.defaultGroup');
+  const feedItems = useMemo(
+    () => buildFeedItems(data, subFilter, defaultGroupTitle),
+    [data, subFilter, defaultGroupTitle],
+  );
   const keyExtractor = useCallback((item: StandingFeedItem) => item.key, []);
+
+  const renderTableHeader = useCallback(() => (
+    <View style={styles.tableHeader}>
+      <View style={styles.colRank}><Text style={styles.tableHeaderText}>#</Text></View>
+      <View style={styles.colTeam}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.team')}</Text></View>
+
+      {mode === 'simple' && (
+        <>
+          <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.played')}</Text></View>
+          <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
+          <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
+        </>
+      )}
+
+      {mode === 'detailed' && (
+        <>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.played')}</Text></View>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.win')}</Text></View>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.draw')}</Text></View>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.loss')}</Text></View>
+          <View style={styles.colStatLarge}><Text style={styles.tableHeaderText}>+/-</Text></View>
+          <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
+          <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
+        </>
+      )}
+
+      {mode === 'form' && (
+        <View style={styles.colForm}>
+          <Text style={styles.tableHeaderRight}>{t('teamDetails.standings.headers.formLastFive')}</Text>
+        </View>
+      )}
+    </View>
+  ), [mode, styles, t]);
+
+  const renderListHeader = useCallback(() => (
+    <View style={styles.filterBar}>
+      <View style={styles.modeTabs}>
+        {(['simple', 'detailed', 'form'] as DisplayMode[]).map(modeKey => (
+          <Pressable
+            key={modeKey}
+            style={[styles.modeTab, mode === modeKey ? styles.modeTabActive : null]}
+            onPress={() => setMode(modeKey)}
+          >
+            <Text style={[styles.modeTabText, mode === modeKey ? styles.modeTabTextActive : null]}>
+              {modeLabels[modeKey]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Pressable style={styles.subFilterBtn} onPress={() => setFilterModalOpen(true)}>
+        <Text style={styles.subFilterText}>{subFilterLabels[subFilter]}</Text>
+        <MaterialCommunityIcons name="menu-down" size={18} color={colors.text} />
+      </Pressable>
+    </View>
+  ), [styles, mode, modeLabels, subFilter, subFilterLabels, colors.text]);
 
   const renderItem = useCallback<ListRenderItem<StandingFeedItem>>(
     ({ item }) => {
-      if (item.type === 'header') return null; // We'll rely on the global header
+      if (item.type === 'header') {
+        return (
+          <View>
+            <Text style={styles.groupHeader}>{item.title}</Text>
+            {renderTableHeader()}
+          </View>
+        );
+      }
+
       return (
         <StandingRowItem
           row={item.row}
@@ -425,68 +498,11 @@ export function TeamStandingsTab({
         />
       );
     },
-    [styles, mode, subFilter, formLabels],
+    [styles, mode, subFilter, formLabels, renderTableHeader],
   );
 
   return (
     <View style={styles.container}>
-      {/* Filter Bar */}
-      <View style={styles.filterBar}>
-        <View style={styles.modeTabs}>
-          {(['simple', 'detailed', 'form'] as DisplayMode[]).map(modeKey => (
-            <Pressable
-              key={modeKey}
-              style={[styles.modeTab, mode === modeKey ? styles.modeTabActive : null]}
-              onPress={() => setMode(modeKey)}
-            >
-              <Text style={[styles.modeTabText, mode === modeKey ? styles.modeTabTextActive : null]}>
-                {modeLabels[modeKey]}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Pressable style={styles.subFilterBtn} onPress={() => setFilterModalOpen(true)}>
-          <Text style={styles.subFilterText}>{subFilterLabels[subFilter]}</Text>
-          <MaterialCommunityIcons name="menu-down" size={18} color={colors.text} />
-        </Pressable>
-      </View>
-
-      {/* Table Header */}
-      {!isLoading && !isError && feedItems.length > 0 && (
-        <View style={styles.tableHeader}>
-          <View style={styles.colRank}><Text style={styles.tableHeaderText}>#</Text></View>
-          <View style={styles.colTeam}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.team')}</Text></View>
-
-          {mode === 'simple' && (
-            <>
-              <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.played')}</Text></View>
-              <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
-              <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
-            </>
-          )}
-
-          {mode === 'detailed' && (
-            <>
-              <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.played')}</Text></View>
-              <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.win')}</Text></View>
-              <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.draw')}</Text></View>
-              <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.loss')}</Text></View>
-              <View style={styles.colStatLarge}><Text style={styles.tableHeaderText}>+/-</Text></View>
-              <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
-              <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
-            </>
-          )}
-
-          {mode === 'form' && (
-            <View style={styles.colForm}>
-              <Text style={styles.tableHeaderRight}>{t('teamDetails.standings.headers.formLastFive')}</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Content */}
       {isLoading ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
@@ -504,11 +520,13 @@ export function TeamStandingsTab({
 
       {!isLoading && !isError ? (
         <FlashList
-          data={feedItems.filter(i => i.type !== 'header')} // Skip duplicated headers in render
+          data={feedItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
+          ListHeaderComponent={renderListHeader}
+          contentContainerStyle={styles.listContent}
           // @ts-ignore
-          estimatedItemSize={50}
+          estimatedItemSize={58}
           ListEmptyComponent={
             hasFetched ? (
               <View style={styles.emptyWrap}>

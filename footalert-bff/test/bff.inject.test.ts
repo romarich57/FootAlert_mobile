@@ -401,6 +401,57 @@ test('GET /v1/teams/:id/trophies returns explicit empty response when ID and nam
   assert.equal(String(calls[1].input), 'https://api-football.test/teams?id=777');
 });
 
+test('GET /v1/teams/:id/transfers deduplicates one-day-apart duplicates by keeping latest date', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/transfers') && url.searchParams.get('team') === '39') {
+      return jsonResponse({
+        response: [
+          {
+            player: { id: 2032, name: 'J. Strand Larsen' },
+            update: '2026-02-01',
+            transfers: [
+              {
+                date: '2026-01-31',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 52, name: 'Crystal Palace', logo: 'cp.png' },
+                  out: { id: 39, name: 'Wolves', logo: 'wolves.png' },
+                },
+              },
+              {
+                date: '2026-02-01',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 52, name: 'Crystal Palace', logo: 'cp.png' },
+                  out: { id: 39, name: 'Wolves', logo: 'wolves.png' },
+                },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/39/transfers',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(Array.isArray(payload.response), true);
+  assert.equal(payload.response.length, 1);
+  assert.equal(payload.response[0].transfers[0].date, '2026-02-01');
+  assert.equal(calls.length, 1);
+});
+
 test('GET /v1/players/:id maps network failures to 502', async t => {
   const calls = installFetchMock(async () => {
     throw new TypeError('network down');
@@ -522,13 +573,13 @@ test('GET /v1/competitions/:id/transfers filters, deduplicates and enriches tran
     if (pathname.endsWith('/transfers') && url.searchParams.get('team') === '2') {
       return jsonResponse({
         response: [
-          // Duplicate of Player A transfer, should be deduplicated.
+          // Duplicate of Player A transfer shifted by one day, keep the most recent date.
           {
             player: { id: 10, name: 'Player A' },
             update: '2026-01-01',
             transfers: [
               {
-                date: '2025-08-10',
+                date: '2025-08-11',
                 type: 'Loan',
                 teams: {
                   in: { id: 1, name: 'League Team 1', logo: 'in1.png' },
@@ -590,7 +641,7 @@ test('GET /v1/competitions/:id/transfers filters, deduplicates and enriches tran
   assert.equal(second.player.id, 10);
   assert.equal(second.context.teamInInLeague, true);
   assert.equal(second.context.teamOutInLeague, false);
-  assert.equal(second.transfers[0].date, '2025-08-10');
+  assert.equal(second.transfers[0].date, '2025-08-11');
 });
 
 test('GET /v1/competitions/:id/transfers keeps partial data when one team transfer call fails', async t => {

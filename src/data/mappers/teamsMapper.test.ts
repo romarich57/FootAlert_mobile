@@ -177,6 +177,38 @@ describe('teamsMapper', () => {
     expect(mapped.departures).toHaveLength(0);
   });
 
+  it('deduplicates one-day-apart duplicates and keeps the most recent date', () => {
+    const data = [
+      {
+        player: { id: 2032, name: 'J. Strand Larsen' },
+        transfers: [
+          {
+            date: '2026-01-31',
+            type: 'Transfer',
+            teams: {
+              in: { id: 52, name: 'Crystal Palace' },
+              out: { id: 39, name: 'Wolves' },
+            },
+          },
+          {
+            date: '2026-02-01',
+            type: 'Transfer',
+            teams: {
+              in: { id: 52, name: 'Crystal Palace' },
+              out: { id: 39, name: 'Wolves' },
+            },
+          },
+        ],
+      },
+    ];
+
+    const mapped = mapTransfersToTeamTransfers(data, '39', 2025);
+
+    expect(mapped.arrivals).toHaveLength(0);
+    expect(mapped.departures).toHaveLength(1);
+    expect(mapped.departures[0]?.date).toBe('2026-02-01');
+  });
+
   it('selects top player stats using season/league/team context instead of first statistics row', () => {
     const mapped = mapPlayersToTopPlayers(
       [

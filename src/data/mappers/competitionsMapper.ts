@@ -236,7 +236,7 @@ function toTransferTeamDedupPart(teamId: number, teamName: string): string {
 function buildCompetitionTransferDedupKey(params: {
     playerId: number;
     playerName: string;
-    date: string;
+    type: string;
     teamInId: number;
     teamInName: string;
     teamOutId: number;
@@ -247,7 +247,7 @@ function buildCompetitionTransferDedupKey(params: {
     return [
         params.playerId,
         normalizeTransferKeyText(params.playerName),
-        params.date,
+        normalizeTransferKeyText(params.type),
         toTransferTeamDedupPart(params.teamOutId, params.teamOutName),
         toTransferTeamDedupPart(params.teamInId, params.teamInName),
         params.isArrival ? '1' : '0',
@@ -334,10 +334,11 @@ export function mapTransfersDtoToCompetitionTransfers(
                 return;
             }
 
+            const timestamp = toTransferTimestamp(date);
             const id = buildCompetitionTransferDedupKey({
                 playerId,
                 playerName,
-                date,
+                type,
                 teamInId,
                 teamInName,
                 teamOutId,
@@ -345,7 +346,8 @@ export function mapTransfersDtoToCompetitionTransfers(
                 isArrival,
                 isDeparture,
             });
-            if (transferMap.has(id)) {
+            const existingTransfer = transferMap.get(id);
+            if (existingTransfer && existingTransfer.timestamp >= timestamp) {
                 return;
             }
 
@@ -355,7 +357,7 @@ export function mapTransfersDtoToCompetitionTransfers(
                 playerName,
                 playerPhoto,
                 date,
-                timestamp: toTransferTimestamp(date),
+                timestamp,
                 type,
                 direction: resolveTransferDirection(isArrival, isDeparture),
                 isArrival,

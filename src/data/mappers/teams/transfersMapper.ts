@@ -28,10 +28,8 @@ export function mapTransfersToTeamTransfers(
   teamId: string,
   season: number | null,
 ): TeamTransfersData {
-  const arrivals: TeamTransferItem[] = [];
-  const departures: TeamTransferItem[] = [];
-  const arrivalKeys = new Set<string>();
-  const departureKeys = new Set<string>();
+  const arrivalsByKey = new Map<string, TeamTransferItem>();
+  const departuresByKey = new Map<string, TeamTransferItem>();
 
   const normalizeKeyTextPart = (value: string | null): string => {
     return (value ?? '')
@@ -79,7 +77,7 @@ export function mapTransfersToTeamTransfers(
       direction,
       normalizeKeyTextPart(item.playerId),
       normalizeKeyTextPart(item.playerName),
-      normalizeKeyDatePart(item.date),
+      normalizeKeyTextPart(item.type),
       toTeamKeyPart(item.fromTeamId, item.fromTeamName),
       toTeamKeyPart(item.toTeamId, item.toTeamName),
     ].join('|');
@@ -132,12 +130,16 @@ export function mapTransfersToTeamTransfers(
           ...commonPayload,
         };
         const dedupKey = buildTransferDedupKey('arrival', arrivalItem);
-        if (!arrivalKeys.has(dedupKey)) {
-          arrivalKeys.add(dedupKey);
-          arrivals.push({
-            id: dedupKey,
-            ...arrivalItem,
-          });
+        const nextItem: TeamTransferItem = {
+          id: dedupKey,
+          ...arrivalItem,
+        };
+        const existingItem = arrivalsByKey.get(dedupKey);
+        if (
+          !existingItem ||
+          toSortableTimestamp(nextItem.date) > toSortableTimestamp(existingItem.date)
+        ) {
+          arrivalsByKey.set(dedupKey, nextItem);
         }
       }
 
@@ -147,12 +149,16 @@ export function mapTransfersToTeamTransfers(
           ...commonPayload,
         };
         const dedupKey = buildTransferDedupKey('departure', departureItem);
-        if (!departureKeys.has(dedupKey)) {
-          departureKeys.add(dedupKey);
-          departures.push({
-            id: dedupKey,
-            ...departureItem,
-          });
+        const nextItem: TeamTransferItem = {
+          id: dedupKey,
+          ...departureItem,
+        };
+        const existingItem = departuresByKey.get(dedupKey);
+        if (
+          !existingItem ||
+          toSortableTimestamp(nextItem.date) > toSortableTimestamp(existingItem.date)
+        ) {
+          departuresByKey.set(dedupKey, nextItem);
         }
       }
     });
@@ -165,7 +171,7 @@ export function mapTransfersToTeamTransfers(
   };
 
   return {
-    arrivals: arrivals.sort(sortByDateDesc),
-    departures: departures.sort(sortByDateDesc),
+    arrivals: Array.from(arrivalsByKey.values()).sort(sortByDateDesc),
+    departures: Array.from(departuresByKey.values()).sort(sortByDateDesc),
   };
 }

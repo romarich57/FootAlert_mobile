@@ -269,6 +269,28 @@ function toComparableNumber(value: number | null, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+function hasPositiveNumber(value: number | null): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function hasValidRating(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed);
+}
+
+function hasCareerSeasonMeaningfulStats(season: PlayerCareerSeasonAggregate): boolean {
+  return (
+    hasPositiveNumber(season.matches) ||
+    hasPositiveNumber(season.goals) ||
+    hasPositiveNumber(season.assists) ||
+    hasValidRating(season.rating)
+  );
+}
+
 function extractPlayerStatisticsCandidates(
   performanceDto: PlayerFixtureStatsDto | null,
 ): PlayerFixturePlayerEntry[] {
@@ -482,6 +504,7 @@ export function dedupeCareerSeasons(
           : null,
       };
     })
+    .filter(hasCareerSeasonMeaningfulStats)
     .sort(compareCareerSeasonsDesc);
 }
 

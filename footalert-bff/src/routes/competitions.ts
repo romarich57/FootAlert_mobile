@@ -116,11 +116,20 @@ function mapTransferTeamPayload(team: unknown): CompetitionTransferTeamPayload {
   };
 }
 
+function normalizeTransferKeyText(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 function buildTransferKey(
   params: {
     playerId: number;
     playerName: string;
-    transferDate: string;
+    transferType: string;
     teamInId: number;
     teamInName: string;
     teamOutId: number;
@@ -129,24 +138,17 @@ function buildTransferKey(
     teamOutInLeague: boolean;
   },
 ): string {
-  const normalizeText = (value: string): string => value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-
   const teamOutPart = params.teamOutId > 0
     ? `id:${params.teamOutId}`
-    : `name:${normalizeText(params.teamOutName)}`;
+    : `name:${normalizeTransferKeyText(params.teamOutName)}`;
   const teamInPart = params.teamInId > 0
     ? `id:${params.teamInId}`
-    : `name:${normalizeText(params.teamInName)}`;
+    : `name:${normalizeTransferKeyText(params.teamInName)}`;
 
   return [
     params.playerId,
-    normalizeText(params.playerName),
-    params.transferDate,
+    normalizeTransferKeyText(params.playerName),
+    normalizeTransferKeyText(params.transferType),
     teamOutPart,
     teamInPart,
     params.teamInInLeague ? '1' : '0',
@@ -387,7 +389,7 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
             const transferKey = buildTransferKey({
               playerId,
               playerName,
-              transferDate,
+              transferType,
               teamInId: teamInPayload.id,
               teamInName: teamInPayload.name,
               teamOutId: teamOutPayload.id,
@@ -396,8 +398,12 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
               teamOutInLeague,
             });
 
-            if (flattenedTransfersMap.has(transferKey)) {
-              continue;
+            const existingTransfer = flattenedTransfersMap.get(transferKey);
+            if (existingTransfer) {
+              const existingDate = existingTransfer.transfers?.[0]?.date ?? null;
+              if (toTransferTimestamp(existingDate) >= toTransferTimestamp(transferDate)) {
+                continue;
+              }
             }
 
             flattenedTransfersMap.set(transferKey, {

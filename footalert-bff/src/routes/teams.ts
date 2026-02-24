@@ -143,6 +143,19 @@ function normalizeTransferDate(value: string): string | null {
   return parsed.toISOString().slice(0, 10);
 }
 
+function toTransferTimestamp(value: string | null): number {
+  if (!value) {
+    return Number.MIN_SAFE_INTEGER;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return Number.MIN_SAFE_INTEGER;
+  }
+
+  return parsed.getTime();
+}
+
 function normalizeTransferKeyText(value: string): string {
   return value
     .trim()
@@ -383,13 +396,24 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
           const transferKey = [
             playerId,
             normalizeTransferKeyText(playerName),
-            transferDate,
+            normalizeTransferKeyText(transferType),
             teamOutId,
             teamInId,
           ].join('|');
 
-          if (dedupedTransfersMap.has(transferKey)) {
-            continue;
+          const existingTransfer = dedupedTransfersMap.get(transferKey);
+          if (existingTransfer) {
+            const existingTransferRecord = existingTransfer as Record<string, unknown>;
+            const existingTransfers = Array.isArray(existingTransferRecord.transfers)
+              ? existingTransferRecord.transfers
+              : [];
+            const existingTransferItem = (existingTransfers[0] ?? {}) as Record<string, unknown>;
+            const existingDate = typeof existingTransferItem.date === 'string'
+              ? existingTransferItem.date
+              : null;
+            if (toTransferTimestamp(existingDate) >= toTransferTimestamp(transferDate)) {
+              continue;
+            }
           }
 
           dedupedTransfersMap.set(transferKey, {
