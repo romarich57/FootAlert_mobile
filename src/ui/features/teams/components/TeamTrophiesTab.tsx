@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -14,6 +15,8 @@ type TeamTrophiesTabProps = {
   isError: boolean;
   onRetry: () => void;
 };
+
+type TrophyPlaceKey = 'champion' | 'runnerUp' | 'semifinalist' | 'title';
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -83,59 +86,79 @@ function createStyles(colors: ThemeColors) {
       marginTop: 10,
       gap: 8,
     },
-    groupTitle: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '800',
-    },
-    groupMeta: {
-      color: colors.textMuted,
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    seasonRow: {
+    groupHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
       gap: 10,
+      marginBottom: 6,
     },
-    seasonText: {
+    groupTitle: {
       color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    placeRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginTop: 12,
+      gap: 12,
+    },
+    placeCount: {
+      color: colors.textMuted,
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight: '600',
+      width: 24,
+      textAlign: 'right',
+    },
+    placeInfo: {
       flex: 1,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 4,
     },
     placeText: {
-      color: colors.textMuted,
-      fontSize: 13,
+      color: colors.text,
+      fontSize: 15,
       fontWeight: '600',
-      textTransform: 'uppercase',
+    },
+    seasonText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '500',
     },
   });
 }
 
+
+
 type TeamTrophyGroupRowProps = {
   group: TeamTrophyGroup;
-  totalWinsLabel: string;
+  placeLabels: Record<TrophyPlaceKey, string>;
   styles: ReturnType<typeof createStyles>;
 };
 
 const TeamTrophyGroupRow = memo(function TeamTrophyGroupRow({
   group,
-  totalWinsLabel,
+  placeLabels,
   styles,
 }: TeamTrophyGroupRowProps) {
+
   return (
     <View style={styles.groupCard}>
-      <Text style={styles.groupTitle}>{toDisplayValue(group.competition)}</Text>
-      <Text style={styles.groupMeta}>
-        {toDisplayValue(group.country)} • {totalWinsLabel}: {toDisplayNumber(group.winsCount)}
-      </Text>
+      <View style={styles.groupHeaderRow}>
+        <MaterialCommunityIcons name="trophy-outline" size={20} color={styles.groupTitle.color} />
+        <Text style={styles.groupTitle}>{toDisplayValue(group.competition)}</Text>
+      </View>
 
-      {group.items.map(trophy => (
-        <View key={trophy.id} style={styles.seasonRow}>
-          <Text style={styles.seasonText}>{toDisplayValue(trophy.season)}</Text>
-          <Text style={styles.placeText}>{toDisplayValue(trophy.place)}</Text>
+      {group.placements.map((item, index) => (
+        <View key={index} style={styles.placeRow}>
+          <Text style={styles.placeCount}>{item.count}</Text>
+          <View style={styles.placeInfo}>
+            <Text style={styles.placeText}>{placeLabels[item.place as TrophyPlaceKey] || item.place}</Text>
+            {item.seasons.length > 0 ? (
+              <Text style={styles.seasonText}>({item.seasons.join(' • ')})</Text>
+            ) : null}
+          </View>
         </View>
       ))}
     </View>
@@ -146,33 +169,31 @@ export function TeamTrophiesTab({ data, isLoading, isError, onRetry }: TeamTroph
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const totalWinsLabel = t('teamDetails.labels.totalWins');
+  const placeLabels: Record<TrophyPlaceKey, string> = useMemo(
+    () => ({
+      champion: t('teamDetails.trophies.places.champion'),
+      runnerUp: t('teamDetails.trophies.places.runnerUp'),
+      semifinalist: t('teamDetails.trophies.places.semifinalist'),
+      title: t('teamDetails.trophies.places.title'),
+    }),
+    [t],
+  );
   const groups = useMemo(() => data?.groups ?? [], [data?.groups]);
 
   const renderGroupItem = useCallback<ListRenderItem<TeamTrophyGroup>>(
     ({ item }) => (
       <TeamTrophyGroupRow
         group={item}
-        totalWinsLabel={totalWinsLabel}
+        placeLabels={placeLabels}
         styles={styles}
       />
     ),
-    [styles, totalWinsLabel],
+    [styles, placeLabels],
   );
 
   return (
     <View style={styles.container}>
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>{t('teamDetails.trophies.title')}</Text>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>{t('teamDetails.labels.totalTrophies')}</Text>
-          <Text style={styles.summaryValue}>{toDisplayNumber(data?.total)}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>{t('teamDetails.labels.totalWins')}</Text>
-          <Text style={styles.summaryValue}>{toDisplayNumber(data?.totalWins)}</Text>
-        </View>
-      </View>
+
 
       {isLoading ? (
         <View style={styles.stateCard}>
@@ -192,7 +213,7 @@ export function TeamTrophiesTab({ data, isLoading, isError, onRetry }: TeamTroph
       {!isLoading && !isError ? (
         <FlashList
           data={groups}
-          keyExtractor={item => `${item.competition}-${item.country ?? 'country'}`}
+          keyExtractor={item => item.id}
           renderItem={renderGroupItem}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />

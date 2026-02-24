@@ -25,6 +25,7 @@ export type TeamCompetitionOption = {
   leagueId: string;
   leagueName: string | null;
   leagueLogo: string | null;
+  type: string | null;
   country: string | null;
   seasons: number[];
   currentSeason: number | null;
@@ -87,6 +88,15 @@ export type TeamMatchesData = {
   past: TeamMatchItem[];
 };
 
+export type TeamStandingStats = {
+  played: number | null;
+  win: number | null;
+  draw: number | null;
+  lose: number | null;
+  goalsFor: number | null;
+  goalsAgainst: number | null;
+};
+
 export type TeamStandingRow = {
   rank: number | null;
   teamId: string | null;
@@ -96,6 +106,10 @@ export type TeamStandingRow = {
   goalDiff: number | null;
   points: number | null;
   isTargetTeam: boolean;
+  form: string | null;
+  all: TeamStandingStats;
+  home: TeamStandingStats;
+  away: TeamStandingStats;
 };
 
 export type TeamStandingGroup = {
@@ -194,19 +208,17 @@ export type TeamSquadData = {
   players: TeamSquadPlayer[];
 };
 
-export type TeamTrophyItem = {
-  id: string;
-  competition: string | null;
-  country: string | null;
-  season: string | null;
-  place: string | null;
+export type TeamTrophyPlacement = {
+  place: string;
+  count: number;
+  seasons: string[];
 };
 
 export type TeamTrophyGroup = {
+  id: string;
   competition: string | null;
   country: string | null;
-  winsCount: number;
-  items: TeamTrophyItem[];
+  placements: TeamTrophyPlacement[];
 };
 
 export type TeamTrophiesData = {
@@ -247,6 +259,7 @@ export type TeamApiLeagueDto = {
   league?: {
     id?: number;
     name?: string;
+    type?: string;
     logo?: string;
   };
   country?: {
@@ -308,7 +321,28 @@ export type TeamApiStandingsDto = {
         points?: number;
         goalsDiff?: number;
         group?: string;
+        form?: string;
         all?: {
+          played?: number;
+          win?: number;
+          draw?: number;
+          lose?: number;
+          goals?: {
+            for?: number;
+            against?: number;
+          };
+        };
+        home?: {
+          played?: number;
+          win?: number;
+          draw?: number;
+          lose?: number;
+          goals?: {
+            for?: number;
+            against?: number;
+          };
+        };
+        away?: {
           played?: number;
           win?: number;
           draw?: number;
@@ -405,6 +439,12 @@ export type TeamApiPlayerDto = {
 };
 
 export type TeamApiSquadDto = {
+  coach?: {
+    id?: number;
+    name?: string;
+    photo?: string;
+    age?: number;
+  };
   players?: Array<{
     id?: number;
     name?: string;

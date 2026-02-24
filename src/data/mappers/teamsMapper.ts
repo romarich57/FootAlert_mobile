@@ -24,6 +24,7 @@ import type {
   TeamTopPlayer,
   TeamTrophiesData,
   TeamTrophyGroup,
+  TeamTransferDirection,
   TeamTransferItem,
   TeamTransfersData,
 } from '@ui/features/teams/types/teams.types';
@@ -230,6 +231,7 @@ export function mapTeamLeaguesToCompetitionOptions(
         leagueId,
         leagueName: toText(item.league?.name),
         leagueLogo: toText(item.league?.logo),
+        type: toText(item.league?.type),
         country: toText(item.country?.name),
         seasons: sortSeasonsDesc(Array.from(new Set(seasons))),
         currentSeason: toNumber(currentSeason),
@@ -402,6 +404,31 @@ export function mapStandingsToTeamData(
         goalDiff: toNumber(row.goalsDiff),
         points: toNumber(row.points),
         isTargetTeam: rowTeamId === teamId,
+        form: toText(row.form),
+        all: {
+          played: toNumber(row.all?.played),
+          win: toNumber(row.all?.win),
+          draw: toNumber(row.all?.draw),
+          lose: toNumber(row.all?.lose),
+          goalsFor: toNumber(row.all?.goals?.for),
+          goalsAgainst: toNumber(row.all?.goals?.against),
+        },
+        home: {
+          played: toNumber(row.home?.played),
+          win: toNumber(row.home?.win),
+          draw: toNumber(row.home?.draw),
+          lose: toNumber(row.home?.lose),
+          goalsFor: toNumber(row.home?.goals?.for),
+          goalsAgainst: toNumber(row.home?.goals?.against),
+        },
+        away: {
+          played: toNumber(row.away?.played),
+          win: toNumber(row.away?.win),
+          draw: toNumber(row.away?.draw),
+          lose: toNumber(row.away?.lose),
+          goalsFor: toNumber(row.away?.goals?.for),
+          goalsAgainst: toNumber(row.away?.goals?.against),
+        },
       };
     });
 
@@ -547,12 +574,32 @@ export function mapTransfersToTeamTransfers(
 ): TeamTransfersData {
   const arrivals: TeamTransferItem[] = [];
   const departures: TeamTransferItem[] = [];
+  const arrivalKeys = new Set<string>();
+  const departureKeys = new Set<string>();
+
+  const normalizeKeyPart = (value: string | null): string => {
+    return (value ?? '').trim().toLowerCase();
+  };
+
+  const buildTransferDedupKey = (direction: TeamTransferDirection, item: Omit<TeamTransferItem, 'id'>): string => {
+    return [
+      direction,
+      normalizeKeyPart(item.playerId),
+      normalizeKeyPart(item.playerName),
+      normalizeKeyPart(item.date),
+      normalizeKeyPart(item.type),
+      normalizeKeyPart(item.fromTeamId),
+      normalizeKeyPart(item.fromTeamName),
+      normalizeKeyPart(item.toTeamId),
+      normalizeKeyPart(item.toTeamName),
+    ].join('|');
+  };
 
   payload.forEach(transferBlock => {
     const playerId = toId(transferBlock.player?.id);
     const playerName = toText(transferBlock.player?.name);
 
-    (transferBlock.transfers ?? []).forEach((transfer, index) => {
+    (transferBlock.transfers ?? []).forEach(transfer => {
       const transferDate = toText(transfer.date);
       if (!isDateInSeason(transferDate, season)) {
         return;
@@ -563,7 +610,7 @@ export function mapTransfersToTeamTransfers(
       const commonPayload = {
         playerId,
         playerName,
-        playerPhoto: null,
+        playerPhoto: playerId ? `https://media.api-sports.io/football/players/${playerId}.png` : null,
         position: null,
         date: transferDate,
         type: toText(transfer.type),
@@ -577,19 +624,33 @@ export function mapTransfersToTeamTransfers(
       };
 
       if (teamInId === teamId) {
-        arrivals.push({
-          id: `${playerId ?? 'unknown'}-arrival-${index}-${transferDate ?? 'nodate'}`,
+        const arrivalItem: Omit<TeamTransferItem, 'id'> = {
           direction: 'arrival',
           ...commonPayload,
-        });
+        };
+        const dedupKey = buildTransferDedupKey('arrival', arrivalItem);
+        if (!arrivalKeys.has(dedupKey)) {
+          arrivalKeys.add(dedupKey);
+          arrivals.push({
+            id: dedupKey,
+            ...arrivalItem,
+          });
+        }
       }
 
       if (teamOutId === teamId) {
-        departures.push({
-          id: `${playerId ?? 'unknown'}-departure-${index}-${transferDate ?? 'nodate'}`,
+        const departureItem: Omit<TeamTransferItem, 'id'> = {
           direction: 'departure',
           ...commonPayload,
-        });
+        };
+        const dedupKey = buildTransferDedupKey('departure', departureItem);
+        if (!departureKeys.has(dedupKey)) {
+          departureKeys.add(dedupKey);
+          departures.push({
+            id: dedupKey,
+            ...departureItem,
+          });
+        }
       }
     });
   });
@@ -639,8 +700,15 @@ export function mapSquadToTeamSquad(payload: TeamApiSquadDto | null): TeamSquadD
       return firstNumber - secondNumber;
     });
 
+  const coach = payload?.coach ? {
+    id: payload.coach.id?.toString() ?? null,
+    name: payload.coach.name ?? null,
+    photo: payload.coach.photo ?? null,
+    age: payload.coach.age ?? null,
+  } : null;
+
   return {
-    coach: null,
+    coach,
     players,
   };
 }
@@ -649,58 +717,77 @@ function isWinnerTrophy(place: string | null): boolean {
   return (place ?? '').toLowerCase().includes('winner');
 }
 
+function normalizeTrophyPlace(place: string | null): string {
+  const norm = (place ?? '').toLowerCase();
+  if (norm.includes('winner') || norm.includes('champion')) return 'champion';
+  if (norm.includes('runner') || norm.includes('vice')) return 'runnerUp';
+  if (norm.includes('semi')) return 'semifinalist';
+  return 'title';
+}
+
+const PLACE_SCORE: Record<string, number> = {
+  champion: 3,
+  runnerUp: 2,
+  semifinalist: 1,
+  title: 0,
+};
+
 export function mapTrophiesToTeamTrophies(payload: TeamApiTrophyDto[]): TeamTrophiesData {
   const groupsByCompetition = new Map<string, TeamTrophyGroup>();
+  let totalWins = 0;
 
-  payload.forEach((item, index) => {
+  payload.forEach(item => {
     const competition = toText(item.league);
     const country = toText(item.country);
     const groupKey = `${competition ?? '__unknown_competition__'}::${country ?? '__unknown_country__'}`;
     const existingGroup = groupsByCompetition.get(groupKey);
     const place = toText(item.place);
+    const season = toText(item.season);
 
-    const trophyItem = {
-      id: `${groupKey}-${index}`,
-      competition,
-      country,
-      season: toText(item.season),
-      place,
-    };
+    const isWin = isWinnerTrophy(place);
+    if (isWin) totalWins++;
+
+    const normPlaceKey = normalizeTrophyPlace(place);
 
     if (!existingGroup) {
       groupsByCompetition.set(groupKey, {
+        id: groupKey,
         competition,
         country,
-        winsCount: isWinnerTrophy(place) ? 1 : 0,
-        items: [trophyItem],
+        placements: [{ place: normPlaceKey, count: 1, seasons: season ? [season] : [] }],
       });
       return;
     }
 
-    existingGroup.items.push(trophyItem);
-    if (isWinnerTrophy(place)) {
-      existingGroup.winsCount += 1;
+    const existingPlacement = existingGroup.placements.find(p => p.place === normPlaceKey);
+    if (existingPlacement) {
+      existingPlacement.count++;
+      if (season) {
+        existingPlacement.seasons.push(season);
+      }
+    } else {
+      existingGroup.placements.push({ place: normPlaceKey, count: 1, seasons: season ? [season] : [] });
     }
   });
 
   const groups = Array.from(groupsByCompetition.values())
-    .map(group => ({
-      ...group,
-      items: [...group.items].sort((first, second) => {
-        return (second.season ?? '').localeCompare(first.season ?? '');
-      }),
-    }))
+    .map(group => {
+      group.placements.forEach(p => p.seasons.sort((a, b) => b.localeCompare(a)));
+      group.placements.sort((a, b) => (PLACE_SCORE[b.place] ?? 0) - (PLACE_SCORE[a.place] ?? 0));
+      return group;
+    })
     .sort((first, second) => {
-      if (second.winsCount !== first.winsCount) {
-        return second.winsCount - first.winsCount;
+      const firstWins = first.placements.find(p => p.place === 'champion')?.count ?? 0;
+      const secondWins = second.placements.find(p => p.place === 'champion')?.count ?? 0;
+      if (secondWins !== firstWins) {
+        return secondWins - firstWins;
       }
-
       return (first.competition ?? '').localeCompare(second.competition ?? '');
     });
 
   return {
     groups,
     total: payload.length,
-    totalWins: groups.reduce((acc, group) => acc + group.winsCount, 0),
+    totalWins,
   };
 }
