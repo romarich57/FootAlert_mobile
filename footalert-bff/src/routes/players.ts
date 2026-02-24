@@ -66,43 +66,44 @@ type PlayerFixtureDto = {
 };
 
 type PlayerFixtureStatsDto = {
+  team?: {
+    id?: number;
+    name?: string;
+    logo?: string;
+  };
   players?: Array<{
-    players?: Array<{
-      player?: {
-        id?: number;
+    player?: {
+      id?: number;
+    };
+    statistics?: Array<{
+      games?: {
+        minutes?: number;
+        rating?: string | null;
+        substitute?: boolean;
       };
-      statistics?: Array<{
-        games?: {
-          minutes?: number;
-          rating?: string | null;
-          substitute?: boolean;
-        };
-        goals?: {
-          total?: number | null;
-          assists?: number | null;
-          saves?: number | null;
-        };
-        cards?: {
-          yellow?: number | null;
-          yellowred?: number | null;
-          red?: number | null;
-        };
-        penalty?: {
-          won?: number | null;
-          commited?: number | null;
-          scored?: number | null;
-          missed?: number | null;
-          saved?: number | null;
-        };
-      }>;
+      goals?: {
+        total?: number | null;
+        assists?: number | null;
+        saves?: number | null;
+      };
+      cards?: {
+        yellow?: number | null;
+        yellowred?: number | null;
+        red?: number | null;
+      };
+      penalty?: {
+        won?: number | null;
+        commited?: number | null;
+        scored?: number | null;
+        missed?: number | null;
+        saved?: number | null;
+      };
     }>;
   }>;
 };
 
 type PlayerFixtureStat = NonNullable<
-  NonNullable<
-    NonNullable<PlayerFixtureStatsDto['players']>[number]['players']
-  >[number]['statistics']
+  NonNullable<PlayerFixtureStatsDto['players']>[number]['statistics']
 >[number];
 
 type PlayerCareerSeasonAggregate = {
@@ -578,36 +579,30 @@ export function mapPlayerMatchPerformance(
   };
 
   if (performanceDto?.players) {
-    for (const teamPlayers of performanceDto.players) {
-      const foundPlayer = teamPlayers.players?.find(
-        candidate => String(candidate.player?.id) === playerId,
-      );
+    const foundPlayer = performanceDto.players.find(
+      candidate => String(candidate.player?.id) === playerId,
+    );
 
-      if (!foundPlayer || !foundPlayer.statistics || foundPlayer.statistics.length === 0) {
-        continue;
-      }
-
+    if (foundPlayer && foundPlayer.statistics && foundPlayer.statistics.length > 0) {
       const stat = resolvePrimaryFixtureStat(foundPlayer.statistics);
-      if (!stat) {
-        continue;
+      if (stat) {
+        playerStats = {
+          minutes: normalizeNumber(stat.games?.minutes),
+          rating: normalizeRating(stat.games?.rating, 1),
+          goals: normalizeNumber(stat.goals?.total),
+          assists: normalizeNumber(stat.goals?.assists),
+          yellowCards: normalizeNumber(stat.cards?.yellow),
+          secondYellowCards: normalizeNumber(stat.cards?.yellowred),
+          redCards: normalizeNumber(stat.cards?.red),
+          saves: normalizeNumber(stat.goals?.saves),
+          penaltiesSaved: normalizeNumber(stat.penalty?.saved),
+          penaltiesMissed: normalizeNumber(stat.penalty?.missed),
+          isStarter:
+            typeof stat.games?.substitute === 'boolean'
+              ? stat.games.substitute === false
+              : null,
+        };
       }
-      playerStats = {
-        minutes: normalizeNumber(stat.games?.minutes),
-        rating: normalizeRating(stat.games?.rating, 1),
-        goals: normalizeNumber(stat.goals?.total),
-        assists: normalizeNumber(stat.goals?.assists),
-        yellowCards: normalizeNumber(stat.cards?.yellow),
-        secondYellowCards: normalizeNumber(stat.cards?.yellowred),
-        redCards: normalizeNumber(stat.cards?.red),
-        saves: normalizeNumber(stat.goals?.saves),
-        penaltiesSaved: normalizeNumber(stat.penalty?.saved),
-        penaltiesMissed: normalizeNumber(stat.penalty?.missed),
-        isStarter:
-          typeof stat.games?.substitute === 'boolean'
-            ? stat.games.substitute === false
-            : null,
-      };
-      break;
     }
   }
 
