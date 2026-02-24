@@ -102,6 +102,7 @@ export function mapPlayerMatchPerformanceAggregate(
     return {
         fixtureId,
         date: normalizeString(dto.date),
+        playerTeamId: toId(dto.playerTeamId),
         competition: {
             id: toId(dto.competition?.id),
             name: normalizeString(dto.competition?.name),
@@ -125,7 +126,11 @@ export function mapPlayerMatchPerformanceAggregate(
             goals: normalizeNumber(dto.playerStats?.goals),
             assists: normalizeNumber(dto.playerStats?.assists),
             yellowCards: normalizeNumber(dto.playerStats?.yellowCards),
+            secondYellowCards: normalizeNumber(dto.playerStats?.secondYellowCards),
             redCards: normalizeNumber(dto.playerStats?.redCards),
+            saves: normalizeNumber(dto.playerStats?.saves),
+            penaltiesSaved: normalizeNumber(dto.playerStats?.penaltiesSaved),
+            penaltiesMissed: normalizeNumber(dto.playerStats?.penaltiesMissed),
             isStarter:
                 typeof dto.playerStats?.isStarter === 'boolean'
                     ? dto.playerStats.isStarter
@@ -277,13 +282,20 @@ export function mapPlayerDetailsToSeasonStats(
     dto: PlayerApiDetailsDto,
     season?: number,
 ): PlayerSeasonStats {
+    const emptyStats: PlayerSeasonStats = {
+        matches: null, starts: null, minutes: null, goals: null, assists: null, rating: null,
+        shots: null, shotsOnTarget: null, penaltyGoals: null,
+        passes: null, passesAccuracy: null, keyPasses: null,
+        dribblesAttempts: null, dribblesSuccess: null,
+        tackles: null, interceptions: null, blocks: null, duelsTotal: null, duelsWon: null,
+        foulsCommitted: null, foulsDrawn: null, yellowCards: null, redCards: null, dribblesBeaten: null,
+        saves: null, goalsConceded: null,
+        penaltiesWon: null, penaltiesMissed: null, penaltiesCommitted: null,
+    };
+
     const stats = resolveSeasonStatistics(dto.statistics, season);
     if (stats.length === 0) {
-        return {
-            matches: null, starts: null, minutes: null, goals: null, assists: null, rating: null,
-            shots: null, shotsOnTarget: null, passes: null, passesAccuracy: null,
-            tackles: null, interceptions: null, yellowCards: null, redCards: null,
-        };
+        return emptyStats;
     }
 
     let matches: number | null = null;
@@ -293,11 +305,26 @@ export function mapPlayerDetailsToSeasonStats(
     let assists: number | null = null;
     let shots: number | null = null;
     let shotsOnTarget: number | null = null;
+    let penaltyGoals: number | null = null;
     let passes: number | null = null;
+    let keyPasses: number | null = null;
+    let dribblesAttempts: number | null = null;
+    let dribblesSuccess: number | null = null;
     let tackles: number | null = null;
     let interceptions: number | null = null;
+    let blocks: number | null = null;
+    let duelsTotal: number | null = null;
+    let duelsWon: number | null = null;
+    let foulsCommitted: number | null = null;
+    let foulsDrawn: number | null = null;
     let yellowCards: number | null = null;
     let redCards: number | null = null;
+    let dribblesBeaten: number | null = null;
+    let savesTotal: number | null = null;
+    let goalsConceded: number | null = null;
+    let penaltiesWon: number | null = null;
+    let penaltiesMissed: number | null = null;
+    let penaltiesCommitted: number | null = null;
 
     let ratingWeightedSum = 0;
     let ratingWeight = 0;
@@ -314,10 +341,25 @@ export function mapPlayerDetailsToSeasonStats(
         const shotsValue = normalizeNumber(stat.shots?.total);
         const shotsOnTargetValue = normalizeNumber(stat.shots?.on);
         const passesValue = normalizeNumber(stat.passes?.total);
+        const keyPassesValue = normalizeNumber(stat.passes?.key);
         const tacklesValue = normalizeNumber(stat.tackles?.total);
         const interceptionsValue = normalizeNumber(stat.tackles?.interceptions);
+        const blocksValue = normalizeNumber(stat.tackles?.blocks);
+        const duelsTotalValue = normalizeNumber(stat.duels?.total);
+        const duelsWonValue = normalizeNumber(stat.duels?.won);
+        const dribblesAttemptsValue = normalizeNumber(stat.dribbles?.attempts);
+        const dribblesSuccessValue = normalizeNumber(stat.dribbles?.success);
+        const dribblesBeatenValue = normalizeNumber(stat.dribbles?.past);
+        const foulsCommittedValue = normalizeNumber(stat.fouls?.committed);
+        const foulsDrawnValue = normalizeNumber(stat.fouls?.drawn);
         const yellowCardsValue = normalizeNumber(stat.cards?.yellow);
         const redCardsValue = normalizeNumber(stat.cards?.red);
+        const savesValue = normalizeNumber(stat.goals?.saves);
+        const goalsConcededValue = normalizeNumber(stat.goals?.conceded);
+        const penaltiesWonValue = normalizeNumber(stat.penalty?.won);
+        const penaltiesMissedValue = normalizeNumber(stat.penalty?.missed);
+        const penaltiesCommittedValue = normalizeNumber(stat.penalty?.commited);
+        const penaltyGoalsValue = normalizeNumber(stat.penalty?.scored);
 
         matches = sumOrNull(matches, appearances);
         starts = sumOrNull(starts, lineups);
@@ -326,11 +368,26 @@ export function mapPlayerDetailsToSeasonStats(
         assists = sumOrNull(assists, assistsValue);
         shots = sumOrNull(shots, shotsValue);
         shotsOnTarget = sumOrNull(shotsOnTarget, shotsOnTargetValue);
+        penaltyGoals = sumOrNull(penaltyGoals, penaltyGoalsValue);
         passes = sumOrNull(passes, passesValue);
+        keyPasses = sumOrNull(keyPasses, keyPassesValue);
+        dribblesAttempts = sumOrNull(dribblesAttempts, dribblesAttemptsValue);
+        dribblesSuccess = sumOrNull(dribblesSuccess, dribblesSuccessValue);
         tackles = sumOrNull(tackles, tacklesValue);
         interceptions = sumOrNull(interceptions, interceptionsValue);
+        blocks = sumOrNull(blocks, blocksValue);
+        duelsTotal = sumOrNull(duelsTotal, duelsTotalValue);
+        duelsWon = sumOrNull(duelsWon, duelsWonValue);
+        foulsCommitted = sumOrNull(foulsCommitted, foulsCommittedValue);
+        foulsDrawn = sumOrNull(foulsDrawn, foulsDrawnValue);
         yellowCards = sumOrNull(yellowCards, yellowCardsValue);
         redCards = sumOrNull(redCards, redCardsValue);
+        dribblesBeaten = sumOrNull(dribblesBeaten, dribblesBeatenValue);
+        savesTotal = sumOrNull(savesTotal, savesValue);
+        goalsConceded = sumOrNull(goalsConceded, goalsConcededValue);
+        penaltiesWon = sumOrNull(penaltiesWon, penaltiesWonValue);
+        penaltiesMissed = sumOrNull(penaltiesMissed, penaltiesMissedValue);
+        penaltiesCommitted = sumOrNull(penaltiesCommitted, penaltiesCommittedValue);
 
         const ratingValue = toFiniteNumber(stat.games?.rating);
         if (ratingValue !== null) {
@@ -360,15 +417,30 @@ export function mapPlayerDetailsToSeasonStats(
         rating: ratingWeight > 0 ? normalizeRating(ratingWeightedSum / ratingWeight, 2) : null,
         shots,
         shotsOnTarget,
+        penaltyGoals,
         passes,
         passesAccuracy:
             passesAccuracyWeight > 0
                 ? Number((passesAccuracyWeightedSum / passesAccuracyWeight).toFixed(2))
                 : null,
+        keyPasses,
+        dribblesAttempts,
+        dribblesSuccess,
         tackles,
         interceptions,
+        blocks,
+        duelsTotal,
+        duelsWon,
+        foulsCommitted,
+        foulsDrawn,
         yellowCards,
         redCards,
+        dribblesBeaten,
+        saves: savesTotal,
+        goalsConceded,
+        penaltiesWon,
+        penaltiesMissed,
+        penaltiesCommitted,
     };
 }
 
@@ -401,7 +473,11 @@ export function mapPlayerMatchPerformance(
         goals: null,
         assists: null,
         yellowCards: null,
+        secondYellowCards: null,
         redCards: null,
+        saves: null,
+        penaltiesSaved: null,
+        penaltiesMissed: null,
         isStarter: null,
     };
 
@@ -431,10 +507,13 @@ export function mapPlayerMatchPerformance(
         })[0] ?? null;
     };
 
+    let playerTeamId: string | null = null;
+
     if (performanceDto?.players) {
         for (const teamTeam of performanceDto.players) {
             const matchPlayer = teamTeam.players?.find(p => String(p.player?.id) === playerId);
             if (matchPlayer && matchPlayer.statistics && matchPlayer.statistics.length > 0) {
+                playerTeamId = toId(teamTeam.team?.id);
                 const s = resolvePrimaryMatchStatistic(matchPlayer.statistics);
                 if (!s) {
                     continue;
@@ -445,7 +524,11 @@ export function mapPlayerMatchPerformance(
                     goals: normalizeNumber(s.goals?.total),
                     assists: normalizeNumber(s.goals?.assists),
                     yellowCards: normalizeNumber(s.cards?.yellow),
+                    secondYellowCards: normalizeNumber(s.cards?.yellowred),
                     redCards: normalizeNumber(s.cards?.red),
+                    saves: normalizeNumber(s.goals?.saves),
+                    penaltiesSaved: normalizeNumber(s.penalty?.saved),
+                    penaltiesMissed: normalizeNumber(s.penalty?.missed),
                     isStarter:
                         typeof s.games?.substitute === 'boolean'
                             ? s.games.substitute === false
@@ -464,6 +547,7 @@ export function mapPlayerMatchPerformance(
     return {
         fixtureId,
         date: normalizeString(fixtureDto.fixture.date),
+        playerTeamId,
         competition: {
             id: toId(fixtureDto.league?.id),
             name: normalizeString(fixtureDto.league?.name),

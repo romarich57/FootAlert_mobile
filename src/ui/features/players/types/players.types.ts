@@ -45,20 +45,42 @@ export type PlayerSeasonStats = {
     goals: number | null;
     assists: number | null;
     rating: string | null;
-    // Deep stats
+    // Tir
     shots: number | null;
     shotsOnTarget: number | null;
+    penaltyGoals: number | null;
+    // Passes
     passes: number | null;
     passesAccuracy: number | null;
+    keyPasses: number | null;
+    // Dribbles
+    dribblesAttempts: number | null;
+    dribblesSuccess: number | null;
+    // Défense
     tackles: number | null;
     interceptions: number | null;
+    blocks: number | null;
+    duelsTotal: number | null;
+    duelsWon: number | null;
+    // Discipline / Fautes
+    foulsCommitted: number | null;
+    foulsDrawn: number | null;
     yellowCards: number | null;
     redCards: number | null;
+    dribblesBeaten: number | null;
+    // Gardien
+    saves: number | null;
+    goalsConceded: number | null;
+    // Penalties
+    penaltiesWon: number | null;
+    penaltiesMissed: number | null;
+    penaltiesCommitted: number | null;
 };
 
 export type PlayerMatchPerformance = {
     fixtureId: string;
     date: string | null;
+    playerTeamId: string | null;
     competition: {
         id: string | null;
         name: string | null;
@@ -82,7 +104,11 @@ export type PlayerMatchPerformance = {
         goals: number | null;
         assists: number | null;
         yellowCards: number | null;
+        secondYellowCards: number | null;
         redCards: number | null;
+        saves: number | null;
+        penaltiesSaved: number | null;
+        penaltiesMissed: number | null;
         isStarter: boolean | null;
     };
 };
@@ -147,6 +173,7 @@ export type PlayerApiCareerAggregateResponse = {
 export type PlayerApiMatchPerformanceAggregateDto = {
     fixtureId?: string | number | null;
     date?: string | null;
+    playerTeamId?: string | number | null;
     competition?: {
         id?: string | number | null;
         name?: string | null;
@@ -170,7 +197,11 @@ export type PlayerApiMatchPerformanceAggregateDto = {
         goals?: number | null;
         assists?: number | null;
         yellowCards?: number | null;
+        secondYellowCards?: number | null;
         redCards?: number | null;
+        saves?: number | null;
+        penaltiesSaved?: number | null;
+        penaltiesMissed?: number | null;
         isStarter?: boolean | null;
     };
 };
@@ -384,6 +415,7 @@ export type PlayerApiMatchPerformanceDto = {
                 };
                 cards?: {
                     yellow?: number | null;
+                    yellowred?: number | null;
                     red?: number | null;
                 };
                 penalty?: {

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
@@ -8,12 +8,29 @@ import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerSeasonStats } from '@ui/features/players/types/players.types';
 import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
 import { ShotMap } from './ShotMap';
+import { StatBar } from './StatBar';
 
 type PlayerStatsTabProps = {
     stats: PlayerSeasonStats;
     leagueName: string | null;
     seasonText: string;
 };
+
+type StatMode = 'total' | 'per90';
+
+type StatRowConfig = {
+    label: string;
+    value: number | null;
+    max: number;
+    color: string;
+};
+
+function per90(value: number | null, minutes: number | null): number | null {
+    if (value === null || minutes === null || minutes <= 0) {
+        return null;
+    }
+    return Number((value / minutes * 90).toFixed(2));
+}
 
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
@@ -25,6 +42,7 @@ function createStyles(colors: ThemeColors) {
             paddingHorizontal: 20,
             paddingVertical: 24,
             gap: 20,
+            paddingBottom: 60,
         },
         dropdown: {
             flexDirection: 'row',
@@ -103,6 +121,58 @@ function createStyles(colors: ThemeColors) {
             fontSize: 20,
             fontWeight: '800',
         },
+        // Performances section
+        perfHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 4,
+        },
+        perfTitle: {
+            color: colors.text,
+            fontSize: 18,
+            fontWeight: '700',
+        },
+        perfSubtitle: {
+            color: colors.textMuted,
+            fontSize: 13,
+        },
+        toggleRow: {
+            flexDirection: 'row',
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 24,
+            padding: 3,
+            marginTop: 16,
+            marginBottom: 8,
+        },
+        toggleButton: {
+            flex: 1,
+            paddingVertical: 10,
+            alignItems: 'center',
+            borderRadius: 22,
+        },
+        toggleButtonActive: {
+            backgroundColor: colors.surface,
+        },
+        toggleText: {
+            color: colors.textMuted,
+            fontSize: 14,
+            fontWeight: '600',
+        },
+        toggleTextActive: {
+            color: colors.primary,
+        },
+        sectionTitle: {
+            color: colors.text,
+            fontSize: 16,
+            fontWeight: '700',
+            marginTop: 20,
+            marginBottom: 4,
+            paddingBottom: 8,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+        },
+        // Shot map area
         shotStatsRow: {
             flexDirection: 'row',
             justifyContent: 'space-between',
@@ -124,21 +194,112 @@ function createStyles(colors: ThemeColors) {
             fontWeight: '700',
             textTransform: 'uppercase',
             letterSpacing: 1,
-        }
+        },
     });
 }
+
+// Color constants
+const BAR_GREEN = '#22C55E';
+const BAR_ORANGE = '#F59E0B';
+const BAR_RED = '#EF4444';
+const BAR_BLUE = '#3B82F6';
 
 export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTabProps) {
     const { colors } = useAppTheme();
     const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const [mode, setMode] = useState<StatMode>('total');
 
     const accuracyPercent =
         typeof stats.shots === 'number' &&
-        typeof stats.shotsOnTarget === 'number' &&
-        stats.shots > 0
+            typeof stats.shotsOnTarget === 'number' &&
+            stats.shots > 0
             ? String(Math.round((stats.shotsOnTarget / stats.shots) * 100))
             : '';
+
+    // Helper to get stat value based on mode
+    const v = (value: number | null): number | null => {
+        if (mode === 'per90') {
+            return per90(value, stats.minutes);
+        }
+        return value;
+    };
+
+    // Compute max values per category to normalize bars
+    const maxOfArr = (...vals: (number | null)[]): number => {
+        const nums = vals.filter((n): n is number => n !== null && n > 0);
+        return nums.length > 0 ? Math.max(...nums) : 1;
+    };
+
+    // --- Category definitions ---
+    const tirRows: StatRowConfig[] = [
+        { label: 'Buts', value: v(stats.goals), max: maxOfArr(v(stats.goals), v(stats.shots), v(stats.shotsOnTarget)), color: BAR_GREEN },
+        { label: 'Buts sur penalty', value: v(stats.penaltyGoals), max: maxOfArr(v(stats.goals), v(stats.penaltyGoals)), color: BAR_GREEN },
+        { label: 'Tirs', value: v(stats.shots), max: maxOfArr(v(stats.shots)), color: BAR_BLUE },
+        { label: 'Tirs cadrés', value: v(stats.shotsOnTarget), max: maxOfArr(v(stats.shots)), color: BAR_GREEN },
+    ];
+
+    const passeRows: StatRowConfig[] = [
+        { label: 'Passes décisives', value: v(stats.assists), max: maxOfArr(v(stats.assists), v(stats.keyPasses)), color: BAR_GREEN },
+        { label: 'Passes clés', value: v(stats.keyPasses), max: maxOfArr(v(stats.keyPasses), v(stats.assists)), color: BAR_GREEN },
+        { label: 'Passes totales', value: v(stats.passes), max: maxOfArr(v(stats.passes)), color: BAR_BLUE },
+        { label: 'Précision passes (%)', value: stats.passesAccuracy, max: 100, color: BAR_GREEN },
+    ];
+
+    const dribbleRows: StatRowConfig[] = [
+        { label: 'Dribbles tentés', value: v(stats.dribblesAttempts), max: maxOfArr(v(stats.dribblesAttempts)), color: BAR_BLUE },
+        { label: 'Dribbles réussis', value: v(stats.dribblesSuccess), max: maxOfArr(v(stats.dribblesAttempts)), color: BAR_GREEN },
+    ];
+
+    const defenseRows: StatRowConfig[] = [
+        { label: 'Tacles', value: v(stats.tackles), max: maxOfArr(v(stats.tackles), v(stats.interceptions), v(stats.blocks)), color: BAR_GREEN },
+        { label: 'Interceptions', value: v(stats.interceptions), max: maxOfArr(v(stats.tackles), v(stats.interceptions)), color: BAR_GREEN },
+        { label: 'Tirs bloqués', value: v(stats.blocks), max: maxOfArr(v(stats.tackles), v(stats.blocks)), color: BAR_ORANGE },
+        { label: 'Duels gagnés', value: v(stats.duelsWon), max: maxOfArr(v(stats.duelsTotal)), color: BAR_GREEN },
+        { label: 'Duels totaux', value: v(stats.duelsTotal), max: maxOfArr(v(stats.duelsTotal)), color: BAR_BLUE },
+    ];
+
+    const disciplineRows: StatRowConfig[] = [
+        { label: 'Fautes commises', value: v(stats.foulsCommitted), max: maxOfArr(v(stats.foulsCommitted), v(stats.foulsDrawn)), color: BAR_ORANGE },
+        { label: 'Fautes subies', value: v(stats.foulsDrawn), max: maxOfArr(v(stats.foulsCommitted), v(stats.foulsDrawn)), color: BAR_GREEN },
+        { label: 'Dribbles subis', value: v(stats.dribblesBeaten), max: maxOfArr(v(stats.dribblesBeaten)), color: BAR_RED },
+        { label: 'Cartons jaunes', value: v(stats.yellowCards), max: maxOfArr(v(stats.yellowCards), v(stats.redCards), 10), color: BAR_ORANGE },
+        { label: 'Cartons rouges', value: v(stats.redCards), max: maxOfArr(v(stats.yellowCards), v(stats.redCards), 3), color: BAR_RED },
+    ];
+
+    // Goalkeeper section: only show if saves or goalsConceded are non-null
+    const hasGoalkeeperStats = stats.saves !== null || stats.goalsConceded !== null;
+    const gardienRows: StatRowConfig[] = hasGoalkeeperStats ? [
+        { label: 'Arrêts', value: v(stats.saves), max: maxOfArr(v(stats.saves), v(stats.goalsConceded)), color: BAR_GREEN },
+        { label: 'Buts encaissés', value: v(stats.goalsConceded), max: maxOfArr(v(stats.saves), v(stats.goalsConceded)), color: BAR_RED },
+    ] : [];
+
+    const penaltyRows: StatRowConfig[] = [
+        { label: 'Pénaltys obtenus', value: v(stats.penaltiesWon), max: maxOfArr(v(stats.penaltiesWon), v(stats.penaltiesMissed), v(stats.penaltiesCommitted)), color: BAR_GREEN },
+        { label: 'Pénaltys manqués', value: v(stats.penaltiesMissed), max: maxOfArr(v(stats.penaltiesWon), v(stats.penaltiesMissed)), color: BAR_RED },
+        { label: 'Pénaltys commis', value: v(stats.penaltiesCommitted), max: maxOfArr(v(stats.penaltiesCommitted)), color: BAR_ORANGE },
+    ];
+
+    const renderSection = (title: string, rows: StatRowConfig[]) => {
+        // If all values in section are null, skip
+        const hasData = rows.some(r => r.value !== null);
+        if (!hasData) { return null; }
+
+        return (
+            <>
+                <Text style={styles.sectionTitle}>{title}</Text>
+                {rows.map((row, idx) => (
+                    <StatBar
+                        key={`${title}-${idx}`}
+                        label={row.label}
+                        value={row.value}
+                        maxValue={row.max}
+                        barColor={row.color}
+                    />
+                ))}
+            </>
+        );
+    };
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentPadding}>
@@ -148,6 +309,7 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
                 <MaterialCommunityIcons name="chevron-down" size={24} color={colors.textMuted} />
             </Pressable>
 
+            {/* Summary Card */}
             <View style={styles.card}>
                 <View style={styles.topRowGrid}>
                     <View style={styles.statBox}>
@@ -180,6 +342,7 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
                 </View>
             </View>
 
+            {/* Shot Map */}
             <View style={styles.card}>
                 <ShotMap shots={[]} accuracy={accuracyPercent} />
 
@@ -202,6 +365,44 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
                     <Text style={styles.detailsLinkText}>{t('playerDetails.stats.labels.shotDetails')}</Text>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.primary} />
                 </Pressable>
+            </View>
+
+            {/* Performances de la saison */}
+            <View style={styles.card}>
+                <View style={styles.perfHeader}>
+                    <View>
+                        <Text style={styles.perfTitle}>Performances de la saison</Text>
+                        <Text style={styles.perfSubtitle}>Statistiques détaillées</Text>
+                    </View>
+                </View>
+
+                {/* Toggle Total / Par 90 min */}
+                <View style={styles.toggleRow}>
+                    <Pressable
+                        style={[styles.toggleButton, mode === 'total' && styles.toggleButtonActive]}
+                        onPress={() => setMode('total')}
+                    >
+                        <Text style={[styles.toggleText, mode === 'total' && styles.toggleTextActive]}>
+                            Total
+                        </Text>
+                    </Pressable>
+                    <Pressable
+                        style={[styles.toggleButton, mode === 'per90' && styles.toggleButtonActive]}
+                        onPress={() => setMode('per90')}
+                    >
+                        <Text style={[styles.toggleText, mode === 'per90' && styles.toggleTextActive]}>
+                            Par 90 min
+                        </Text>
+                    </Pressable>
+                </View>
+
+                {renderSection('Tir', tirRows)}
+                {renderSection('Passe', passeRows)}
+                {renderSection('Dribbles', dribbleRows)}
+                {renderSection('Défense', defenseRows)}
+                {renderSection('Discipline', disciplineRows)}
+                {gardienRows.length > 0 && renderSection('Gardien', gardienRows)}
+                {renderSection('Penalty', penaltyRows)}
             </View>
 
         </ScrollView>
