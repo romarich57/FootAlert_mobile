@@ -32,6 +32,8 @@ type MatchesFilterBottomSheetProps = {
     onClose: () => void;
 };
 
+type MatchesFilterStyles = ReturnType<typeof createStyles>;
+
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
         overlay: {
@@ -109,6 +111,24 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
+type RadioOptionProps = {
+    label: string;
+    selected: boolean;
+    onPress: () => void;
+    styles: MatchesFilterStyles;
+};
+
+function RadioOption({ label, selected, onPress, styles }: RadioOptionProps) {
+    return (
+        <Pressable style={styles.optionRow} onPress={onPress}>
+            <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+                {selected && <View style={styles.radioInner} />}
+            </View>
+            <Text style={styles.optionText}>{label}</Text>
+        </Pressable>
+    );
+}
+
 export function MatchesFilterBottomSheet({
     visible,
     initialState,
@@ -134,23 +154,6 @@ export function MatchesFilterBottomSheet({
         onClose();
     };
 
-    const RadioOption = ({
-        label,
-        selected,
-        onPress,
-    }: {
-        label: string;
-        selected: boolean;
-        onPress: () => void;
-    }) => (
-        <Pressable style={styles.optionRow} onPress={onPress}>
-            <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
-                {selected && <View style={styles.radioInner} />}
-            </View>
-            <Text style={styles.optionText}>{label}</Text>
-        </Pressable>
-    );
-
     return (
         <Modal
             visible={visible}
@@ -170,21 +173,25 @@ export function MatchesFilterBottomSheet({
                             label={t('competitionDetails.matches.sortDateAsc')}
                             selected={state.sortBy === 'date_asc'}
                             onPress={() => setState({ ...state, sortBy: 'date_asc' })}
+                            styles={styles}
                         />
                         <RadioOption
                             label={t('competitionDetails.matches.sortDateDesc')}
                             selected={state.sortBy === 'date_desc'}
                             onPress={() => setState({ ...state, sortBy: 'date_desc' })}
+                            styles={styles}
                         />
                         <RadioOption
                             label={t('competitionDetails.matches.sortRoundAsc')}
                             selected={state.sortBy === 'round_asc'}
                             onPress={() => setState({ ...state, sortBy: 'round_asc' })}
+                            styles={styles}
                         />
                         <RadioOption
                             label={t('competitionDetails.matches.sortRoundDesc')}
                             selected={state.sortBy === 'round_desc'}
                             onPress={() => setState({ ...state, sortBy: 'round_desc' })}
+                            styles={styles}
                         />
 
                         <Text style={styles.sectionTitle}>{t('competitionDetails.matches.filterTeam')}</Text>
@@ -192,6 +199,7 @@ export function MatchesFilterBottomSheet({
                             label={t('competitionDetails.matches.allTeams')}
                             selected={state.teamId === null}
                             onPress={() => setState({ ...state, teamId: null })}
+                            styles={styles}
                         />
                         {teams.map(team => (
                             <RadioOption
@@ -199,6 +207,7 @@ export function MatchesFilterBottomSheet({
                                 label={team.name}
                                 selected={state.teamId === team.id}
                                 onPress={() => setState({ ...state, teamId: team.id })}
+                                styles={styles}
                             />
                         ))}
                     </ScrollView>

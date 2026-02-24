@@ -49,6 +49,17 @@ const trendsQuerySchema = z
   })
   .strict();
 
+type PlayerProfilesResponse = {
+  response?: Array<{
+    player?: {
+      id?: number;
+      name?: string;
+      photo?: string;
+      position?: string;
+    };
+  }>;
+};
+
 async function mapWithConcurrency<T, U>(
   items: T[],
   concurrency: number,
@@ -87,11 +98,11 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
     const query = parseOrThrow(searchPlayersQuerySchema, request.query);
 
     return withCache(`follows:search:players-profiles:${request.url}`, 60_000, async () => {
-      const result = await apiFootballGet<any>(
+      const result = await apiFootballGet<PlayerProfilesResponse>(
         `/players/profiles?search=${encodeURIComponent(query.q)}`,
       );
 
-      const mapped = (result.response || []).map((item: any) => ({
+      const mapped = (result.response ?? []).map(item => ({
         player: {
           id: item.player?.id,
           name: item.player?.name,

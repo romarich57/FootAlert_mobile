@@ -108,6 +108,21 @@ export function useFollowsScreenModel() {
     localPlayers,
   });
 
+  const lastUpdatedAt = useMemo(() => {
+    const maxUpdatedAt = Math.max(
+      teamCardsQuery.dataUpdatedAt,
+      playerCardsQuery.dataUpdatedAt,
+      trendsQuery.dataUpdatedAt,
+      search.dataUpdatedAt,
+    );
+    return maxUpdatedAt > 0 ? maxUpdatedAt : null;
+  }, [
+    playerCardsQuery.dataUpdatedAt,
+    search.dataUpdatedAt,
+    teamCardsQuery.dataUpdatedAt,
+    trendsQuery.dataUpdatedAt,
+  ]);
+
   const toggleSearchVisibility = useCallback(() => {
     setIsSearchVisible(prev => {
       if (prev) {
@@ -178,5 +193,6 @@ export function useFollowsScreenModel() {
     updateHideTrends,
     asTeamTrends,
     asPlayerTrends,
+    lastUpdatedAt,
   };
 }

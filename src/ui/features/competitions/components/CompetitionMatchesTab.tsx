@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator, Pressable } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -179,7 +179,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
         teamId: null,
     });
 
-    const flashListRef = useRef<any>(null);
+    const flashListRef = useRef<FlashListRef<ListItem>>(null);
     const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
 
     const uniqueTeams = useMemo(() => {

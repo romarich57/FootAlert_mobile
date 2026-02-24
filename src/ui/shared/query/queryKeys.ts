@@ -1,12 +1,83 @@
 import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
 
+type CompetitionPlayerStatType = 'goals' | 'assists' | 'yellowCards' | 'redCards';
+
 export const queryKeys = {
   matches: (date: string, timezone: string) => ['matches', date, timezone] as const,
+  matchDetails: (matchId: string, timezone: string) =>
+    ['match_details', matchId, timezone] as const,
+  teams: {
+    details: (teamId: string) => ['teams', 'details', teamId] as const,
+    leagues: (teamId: string) => ['teams', 'leagues', teamId] as const,
+    overview: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+      timezone: string,
+    ) => ['team_overview', teamId, leagueId, season, timezone] as const,
+    matches: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+      timezone: string,
+    ) => ['team_matches', teamId, leagueId, season, timezone] as const,
+    standings: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+    ) => ['team_standings', teamId, leagueId, season] as const,
+    stats: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+    ) => ['team_stats', teamId, leagueId, season] as const,
+    transfers: (teamId: string, season: number | null) =>
+      ['team_transfers', teamId, season] as const,
+    squad: (teamId: string) => ['team_squad', teamId] as const,
+    trophies: (teamId: string) => ['team_trophies', teamId] as const,
+  },
+  players: {
+    details: (playerId: string, season: number) => ['player_details', playerId, season] as const,
+    stats: (playerId: string, season: number) => ['player_stats', playerId, season] as const,
+    trophies: (playerId: string) => ['player_trophies', playerId] as const,
+    careerAggregate: (playerId: string) => ['player_career_aggregate', playerId] as const,
+    matchesAggregate: (
+      playerId: string,
+      teamId: string,
+      season: number,
+    ) => ['player_matches_aggregate', playerId, teamId, season] as const,
+    matchesLegacy: (
+      playerId: string,
+      teamId: string,
+      season: number,
+    ) => ['player_matches', playerId, teamId, season, 'legacy'] as const,
+  },
   competitions: {
     catalog: () => ['competitions', 'catalog'] as const,
     search: (query: string) => ['competitions', 'search', query] as const,
+    detailsHeader: (competitionId: string) =>
+      ['competitions', 'details', 'header', competitionId] as const,
     followedIds: () => ['competitions', 'followed-ids'] as const,
     followedDetails: (ids: string[]) => ['competitions', 'followed-details', ...ids] as const,
+    fixtures: (leagueId: number | undefined, season: number | undefined) =>
+      ['competition_fixtures', leagueId, season] as const,
+    standings: (leagueId: number | undefined, season: number | undefined) =>
+      ['competition_standings', leagueId, season] as const,
+    transfers: (leagueId: number | undefined, season: number | undefined) =>
+      ['competition_transfers', leagueId, season] as const,
+    seasons: (leagueId: number | undefined) => ['competition_seasons', leagueId] as const,
+    playerStats: (
+      leagueId: number | undefined,
+      season: number | undefined,
+      statType: CompetitionPlayerStatType,
+    ) => ['competition_player_stats', leagueId, season, statType] as const,
+    teamStats: (leagueId: number | undefined, season: number | undefined) =>
+      ['competition_team_stats', leagueId, season] as const,
+    totw: (
+      leagueId: number | undefined,
+      season: number | undefined,
+      round: string | undefined,
+    ) => ['competition_totw', leagueId, season, round] as const,
   },
   follows: {
     followedTeamIds: () => ['follows', 'followed-team-ids'] as const,

@@ -107,12 +107,19 @@ export function useCompetitions() {
   const refresh = useCallback(async () => {
     await catalogQuery.refetch();
   }, [catalogQuery]);
+
+  const lastUpdatedAt = useMemo(() => {
+    const maxUpdatedAt = Math.max(catalogQuery.dataUpdatedAt, searchQuery.dataUpdatedAt);
+    return maxUpdatedAt > 0 ? maxUpdatedAt : null;
+  }, [catalogQuery.dataUpdatedAt, searchQuery.dataUpdatedAt]);
+
   return {
     countries,
     suggestedCompetitions,
     searchResults,
     isSearching: searchQuery.isFetching,
     isLoading: catalogQuery.isLoading,
+    lastUpdatedAt,
     searchLeagues,
     refresh,
   };

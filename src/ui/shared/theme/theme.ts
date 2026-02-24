@@ -63,3 +63,6 @@ export const darkThemeColors: ThemeColors = {
   adGradientStart: '#0C8A44',
   adGradientEnd: '#020303',
 };
+
+export const MIN_TOUCH_TARGET = 44;
+export const DEFAULT_HIT_SLOP = 10;

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { IconActionButton } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { Competition } from '@ui/features/competitions/types/competitions.types';
 
@@ -44,12 +45,7 @@ function createStyles(colors: ThemeColors, topInset: number) {
             textAlign: 'center',
         },
         iconButton: {
-            width: 40,
-            height: 40,
-            borderRadius: 20,
             backgroundColor: colors.surface,
-            alignItems: 'center',
-            justifyContent: 'center',
         },
         profileSection: {
             alignItems: 'center',
@@ -132,21 +128,29 @@ export function CompetitionHeader({
     return (
         <View style={styles.container}>
             <View style={styles.topBar}>
-                <Pressable onPress={onBack} hitSlop={10} style={styles.iconButton}>
+                <IconActionButton
+                    accessibilityLabel={t('actions.back')}
+                    onPress={onBack}
+                    style={styles.iconButton}
+                >
                     <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-                </Pressable>
+                </IconActionButton>
 
                 <Text style={styles.navTitle} numberOfLines={1}>
                     {displayValue(competition.name)}
                 </Text>
 
-                <Pressable onPress={onToggleFollow} hitSlop={10} style={styles.iconButton}>
+                <IconActionButton
+                    accessibilityLabel={t('actions.openNotifications')}
+                    onPress={onToggleFollow}
+                    style={styles.iconButton}
+                >
                     <MaterialCommunityIcons
                         name={isFollowed ? "bell-ring" : "bell-outline"}
                         size={24}
                         color={isFollowed ? colors.primary : colors.text}
                     />
-                </Pressable>
+                </IconActionButton>
             </View>
 
             <View style={styles.profileSection}>

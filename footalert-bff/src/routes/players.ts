@@ -71,40 +71,44 @@ type PlayerFixtureStatsDto = {
     name?: string;
     logo?: string;
   };
-  players?: Array<{
-    player?: {
-      id?: number;
+  players?: Array<PlayerFixturePlayerEntry | PlayerFixturePlayersWrapper>;
+};
+
+type PlayerFixturePlayerEntry = {
+  player?: {
+    id?: number;
+  };
+  statistics?: Array<{
+    games?: {
+      minutes?: number;
+      rating?: string | null;
+      substitute?: boolean;
     };
-    statistics?: Array<{
-      games?: {
-        minutes?: number;
-        rating?: string | null;
-        substitute?: boolean;
-      };
-      goals?: {
-        total?: number | null;
-        assists?: number | null;
-        saves?: number | null;
-      };
-      cards?: {
-        yellow?: number | null;
-        yellowred?: number | null;
-        red?: number | null;
-      };
-      penalty?: {
-        won?: number | null;
-        commited?: number | null;
-        scored?: number | null;
-        missed?: number | null;
-        saved?: number | null;
-      };
-    }>;
+    goals?: {
+      total?: number | null;
+      assists?: number | null;
+      saves?: number | null;
+    };
+    cards?: {
+      yellow?: number | null;
+      yellowred?: number | null;
+      red?: number | null;
+    };
+    penalty?: {
+      won?: number | null;
+      commited?: number | null;
+      scored?: number | null;
+      missed?: number | null;
+      saved?: number | null;
+    };
   }>;
 };
 
-type PlayerFixtureStat = NonNullable<
-  NonNullable<PlayerFixtureStatsDto['players']>[number]['statistics']
->[number];
+type PlayerFixturePlayersWrapper = {
+  players?: PlayerFixturePlayerEntry[];
+};
+
+type PlayerFixtureStat = NonNullable<PlayerFixturePlayerEntry['statistics']>[number];
 
 type PlayerCareerSeasonAggregate = {
   season: string | null;
@@ -263,6 +267,36 @@ function toSeasonYear(value: string | null | undefined): number {
 
 function toComparableNumber(value: number | null, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function extractPlayerStatisticsCandidates(
+  performanceDto: PlayerFixtureStatsDto | null,
+): PlayerFixturePlayerEntry[] {
+  if (!Array.isArray(performanceDto?.players)) {
+    return [];
+  }
+
+  const candidates: PlayerFixturePlayerEntry[] = [];
+
+  performanceDto.players.forEach(group => {
+    const directEntry = group as PlayerFixturePlayerEntry;
+    if (directEntry.player || Array.isArray(directEntry.statistics)) {
+      candidates.push(directEntry);
+    }
+
+    const nestedEntries = (group as PlayerFixturePlayersWrapper).players;
+    if (!Array.isArray(nestedEntries)) {
+      return;
+    }
+
+    nestedEntries.forEach(entry => {
+      if (entry.player || Array.isArray(entry.statistics)) {
+        candidates.push(entry);
+      }
+    });
+  });
+
+  return candidates;
 }
 
 function compareCareerSeasonsDesc(
@@ -579,7 +613,8 @@ export function mapPlayerMatchPerformance(
   };
 
   if (performanceDto?.players) {
-    const foundPlayer = performanceDto.players.find(
+    const normalizedCandidates = extractPlayerStatisticsCandidates(performanceDto);
+    const foundPlayer = normalizedCandidates.find(
       candidate => String(candidate.player?.id) === playerId,
     );
 

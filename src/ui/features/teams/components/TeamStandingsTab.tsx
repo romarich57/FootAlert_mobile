@@ -13,6 +13,7 @@ type TeamStandingsTabProps = {
   data: TeamStandingsData | undefined;
   isLoading: boolean;
   isError: boolean;
+  hasFetched?: boolean;
   onRetry: () => void;
 };
 
@@ -102,6 +103,9 @@ function createStyles(colors: ThemeColors) {
       color: colors.textMuted,
       fontSize: 15,
       fontWeight: '600',
+    },
+    emptyWrap: {
+      paddingTop: 20,
     },
     retryText: {
       color: colors.primary,
@@ -363,7 +367,13 @@ const StandingRowItem = memo(function StandingRowItem({
   );
 });
 
-export function TeamStandingsTab({ data, isLoading, isError, onRetry }: TeamStandingsTabProps) {
+export function TeamStandingsTab({
+  data,
+  isLoading,
+  isError,
+  hasFetched = true,
+  onRetry,
+}: TeamStandingsTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -500,9 +510,11 @@ export function TeamStandingsTab({ data, isLoading, isError, onRetry }: TeamStan
           // @ts-ignore
           estimatedItemSize={50}
           ListEmptyComponent={
-            <View style={{ paddingTop: 20 }}>
-              <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-            </View>
+            hasFetched ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+              </View>
+            ) : null
           }
         />
       ) : null}

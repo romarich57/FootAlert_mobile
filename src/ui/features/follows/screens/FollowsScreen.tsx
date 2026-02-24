@@ -13,12 +13,14 @@ import {
   FollowsTrendRow,
 } from '@ui/features/follows/components';
 import { useFollowsScreenModel } from '@ui/features/follows/hooks/useFollowsScreenModel';
+import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 import type {
   FollowsSearchResultPlayer,
   FollowsSearchResultTeam,
   TrendPlayerItem,
   TrendTeamItem,
 } from '@ui/features/follows/types/follows.types';
+import { useOfflineUiState } from '@ui/shared/hooks';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
@@ -97,6 +99,11 @@ function createStyles(colors: ThemeColors) {
     stateContainer: {
       paddingHorizontal: 20,
       paddingVertical: 24,
+    },
+    offlineStateContainer: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 8,
     },
     stateText: {
       color: colors.textMuted,
@@ -195,6 +202,19 @@ export function FollowsScreen() {
     ],
   );
 
+  const hasFeedData = useMemo(
+    () => feedItems.some(item => item.type !== 'empty'),
+    [feedItems],
+  );
+  const offlineUi = useOfflineUiState({
+    hasData: hasFeedData,
+    isLoading: model.isSectionLoading || model.search.isLoading,
+    lastUpdatedAt: model.lastUpdatedAt,
+  });
+  const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
+    ? new Date(offlineUi.lastUpdatedAt).toISOString()
+    : null;
+
   const renderItem: ListRenderItem<FollowsFeedItem> = ({ item }) => {
     if (item.type === 'empty') {
       return <Text style={styles.infoText}>{item.message}</Text>;
@@ -285,6 +305,12 @@ export function FollowsScreen() {
         </Text>
       ) : null}
 
+      {offlineUi.showOfflineBanner ? (
+        <View style={styles.offlineStateContainer}>
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
+
       {model.search.hasEnoughChars ? null : (
         <>
           <FollowsFollowedSection
@@ -348,12 +374,24 @@ export function FollowsScreen() {
     </>
   );
 
+  if (offlineUi.showOfflineNoCache) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.stateContainer}>
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlashList
         data={feedItems}
         keyExtractor={item => item.key}
         renderItem={renderItem}
+        // @ts-ignore FlashList runtime supports estimatedItemSize.
+        estimatedItemSize={280}
         ListHeaderComponent={listHeaderComponent}
         contentContainerStyle={styles.listContent}
       />

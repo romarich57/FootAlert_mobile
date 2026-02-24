@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useMemo } from 'react';
+import type { UseQueryResult } from '@tanstack/react-query';
 
 import {
   TeamMatchesTab,
@@ -10,7 +11,17 @@ import { TeamStandingsTab } from '@ui/features/teams/components/TeamStandingsTab
 import { TeamStatsTab } from '@ui/features/teams/components/TeamStatsTab';
 import { TeamTrophiesTab } from '@ui/features/teams/components/TeamTrophiesTab';
 import { TeamTransfersTab } from '@ui/features/teams/components/TeamTransfersTab';
-import type { TeamDetailsTab, TeamIdentity } from '@ui/features/teams/types/teams.types';
+import type {
+  TeamDetailsTab,
+  TeamIdentity,
+  TeamMatchesData,
+  TeamOverviewData,
+  TeamSquadData,
+  TeamStandingsData,
+  TeamStatsData,
+  TeamTrophiesData,
+  TeamTransfersData,
+} from '@ui/features/teams/types/teams.types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
@@ -47,13 +58,13 @@ type TeamDetailsTabContentProps = {
   onPressMatch: (matchId: string) => void;
   onPressTeam: (teamId: string) => void;
   onPressPlayer: (playerId: string) => void;
-  overviewQuery: any;
-  matchesQuery: any;
-  standingsQuery: any;
-  statsQuery: any;
-  transfersQuery: any;
-  squadQuery: any;
-  trophiesQuery: any;
+  overviewQuery: UseQueryResult<TeamOverviewData>;
+  matchesQuery: UseQueryResult<TeamMatchesData>;
+  standingsQuery: UseQueryResult<TeamStandingsData>;
+  statsQuery: UseQueryResult<TeamStatsData>;
+  transfersQuery: UseQueryResult<TeamTransfersData>;
+  squadQuery: UseQueryResult<TeamSquadData>;
+  trophiesQuery: UseQueryResult<TeamTrophiesData>;
 };
 
 export function TeamDetailsTabContent({
@@ -130,6 +141,7 @@ export function TeamDetailsTabContent({
         data={standingsQuery.data}
         isLoading={standingsQuery.isLoading}
         isError={standingsQuery.isError}
+        hasFetched={standingsQuery.isFetched}
         onRetry={() => standingsQuery.refetch().catch(() => undefined)}
       />
     );
@@ -178,6 +190,7 @@ export function TeamDetailsTabContent({
       data={trophiesQuery.data}
       isLoading={trophiesQuery.isLoading}
       isError={trophiesQuery.isError}
+      hasFetched={trophiesQuery.isFetched}
       onRetry={() => trophiesQuery.refetch().catch(() => undefined)}
     />
   );

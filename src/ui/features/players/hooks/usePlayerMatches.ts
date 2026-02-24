@@ -8,9 +8,8 @@ import {
 } from '@data/endpoints/playersApi';
 import { mapPlayerMatchPerformance } from '@data/mappers/playersMapper';
 import type { PlayerMatchPerformance } from '@ui/features/players/types/players.types';
-
-export const PLAYER_MATCHES_QUERY_KEY = 'player_matches';
-export const PLAYER_MATCHES_AGGREGATE_QUERY_KEY = 'player_matches_aggregate';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 export function usePlayerMatches(
   playerId: string,
@@ -21,15 +20,15 @@ export function usePlayerMatches(
   const useAggregateEndpoint = appEnv.mobileEnableBffPlayerAggregates;
 
   const aggregateQuery = useQuery({
-    queryKey: [PLAYER_MATCHES_AGGREGATE_QUERY_KEY, playerId, teamId, season],
+    queryKey: queryKeys.players.matchesAggregate(playerId, teamId, season),
     queryFn: async ({ signal }) =>
       fetchPlayerMatchesAggregate(playerId, teamId, season, 15, signal),
     enabled: enabled && useAggregateEndpoint && !!playerId && !!teamId && !!season,
-    staleTime: 5 * 60 * 1000,
+    ...featureQueryOptions.players.matches,
   });
 
   const legacyMatchesQuery = useQuery({
-    queryKey: [PLAYER_MATCHES_QUERY_KEY, playerId, teamId, season, 'legacy'],
+    queryKey: queryKeys.players.matchesLegacy(playerId, teamId, season),
     queryFn: async ({ signal }) => {
       const fixtures = await fetchTeamFixtures(teamId, season, 15, signal);
 
@@ -58,7 +57,7 @@ export function usePlayerMatches(
       );
     },
     enabled: enabled && !useAggregateEndpoint && !!playerId && !!teamId && !!season,
-    staleTime: 5 * 60 * 1000,
+    ...featureQueryOptions.players.matches,
   });
 
   const activeQuery = useAggregateEndpoint ? aggregateQuery : legacyMatchesQuery;
@@ -67,6 +66,7 @@ export function usePlayerMatches(
     matches: activeQuery.data ?? [],
     isLoading: activeQuery.isLoading,
     isError: activeQuery.isError,
+    dataUpdatedAt: activeQuery.dataUpdatedAt,
     refetch: activeQuery.refetch,
   };
 }

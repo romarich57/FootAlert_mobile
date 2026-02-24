@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchTeamFixtures } from '@data/endpoints/teamsApi';
 import { mapFixturesToTeamMatches } from '@data/mappers/teamsMapper';
 import type { TeamMatchesData } from '@ui/features/teams/types/teams.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type UseTeamMatchesParams = {
   teamId: string;
@@ -11,8 +13,6 @@ type UseTeamMatchesParams = {
   timezone: string;
   enabled?: boolean;
 };
-
-export const TEAM_MATCHES_QUERY_KEY = 'team_matches';
 
 const EMPTY_TEAM_MATCHES: TeamMatchesData = {
   all: [],
@@ -29,9 +29,9 @@ export function useTeamMatches({
   enabled = true,
 }: UseTeamMatchesParams) {
   return useQuery({
-    queryKey: [TEAM_MATCHES_QUERY_KEY, teamId, leagueId, season, timezone],
+    queryKey: queryKeys.teams.matches(teamId, leagueId, season, timezone),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
-    staleTime: 30_000,
+    ...featureQueryOptions.teams.matches,
     queryFn: async ({ signal }): Promise<TeamMatchesData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {
         return EMPTY_TEAM_MATCHES;

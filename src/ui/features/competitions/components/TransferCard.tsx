@@ -6,7 +6,11 @@ import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { Transfer } from '../types/competitions.types';
 
-function formatRelativeDate(value: string, locale: string, t: (key: string, options?: any) => string): string {
+function formatRelativeDate(
+    value: string,
+    locale: string,
+    t: (key: string, options?: Record<string, unknown>) => string,
+): string {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {
         return value;

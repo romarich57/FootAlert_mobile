@@ -1,0 +1,38 @@
+name: BFF Quality
+
+on:
+  push:
+    paths:
+      - footalert-bff/**
+      - .github/workflows/bff-quality.yml
+  pull_request:
+    paths:
+      - footalert-bff/**
+      - .github/workflows/bff-quality.yml
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: footalert-bff
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+          cache-dependency-path: footalert-bff/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm run test -- --test-concurrency=1

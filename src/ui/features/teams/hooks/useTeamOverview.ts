@@ -17,6 +17,8 @@ import {
   mapTrophiesToTeamTrophies,
 } from '@data/mappers/teamsMapper';
 import type { TeamOverviewData } from '@ui/features/teams/types/teams.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type UseTeamOverviewParams = {
   teamId: string;
@@ -25,8 +27,6 @@ type UseTeamOverviewParams = {
   timezone: string;
   enabled?: boolean;
 };
-
-export const TEAM_OVERVIEW_QUERY_KEY = 'team_overview';
 
 const EMPTY_OVERVIEW: TeamOverviewData = {
   nextMatch: null,
@@ -52,9 +52,9 @@ export function useTeamOverview({
   enabled = true,
 }: UseTeamOverviewParams) {
   return useQuery({
-    queryKey: [TEAM_OVERVIEW_QUERY_KEY, teamId, leagueId, season, timezone],
+    queryKey: queryKeys.teams.overview(teamId, leagueId, season, timezone),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
-    staleTime: 45_000,
+    ...featureQueryOptions.teams.overview,
     queryFn: async ({ signal }): Promise<TeamOverviewData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {
         return EMPTY_OVERVIEW;

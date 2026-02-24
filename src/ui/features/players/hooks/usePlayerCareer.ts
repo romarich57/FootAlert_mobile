@@ -1,16 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchPlayerCareerAggregate } from '@data/endpoints/playersApi';
-import type { PlayerCareerSeason, PlayerCareerTeam } from '@ui/features/players/types/players.types';
-
-export const PLAYER_CAREER_AGGREGATE_QUERY_KEY = 'player_career_aggregate';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 export function usePlayerCareer(playerId: string, enabled: boolean = true) {
   const aggregateCareerQuery = useQuery({
-    queryKey: [PLAYER_CAREER_AGGREGATE_QUERY_KEY, playerId],
+    queryKey: queryKeys.players.careerAggregate(playerId),
     queryFn: async ({ signal }) => fetchPlayerCareerAggregate(playerId, signal),
     enabled: enabled && !!playerId,
-    staleTime: 60 * 60 * 1000,
+    ...featureQueryOptions.players.career,
   });
 
   return {
@@ -18,6 +17,7 @@ export function usePlayerCareer(playerId: string, enabled: boolean = true) {
     careerTeams: aggregateCareerQuery.data?.teams ?? [],
     isLoading: aggregateCareerQuery.isLoading,
     isError: aggregateCareerQuery.isError,
+    dataUpdatedAt: aggregateCareerQuery.dataUpdatedAt,
     refetch: () => {
       aggregateCareerQuery.refetch();
     },

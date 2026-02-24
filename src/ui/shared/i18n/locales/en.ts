@@ -6,6 +6,9 @@ export const en = {
     more: 'More',
   },
   actions: {
+    back: 'Back',
+    share: 'Share',
+    openNotifications: 'Open notifications',
     retry: 'Retry',
     cancel: 'Cancel',
     save: 'Save',

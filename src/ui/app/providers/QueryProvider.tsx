@@ -13,7 +13,9 @@ import type { PropsWithChildren } from 'react';
 import { useMemo, useState } from 'react';
 
 import {
+  APP_CACHE_SCHEMA_VERSION,
   defaultQueryOptions,
+  QUERY_PERSIST_CACHE_KEY,
   QUERY_PERSIST_MAX_AGE_MS,
 } from '@ui/shared/query/queryOptions';
 
@@ -63,7 +65,7 @@ export function QueryProvider({
     () =>
       createAsyncStoragePersister({
         storage: AsyncStorage,
-        key: 'footalert-query-cache-v1',
+        key: QUERY_PERSIST_CACHE_KEY,
       }),
     [],
   );
@@ -78,6 +80,7 @@ export function QueryProvider({
       persistOptions={{
         persister,
         maxAge: QUERY_PERSIST_MAX_AGE_MS,
+        buster: APP_CACHE_SCHEMA_VERSION,
       }}
     >
       {children}

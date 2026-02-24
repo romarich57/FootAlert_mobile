@@ -1,14 +1,8 @@
-import fs from 'fs';
-import { mapStandingsToTeamData } from './src/data/mappers/teamsMapper.ts';
+import { mapStandingsToTeamData } from './src/data/mappers/teamsMapper';
+import type { TeamApiStandingsDto } from './src/ui/features/teams/types/teams.types';
 
-const payloadJson = {
+const payloadJson: TeamApiStandingsDto = {
     "league": {
-        "id": 61,
-        "name": "Ligue 1",
-        "country": "France",
-        "logo": "https://media.api-sports.io/football/leagues/61.png",
-        "flag": "https://media.api-sports.io/flags/fr.svg",
-        "season": 2023,
         "standings": [
             [
                 {
@@ -21,8 +15,7 @@ const payloadJson = {
                     "points": 76,
                     "goalsDiff": 48,
                     "group": "Ligue 1",
-                    "form": "WWLWL",
-                    "status": "same"
+                    "form": "WWLWL"
                 }
             ]
         ]
@@ -30,7 +23,7 @@ const payloadJson = {
 };
 
 try {
-    const result = mapStandingsToTeamData(payloadJson as any, "85");
+    const result = mapStandingsToTeamData(payloadJson, "85");
     console.log("Mapped Standings:", JSON.stringify(result, null, 2));
 } catch (e) {
     console.error("Error mapping standings:", e);

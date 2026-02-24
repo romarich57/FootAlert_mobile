@@ -22,6 +22,10 @@ import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions'
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
 
+function isLeagueCompetition(type: string | null | undefined): boolean {
+  return (type ?? '').trim().toLowerCase() === 'league';
+}
+
 export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
   const navigation = useNavigation<TeamDetailsNavigation>();
@@ -52,20 +56,22 @@ export function useTeamDetailsScreenModel() {
     setSeason,
     isLoading: isContextLoading,
     isError: isContextError,
+    lastUpdatedAt: contextLastUpdatedAt,
+    hasCachedData: hasContextCachedData,
     refetch: refetchContext,
   } = useTeamContext({ teamId });
 
   const hasLeagueSelection = Boolean(selectedLeagueId) && typeof selectedSeason === 'number';
 
   const standingsCompetitions = useMemo(
-    () => competitions.filter(c => c.type === 'League'),
+    () => competitions.filter(c => isLeagueCompetition(c.type)),
     [competitions]
   );
 
   useEffect(() => {
     if (activeTab === 'standings' && selectedLeagueId) {
       const currentComp = competitions.find(c => c.leagueId === selectedLeagueId);
-      if (currentComp && currentComp.type !== 'League' && standingsCompetitions.length > 0) {
+      if (currentComp && !isLeagueCompetition(currentComp.type) && standingsCompetitions.length > 0) {
         setLeague(standingsCompetitions[0].leagueId);
       }
     }
@@ -116,6 +122,52 @@ export function useTeamDetailsScreenModel() {
     teamId,
     enabled: visitedTabs.trophies,
   });
+
+  useEffect(() => {
+    if (activeTab !== 'standings') {
+      return;
+    }
+
+    if (!selectedLeagueId || typeof selectedSeason !== 'number') {
+      return;
+    }
+
+    if (standingsQuery.isLoading || standingsQuery.isError) {
+      return;
+    }
+
+    const hasRows = (standingsQuery.data?.groups ?? []).some(group => group.rows.length > 0);
+    if (hasRows) {
+      return;
+    }
+
+    const selectedCompetition = standingsCompetitions.find(c => c.leagueId === selectedLeagueId);
+    if (!selectedCompetition) {
+      return;
+    }
+
+    const currentSeasonIndex = selectedCompetition.seasons.indexOf(selectedSeason);
+    if (currentSeasonIndex === -1) {
+      return;
+    }
+
+    const fallbackSeason = selectedCompetition.seasons
+      .slice(currentSeasonIndex + 1)
+      .find(season => season !== selectedSeason);
+
+    if (typeof fallbackSeason === 'number') {
+      setSeason(fallbackSeason);
+    }
+  }, [
+    activeTab,
+    selectedLeagueId,
+    selectedSeason,
+    standingsQuery.data,
+    standingsQuery.isError,
+    standingsQuery.isLoading,
+    standingsCompetitions,
+    setSeason,
+  ]);
 
   const handleChangeTab = useCallback((tab: TeamDetailsTab) => {
     setActiveTab(tab);
@@ -171,6 +223,62 @@ export function useTeamDetailsScreenModel() {
     [t],
   );
 
+  const activeTabDataUpdatedAt = useMemo(() => {
+    if (activeTab === 'overview') {
+      return overviewQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'matches') {
+      return matchesQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'standings') {
+      return standingsQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'stats') {
+      return statsQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'transfers') {
+      return transfersQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'squad') {
+      return squadQuery.dataUpdatedAt;
+    }
+    return trophiesQuery.dataUpdatedAt;
+  }, [
+    activeTab,
+    matchesQuery.dataUpdatedAt,
+    overviewQuery.dataUpdatedAt,
+    squadQuery.dataUpdatedAt,
+    standingsQuery.dataUpdatedAt,
+    statsQuery.dataUpdatedAt,
+    transfersQuery.dataUpdatedAt,
+    trophiesQuery.dataUpdatedAt,
+  ]);
+
+  const lastUpdatedAt = useMemo(() => {
+    const maxUpdatedAt = Math.max(
+      contextLastUpdatedAt ?? 0,
+      overviewQuery.dataUpdatedAt,
+      matchesQuery.dataUpdatedAt,
+      standingsQuery.dataUpdatedAt,
+      statsQuery.dataUpdatedAt,
+      transfersQuery.dataUpdatedAt,
+      squadQuery.dataUpdatedAt,
+      trophiesQuery.dataUpdatedAt,
+    );
+    return maxUpdatedAt > 0 ? maxUpdatedAt : null;
+  }, [
+    contextLastUpdatedAt,
+    matchesQuery.dataUpdatedAt,
+    overviewQuery.dataUpdatedAt,
+    squadQuery.dataUpdatedAt,
+    standingsQuery.dataUpdatedAt,
+    statsQuery.dataUpdatedAt,
+    transfersQuery.dataUpdatedAt,
+    trophiesQuery.dataUpdatedAt,
+  ]);
+
+  const hasCachedData = hasContextCachedData || activeTabDataUpdatedAt > 0;
+
   return {
     teamId,
     team,
@@ -182,6 +290,8 @@ export function useTeamDetailsScreenModel() {
     selectedSeason,
     isContextLoading,
     isContextError,
+    hasCachedData,
+    lastUpdatedAt,
     isFollowed,
     hasLeagueSelection,
     overviewQuery,

@@ -23,9 +23,10 @@ import {
 } from '@data/mappers/fixturesMapper';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import type { ThemeColors } from '@ui/shared/theme/theme';
-
-const MATCH_DETAILS_QUERY_KEY = 'match_details';
+import { IconActionButton } from '@ui/shared/components';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
+import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type MatchDetailsRoute = RouteProp<RootStackParamList, 'MatchDetails'>;
 type MatchDetailsNavigation = NativeStackNavigationProp<RootStackParamList, 'MatchDetails'>;
@@ -48,11 +49,9 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
     },
     backButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
+      width: MIN_TOUCH_TARGET,
+      height: MIN_TOUCH_TARGET,
+      borderRadius: MIN_TOUCH_TARGET / 2,
       backgroundColor: colors.surface,
     },
     competitionName: {
@@ -151,11 +150,11 @@ export function MatchDetailsScreen() {
   );
 
   const fixtureQuery = useQuery({
-    queryKey: [MATCH_DETAILS_QUERY_KEY, matchId, timezone],
+    queryKey: queryKeys.matchDetails(matchId, timezone),
     queryFn: ({ signal }) =>
       fetchFixtureById({ fixtureId: matchId, timezone, signal }),
     enabled: !!matchId,
-    staleTime: 60_000,
+    ...featureQueryOptions.matches.details,
   });
 
   const fixture = fixtureQuery.data;
@@ -189,9 +188,13 @@ export function MatchDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+      <IconActionButton
+        accessibilityLabel={t('actions.back')}
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
+      >
         <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
-      </Pressable>
+      </IconActionButton>
 
       <View>
         <Text style={styles.competitionName}>{fixture.league.name}</Text>

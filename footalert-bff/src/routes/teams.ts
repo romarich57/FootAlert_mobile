@@ -43,6 +43,33 @@ const teamPlayersQuerySchema = z
   })
   .strict();
 
+type ApiFootballUnknownListResponse = {
+  response?: unknown[];
+};
+
+type TeamSquadRecord = {
+  players?: unknown[];
+  coach?: {
+    id: number | string | null;
+    name: string | null;
+    photo: string | null;
+    age: number | null;
+  };
+} & Record<string, unknown>;
+
+type TeamCoachDto = {
+  id?: number | string;
+  name?: string;
+  photo?: string;
+  age?: number;
+  career?: Array<{
+    team?: {
+      id?: number;
+    };
+    end?: string | null;
+  }>;
+};
+
 function buildFixtureQuery(teamId: string, query: z.infer<typeof teamFixturesQuerySchema>): string {
   const searchParams = new URLSearchParams({ team: teamId });
 
@@ -65,6 +92,79 @@ function buildFixtureQuery(teamId: string, query: z.infer<typeof teamFixturesQue
   return searchParams.toString();
 }
 
+function normalizeTeamName(teamName: string): string {
+  return teamName.trim().replace(/\s+/g, ' ');
+}
+
+function buildTeamNameCandidates(teamName: string): string[] {
+  const normalized = normalizeTeamName(teamName);
+  if (!normalized) {
+    return [];
+  }
+
+  const strippedSuffix = normalizeTeamName(
+    normalized.replace(/\b(fc|cf|sc|ac|afc|fk|sk|nk|ssc|cfc)\b\.?/gi, ''),
+  );
+
+  const candidates = new Set<string>([normalized]);
+
+  if (strippedSuffix && strippedSuffix !== normalized) {
+    candidates.add(strippedSuffix);
+  }
+
+  if (!/\bfc\b/i.test(normalized)) {
+    candidates.add(`${strippedSuffix || normalized} FC`);
+  }
+
+  // Common aliases that can help on API-Football side.
+  if (/paris saint[-\s]?germain/i.test(normalized)) {
+    candidates.add('Paris SG');
+    candidates.add('PSG');
+  }
+
+  if (/internazionale/i.test(normalized)) {
+    candidates.add('Inter');
+  }
+
+  return Array.from(candidates).filter(Boolean);
+}
+
+function normalizeTransferDate(value: string): string | null {
+  const explicitDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (explicitDate) {
+    return explicitDate;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeTransferKeyText(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function toNumericId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/v1/teams/standings',
@@ -80,9 +180,9 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
       const query = parseOrThrow(standingsQuerySchema, request.query);
 
       return withCache(`team:standings:${request.url}`, 60_000, async () => {
-        const data = await apiFootballGet(
+        const data = await apiFootballGet<ApiFootballUnknownListResponse>(
           `/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`,
-        ) as any;
+        );
         // Do not cache empty responses aggressively if it might be a rate limit or error
         if (!data || !data.response || data.response.length === 0) {
           throw new Error('No standings data returned from API');
@@ -152,9 +252,9 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
       const query = parseOrThrow(standingsQuerySchema, request.query);
 
       return withCache(`team:standings:${request.url}`, 60_000, async () => {
-        const data = await apiFootballGet(
+        const data = await apiFootballGet<ApiFootballUnknownListResponse>(
           `/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`,
-        ) as any;
+        );
         // Do not cache empty responses aggressively if it might be a rate limit or error
         if (!data || !data.response || data.response.length === 0) {
           throw new Error('No standings data returned from API');
@@ -199,26 +299,29 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
     parseOrThrow(z.object({}).strict(), request.query);
 
     return withCache(`team:squad:${request.url}`, 120_000, async () => {
-      const [squadRes, coachRes] = (await Promise.all([
-        apiFootballGet(`/players/squads?team=${encodeURIComponent(params.id)}`),
-        apiFootballGet(`/coachs?team=${encodeURIComponent(params.id)}`),
-      ])) as [any, any];
+      const [squadRes, coachRes] = await Promise.all([
+        apiFootballGet<{ response?: TeamSquadRecord[] }>(
+          `/players/squads?team=${encodeURIComponent(params.id)}`,
+        ),
+        apiFootballGet<{ response?: TeamCoachDto[] }>(`/coachs?team=${encodeURIComponent(params.id)}`),
+      ]);
 
-      const squadData = squadRes.response?.[0] ?? { players: [] };
+      const squadData: TeamSquadRecord = squadRes.response?.[0] ?? { players: [] };
       const coaches = coachRes.response ?? [];
+      const teamIdAsNumber = Number(params.id);
 
       // Find the active coach (end of career is null or future)
-      const currentCoach = coaches.find((c: any) => {
+      const currentCoach = coaches.find(c => {
         const currentJob = c.career?.[0];
-        return currentJob && currentJob.team?.id === Number(params.id) && currentJob.end === null;
+        return currentJob && currentJob.team?.id === teamIdAsNumber && currentJob.end === null;
       }) || coaches[0] || null;
 
       if (currentCoach) {
         squadData.coach = {
-          id: currentCoach.id,
-          name: currentCoach.name,
-          photo: currentCoach.photo,
-          age: currentCoach.age,
+          id: currentCoach.id ?? null,
+          name: typeof currentCoach.name === 'string' ? currentCoach.name : null,
+          photo: typeof currentCoach.photo === 'string' ? currentCoach.photo : null,
+          age: typeof currentCoach.age === 'number' ? currentCoach.age : null,
         };
       }
 
@@ -233,9 +336,95 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
     const params = parseOrThrow(teamIdParamsSchema, request.params);
     parseOrThrow(z.object({}).strict(), request.query);
 
-    return withCache(`team:transfers:${request.url}`, 120_000, () =>
-      apiFootballGet(`/transfers?team=${encodeURIComponent(params.id)}`),
-    );
+    return withCache(`team:transfers:v2:${request.url}`, 120_000, async () => {
+      const data = await apiFootballGet<{ response?: unknown[] }>(
+        `/transfers?team=${encodeURIComponent(params.id)}`,
+      );
+      const rawTransfers = Array.isArray(data?.response) ? data.response : [];
+      const dedupedTransfersMap = new Map<string, unknown>();
+
+      for (const transferBlock of rawTransfers) {
+        const transferBlockRecord = (transferBlock ?? {}) as Record<string, unknown>;
+        const player = (transferBlockRecord.player ?? {}) as Record<string, unknown>;
+        const playerId = toNumericId(player.id);
+        const playerName = typeof player.name === 'string' ? player.name.trim() : '';
+        if (!playerId || !playerName) {
+          continue;
+        }
+
+        const update = typeof transferBlockRecord.update === 'string'
+          ? transferBlockRecord.update.trim()
+          : null;
+        const transferItems = Array.isArray(transferBlockRecord.transfers)
+          ? transferBlockRecord.transfers
+          : [];
+
+        for (const transferItem of transferItems) {
+          const transfer = (transferItem ?? {}) as Record<string, unknown>;
+          const transferDateRaw = typeof transfer.date === 'string' ? transfer.date.trim() : '';
+          const transferDate = transferDateRaw ? normalizeTransferDate(transferDateRaw) : null;
+          const transferType = typeof transfer.type === 'string' ? transfer.type.trim() : '';
+          if (!transferDate || !transferType) {
+            continue;
+          }
+
+          const transferTeams = (transfer.teams ?? {}) as Record<string, unknown>;
+          const teamIn = (transferTeams.in ?? {}) as Record<string, unknown>;
+          const teamOut = (transferTeams.out ?? {}) as Record<string, unknown>;
+
+          const teamInId = toNumericId(teamIn.id);
+          const teamOutId = toNumericId(teamOut.id);
+          const teamInName = typeof teamIn.name === 'string' ? teamIn.name.trim() : '';
+          const teamOutName = typeof teamOut.name === 'string' ? teamOut.name.trim() : '';
+          if (!teamInId || !teamOutId || !teamInName || !teamOutName) {
+            continue;
+          }
+
+          const transferKey = [
+            playerId,
+            normalizeTransferKeyText(playerName),
+            transferDate,
+            teamOutId,
+            teamInId,
+          ].join('|');
+
+          if (dedupedTransfersMap.has(transferKey)) {
+            continue;
+          }
+
+          dedupedTransfersMap.set(transferKey, {
+            player: {
+              id: playerId,
+              name: playerName,
+            },
+            update,
+            transfers: [
+              {
+                date: transferDate,
+                type: transferType,
+                teams: {
+                  in: {
+                    id: teamInId,
+                    name: teamInName,
+                    logo: typeof teamIn.logo === 'string' ? teamIn.logo : '',
+                  },
+                  out: {
+                    id: teamOutId,
+                    name: teamOutName,
+                    logo: typeof teamOut.logo === 'string' ? teamOut.logo : '',
+                  },
+                },
+              },
+            ],
+          });
+        }
+      }
+
+      return {
+        ...data,
+        response: Array.from(dedupedTransfersMap.values()),
+      };
+    });
   });
 
   app.get('/v1/teams/:id/trophies', async request => {
@@ -248,10 +437,8 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
       );
 
       if ((trophiesById.response?.length ?? 0) > 0) {
-        console.log(`[trophies] team=${params.id} → API-Football by ID returned ${trophiesById.response!.length} items`);
         return trophiesById;
       }
-      console.log(`[trophies] team=${params.id} → API-Football by ID returned empty, trying name lookup...`);
 
       try {
         const teamLookup = await apiFootballGet<{
@@ -268,104 +455,18 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
           return trophiesById;
         }
 
-        const trophiesByName = await apiFootballGet<{ response?: unknown[] }>(
-          `/trophies?team=${encodeURIComponent(teamName)}`,
-        );
+        const teamNameCandidates = buildTeamNameCandidates(teamName);
+        for (const teamNameCandidate of teamNameCandidates) {
+          const trophiesByName = await apiFootballGet<{ response?: unknown[] }>(
+            `/trophies?team=${encodeURIComponent(teamNameCandidate)}`,
+          );
 
-        if ((trophiesByName.response?.length ?? 0) > 0) {
-          console.log(`[trophies] team=${params.id} → API-Football by name "${teamName}" returned ${trophiesByName.response!.length} items`);
-          return trophiesByName;
-        }
-        console.log(`[trophies] team=${params.id} → API-Football by name "${teamName}" also empty, trying Wikipedia...`);
-
-        // Wikipedia Fallback
-        try {
-          const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(teamName + " football club")}&utf8=&format=json`);
-          const searchData = (await searchRes.json()) as any;
-          if (searchData.query?.search?.length) {
-            const pageTitle = searchData.query.search[0].title;
-            const parseRes = await fetch(`https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(pageTitle)}&prop=sections&format=json`);
-            const parseData = (await parseRes.json()) as any;
-
-            const honourSection = parseData.parse?.sections?.find((s: any) =>
-              s.line.toLowerCase().includes('honour') || s.line.toLowerCase().includes('trophies') || s.line.toLowerCase().includes('palmares')
-            );
-
-            if (honourSection) {
-              const contentRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&rvsection=${honourSection.index}&titles=${encodeURIComponent(pageTitle)}&format=json`);
-              const contentData = (await contentRes.json()) as any;
-
-              const pages = contentData.query?.pages;
-              const pageId = pages && Object.keys(pages)[0];
-              const wikitext = pageId ? pages[pageId]?.revisions?.[0]?.['*'] : null;
-
-              if (wikitext) {
-                const trophies: Array<{ league: string; country: string; season: string; place: string }> = [];
-                const lines = wikitext.split('\n');
-                let currentComp: string | null = null;
-                let currentCount = 0;
-
-                for (let i = 0; i < lines.length; i++) {
-                  const line = lines[i].trim();
-
-                  if (line.startsWith('! scope="row"')) {
-                    const linkMatch = line.match(/\[\[([^\]]+)\]\]/);
-                    if (linkMatch) {
-                      currentComp = linkMatch[1].split('|').pop();
-                      currentCount = 0;
-                      continue;
-                    }
-                  }
-
-                  if (currentComp && line.startsWith('|')) {
-                    const countMatch = line.match(/\|\s*(?:.*\|)?\s*'*\s*(\d+)\s*'*/);
-                    if (countMatch && !currentCount) {
-                      currentCount = parseInt(countMatch[1], 10);
-                      continue;
-                    }
-
-                    if (currentCount > 0 && line.length > 20) {
-                      let cleanSeasons = line.replace(/\[\[([^\]]+)\]\]/g, (m: string, p1: string) => p1.split('|').pop() || '')
-                        .replace(/\{\{[^}]+\}\}/g, '')
-                        .replace(/\|\s*align="left"\s*\|/g, '')
-                        .replace(/<[^>]+>/g, '')
-                        .replace(/\|style="[^"]+"|/g, '')
-                        .replace(/\|/g, '')
-                        .trim();
-
-                      if (cleanSeasons) {
-                        const seasonsArr = cleanSeasons.split(/[,•]/).map((s: string) => s.trim()).filter(Boolean);
-
-                        seasonsArr.forEach((season: string) => {
-                          trophies.push({
-                            league: currentComp!,
-                            country: teamLookup.response?.[0]?.team?.country ?? 'Unknown',
-                            season: season,
-                            place: 'Winner'
-                          });
-                        });
-                        currentComp = null;
-                        currentCount = 0;
-                      }
-                    }
-                  }
-                }
-
-                if (trophies.length > 0) {
-                  console.log(`[trophies] team=${params.id} → Wikipedia extracted ${trophies.length} trophies!`);
-                  return { response: trophies };
-                }
-                console.log(`[trophies] team=${params.id} → Wikipedia parsing found 0 trophies`);
-              }
-            }
+          if ((trophiesByName.response?.length ?? 0) > 0) {
+            return trophiesByName;
           }
-        } catch (wikiErr) {
-          console.log(`[trophies] team=${params.id} → Wikipedia fallback error:`, wikiErr);
-          request.log.warn({ err: wikiErr }, 'Wikipedia fallback failed');
         }
-
       } catch (outerErr) {
-        console.log(`[trophies] team=${params.id} → Outer catch triggered:`, outerErr);
+        request.log.warn({ err: outerErr, teamId: params.id }, 'Team trophies name lookup failed');
         return trophiesById;
       }
 

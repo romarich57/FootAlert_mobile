@@ -14,8 +14,10 @@ import { PlayerProfileTab } from '@ui/features/players/components/PlayerProfileT
 import { PlayerMatchesTab } from '@ui/features/players/components/PlayerMatchesTab';
 import { PlayerStatsTab } from '@ui/features/players/components/PlayerStatsTab';
 import { PlayerCareerTab } from '@ui/features/players/components/PlayerCareerTab';
+import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 
 import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
+import { useOfflineUiState } from '@ui/shared/hooks';
 
 type PlayerDetailsScreenRouteProp = RouteProp<RootStackParamList, 'PlayerDetails'>;
 type PlayerDetailsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PlayerDetails'>;
@@ -29,6 +31,18 @@ export function PlayerDetailsScreen() {
     const { playerId } = route.params;
     const [activeTab, setActiveTab] = useState<PlayerTabType>('profil');
     const screenModel = usePlayerDetailsScreenModel({ playerId, activeTab });
+    const offlineUi = useOfflineUiState({
+        hasData: screenModel.hasCachedData,
+        isLoading:
+            screenModel.isProfileLoading ||
+            screenModel.isMatchesLoading ||
+            screenModel.isStatsLoading ||
+            screenModel.isCareerLoading,
+        lastUpdatedAt: screenModel.lastUpdatedAt,
+    });
+    const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
+        ? new Date(offlineUi.lastUpdatedAt).toISOString()
+        : null;
 
     const handleBack = useCallback(() => {
         navigation.goBack();
@@ -41,9 +55,17 @@ export function PlayerDetailsScreen() {
     }, [navigation]);
 
     const seasonText = useMemo(
-        () => `${screenModel.currentSeason}/${screenModel.currentSeason + 1}`,
-        [screenModel.currentSeason],
+        () => `${screenModel.selectedSeason}/${screenModel.selectedSeason + 1}`,
+        [screenModel.selectedSeason],
     );
+
+    if (offlineUi.showOfflineNoCache) {
+        return (
+            <View style={[styles.center, { backgroundColor: colors.background }]}>
+                <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+            </View>
+        );
+    }
 
     if (screenModel.isProfileLoading) {
         return (
@@ -90,7 +112,11 @@ export function PlayerDetailsScreen() {
                 <PlayerStatsTab
                     stats={screenModel.stats}
                     leagueName={profile.league.name}
+                    leagueLogo={profile.league.logo}
                     seasonText={seasonText}
+                    seasons={screenModel.availableSeasons}
+                    selectedSeason={screenModel.selectedSeason}
+                    onSelectSeason={screenModel.setSeason}
                 />
             );
             break;
@@ -121,6 +147,11 @@ export function PlayerDetailsScreen() {
                 selectedTab={activeTab}
                 onChangeTab={setActiveTab}
             />
+            {offlineUi.showOfflineBanner ? (
+                <View style={styles.offlineBannerWrap}>
+                    <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+                </View>
+            ) : null}
             {tabContent}
         </View>
     );
@@ -137,5 +168,9 @@ const styles = StyleSheet.create({
     },
     loader: {
         marginTop: 40,
+    },
+    offlineBannerWrap: {
+        paddingHorizontal: 16,
+        paddingBottom: 8,
     },
 });

@@ -196,6 +196,65 @@ function toTransferTimestamp(value: string | null): number {
     return Number.isFinite(parsed) ? parsed : Number.MIN_SAFE_INTEGER;
 }
 
+function normalizeTransferKeyText(value: string | null): string {
+    return (value ?? '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+}
+
+function normalizeTransferDate(value: string | null): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const normalized = value.trim();
+    const explicitDate = normalized.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    if (explicitDate) {
+        return explicitDate;
+    }
+
+    const parsed = new Date(normalized);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+
+    return parsed.toISOString().slice(0, 10);
+}
+
+function toTransferTeamDedupPart(teamId: number, teamName: string): string {
+    if (teamId > 0) {
+        return `id:${teamId}`;
+    }
+
+    const normalizedName = normalizeTransferKeyText(teamName);
+    return normalizedName ? `name:${normalizedName}` : '';
+}
+
+function buildCompetitionTransferDedupKey(params: {
+    playerId: number;
+    playerName: string;
+    date: string;
+    teamInId: number;
+    teamInName: string;
+    teamOutId: number;
+    teamOutName: string;
+    isArrival: boolean;
+    isDeparture: boolean;
+}): string {
+    return [
+        params.playerId,
+        normalizeTransferKeyText(params.playerName),
+        params.date,
+        toTransferTeamDedupPart(params.teamOutId, params.teamOutName),
+        toTransferTeamDedupPart(params.teamInId, params.teamInName),
+        params.isArrival ? '1' : '0',
+        params.isDeparture ? '1' : '0',
+    ].join('|');
+}
+
 function isDateInSeason(dateIso: string | null, season: number): boolean {
     if (!dateIso) {
         return false;
@@ -237,11 +296,15 @@ export function mapTransfersDtoToCompetitionTransfers(
         }
 
         const playerName = normalizeString(dto.player?.name) ?? '';
+        if (!playerName) {
+            return;
+        }
+
         const playerPhoto = `https://media.api-sports.io/football/players/${playerId}.png`;
         const dtoTransfers = Array.isArray(dto.transfers) ? dto.transfers : [];
 
         dtoTransfers.forEach(transfer => {
-            const date = normalizeString(transfer.date);
+            const date = normalizeTransferDate(normalizeString(transfer.date));
             if (!date) {
                 return;
             }
@@ -251,8 +314,18 @@ export function mapTransfersDtoToCompetitionTransfers(
             }
 
             const type = normalizeString(transfer.type) ?? '';
+            if (!type) {
+                return;
+            }
+
             const teamInId = normalizeNumber(transfer.teams?.in?.id) ?? 0;
             const teamOutId = normalizeNumber(transfer.teams?.out?.id) ?? 0;
+            const teamInName = normalizeString(transfer.teams?.in?.name) ?? '';
+            const teamOutName = normalizeString(transfer.teams?.out?.name) ?? '';
+
+            if (teamInId <= 0 || teamOutId <= 0 || !teamInName || !teamOutName) {
+                return;
+            }
 
             const isArrival = dto.context?.teamInInLeague ?? teamInId > 0;
             const isDeparture = dto.context?.teamOutInLeague ?? teamOutId > 0;
@@ -261,7 +334,20 @@ export function mapTransfersDtoToCompetitionTransfers(
                 return;
             }
 
-            const id = `${playerId}:${date}:${type}:${teamOutId}:${teamInId}`;
+            const id = buildCompetitionTransferDedupKey({
+                playerId,
+                playerName,
+                date,
+                teamInId,
+                teamInName,
+                teamOutId,
+                teamOutName,
+                isArrival,
+                isDeparture,
+            });
+            if (transferMap.has(id)) {
+                return;
+            }
 
             transferMap.set(id, {
                 id,
@@ -276,12 +362,12 @@ export function mapTransfersDtoToCompetitionTransfers(
                 isDeparture,
                 teamIn: {
                     id: teamInId,
-                    name: normalizeString(transfer.teams?.in?.name) ?? '',
+                    name: teamInName,
                     logo: normalizeString(transfer.teams?.in?.logo) ?? '',
                 },
                 teamOut: {
                     id: teamOutId,
-                    name: normalizeString(transfer.teams?.out?.name) ?? '',
+                    name: teamOutName,
                     logo: normalizeString(transfer.teams?.out?.logo) ?? '',
                 },
             });

@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchLeagueStandings } from '@data/endpoints/teamsApi';
 import { mapStandingsToTeamData } from '@data/mappers/teamsMapper';
 import type { TeamStandingsData } from '@ui/features/teams/types/teams.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type UseTeamStandingsParams = {
   teamId: string;
@@ -10,8 +12,6 @@ type UseTeamStandingsParams = {
   season: number | null;
   enabled?: boolean;
 };
-
-export const TEAM_STANDINGS_QUERY_KEY = 'team_standings';
 
 const EMPTY_TEAM_STANDINGS: TeamStandingsData = {
   groups: [],
@@ -24,9 +24,9 @@ export function useTeamStandings({
   enabled = true,
 }: UseTeamStandingsParams) {
   return useQuery({
-    queryKey: [TEAM_STANDINGS_QUERY_KEY, teamId, leagueId, season],
+    queryKey: queryKeys.teams.standings(teamId, leagueId, season),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
-    staleTime: 60_000,
+    ...featureQueryOptions.teams.standings,
     queryFn: async ({ signal }): Promise<TeamStandingsData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {
         return EMPTY_TEAM_STANDINGS;

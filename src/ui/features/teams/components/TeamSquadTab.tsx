@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -284,6 +284,8 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
           data={feedItems}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
+          // @ts-ignore FlashList runtime supports estimatedItemSize.
+          estimatedItemSize={72}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />
       ) : null}

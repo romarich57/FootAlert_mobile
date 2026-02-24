@@ -6,7 +6,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamIdentity } from '@ui/features/teams/types/teams.types';
 import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import { IconActionButton } from '@ui/shared/components';
+import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type TeamHeaderProps = {
   team: TeamIdentity;
@@ -36,13 +37,8 @@ function createStyles(colors: ThemeColors, topInset: number) {
       gap: 12,
     },
     iconButton: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
       borderWidth: 1,
       borderColor: colors.chipBorder,
-      alignItems: 'center',
-      justifyContent: 'center',
       backgroundColor: colors.surface,
     },
     title: {
@@ -54,7 +50,7 @@ function createStyles(colors: ThemeColors, topInset: number) {
     },
     followButton: {
       minWidth: 90,
-      height: 36,
+      height: MIN_TOUCH_TARGET,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: isFollowedColor(colors, false),
@@ -135,14 +131,13 @@ export function TeamHeader({
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <Pressable
-          accessibilityRole="button"
+        <IconActionButton
           accessibilityLabel={backLabel}
           onPress={onBack}
           style={styles.iconButton}
         >
           <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
-        </Pressable>
+        </IconActionButton>
 
         <Text numberOfLines={1} style={styles.title}>
           {toDisplayValue(team.name)}

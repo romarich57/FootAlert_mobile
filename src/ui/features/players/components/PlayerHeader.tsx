@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { IconActionButton } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerProfile } from '@ui/features/players/types/players.types';
 import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
@@ -39,12 +40,7 @@ function createStyles(colors: ThemeColors, topInset: number) {
             fontWeight: '700',
         },
         iconButton: {
-            width: 40,
-            height: 40,
-            borderRadius: 20,
             backgroundColor: colors.surface,
-            alignItems: 'center',
-            justifyContent: 'center',
         },
         profileSection: {
             alignItems: 'center',
@@ -123,15 +119,24 @@ export function PlayerHeader({ profile, onBack, onShare }: PlayerHeaderProps) {
     return (
         <View style={styles.container}>
             <View style={styles.topBar}>
-                <Pressable onPress={onBack} hitSlop={10} style={styles.iconButton}>
+                <IconActionButton
+                    accessibilityLabel={t('actions.back')}
+                    onPress={onBack}
+                    style={styles.iconButton}
+                >
                     <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-                </Pressable>
+                </IconActionButton>
                 <Text style={styles.navTitle} numberOfLines={1}>
                     {displayValue(profile.name)}
                 </Text>
-                <Pressable onPress={onShare} hitSlop={10} style={styles.iconButton}>
+                <IconActionButton
+                    accessibilityLabel={t('actions.share')}
+                    onPress={onShare}
+                    style={styles.iconButton}
+                    disabled={!onShare}
+                >
                     <MaterialCommunityIcons name="share-variant" size={24} color={colors.text} />
-                </Pressable>
+                </IconActionButton>
             </View>
 
             <View style={styles.profileSection}>

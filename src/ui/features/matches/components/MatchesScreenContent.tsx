@@ -163,6 +163,8 @@ export function MatchesScreenContent({
         data={listData}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
+        // @ts-ignore FlashList runtime supports estimatedItemSize.
+        estimatedItemSize={420}
         refreshing={isRefetching}
         onRefresh={onRetry}
         contentContainerStyle={styles.listContent}

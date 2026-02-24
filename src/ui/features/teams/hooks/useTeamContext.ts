@@ -8,6 +8,7 @@ import {
   resolveDefaultTeamSelection,
 } from '@data/mappers/teamsMapper';
 import type { TeamCompetitionOption, TeamSelection } from '@ui/features/teams/types/teams.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type UseTeamContextParams = {
   teamId: string;
@@ -20,14 +21,14 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
   );
 
   const teamQuery = useQuery({
-    queryKey: ['teams', 'details', teamId],
+    queryKey: queryKeys.teams.details(teamId),
     enabled: Boolean(teamId),
     staleTime: 60_000,
     queryFn: ({ signal }) => fetchTeamDetails(teamId, signal),
   });
 
   const leaguesQuery = useQuery({
-    queryKey: ['teams', 'leagues', teamId],
+    queryKey: queryKeys.teams.leagues(teamId),
     enabled: Boolean(teamId),
     staleTime: 10 * 60_000,
     queryFn: ({ signal }) => fetchTeamLeagues(teamId, signal),
@@ -97,6 +98,9 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     leaguesQuery.refetch().catch(() => undefined);
   }, [leaguesQuery, teamQuery]);
 
+  const lastUpdatedAt = Math.max(teamQuery.dataUpdatedAt, leaguesQuery.dataUpdatedAt);
+  const hasCachedData = Boolean(teamQuery.data) || competitions.length > 0;
+
   return {
     team,
     timezone,
@@ -108,6 +112,8 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     setSeason,
     isLoading: teamQuery.isLoading || leaguesQuery.isLoading,
     isError: teamQuery.isError || leaguesQuery.isError,
+    lastUpdatedAt: lastUpdatedAt > 0 ? lastUpdatedAt : null,
+    hasCachedData,
     refetch,
   };
 }

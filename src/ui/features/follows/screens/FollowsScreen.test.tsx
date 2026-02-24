@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { FollowsScreen } from '@ui/features/follows/screens/FollowsScreen';
@@ -49,6 +50,7 @@ jest.mock('@ui/app/providers/ThemeProvider', () => ({
 }));
 
 const mockedUseNavigation = jest.mocked(useNavigation);
+const mockedUseNetInfo = jest.mocked(useNetInfo);
 const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 const mockedUseFollowedTeamsCards = jest.mocked(useFollowedTeamsCards);
 const mockedUseFollowedPlayersCards = jest.mocked(useFollowedPlayersCards);
@@ -74,6 +76,10 @@ function renderScreen() {
 describe('FollowsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseNetInfo.mockReturnValue({
+      isConnected: true,
+      isInternetReachable: true,
+    } as ReturnType<typeof useNetInfo>);
     mockedUseNavigation.mockReturnValue({
       navigate: navigateMock,
     } as never);
@@ -183,5 +189,28 @@ describe('FollowsScreen', () => {
     expect(navigateMock).toHaveBeenCalledWith('TeamDetails', {
       teamId: '50',
     });
+  });
+
+  it('renders offline no-cache state when offline and without trends data', () => {
+    mockedUseNetInfo.mockReturnValue({
+      isConnected: false,
+      isInternetReachable: false,
+    } as ReturnType<typeof useNetInfo>);
+    mockedUseFollowedTeamsCards.mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as never);
+    mockedUseFollowedPlayersCards.mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as never);
+    mockedUseFollowsTrends.mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText(i18n.t('matches.states.offline.title'))).toBeTruthy();
   });
 });

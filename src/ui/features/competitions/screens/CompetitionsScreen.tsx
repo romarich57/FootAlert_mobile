@@ -23,6 +23,8 @@ import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFoll
 import { CompetitionCard } from '@ui/features/competitions/components/CompetitionCard';
 import type { Competition } from '@ui/features/competitions/types/competitions.types';
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
+import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
+import { useOfflineUiState } from '@ui/shared/hooks';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type CompetitionListItem = {
@@ -123,6 +125,10 @@ function createStyles(colors: ThemeColors, topInset: number) {
       justifyContent: 'center',
       alignItems: 'center',
     },
+    stateWrap: {
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+    },
     listContent: {
       paddingBottom: 64,
     },
@@ -177,6 +183,7 @@ export function CompetitionsScreen() {
     searchLeagues,
     isSearching,
     isLoading: isCompetitionsLoading,
+    lastUpdatedAt,
   } = useCompetitions();
 
   const {
@@ -406,12 +413,33 @@ export function CompetitionsScreen() {
   );
 
   const searchIsActive = searchQuery.trim().length > 0;
+  const hasCompetitionData =
+    countries.length > 0 || suggestedCompetitions.length > 0 || followedCompetitions.length > 0;
+  const hasVisibleData = searchIsActive ? searchResults.length > 0 : hasCompetitionData;
+  const offlineUi = useOfflineUiState({
+    hasData: hasVisibleData,
+    isLoading: isCompetitionsLoading || isSearching,
+    lastUpdatedAt,
+  });
+  const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
+    ? new Date(offlineUi.lastUpdatedAt).toISOString()
+    : null;
 
   if (isCompetitionsLoading && countries.length === 0) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>{t('screens.competitions.loading')}</Text>
+      </View>
+    );
+  }
+
+  if (offlineUi.showOfflineNoCache) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <View style={styles.stateWrap}>
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
       </View>
     );
   }
@@ -439,11 +467,19 @@ export function CompetitionsScreen() {
         ) : null}
       </View>
 
+      {offlineUi.showOfflineBanner ? (
+        <View style={styles.stateWrap}>
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
+
       {searchIsActive ? (
         <FlashList
           data={searchResults}
           keyExtractor={searchKeyExtractor}
           renderItem={renderSearchItem}
+          // @ts-ignore FlashList runtime supports estimatedItemSize.
+          estimatedItemSize={96}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View style={styles.sectionHeader}>

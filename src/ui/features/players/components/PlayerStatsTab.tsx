@@ -1,19 +1,23 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Image } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerSeasonStats } from '@ui/features/players/types/players.types';
-import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
+import { toDisplayValue, toSeasonLabel } from '@ui/features/players/utils/playerDisplay';
 import { ShotMap } from './ShotMap';
 import { StatBar } from './StatBar';
 
 type PlayerStatsTabProps = {
     stats: PlayerSeasonStats;
     leagueName: string | null;
+    leagueLogo: string | null;
     seasonText: string;
+    seasons: number[];
+    selectedSeason: number;
+    onSelectSeason: (season: number) => void;
 };
 
 type StatMode = 'total' | 'per90';
@@ -55,10 +59,74 @@ function createStyles(colors: ThemeColors) {
             borderWidth: 1,
             borderColor: colors.border,
         },
+        dropdownMetaRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            flex: 1,
+            paddingRight: 12,
+        },
+        dropdownLeagueLogoWrap: {
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceElevated,
+            overflow: 'hidden',
+        },
+        dropdownLeagueLogo: {
+            width: 20,
+            height: 20,
+        },
         dropdownText: {
             color: colors.text,
             fontSize: 16,
             fontWeight: '600',
+            flexShrink: 1,
+        },
+        modalOverlay: {
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            justifyContent: 'center',
+            padding: 24,
+        },
+        modalContent: {
+            maxHeight: '70%',
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+        },
+        modalHeader: {
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+        },
+        modalHeaderText: {
+            color: colors.text,
+            fontSize: 16,
+            fontWeight: '700',
+        },
+        modalRow: {
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+        },
+        modalRowActive: {
+            backgroundColor: 'rgba(21,248,106,0.12)',
+        },
+        modalRowText: {
+            color: colors.text,
+            fontSize: 15,
+            fontWeight: '600',
+        },
+        modalRowTextActive: {
+            color: colors.primary,
+            fontWeight: '700',
         },
         card: {
             backgroundColor: colors.surface,
@@ -204,11 +272,24 @@ const BAR_ORANGE = '#F59E0B';
 const BAR_RED = '#EF4444';
 const BAR_BLUE = '#3B82F6';
 
-export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTabProps) {
+export function PlayerStatsTab({
+    stats,
+    leagueName,
+    leagueLogo,
+    seasonText,
+    seasons,
+    selectedSeason,
+    onSelectSeason,
+}: PlayerStatsTabProps) {
     const { colors } = useAppTheme();
     const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [mode, setMode] = useState<StatMode>('total');
+    const [isSeasonModalOpen, setIsSeasonModalOpen] = useState(false);
+
+    const resolvedSeasonText = useMemo(() => {
+        return toSeasonLabel(selectedSeason) || seasonText;
+    }, [seasonText, selectedSeason]);
 
     const accuracyPercent =
         typeof stats.shots === 'number' &&
@@ -303,11 +384,63 @@ export function PlayerStatsTab({ stats, leagueName, seasonText }: PlayerStatsTab
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentPadding}>
-
-            <Pressable style={styles.dropdown}>
-                <Text style={styles.dropdownText}>{toDisplayValue(leagueName)} {seasonText}</Text>
+            <Pressable
+                testID="player-stats-season-dropdown"
+                style={styles.dropdown}
+                onPress={() => setIsSeasonModalOpen(true)}
+            >
+                <View style={styles.dropdownMetaRow}>
+                    {leagueLogo ? (
+                        <View style={styles.dropdownLeagueLogoWrap}>
+                            <Image
+                                testID="player-stats-league-logo"
+                                source={{ uri: leagueLogo }}
+                                style={styles.dropdownLeagueLogo}
+                                resizeMode="contain"
+                            />
+                        </View>
+                    ) : null}
+                    <Text style={styles.dropdownText}>
+                        {toDisplayValue(leagueName)} {resolvedSeasonText}
+                    </Text>
+                </View>
                 <MaterialCommunityIcons name="chevron-down" size={24} color={colors.textMuted} />
             </Pressable>
+
+            <Modal
+                visible={isSeasonModalOpen}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setIsSeasonModalOpen(false)}
+            >
+                <Pressable style={styles.modalOverlay} onPress={() => setIsSeasonModalOpen(false)}>
+                    <Pressable style={styles.modalContent} onPress={event => event.stopPropagation()}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalHeaderText}>{t('teamDetails.filters.season')}</Text>
+                        </View>
+                        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                            {seasons.map(season => {
+                                const isActive = season === selectedSeason;
+                                return (
+                                    <Pressable
+                                        key={`season-${season}`}
+                                        testID={`player-stats-season-option-${season}`}
+                                        style={[styles.modalRow, isActive ? styles.modalRowActive : null]}
+                                        onPress={() => {
+                                            onSelectSeason(season);
+                                            setIsSeasonModalOpen(false);
+                                        }}
+                                    >
+                                        <Text style={[styles.modalRowText, isActive ? styles.modalRowTextActive : null]}>
+                                            {toSeasonLabel(season)}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </ScrollView>
+                    </Pressable>
+                </Pressable>
+            </Modal>
 
             {/* Summary Card */}
             <View style={styles.card}>

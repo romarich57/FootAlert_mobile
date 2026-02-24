@@ -11,6 +11,8 @@ import {
   mapTeamStatisticsToStats,
 } from '@data/mappers/teamsMapper';
 import type { TeamStatsData } from '@ui/features/teams/types/teams.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type UseTeamStatsParams = {
   teamId: string;
@@ -18,8 +20,6 @@ type UseTeamStatsParams = {
   season: number | null;
   enabled?: boolean;
 };
-
-export const TEAM_STATS_QUERY_KEY = 'team_stats';
 
 const EMPTY_TEAM_STATS: TeamStatsData = {
   rank: null,
@@ -50,9 +50,9 @@ export function useTeamStats({
   enabled = true,
 }: UseTeamStatsParams) {
   return useQuery({
-    queryKey: [TEAM_STATS_QUERY_KEY, teamId, leagueId, season],
+    queryKey: queryKeys.teams.stats(teamId, leagueId, season),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
-    staleTime: 60_000,
+    ...featureQueryOptions.teams.stats,
     queryFn: async ({ signal }): Promise<TeamStatsData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {
         return EMPTY_TEAM_STATS;
@@ -73,11 +73,11 @@ export function useTeamStats({
       ]);
 
       const standings = mapStandingsToTeamData(standingsPayload, teamId);
-      const topPlayers = mapPlayersToTopPlayers(
-        playersPayload.response ?? [],
-        8,
-        { teamId, leagueId, season },
-      );
+      const topPlayers = mapPlayersToTopPlayers(playersPayload.response ?? [], 8, {
+        teamId,
+        leagueId,
+        season,
+      });
 
       return mapTeamStatisticsToStats(statisticsPayload, standings, topPlayers);
     },

@@ -39,12 +39,47 @@ type CompetitionTransferTeamPayload = {
   logo: string;
 };
 
+type CompetitionLeagueTeamEntry = {
+  team?: {
+    id?: number;
+  };
+};
+
+type CompetitionTransfersResponse = {
+  response?: unknown[];
+};
+
+type FlattenedCompetitionTransfer = {
+  player: {
+    id: number;
+    name: string;
+  };
+  update: string;
+  transfers: Array<{
+    date: string;
+    type: string;
+    teams: {
+      in: CompetitionTransferTeamPayload;
+      out: CompetitionTransferTeamPayload;
+    };
+  }>;
+  context: {
+    teamInInLeague: boolean;
+    teamOutInLeague: boolean;
+  };
+};
+
 function toFiniteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function toText(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  return normalized || fallback;
 }
 
 function toTransferTimestamp(value: string | null): number {
@@ -82,13 +117,55 @@ function mapTransferTeamPayload(team: unknown): CompetitionTransferTeamPayload {
 }
 
 function buildTransferKey(
-  playerId: number,
-  transferDate: string,
-  transferType: string,
-  teamInId: number,
-  teamOutId: number,
+  params: {
+    playerId: number;
+    playerName: string;
+    transferDate: string;
+    teamInId: number;
+    teamInName: string;
+    teamOutId: number;
+    teamOutName: string;
+    teamInInLeague: boolean;
+    teamOutInLeague: boolean;
+  },
 ): string {
-  return `${playerId}:${transferDate}:${transferType}:${teamInId}:${teamOutId}`;
+  const normalizeText = (value: string): string => value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const teamOutPart = params.teamOutId > 0
+    ? `id:${params.teamOutId}`
+    : `name:${normalizeText(params.teamOutName)}`;
+  const teamInPart = params.teamInId > 0
+    ? `id:${params.teamInId}`
+    : `name:${normalizeText(params.teamInName)}`;
+
+  return [
+    params.playerId,
+    normalizeText(params.playerName),
+    params.transferDate,
+    teamOutPart,
+    teamInPart,
+    params.teamInInLeague ? '1' : '0',
+    params.teamOutInLeague ? '1' : '0',
+  ].join('|');
+}
+
+function normalizeTransferDate(value: string): string | null {
+  const explicitDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (explicitDate) {
+    return explicitDate;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString().slice(0, 10);
 }
 
 async function mapWithConcurrency<T, U>(
@@ -212,23 +289,23 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
     const params = parseOrThrow(competitionIdParamsSchema, request.params);
     const query = parseOrThrow(z.object({ season: seasonSchema.optional() }).strict(), request.query);
 
-    const cacheKey = `competition:transfers:${request.url}`;
+    const cacheKey = `competition:transfers:v2:${request.url}`;
     const selectedSeason = query.season ?? new Date().getFullYear();
 
     // Cache for 1 hour to heavily preserve API quotas since it does many requests
     return withCache(cacheKey, 3_600_000, async () => {
       // 1. Fetch teams for the league
-      const teamsResponse = (await apiFootballGet(
+      const teamsResponse = await apiFootballGet<{ response?: CompetitionLeagueTeamEntry[] }>(
         `/teams?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(selectedSeason))}`
-      )) as any;
+      );
 
-      const teams = teamsResponse?.response || [];
+      const teams = teamsResponse.response ?? [];
       if (teams.length === 0) {
         return { response: [] };
       }
 
       const leagueTeamIds = new Set<number>();
-      teams.forEach((teamData: any) => {
+      teams.forEach(teamData => {
         const teamId = toFiniteNumber(teamData?.team?.id);
         if (teamId !== null) {
           leagueTeamIds.add(teamId);
@@ -238,16 +315,14 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
       const transfersResponses = await mapWithConcurrency(
         teams,
         COMPETITION_TRANSFERS_MAX_CONCURRENCY,
-        async (teamData: any) => {
+        async teamData => {
           const teamId = toFiniteNumber(teamData?.team?.id);
           if (teamId === null) {
             return { response: [] };
           }
 
           try {
-            return (await apiFootballGet(`/transfers?team=${teamId}`)) as {
-              response?: unknown[];
-            };
+            return await apiFootballGet<CompetitionTransfersResponse>(`/transfers?team=${teamId}`);
           } catch {
             // Ignore one failing team call and keep the rest of the league transfers.
             return { response: [] };
@@ -255,7 +330,7 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
         },
       );
 
-      const flattenedTransfersMap = new Map<string, any>();
+      const flattenedTransfersMap = new Map<string, FlattenedCompetitionTransfer>();
 
       for (const teamTransfersResponse of transfersResponses) {
         const playerTransfers = Array.isArray(teamTransfersResponse?.response)
@@ -266,7 +341,11 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
           const transferBlock = (playerTransfer ?? {}) as Record<string, unknown>;
           const player = (transferBlock.player ?? {}) as Record<string, unknown>;
           const playerId = toFiniteNumber(player.id);
+          const playerName = toText(player.name, '');
           if (playerId === null) {
+            continue;
+          }
+          if (!playerName) {
             continue;
           }
 
@@ -276,15 +355,28 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
 
           for (const transferItem of transferItems) {
             const transfer = (transferItem ?? {}) as Record<string, unknown>;
-            const transferDate = toText(transfer.date);
-            if (!isDateInSeason(transferDate, selectedSeason)) {
+            const transferDateRaw = toText(transfer.date);
+            const transferDate = transferDateRaw ? normalizeTransferDate(transferDateRaw) : null;
+            if (!transferDate || !isDateInSeason(transferDate, selectedSeason)) {
               continue;
             }
 
             const transferType = toText(transfer.type);
+            if (!transferType) {
+              continue;
+            }
+
             const transferTeams = (transfer.teams ?? {}) as Record<string, unknown>;
             const teamInPayload = mapTransferTeamPayload(transferTeams.in);
             const teamOutPayload = mapTransferTeamPayload(transferTeams.out);
+            if (
+              teamInPayload.id <= 0 ||
+              teamOutPayload.id <= 0 ||
+              !teamInPayload.name ||
+              !teamOutPayload.name
+            ) {
+              continue;
+            }
 
             const teamInInLeague = teamInPayload.id > 0 && leagueTeamIds.has(teamInPayload.id);
             const teamOutInLeague = teamOutPayload.id > 0 && leagueTeamIds.has(teamOutPayload.id);
@@ -292,13 +384,17 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
               continue;
             }
 
-            const transferKey = buildTransferKey(
+            const transferKey = buildTransferKey({
               playerId,
+              playerName,
               transferDate,
-              transferType,
-              teamInPayload.id,
-              teamOutPayload.id,
-            );
+              teamInId: teamInPayload.id,
+              teamInName: teamInPayload.name,
+              teamOutId: teamOutPayload.id,
+              teamOutName: teamOutPayload.name,
+              teamInInLeague,
+              teamOutInLeague,
+            });
 
             if (flattenedTransfersMap.has(transferKey)) {
               continue;
@@ -307,7 +403,7 @@ export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<
             flattenedTransfersMap.set(transferKey, {
               player: {
                 id: playerId,
-                name: toText(player.name, ''),
+                name: playerName,
               },
               update: toText(transferBlock.update),
               transfers: [

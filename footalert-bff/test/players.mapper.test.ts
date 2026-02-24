@@ -131,6 +131,7 @@ test('mapPlayerMatchPerformance maps fixture and player statistics', async () =>
 
   const mapped = mapPlayerMatchPerformance(
     '278',
+    '40',
     {
       fixture: { id: 9001, date: '2026-02-20T20:00:00Z' },
       league: { id: 39, name: 'Premier League', logo: 'https://league-logo' },
@@ -172,6 +173,7 @@ test('mapPlayerMatchPerformance picks the most representative stat row when mult
 
   const mapped = mapPlayerMatchPerformance(
     '278',
+    '40',
     {
       fixture: { id: 9002, date: '2026-02-21T20:00:00Z' },
       league: { id: 39, name: 'Premier League', logo: 'https://league-logo' },
@@ -212,5 +214,43 @@ test('mapPlayerMatchPerformance picks the most representative stat row when mult
   assert.equal(mapped?.playerStats.goals, 2);
   assert.equal(mapped?.playerStats.assists, 1);
   assert.equal(mapped?.playerStats.yellowCards, 1);
+  assert.equal(mapped?.playerStats.isStarter, true);
+});
+
+test('mapPlayerMatchPerformance supports flat fixtures players payload shape', async () => {
+  const { mapPlayerMatchPerformance } = await loadPlayersMappers();
+
+  const mapped = mapPlayerMatchPerformance(
+    '278',
+    '40',
+    {
+      fixture: { id: 9003, date: '2026-02-22T20:00:00Z' },
+      league: { id: 39, name: 'Premier League', logo: 'https://league-logo' },
+      teams: {
+        home: { id: 40, name: 'Team A', logo: 'https://team-a' },
+        away: { id: 50, name: 'Team B', logo: 'https://team-b' },
+      },
+      goals: { home: 1, away: 1 },
+    },
+    {
+      players: [
+        {
+          player: { id: 278 },
+          statistics: [
+            {
+              games: { minutes: 82, rating: '7.1', substitute: false },
+              goals: { total: 0, assists: 1 },
+              cards: { yellow: 0, red: 0 },
+            },
+          ],
+        },
+      ],
+    },
+  );
+
+  assert.ok(mapped);
+  assert.equal(mapped?.fixtureId, '9003');
+  assert.equal(mapped?.playerStats.minutes, 82);
+  assert.equal(mapped?.playerStats.assists, 1);
   assert.equal(mapped?.playerStats.isStarter, true);
 });

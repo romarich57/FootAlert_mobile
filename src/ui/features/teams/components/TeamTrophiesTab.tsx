@@ -6,13 +6,14 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamTrophiesData, TeamTrophyGroup } from '@ui/features/teams/types/teams.types';
-import { toDisplayNumber, toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
+import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type TeamTrophiesTabProps = {
   data: TeamTrophiesData | undefined;
   isLoading: boolean;
   isError: boolean;
+  hasFetched?: boolean;
   onRetry: () => void;
 };
 
@@ -165,7 +166,13 @@ const TeamTrophyGroupRow = memo(function TeamTrophyGroupRow({
   );
 });
 
-export function TeamTrophiesTab({ data, isLoading, isError, onRetry }: TeamTrophiesTabProps) {
+export function TeamTrophiesTab({
+  data,
+  isLoading,
+  isError,
+  hasFetched = true,
+  onRetry,
+}: TeamTrophiesTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -215,7 +222,11 @@ export function TeamTrophiesTab({ data, isLoading, isError, onRetry }: TeamTroph
           data={groups}
           keyExtractor={item => item.id}
           renderItem={renderGroupItem}
-          ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
+          // @ts-ignore FlashList runtime supports estimatedItemSize.
+          estimatedItemSize={96}
+          ListEmptyComponent={
+            hasFetched ? <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text> : null
+          }
         />
       ) : null}
     </View>

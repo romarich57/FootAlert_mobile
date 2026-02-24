@@ -146,6 +146,37 @@ describe('teamsMapper', () => {
     expect(mapped.arrivals[0].type).toBe('Return from loan');
   });
 
+  it('deduplicates transfers when API uses different date formats for the same day', () => {
+    const data = [
+      {
+        player: { id: 111, name: 'Marquinhos' },
+        transfers: [
+          {
+            date: '2025-07-29',
+            type: 'Return from loan',
+            teams: {
+              in: { id: 42, name: 'Arsenal' },
+              out: { id: 160, name: 'Cruzeiro' },
+            },
+          },
+          {
+            date: '2025-07-29T00:00:00+00:00',
+            type: 'Return   from loan',
+            teams: {
+              in: { id: 42, name: ' Arsenal ' },
+              out: { id: 160, name: 'Cruzeiro' },
+            },
+          },
+        ],
+      },
+    ];
+
+    const mapped = mapTransfersToTeamTransfers(data, '42', 2025);
+
+    expect(mapped.arrivals).toHaveLength(1);
+    expect(mapped.departures).toHaveLength(0);
+  });
+
   it('selects top player stats using season/league/team context instead of first statistics row', () => {
     const mapped = mapPlayersToTopPlayers(
       [

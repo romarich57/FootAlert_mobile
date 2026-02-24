@@ -1,30 +1,32 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { fetchPlayerDetails } from '@data/endpoints/playersApi';
 import { mapPlayerDetailsToSeasonStats } from '@data/mappers/playersMapper';
-
-export const PLAYER_STATS_QUERY_KEY = 'player_stats';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 export function usePlayerStats(
-    playerId: string,
-    season: number,
-    enabled: boolean = true,
+  playerId: string,
+  season: number,
+  enabled: boolean = true,
 ) {
-    const statsQuery = useQuery({
-        queryKey: [PLAYER_STATS_QUERY_KEY, playerId, season],
-        queryFn: async ({ signal }) => {
-            const dto = await fetchPlayerDetails(playerId, season, signal);
-            if (!dto) throw new Error('Player not found');
+  const statsQuery = useQuery({
+    queryKey: queryKeys.players.stats(playerId, season),
+    queryFn: async ({ signal }) => {
+      const dto = await fetchPlayerDetails(playerId, season, signal);
+      if (!dto) throw new Error('Player not found');
 
-            return mapPlayerDetailsToSeasonStats(dto, season);
-        },
-        enabled: enabled && !!playerId && !!season,
-        staleTime: 5 * 60 * 1000,
-    });
+      return mapPlayerDetailsToSeasonStats(dto, season);
+    },
+    enabled: enabled && !!playerId && !!season,
+    ...featureQueryOptions.players.stats,
+  });
 
-    return {
-        stats: statsQuery.data ?? null,
-        isLoading: statsQuery.isLoading,
-        isError: statsQuery.isError,
-        refetch: statsQuery.refetch,
-    };
+  return {
+    stats: statsQuery.data ?? null,
+    isLoading: statsQuery.isLoading,
+    isError: statsQuery.isError,
+    dataUpdatedAt: statsQuery.dataUpdatedAt,
+    refetch: statsQuery.refetch,
+  };
 }

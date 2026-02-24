@@ -37,6 +37,17 @@ export type CountryWithCompetitions = {
 
 // --- API DTOs for Details ---
 
+type CompetitionsApiStandingSplitDto = {
+    played?: number;
+    win?: number;
+    draw?: number;
+    lose?: number;
+    goals?: {
+        for?: number;
+        against?: number;
+    };
+};
+
 export type CompetitionsApiStandingDto = {
     league: {
         id: number;
@@ -68,8 +79,8 @@ export type CompetitionsApiStandingDto = {
                     against: number;
                 };
             };
-            home: any;
-            away: any;
+            home: CompetitionsApiStandingSplitDto;
+            away: CompetitionsApiStandingSplitDto;
             update: string;
         }>>;
     };
@@ -197,7 +208,11 @@ export type CompetitionsApiPlayerStatDto = {
             rating: string | null;
             captain: boolean;
         };
-        substitutes: any;
+        substitutes: {
+            in: number | null;
+            out: number | null;
+            bench: number | null;
+        } | null;
         shots: {
             total: number | null;
             on: number | null;

@@ -300,6 +300,8 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
             data={topPlayers}
             keyExtractor={item => item.playerId}
             renderItem={renderTopPlayerItem}
+            // @ts-ignore FlashList runtime supports estimatedItemSize.
+            estimatedItemSize={116}
             ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
           />
         </>

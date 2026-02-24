@@ -123,6 +123,76 @@ test('GET /v1/matches returns 200 and proxies to API-Football', async t => {
   );
 });
 
+test('GET /v1/matches applies short Cache-Control header', async t => {
+  installFetchMock(async () =>
+    jsonResponse({
+      response: [{ fixture: { id: 1001 } }],
+    }),
+  );
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches?date=2026-02-21&timezone=Europe/Paris',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['cache-control'], 'public, max-age=30, stale-while-revalidate=30');
+});
+
+test('GET /v1/competitions/:id/standings applies longer Cache-Control header', async t => {
+  installFetchMock(async () =>
+    jsonResponse({
+      response: [{ league: { id: 39 }, standings: [] }],
+    }),
+  );
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions/39/standings?season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['cache-control'], 'public, max-age=300, stale-while-revalidate=600');
+});
+
+test('GET /v1/competitions compresses large JSON payloads when client accepts gzip', async t => {
+  installFetchMock(async () =>
+    jsonResponse({
+      response: Array.from({ length: 120 }, (_, index) => ({
+        league: {
+          id: index + 1,
+          name: `League ${index + 1} ${'x'.repeat(48)}`,
+          type: 'League',
+          logo: 'https://cdn.footalert.test/logo.png',
+        },
+        country: {
+          name: `Country ${index + 1}`,
+          code: 'FR',
+          flag: 'https://cdn.footalert.test/flag.png',
+        },
+        seasons: [],
+      })),
+    }),
+  );
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions',
+    headers: {
+      'accept-encoding': 'gzip',
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['content-encoding'], 'gzip');
+});
+
 test('GET /v1/matches returns 400 when required query params are missing', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
 
@@ -298,6 +368,37 @@ test('GET /v1/teams/:id/trophies keeps id response when already non-empty', asyn
   assert.equal(response.json().response.length, 1);
   assert.equal(calls.length, 1);
   assert.equal(String(calls[0].input), 'https://api-football.test/trophies?team=530');
+});
+
+test('GET /v1/teams/:id/trophies returns explicit empty response when ID and name lookups are empty', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/trophies') && url.searchParams.get('team') === '777') {
+      return jsonResponse({ response: [] });
+    }
+
+    if (url.pathname.endsWith('/teams') && url.searchParams.get('id') === '777') {
+      return jsonResponse({
+        response: [{ team: { id: 777, name: '   ' } }],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/777/trophies',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { response: [] });
+  assert.equal(calls.length, 2);
+  assert.equal(String(calls[0].input), 'https://api-football.test/trophies?team=777');
+  assert.equal(String(calls[1].input), 'https://api-football.test/teams?id=777');
 });
 
 test('GET /v1/players/:id maps network failures to 502', async t => {

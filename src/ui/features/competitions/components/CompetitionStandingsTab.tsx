@@ -138,14 +138,14 @@ function displayValue(value: string | number | null | undefined): string | numbe
     return value !== null && value !== undefined && value !== '' ? value : '';
 }
 
-function getFormStyle(char: string, styles: any) {
+function getFormStyle(char: string, styles: ReturnType<typeof createStyles>) {
     if (char === 'W') return styles.formW;
     if (char === 'D') return styles.formD;
     if (char === 'L') return styles.formL;
     return styles.formD;
 }
 
-function getDescriptionColor(desc: string | null, styles: any) {
+function getDescriptionColor(desc: string | null, styles: ReturnType<typeof createStyles>) {
     if (!desc) return null;
     const lower = desc
         .normalize('NFD')
@@ -304,6 +304,8 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 getItemType={(item) => item.type}
+                // @ts-ignore FlashList runtime supports estimatedItemSize.
+                estimatedItemSize={340}
             />
         </View>
     );

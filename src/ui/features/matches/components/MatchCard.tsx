@@ -13,7 +13,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { LiveBadge } from '@ui/features/matches/components/LiveBadge';
 import type { MatchItem } from '@ui/features/matches/types/matches.types';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import { IconActionButton } from '@ui/shared/components';
+import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type MatchCardProps = {
   match: MatchItem;
@@ -61,11 +62,9 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
     },
     notificationButton: {
-      width: 36,
-      height: 36,
+      width: MIN_TOUCH_TARGET,
+      height: MIN_TOUCH_TARGET,
       borderRadius: 999,
-      alignItems: 'center',
-      justifyContent: 'center',
       backgroundColor: colors.surfaceElevated,
       borderWidth: 1,
       borderColor: colors.border,
@@ -220,14 +219,14 @@ export function MatchCard({
     >
       <View style={styles.topRow}>
         {isLive ? <LiveBadge minute={match.minute} /> : <View />}
-        <Pressable
-          accessibilityRole="button"
+        <IconActionButton
+          accessibilityLabel={t('actions.openNotifications')}
           onPress={handleNotificationPress}
           testID={`match-notification-button-${match.fixtureId}`}
           style={styles.notificationButton}
         >
           <MaterialCommunityIcons name="bell-outline" size={18} color={colors.text} />
-        </Pressable>
+        </IconActionButton>
       </View>
 
       <View style={styles.teamsRow}>

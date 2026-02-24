@@ -12,6 +12,8 @@ import {
   TeamTabs,
 } from '@ui/features/teams/components';
 import { useTeamDetailsScreenModel } from '@ui/features/teams/hooks/useTeamDetailsScreenModel';
+import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
+import { useOfflineUiState } from '@ui/shared/hooks';
 import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
@@ -50,10 +52,23 @@ export function TeamDetailsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const model = useTeamDetailsScreenModel();
+  const offlineUi = useOfflineUiState({
+    hasData: model.hasCachedData,
+    isLoading: model.isContextLoading,
+    lastUpdatedAt: model.lastUpdatedAt,
+  });
+  const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
+    ? new Date(offlineUi.lastUpdatedAt).toISOString()
+    : null;
 
   const allSeasons = useMemo(
     () => Array.from(new Set(model.competitions.flatMap(c => c.seasons))).sort((a, b) => b - a),
     [model.competitions]
+  );
+
+  const standingsPickerCompetitions = useMemo(
+    () => (model.standingsCompetitions.length > 0 ? model.standingsCompetitions : model.competitions),
+    [model.competitions, model.standingsCompetitions],
   );
 
   return (
@@ -70,22 +85,28 @@ export function TeamDetailsScreen() {
 
       <TeamTabs activeTab={model.activeTab} onChangeTab={model.handleChangeTab} tabs={model.tabs} />
 
-      {model.activeTab !== 'squad' &&
+      {offlineUi.showOfflineBanner ? (
+        <View style={styles.stateWrap}>
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
+
+      {!offlineUi.showOfflineNoCache &&
+      model.activeTab !== 'squad' &&
         model.activeTab !== 'trophies' &&
         model.activeTab !== 'transfers' ? (
         <TeamSeasonCompetitionPicker
-          competitions={model.activeTab === 'standings' ? model.standingsCompetitions : model.competitions}
+          competitions={model.activeTab === 'standings' ? standingsPickerCompetitions : model.competitions}
           selectedLeagueId={model.selectedLeagueId}
           selectedSeason={model.selectedSeason}
           onSelectLeague={model.setLeague}
           onSelectSeason={model.setSeason}
           competitionLabel={t('teamDetails.filters.competition')}
           seasonLabel={t('teamDetails.filters.season')}
-          hideCompetitions={model.activeTab === 'standings'}
         />
       ) : null}
 
-      {model.activeTab === 'transfers' ? (
+      {!offlineUi.showOfflineNoCache && model.activeTab === 'transfers' ? (
         <TeamSeasonDropdown
           seasons={allSeasons}
           selectedSeason={model.selectedSeason}
@@ -93,7 +114,13 @@ export function TeamDetailsScreen() {
         />
       ) : null}
 
-      {model.isContextLoading ? (
+      {offlineUi.showOfflineNoCache ? (
+        <View style={styles.stateWrap}>
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
+
+      {!offlineUi.showOfflineNoCache && model.isContextLoading ? (
         <View style={styles.stateWrap}>
           <View style={styles.stateCard}>
             <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
@@ -101,7 +128,7 @@ export function TeamDetailsScreen() {
         </View>
       ) : null}
 
-      {model.isContextError ? (
+      {!offlineUi.showOfflineNoCache && model.isContextError ? (
         <View style={styles.stateWrap}>
           <View style={styles.stateCard}>
             <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
@@ -113,7 +140,7 @@ export function TeamDetailsScreen() {
         </View>
       ) : null}
 
-      {!model.isContextLoading && !model.isContextError ? (
+      {!offlineUi.showOfflineNoCache && !model.isContextLoading && !model.isContextError ? (
         <View style={styles.content}>
           <TeamDetailsTabContent
             activeTab={model.activeTab}

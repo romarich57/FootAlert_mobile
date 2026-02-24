@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 import { fetchLeagueById } from '@data/endpoints/competitionsApi';
 import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
 
@@ -58,7 +59,7 @@ export function CompetitionDetailsScreen() {
     const numericCompetitionId = Number(competitionId);
 
     const competitionQuery = useQuery({
-        queryKey: ['competition_details_header', competitionId],
+        queryKey: queryKeys.competitions.detailsHeader(competitionId),
         queryFn: async ({ signal }) => {
             const dto = await fetchLeagueById(competitionId, signal);
             return mapLeagueDtoToCompetition(dto);

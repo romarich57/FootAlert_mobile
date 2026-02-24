@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { MainTabParamList, RootStackParamList } from '@ui/app/navigation/types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -39,6 +40,8 @@ function TabBarIcon({ routeName, color, size, focused }: TabBarIconProps) {
 function TabsNavigator() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 8);
 
   return (
     <Tabs.Navigator
@@ -47,10 +50,10 @@ function TabsNavigator() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: '#000000',
-          borderTopColor: '#1A1A1A',
-          height: 64,
-          paddingBottom: 8,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 56 + bottomPadding,
+          paddingBottom: bottomPadding,
         },
         // React Navigation requires a render callback for tabBarIcon.
         // eslint-disable-next-line react/no-unstable-nested-components

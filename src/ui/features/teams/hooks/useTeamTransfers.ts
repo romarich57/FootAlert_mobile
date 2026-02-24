@@ -3,14 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchTeamTransfers } from '@data/endpoints/teamsApi';
 import { mapTransfersToTeamTransfers } from '@data/mappers/teamsMapper';
 import type { TeamTransfersData } from '@ui/features/teams/types/teams.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type UseTeamTransfersParams = {
   teamId: string;
   season: number | null;
   enabled?: boolean;
 };
-
-export const TEAM_TRANSFERS_QUERY_KEY = 'team_transfers';
 
 const EMPTY_TEAM_TRANSFERS: TeamTransfersData = {
   arrivals: [],
@@ -19,9 +19,9 @@ const EMPTY_TEAM_TRANSFERS: TeamTransfersData = {
 
 export function useTeamTransfers({ teamId, season, enabled = true }: UseTeamTransfersParams) {
   return useQuery({
-    queryKey: [TEAM_TRANSFERS_QUERY_KEY, teamId, season],
+    queryKey: queryKeys.teams.transfers(teamId, season),
     enabled: enabled && Boolean(teamId),
-    staleTime: 2 * 60_000,
+    ...featureQueryOptions.teams.transfers,
     queryFn: async ({ signal }): Promise<TeamTransfersData> => {
       if (!teamId) {
         return EMPTY_TEAM_TRANSFERS;

@@ -130,6 +130,44 @@ describe('competitionsMapper transfers', () => {
     expect(mapped.map(item => item.date)).toEqual(['2026-06-30', '2025-07-01']);
   });
 
+  it('deduplicates league transfers when same transfer appears with date/type formatting variants', () => {
+    const payload: CompetitionsApiTransferDto[] = [
+      {
+        player: { id: 111, name: 'Marquinhos' },
+        update: '2026-01-01',
+        context: {
+          teamInInLeague: true,
+          teamOutInLeague: false,
+        },
+        transfers: [
+          {
+            date: '2025-07-29',
+            type: 'Return from loan',
+            teams: {
+              in: { id: 42, name: 'Arsenal', logo: 'a.png' },
+              out: { id: 160, name: 'Cruzeiro', logo: 'c.png' },
+            },
+          },
+          {
+            date: '2025-07-29T00:00:00+00:00',
+            type: 'Return   from loan',
+            teams: {
+              in: { id: 42, name: ' Arsenal ', logo: 'a.png' },
+              out: { id: 160, name: 'Cruzeiro', logo: 'c.png' },
+            },
+          },
+        ],
+      },
+    ];
+
+    const mapped = mapTransfersDtoToCompetitionTransfers(payload, 2025);
+
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0]?.playerId).toBe(111);
+    expect(mapped[0]?.teamIn.id).toBe(42);
+    expect(mapped[0]?.teamOut.id).toBe(160);
+  });
+
   it('selects player stats from the requested season when multiple statistics rows exist', () => {
     const mapped = mapPlayerStatsDtoToPlayerStats(
       [

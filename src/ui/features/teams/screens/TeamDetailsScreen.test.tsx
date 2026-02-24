@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNetInfo } from '@react-native-community/netinfo';
 
 import { TeamDetailsScreen } from '@ui/features/teams/screens/TeamDetailsScreen';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
@@ -37,6 +38,7 @@ jest.mock('@ui/features/teams/hooks/useTeamTrophies');
 
 const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedUseRoute = jest.mocked(useRoute);
+const mockedUseNetInfo = jest.mocked(useNetInfo);
 const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 const mockedUseTeamContext = jest.mocked(useTeamContext);
 const mockedUseTeamOverview = jest.mocked(useTeamOverview);
@@ -64,6 +66,10 @@ describe('TeamDetailsScreen', () => {
       push: pushMock,
       goBack: goBackMock,
     } as never);
+    mockedUseNetInfo.mockReturnValue({
+      isConnected: true,
+      isInternetReachable: true,
+    } as ReturnType<typeof useNetInfo>);
 
     mockedUseRoute.mockReturnValue({
       key: 'TeamDetails-key',
@@ -108,6 +114,8 @@ describe('TeamDetailsScreen', () => {
       setSeason: jest.fn(),
       isLoading: false,
       isError: false,
+      lastUpdatedAt: 1_771_000_000_000,
+      hasCachedData: true,
       refetch: jest.fn(),
     } as never);
 
@@ -235,5 +243,41 @@ describe('TeamDetailsScreen', () => {
     fireEvent.press(screen.getByLabelText(i18n.t('teamDetails.actions.back')));
 
     expect(goBackMock).toHaveBeenCalled();
+  });
+
+  it('renders offline no-cache state when offline and no cached team data', () => {
+    mockedUseNetInfo.mockReturnValue({
+      isConnected: false,
+      isInternetReachable: false,
+    } as ReturnType<typeof useNetInfo>);
+    mockedUseTeamContext.mockReturnValue({
+      team: {
+        id: '529',
+        name: null,
+        logo: null,
+        country: null,
+        founded: null,
+        venueName: null,
+        venueCity: null,
+        venueCapacity: null,
+        venueImage: null,
+      },
+      timezone: 'Europe/Paris',
+      competitions: [],
+      selectedLeagueId: null,
+      selectedSeason: null,
+      seasonsForSelectedLeague: [],
+      setLeague: jest.fn(),
+      setSeason: jest.fn(),
+      isLoading: false,
+      isError: false,
+      lastUpdatedAt: null,
+      hasCachedData: false,
+      refetch: jest.fn(),
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText(i18n.t('matches.states.offline.title'))).toBeTruthy();
   });
 });

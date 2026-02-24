@@ -105,6 +105,9 @@ function createStyles(colors: ThemeColors) {
       width: '100%',
       height: '100%',
     },
+    transferFallbackIcon: {
+      margin: 10,
+    },
     transferPlayerInfo: {
       flex: 1,
     },
@@ -192,7 +195,12 @@ const TeamTransferRow = memo(function TeamTransferRow({
           {item.playerPhoto ? (
             <Image source={{ uri: item.playerPhoto }} style={styles.transferPhoto} resizeMode="cover" />
           ) : (
-            <MaterialCommunityIcons name="account" size={24} color={styles.transferMeta.color} style={{ margin: 10 }} />
+            <MaterialCommunityIcons
+              name="account"
+              size={24}
+              color={styles.transferMeta.color}
+              style={styles.transferFallbackIcon}
+            />
           )}
         </View>
         <View style={styles.transferPlayerInfo}>
