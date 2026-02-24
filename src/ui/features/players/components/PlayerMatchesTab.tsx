@@ -22,258 +22,279 @@ function createStyles(colors: ThemeColors) {
         },
         listContent: {
             paddingHorizontal: 20,
-            paddingVertical: 24,
+            paddingVertical: 16,
             paddingBottom: 40,
+        },
+        matchRow: {
+            paddingVertical: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
         },
         headerRow: {
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 16,
-        },
-        title: {
-            color: colors.textMuted,
-            fontSize: 14,
-            fontWeight: '700',
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-        },
-        filterText: {
-            color: colors.primary,
-            fontSize: 14,
-            fontWeight: '600',
-        },
-        card: {
-            backgroundColor: colors.surface,
-            borderRadius: 16,
-            padding: 16,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        cardHeader: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
             marginBottom: 12,
-        },
-        competitionRow: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-        },
-        compLogo: {
-            width: 20,
-            height: 20,
-            borderRadius: 10,
-        },
-        compName: {
-            color: colors.textMuted,
-            fontSize: 12,
-            fontWeight: '600',
-            textTransform: 'uppercase',
         },
         dateText: {
             color: colors.textMuted,
             fontSize: 12,
+            fontWeight: '500',
         },
-        scoreRow: {
+        competitionRow: {
             flexDirection: 'row',
             alignItems: 'center',
+            backgroundColor: colors.surfaceElevated,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+        },
+        compName: {
+            color: colors.textMuted,
+            fontSize: 10,
+            fontWeight: '700',
+            textTransform: 'uppercase',
+        },
+        mainContentRow: {
+            flexDirection: 'row',
             justifyContent: 'space-between',
-            marginBottom: 16,
+            alignItems: 'center',
+        },
+        opponentCol: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            flex: 1,
+            gap: 12,
+        },
+        teamLogo: {
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+        },
+        opponentInfo: {
+            justifyContent: 'center',
         },
         teamName: {
             color: colors.text,
-            fontSize: 18,
-            fontWeight: '700',
-            flex: 1,
-        },
-        teamNameRight: {
-            textAlign: 'right',
-        },
-        scoreBox: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            paddingHorizontal: 12,
+            fontSize: 16,
+            fontWeight: '600',
         },
         scoreText: {
-            color: colors.text,
-            fontSize: 20,
-            fontWeight: '800',
-        },
-        scoreDivider: {
             color: colors.textMuted,
-            fontSize: 18,
+            fontSize: 14,
+            marginTop: 4,
+            fontWeight: '500',
         },
-        statsContainer: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-        },
-        badgesRow: {
+        statsCol: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 12,
         },
-        badge: {
+        iconsRow: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 4,
         },
-        badgeText: {
-            color: colors.textMuted,
-            fontSize: 13,
+        minutesBox: {
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 8,
+            minWidth: 40,
+            alignItems: 'center',
+        },
+        minutesText: {
+            color: colors.text,
+            fontSize: 12,
+            fontWeight: '600',
         },
         ratingBox: {
             alignItems: 'center',
             justifyContent: 'center',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: `${colors.primary}60`,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            borderRadius: 8,
+            minWidth: 44,
+            backgroundColor: `${colors.primary}90`,
         },
         ratingHigh: {
-            backgroundColor: colors.primary,
-            borderColor: colors.primary,
+            backgroundColor: '#3B82F6', // Blue for good ratings
         },
         ratingLow: {
+            backgroundColor: '#F59E0B', // Orange for lower ratings
+        },
+        ratingNone: {
             backgroundColor: colors.surfaceElevated,
-            borderColor: colors.border,
         },
-        ratingTextHigh: {
+        ratingText: {
             color: colors.background,
-            fontSize: 18,
-            fontWeight: '800',
-        },
-        ratingTextLow: {
-            color: colors.text,
-            fontSize: 18,
-            fontWeight: '800',
-        },
-        ratingLabel: {
-            fontSize: 10,
+            fontSize: 14,
             fontWeight: '700',
-            textTransform: 'uppercase',
+        },
+        yellowCard: {
+            width: 12,
+            height: 16,
+            backgroundColor: '#FBBF24',
+            borderRadius: 2,
+        },
+        redCard: {
+            width: 12,
+            height: 16,
+            backgroundColor: '#EF4444',
+            borderRadius: 2,
+        },
+        secondYellowCard: {
+            width: 12,
+            height: 16,
+            flexDirection: 'row',
+            borderRadius: 2,
+            overflow: 'hidden',
+        },
+        secondYellowLeft: {
+            flex: 1,
+            backgroundColor: '#FBBF24',
+        },
+        secondYellowRight: {
+            flex: 1,
+            backgroundColor: '#EF4444',
         },
     });
 }
 
 export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProps) {
     const { colors } = useAppTheme();
-    const { t, i18n } = useTranslation();
+    const { i18n } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-US';
 
     const renderItem = useCallback(
         ({ item }: ListRenderItemInfo<PlayerMatchPerformance>) => {
-            const { competition, homeTeam, awayTeam, goalsHome, goalsAway, date, playerStats } = item;
+            const { competition, homeTeam, awayTeam, goalsHome, goalsAway, date, playerStats, playerTeamId } = item;
+
+            // Determine opponent
+            const isHome = playerTeamId === homeTeam.id;
+            const opponentTeam = isHome ? awayTeam : homeTeam;
+
+            // Format score as "homeGoals - awayGoals" always, to match UI consistency, 
+            // or maybe "playerTeamGoals - opponentGoals"? Usually it is home - away in UI unless specified.
+            // On mockup: "Tottenham 1 - 4" where Tottenham is opponent. Real life Tottenham 1-4 Arsenal. So it's home - away.
+            const scoreDisplay = `${goalsHome ?? '-'} - ${goalsAway ?? '-'}`;
 
             const ratingVal = playerStats.rating ? Number.parseFloat(playerStats.rating) : NaN;
-            const isHighRating = !isNaN(ratingVal) && ratingVal >= 7.0;
+            let ratingStyle = styles.ratingNone;
+            if (!isNaN(ratingVal)) {
+                if (ratingVal >= 7.0) {
+                    ratingStyle = styles.ratingHigh;
+                } else {
+                    ratingStyle = styles.ratingLow;
+                }
+            }
 
             const dateObj = new Date(date ?? '');
             const dateString = Number.isNaN(dateObj.getTime())
                 ? ''
-                : dateObj.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
+                : dateObj.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 
-            // Build badges only from available API values
-            const icons = [];
-            if (typeof playerStats.goals === 'number' && playerStats.goals > 0) {
-                icons.push({
-                    key: 'goals',
-                    icon: 'soccer',
-                    text: t('playerDetails.matches.badges.goals', { count: playerStats.goals }),
-                    color: colors.primary,
-                });
+            // Generate Match Icons
+            const matchIcons: React.ReactNode[] = [];
+
+            // Goals
+            const goals = typeof playerStats.goals === 'number' ? playerStats.goals : 0;
+            for (let i = 0; i < goals; i++) {
+                matchIcons.push(<MaterialCommunityIcons key={`goal-${item.fixtureId}-${i}`} name="soccer" size={16} color={colors.text} />);
             }
-            if (typeof playerStats.assists === 'number' && playerStats.assists > 0) {
-                icons.push({
-                    key: 'assists',
-                    icon: 'shoe-cleat',
-                    text: t('playerDetails.matches.badges.assists', { count: playerStats.assists }),
-                    color: colors.primary,
-                });
+
+            // Assists
+            const assists = typeof playerStats.assists === 'number' ? playerStats.assists : 0;
+            for (let i = 0; i < assists; i++) {
+                matchIcons.push(<MaterialCommunityIcons key={`assist-${item.fixtureId}-${i}`} name="shoe-cleat" size={16} color={colors.text} />);
             }
-            if (typeof playerStats.yellowCards === 'number' && playerStats.yellowCards > 0) {
-                icons.push({
-                    key: 'yellow-cards',
-                    icon: 'card',
-                    text: t('playerDetails.matches.labels.yellowCard'),
-                    color: '#FFD700',
-                });
+
+            // Yellow Cards
+            if (playerStats.yellowCards && playerStats.yellowCards > 0) {
+                matchIcons.push(<View key={`yc-${item.fixtureId}`} style={styles.yellowCard} />);
             }
-            if (typeof playerStats.redCards === 'number' && playerStats.redCards > 0) {
-                icons.push({
-                    key: 'red-cards',
-                    icon: 'card',
-                    text: t('playerDetails.matches.labels.redCard'),
-                    color: colors.danger,
-                });
+            // Second Yellow
+            if (playerStats.secondYellowCards && playerStats.secondYellowCards > 0) {
+                matchIcons.push(
+                    <View key={`syc-${item.fixtureId}`} style={styles.secondYellowCard}>
+                        <View style={styles.secondYellowLeft} />
+                        <View style={styles.secondYellowRight} />
+                    </View>
+                );
             }
-            if (typeof playerStats.minutes === 'number') {
-                icons.push({
-                    key: 'minutes',
-                    icon: 'clock-outline',
-                    text: `${playerStats.minutes}'`,
-                    color: colors.textMuted,
-                });
+            // Red Cards
+            if (playerStats.redCards && playerStats.redCards > 0) {
+                matchIcons.push(<View key={`rc-${item.fixtureId}`} style={styles.redCard} />);
+            }
+
+            // Saves / Penalties Stopped
+            const saves = typeof playerStats.saves === 'number' ? playerStats.saves : 0;
+            const penSaved = typeof playerStats.penaltiesSaved === 'number' ? playerStats.penaltiesSaved : 0;
+            const totalSaves = saves + penSaved;
+            for (let i = 0; i < totalSaves; i++) {
+                matchIcons.push(<MaterialCommunityIcons key={`save-${item.fixtureId}-${i}`} name="hand-back-right" size={16} color={colors.text} />);
+            }
+
+            // Penalties Missed
+            const penMissed = typeof playerStats.penaltiesMissed === 'number' ? playerStats.penaltiesMissed : 0;
+            for (let i = 0; i < penMissed; i++) {
+                matchIcons.push(<MaterialCommunityIcons key={`pmiss-${item.fixtureId}-${i}`} name="close-box-outline" size={16} color="#EF4444" />);
             }
 
             return (
                 <Pressable
-                    style={styles.card}
+                    style={styles.matchRow}
                     onPress={() => onPressMatch && onPressMatch(item.fixtureId)}
                 >
-                    <View style={styles.cardHeader}>
+                    <View style={styles.headerRow}>
+                        <Text style={styles.dateText}>{dateString}</Text>
                         <View style={styles.competitionRow}>
-                            {competition.logo ? (
-                                <Image source={{ uri: competition.logo ?? undefined }} style={styles.compLogo} />
-                            ) : (
-                                <MaterialCommunityIcons name="trophy-outline" size={16} color={colors.primary} />
-                            )}
                             <Text style={styles.compName}>{toDisplayValue(competition.name)}</Text>
                         </View>
-                        <Text style={styles.dateText}>{dateString}</Text>
                     </View>
 
-                    <View style={styles.scoreRow}>
-                        <Text style={styles.teamName} numberOfLines={1}>{toDisplayValue(homeTeam.name)}</Text>
-                        <View style={styles.scoreBox}>
-                            <Text style={styles.scoreText}>{toDisplayValue(goalsHome)}</Text>
-                            <Text style={styles.scoreDivider}>-</Text>
-                            <Text style={styles.scoreText}>{toDisplayValue(goalsAway)}</Text>
+                    <View style={styles.mainContentRow}>
+                        <View style={styles.opponentCol}>
+                            {opponentTeam.logo ? (
+                                <Image source={{ uri: opponentTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
+                            ) : (
+                                <View style={[styles.teamLogo, { backgroundColor: colors.surfaceElevated }]} />
+                            )}
+                            <View style={styles.opponentInfo}>
+                                <Text style={styles.teamName} numberOfLines={1}>
+                                    {toDisplayValue(opponentTeam.name)}
+                                </Text>
+                                <Text style={styles.scoreText}>{scoreDisplay}</Text>
+                            </View>
                         </View>
-                        <Text style={[styles.teamName, styles.teamNameRight]} numberOfLines={1}>
-                            {toDisplayValue(awayTeam.name)}
-                        </Text>
-                    </View>
 
-                    <View style={styles.statsContainer}>
-                        <View style={styles.badgesRow}>
-                            {icons.map(itemBadge => (
-                                <View key={itemBadge.key} style={styles.badge}>
-                                    <MaterialCommunityIcons name={itemBadge.icon} size={16} color={itemBadge.color} />
-                                    <Text style={styles.badgeText}>{itemBadge.text}</Text>
+                        <View style={styles.statsCol}>
+                            {matchIcons.length > 0 && (
+                                <View style={styles.iconsRow}>
+                                    {matchIcons}
                                 </View>
-                            ))}
-                        </View>
+                            )}
 
-                        <View style={[styles.ratingBox, isHighRating ? styles.ratingHigh : styles.ratingLow]}>
-                            <Text style={isHighRating ? styles.ratingTextHigh : styles.ratingTextLow}>
-                                {toDisplayValue(playerStats.rating)}
-                            </Text>
-                            <Text style={[styles.ratingLabel, { color: isHighRating ? `${colors.background}99` : colors.textMuted }]}>
-                                {t('playerDetails.matches.labels.rating')}
-                            </Text>
+                            {playerStats.minutes != null && (
+                                <View style={styles.minutesBox}>
+                                    <Text style={styles.minutesText}>{playerStats.minutes}'</Text>
+                                </View>
+                            )}
+
+                            <View style={[styles.ratingBox, ratingStyle]}>
+                                <Text style={styles.ratingText}>
+                                    {!isNaN(ratingVal) ? toDisplayValue(playerStats.rating) : '-'}
+                                </Text>
+                            </View>
                         </View>
                     </View>
                 </Pressable>
             );
         },
-        [colors, locale, onPressMatch, styles, t]
+        [colors, locale, onPressMatch, styles]
     );
 
     return (
@@ -283,12 +304,6 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                 keyExtractor={(item) => item.fixtureId}
                 renderItem={renderItem}
                 contentContainerStyle={styles.listContent}
-                ListHeaderComponent={
-                    <View style={styles.headerRow}>
-                        <Text style={styles.title}>{t('playerDetails.matches.labels.recentMatches')}</Text>
-                        <Text style={styles.filterText}>{t('playerDetails.matches.labels.filters')}</Text>
-                    </View>
-                }
             />
         </View>
     );
