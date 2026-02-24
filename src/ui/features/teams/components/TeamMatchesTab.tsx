@@ -1,7 +1,8 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamMatchItem, TeamMatchesData } from '@ui/features/teams/types/teams.types';
@@ -104,9 +105,9 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
-      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      gap: 12,
       marginBottom: 10,
     },
     metaRow: {
@@ -115,22 +116,47 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       gap: 10,
     },
+    metaLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    metaIcon: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+    },
     metaText: {
       color: colors.textMuted,
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
     },
     teamsRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 10,
+      gap: 8,
     },
-    homeTeamPressable: {
+    teamSide: {
       flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
     },
-    awayTeamPressable: {
-      flex: 1,
+    teamSideRight: {
+      flexDirection: 'row-reverse',
+    },
+    teamLogoContainer: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    teamLogo: {
+      width: 20,
+      height: 20,
     },
     teamName: {
       color: colors.text,
@@ -141,11 +167,28 @@ function createStyles(colors: ThemeColors) {
     awayTeamName: {
       textAlign: 'right',
     },
-    middleText: {
+    middleArea: {
+      minWidth: 70,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    middleScoreBox: {
+      backgroundColor: colors.surfaceElevated,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    middleScoreText: {
       color: colors.text,
       fontSize: 18,
       fontWeight: '900',
-      minWidth: 90,
+      textAlign: 'center',
+      letterSpacing: 2,
+    },
+    middleHourText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
       textAlign: 'center',
     },
   });
@@ -220,18 +263,27 @@ const TeamMatchRow = memo(function TeamMatchRow({
   onPressMatch: (matchId: string) => void;
   onPressTeam: (teamId: string) => void;
 }) {
-  const score =
-    match.status === 'upcoming'
-      ? toDisplayHour(match.date)
-      : toDisplayScore(match.homeGoals, match.awayGoals);
+  const isUpcoming = match.status === 'upcoming';
+  const scoreText = isUpcoming
+    ? toDisplayHour(match.date)
+    : toDisplayScore(match.homeGoals, match.awayGoals);
 
   return (
     <Pressable style={styles.matchCard} onPress={() => onPressMatch(match.fixtureId)}>
       <View style={styles.metaRow}>
-        <Text style={styles.metaText}>{toDisplayDate(match.date)}</Text>
-        <Text numberOfLines={1} style={styles.metaText}>
-          {toDisplayValue(match.leagueName)}
-        </Text>
+        <View style={styles.metaLeft}>
+          <Text style={styles.metaText}>{toDisplayDate(match.date)}</Text>
+        </View>
+        <View style={styles.metaLeft}>
+          {match.leagueLogo ? (
+            <Image source={{ uri: match.leagueLogo }} style={styles.metaIcon} resizeMode="contain" />
+          ) : (
+            <MaterialCommunityIcons name="trophy-outline" size={14} color={styles.metaText.color} />
+          )}
+          <Text numberOfLines={1} style={styles.metaText}>
+            {toDisplayValue(match.leagueName)}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.teamsRow}>
@@ -242,14 +294,27 @@ const TeamMatchRow = memo(function TeamMatchRow({
               onPressTeam(match.homeTeamId);
             }
           }}
-          style={styles.homeTeamPressable}
+          style={styles.teamSide}
         >
-          <Text numberOfLines={1} style={styles.teamName}>
+          <View style={styles.teamLogoContainer}>
+            {match.homeTeamLogo ? (
+              <Image source={{ uri: match.homeTeamLogo }} style={styles.teamLogo} resizeMode="contain" />
+            ) : null}
+          </View>
+          <Text numberOfLines={2} style={styles.teamName}>
             {toDisplayValue(match.homeTeamName)}
           </Text>
         </Pressable>
 
-        <Text style={styles.middleText}>{score}</Text>
+        <View style={styles.middleArea}>
+          {isUpcoming ? (
+            <Text style={styles.middleHourText}>{scoreText}</Text>
+          ) : (
+            <View style={styles.middleScoreBox}>
+              <Text style={styles.middleScoreText}>{scoreText}</Text>
+            </View>
+          )}
+        </View>
 
         <Pressable
           onPress={event => {
@@ -258,9 +323,14 @@ const TeamMatchRow = memo(function TeamMatchRow({
               onPressTeam(match.awayTeamId);
             }
           }}
-          style={styles.awayTeamPressable}
+          style={[styles.teamSide, styles.teamSideRight]}
         >
-          <Text numberOfLines={1} style={[styles.teamName, styles.awayTeamName]}>
+          <View style={styles.teamLogoContainer}>
+            {match.awayTeamLogo ? (
+              <Image source={{ uri: match.awayTeamLogo }} style={styles.teamLogo} resizeMode="contain" />
+            ) : null}
+          </View>
+          <Text numberOfLines={2} style={[styles.teamName, styles.awayTeamName]}>
             {toDisplayValue(match.awayTeamName)}
           </Text>
         </Pressable>
@@ -351,6 +421,8 @@ export function TeamMatchesTab({
           data={feedItems}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
+          // @ts-ignore - TS types are currently flawed for estimatedItemSize in FlashList in this environment
+          estimatedItemSize={120}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />
       ) : null}

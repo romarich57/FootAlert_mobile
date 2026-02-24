@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import Svg, { Polygon, Line } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -13,12 +14,12 @@ type RadarChartProps = {
 
 // Map characteristics to axes (0 to 100 values expected)
 const AXES = [
-    { key: 'attack', label: 'ATTAQUE' },
-    { key: 'dribbles', label: 'DRIBBLES' },
-    { key: 'chances', label: 'OCCASIONS' },
-    { key: 'defense', label: 'DÉFENSE' },
-    { key: 'duels', label: 'DUELS' },
-    { key: 'touches', label: 'TOUCHES' },
+    { key: 'attack', labelKey: 'playerDetails.stats.chartAxes.attack' },
+    { key: 'dribbles', labelKey: 'playerDetails.stats.chartAxes.dribbles' },
+    { key: 'chances', labelKey: 'playerDetails.stats.chartAxes.chances' },
+    { key: 'defense', labelKey: 'playerDetails.stats.chartAxes.defense' },
+    { key: 'duels', labelKey: 'playerDetails.stats.chartAxes.duels' },
+    { key: 'touches', labelKey: 'playerDetails.stats.chartAxes.touches' },
  ] as const;
 
 function createStyles(colors: ThemeColors) {
@@ -64,6 +65,7 @@ function normalizeData(data: PlayerCharacteristics, key: keyof PlayerCharacteris
 
 export function RadarChart({ data, size = 260 }: RadarChartProps) {
     const { colors } = useAppTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const center = size / 2;
@@ -116,7 +118,7 @@ export function RadarChart({ data, size = 260 }: RadarChartProps) {
                     labelLayout, // Center around point
                 ]}
             >
-                <Text style={styles.label}>{axis.label}</Text>
+                <Text style={styles.label}>{t(axis.labelKey)}</Text>
             </View>
         );
     });

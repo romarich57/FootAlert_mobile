@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   useNavigation,
   useRoute,
@@ -56,6 +56,20 @@ export function useTeamDetailsScreenModel() {
   } = useTeamContext({ teamId });
 
   const hasLeagueSelection = Boolean(selectedLeagueId) && typeof selectedSeason === 'number';
+
+  const standingsCompetitions = useMemo(
+    () => competitions.filter(c => c.type === 'League'),
+    [competitions]
+  );
+
+  useEffect(() => {
+    if (activeTab === 'standings' && selectedLeagueId) {
+      const currentComp = competitions.find(c => c.leagueId === selectedLeagueId);
+      if (currentComp && currentComp.type !== 'League' && standingsCompetitions.length > 0) {
+        setLeague(standingsCompetitions[0].leagueId);
+      }
+    }
+  }, [activeTab, selectedLeagueId, competitions, standingsCompetitions, setLeague]);
 
   const overviewQuery = useTeamOverview({
     teamId,
@@ -163,6 +177,7 @@ export function useTeamDetailsScreenModel() {
     activeTab,
     tabs,
     competitions,
+    standingsCompetitions,
     selectedLeagueId,
     selectedSeason,
     isContextLoading,

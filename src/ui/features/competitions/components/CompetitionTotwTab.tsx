@@ -47,8 +47,7 @@ export function CompetitionTotwTab({ competitionId, season }: CompetitionTotwTab
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
-    // Using a mocked round strictly to demonstrate the hook API limitation fallback gracefully
-    const { data: totw, isLoading, isError } = useCompetitionTotw(competitionId, season, 'Regular Season - 1');
+    const { data: totw, isLoading, isError } = useCompetitionTotw(competitionId, season, undefined);
 
     if (isLoading) {
         return (

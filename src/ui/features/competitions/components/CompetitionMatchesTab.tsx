@@ -353,9 +353,9 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
     return (
         <View style={styles.container}>
             <View style={styles.headerRow}>
-                <Text style={styles.headerTitle}>{t('competitionDetails.matches.allMatches', { defaultValue: 'Tous les matchs' })}</Text>
+                <Text style={styles.headerTitle}>{t('competitionDetails.matches.allMatches')}</Text>
                 <Pressable style={styles.headerActions} onPress={() => setFilterModalVisible(true)}>
-                    <Text style={styles.headerActionText}>{t('competitionDetails.matches.filtersAndSort', { defaultValue: 'Trier / Filtrer ▾' })}</Text>
+                    <Text style={styles.headerActionText}>{t('competitionDetails.matches.filtersAndSort')}</Text>
                 </Pressable>
             </View>
 

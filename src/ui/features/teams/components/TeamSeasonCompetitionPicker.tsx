@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState, useMemo } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamCompetitionOption } from '@ui/features/teams/types/teams.types';
@@ -14,6 +15,7 @@ type TeamSeasonCompetitionPickerProps = {
   onSelectSeason: (season: number) => void;
   competitionLabel: string;
   seasonLabel: string;
+  hideCompetitions?: boolean;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -59,6 +61,88 @@ function createStyles(colors: ThemeColors) {
     chipTextActive: {
       color: colors.primary,
     },
+    chipContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    chipLogo: {
+      width: 16,
+      height: 16,
+    },
+    dropdownTrigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 40,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 16,
+      gap: 12,
+      alignSelf: 'flex-start',
+    },
+    triggerText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    modalContent: {
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      maxHeight: '80%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    closeButton: {
+      padding: 4,
+    },
+    seasonOption: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    seasonOptionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    seasonOptionText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    seasonOptionActive: {
+      backgroundColor: 'rgba(21,248,106,0.08)',
+    },
+    seasonOptionTextActive: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
   });
 }
 
@@ -70,58 +154,106 @@ export function TeamSeasonCompetitionPicker({
   onSelectSeason,
   competitionLabel,
   seasonLabel,
+  hideCompetitions,
 }: TeamSeasonCompetitionPickerProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const [isSeasonModalOpen, setIsSeasonModalOpen] = useState(false);
+
   const selectedCompetition = competitions.find(item => item.leagueId === selectedLeagueId) ?? null;
+  const seasons = selectedCompetition?.seasons ?? [];
 
   return (
     <View style={styles.container}>
-      <View>
-        <Text style={styles.rowLabel}>{competitionLabel}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          {competitions.map(competition => {
-            const isActive = competition.leagueId === selectedLeagueId;
+      {!hideCompetitions ? (
+        <View>
+          <Text style={styles.rowLabel}>{competitionLabel}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+            {competitions.map(competition => {
+              const isActive = competition.leagueId === selectedLeagueId;
 
-            return (
-              <Pressable
-                key={competition.leagueId}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                onPress={() => onSelectLeague(competition.leagueId)}
-                style={[styles.chip, isActive ? styles.chipActive : null]}
-              >
-                <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
-                  {toDisplayValue(competition.leagueName)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+              return (
+                <Pressable
+                  key={competition.leagueId}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  onPress={() => onSelectLeague(competition.leagueId)}
+                  style={[styles.chip, isActive ? styles.chipActive : null]}
+                >
+                  <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
+                    {toDisplayValue(competition.leagueName)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
 
       <View>
         <Text style={styles.rowLabel}>{seasonLabel}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          {(selectedCompetition?.seasons ?? []).map(season => {
-            const isActive = season === selectedSeason;
+        <Pressable onPress={() => setIsSeasonModalOpen(true)} style={styles.dropdownTrigger}>
+          <View style={styles.chipContent}>
+            {selectedCompetition?.leagueLogo ? (
+              <Image
+                source={{ uri: selectedCompetition.leagueLogo }}
+                style={styles.chipLogo}
+                resizeMode="contain"
+              />
+            ) : null}
+            <Text style={styles.triggerText}>
+              {selectedSeason ? toDisplaySeasonLabel(selectedSeason) : ''}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-down" size={22} color={colors.textMuted} />
+        </Pressable>
 
-            return (
-              <Pressable
-                key={`${selectedCompetition?.leagueId ?? 'league'}-${season}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isActive }}
-                onPress={() => onSelectSeason(season)}
-                style={[styles.chip, isActive ? styles.chipActive : null]}
-              >
-                <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
-                  {toDisplaySeasonLabel(season)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <Modal visible={isSeasonModalOpen} transparent animationType="fade" onRequestClose={() => setIsSeasonModalOpen(false)}>
+          <Pressable style={styles.modalOverlay} onPress={() => setIsSeasonModalOpen(false)}>
+            <Pressable style={styles.modalContent} onPress={e => e.stopPropagation()}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{seasonLabel}</Text>
+                <Pressable onPress={() => setIsSeasonModalOpen(false)} style={styles.closeButton}>
+                  <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {seasons.map(season => {
+                  const isActive = season === selectedSeason;
+
+                  return (
+                    <Pressable
+                      key={season}
+                      style={[styles.seasonOption, isActive ? styles.seasonOptionActive : null]}
+                      onPress={() => {
+                        onSelectSeason(season);
+                        setIsSeasonModalOpen(false);
+                      }}
+                    >
+                      <View style={styles.seasonOptionLeft}>
+                        {selectedCompetition?.leagueLogo ? (
+                          <Image
+                            source={{ uri: selectedCompetition.leagueLogo }}
+                            style={styles.chipLogo}
+                            resizeMode="contain"
+                          />
+                        ) : null}
+                        <Text style={[styles.seasonOptionText, isActive ? styles.seasonOptionTextActive : null]}>
+                          {toDisplaySeasonLabel(season)}
+                        </Text>
+                      </View>
+                      {isActive ? (
+                        <MaterialCommunityIcons name="check" size={22} color={colors.primary} />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     </View>
   );

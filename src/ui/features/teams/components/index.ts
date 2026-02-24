@@ -9,3 +9,4 @@ export { TeamTransfersTab } from './TeamTransfersTab';
 export { TeamSquadTab } from './TeamSquadTab';
 export { TeamTrophiesTab } from './TeamTrophiesTab';
 export { TeamDetailsTabContent } from './TeamDetailsTabContent';
+export { TeamSeasonDropdown } from './TeamSeasonDropdown';

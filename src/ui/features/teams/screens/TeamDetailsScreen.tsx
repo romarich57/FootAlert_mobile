@@ -8,6 +8,7 @@ import {
   TeamDetailsTabContent,
   TeamHeader,
   TeamSeasonCompetitionPicker,
+  TeamSeasonDropdown,
   TeamTabs,
 } from '@ui/features/teams/components';
 import { useTeamDetailsScreenModel } from '@ui/features/teams/hooks/useTeamDetailsScreenModel';
@@ -50,6 +51,11 @@ export function TeamDetailsScreen() {
 
   const model = useTeamDetailsScreenModel();
 
+  const allSeasons = useMemo(
+    () => Array.from(new Set(model.competitions.flatMap(c => c.seasons))).sort((a, b) => b - a),
+    [model.competitions]
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <TeamHeader
@@ -64,15 +70,28 @@ export function TeamDetailsScreen() {
 
       <TeamTabs activeTab={model.activeTab} onChangeTab={model.handleChangeTab} tabs={model.tabs} />
 
-      <TeamSeasonCompetitionPicker
-        competitions={model.competitions}
-        selectedLeagueId={model.selectedLeagueId}
-        selectedSeason={model.selectedSeason}
-        onSelectLeague={model.setLeague}
-        onSelectSeason={model.setSeason}
-        competitionLabel={t('teamDetails.filters.competition')}
-        seasonLabel={t('teamDetails.filters.season')}
-      />
+      {model.activeTab !== 'squad' &&
+        model.activeTab !== 'trophies' &&
+        model.activeTab !== 'transfers' ? (
+        <TeamSeasonCompetitionPicker
+          competitions={model.activeTab === 'standings' ? model.standingsCompetitions : model.competitions}
+          selectedLeagueId={model.selectedLeagueId}
+          selectedSeason={model.selectedSeason}
+          onSelectLeague={model.setLeague}
+          onSelectSeason={model.setSeason}
+          competitionLabel={t('teamDetails.filters.competition')}
+          seasonLabel={t('teamDetails.filters.season')}
+          hideCompetitions={model.activeTab === 'standings'}
+        />
+      ) : null}
+
+      {model.activeTab === 'transfers' ? (
+        <TeamSeasonDropdown
+          seasons={allSeasons}
+          selectedSeason={model.selectedSeason}
+          onSelectSeason={model.setSeason}
+        />
+      ) : null}
 
       {model.isContextLoading ? (
         <View style={styles.stateWrap}>
@@ -87,7 +106,7 @@ export function TeamDetailsScreen() {
           <View style={styles.stateCard}>
             <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
             <Text style={styles.stateText}>{toDisplayValue(model.team.name)}</Text>
-            <Text onPress={model.refetchContext} style={[styles.stateText, { color: colors.primary }]}> 
+            <Text onPress={model.refetchContext} style={[styles.stateText, { color: colors.primary }]}>
               {t('actions.retry')}
             </Text>
           </View>

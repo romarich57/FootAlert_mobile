@@ -220,6 +220,15 @@ describe('TeamDetailsScreen', () => {
     );
   });
 
+  it('keeps competition and season picker available on standings tab', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.standings')));
+
+    expect(screen.getByText(i18n.t('teamDetails.filters.competition'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('teamDetails.filters.season'))).toBeTruthy();
+  });
+
   it('navigates back when pressing back button', () => {
     renderScreen();
 

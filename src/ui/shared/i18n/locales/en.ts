@@ -10,6 +10,9 @@ export const en = {
     cancel: 'Cancel',
     save: 'Save',
   },
+  common: {
+    done: 'Done',
+  },
   placeholders: {
     inProgress: 'Section in progress',
     inProgressSubtitle: 'This section will be available in a next product iteration.',
@@ -30,11 +33,6 @@ export const en = {
     topCompetitionBadge: 'TOP',
     followsSectionTitle: 'Follows',
     followsEmpty: 'No followed match available yet.',
-    demoFallback: {
-      title: 'Demo mode enabled',
-      message:
-        'Showing sample matches and scores (API unavailable, quota reached or demo mode).',
-    },
     filters: {
       all: 'All',
       live: 'Live',
@@ -171,6 +169,29 @@ export const en = {
         away: 'Away',
       },
     },
+    standings: {
+      displayModes: {
+        simple: 'Simple',
+        detailed: 'Detailed',
+        form: 'Form',
+      },
+      subFilters: {
+        all: 'Overall',
+        home: 'Home',
+        away: 'Away',
+      },
+      headers: {
+        team: 'Team',
+        played: 'P',
+        win: 'W',
+        draw: 'D',
+        loss: 'L',
+        goalDiff: 'GD',
+        goalsForAgainst: '+/-',
+        points: 'Pts',
+        formLastFive: 'Last 5 matches',
+      },
+    },
     stats: {
       pointsCard: 'Points',
       goalsBreakdown: 'Goals breakdown',
@@ -194,6 +215,12 @@ export const en = {
     },
     trophies: {
       title: 'Honours',
+      places: {
+        champion: 'Champion',
+        runnerUp: 'Runner-up',
+        semifinalist: 'Semi-finalist',
+        title: 'Title',
+      },
     },
     labels: {
       rank: 'Rank',
@@ -240,6 +267,24 @@ export const en = {
     matches: {
       unavailable: 'Matches unavailable',
       finished: 'Finished',
+      filtersTitle: 'Filters and sorting',
+      sortBy: 'Sort by',
+      sortDateAsc: 'Date (oldest first)',
+      sortDateDesc: 'Date (latest first)',
+      sortRoundAsc: 'Matchday (1 -> 38)',
+      sortRoundDesc: 'Matchday (38 -> 1)',
+      filterTeam: 'Filter by team',
+      allTeams: 'All teams',
+      allMatches: 'All matches',
+      filtersAndSort: 'Sort / Filter ▾',
+      status: {
+        rank: '#',
+        team: 'TEAM',
+        played: 'P',
+        goalDiff: 'GD',
+        points: 'PTS',
+        form: 'FORM',
+      },
     },
     standings: {
       unavailable: 'Standings unavailable',
@@ -356,6 +401,14 @@ export const en = {
         shotDetails: 'Shot details',
         seasonShotMap: 'Season shot map',
         accuracy: 'accuracy',
+      },
+      chartAxes: {
+        attack: 'Attack',
+        dribbles: 'Dribbles',
+        chances: 'Chances',
+        defense: 'Defense',
+        duels: 'Duels',
+        touches: 'Touches',
       },
     },
     matches: {

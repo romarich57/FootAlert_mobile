@@ -10,6 +10,9 @@ export const fr = {
     cancel: 'Annuler',
     save: 'Enregistrer',
   },
+  common: {
+    done: 'Terminé',
+  },
   placeholders: {
     inProgress: 'Section en cours d’implémentation',
     inProgressSubtitle:
@@ -31,11 +34,6 @@ export const fr = {
     topCompetitionBadge: 'TOP',
     followsSectionTitle: 'Suivis',
     followsEmpty: 'Aucun match lié à vos suivis pour le moment.',
-    demoFallback: {
-      title: 'Mode démo activé',
-      message:
-        'Affichage d’un exemple de matchs et scores (API indisponible, quota atteint ou mode démo).',
-    },
     filters: {
       all: 'Tous',
       live: 'Live',
@@ -172,6 +170,29 @@ export const fr = {
         away: 'Extérieur',
       },
     },
+    standings: {
+      displayModes: {
+        simple: 'Simple',
+        detailed: 'Détaillé',
+        form: 'Forme',
+      },
+      subFilters: {
+        all: 'Général',
+        home: 'Domicile',
+        away: 'Extérieur',
+      },
+      headers: {
+        team: 'Équipe',
+        played: 'J',
+        win: 'G',
+        draw: 'N',
+        loss: 'D',
+        goalDiff: 'DB',
+        goalsForAgainst: '+/-',
+        points: 'Pts',
+        formLastFive: '5 derniers matchs',
+      },
+    },
     stats: {
       pointsCard: 'Points',
       goalsBreakdown: 'Répartition des buts',
@@ -195,6 +216,12 @@ export const fr = {
     },
     trophies: {
       title: 'Palmarès',
+      places: {
+        champion: 'Champion',
+        runnerUp: 'Vice-champion',
+        semifinalist: 'Demi-finaliste',
+        title: 'Titre',
+      },
     },
     labels: {
       rank: 'Rang',
@@ -241,6 +268,16 @@ export const fr = {
     matches: {
       unavailable: 'Matchs non disponibles',
       finished: 'Terminé',
+      filtersTitle: 'Filtres et tris',
+      sortBy: 'Trier par',
+      sortDateAsc: "Date (anciens d'abord)",
+      sortDateDesc: "Date (récents d'abord)",
+      sortRoundAsc: 'Journée (1 -> 38)',
+      sortRoundDesc: 'Journée (38 -> 1)',
+      filterTeam: 'Filtrer par équipe',
+      allTeams: 'Toutes les équipes',
+      allMatches: 'Tous les matchs',
+      filtersAndSort: 'Trier / Filtrer ▾',
       status: {
         rank: '#',
         team: 'ÉQUIPE',
@@ -365,6 +402,14 @@ export const fr = {
         shotDetails: 'Détails des tirs',
         seasonShotMap: 'Carte des tirs de la saison',
         accuracy: 'précision',
+      },
+      chartAxes: {
+        attack: 'Attaque',
+        dribbles: 'Dribbles',
+        chances: 'Occasions',
+        defense: 'Défense',
+        duels: 'Duels',
+        touches: 'Touches',
       },
     },
     matches: {

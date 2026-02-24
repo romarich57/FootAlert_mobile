@@ -7,7 +7,6 @@ import {
     Text,
     View,
 } from 'react-native';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -162,35 +161,35 @@ export function MatchesFilterBottomSheet({
             <Pressable style={styles.overlay} onPress={onClose}>
                 <Pressable style={styles.content}>
                     <View style={styles.header}>
-                        <Text style={styles.title}>{t('competitionDetails.matches.filtersTitle', { defaultValue: 'Filtres et Tris' })}</Text>
+                        <Text style={styles.title}>{t('competitionDetails.matches.filtersTitle')}</Text>
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false}>
-                        <Text style={styles.sectionTitle}>{t('competitionDetails.matches.sortBy', { defaultValue: 'Trier par' })}</Text>
+                        <Text style={styles.sectionTitle}>{t('competitionDetails.matches.sortBy')}</Text>
                         <RadioOption
-                            label={t('competitionDetails.matches.sortDateAsc', { defaultValue: 'Date (Anciens d\'abord)' })}
+                            label={t('competitionDetails.matches.sortDateAsc')}
                             selected={state.sortBy === 'date_asc'}
                             onPress={() => setState({ ...state, sortBy: 'date_asc' })}
                         />
                         <RadioOption
-                            label={t('competitionDetails.matches.sortDateDesc', { defaultValue: 'Date (Récents d\'abord)' })}
+                            label={t('competitionDetails.matches.sortDateDesc')}
                             selected={state.sortBy === 'date_desc'}
                             onPress={() => setState({ ...state, sortBy: 'date_desc' })}
                         />
                         <RadioOption
-                            label={t('competitionDetails.matches.sortRoundAsc', { defaultValue: 'Journée (1 -> 38)' })}
+                            label={t('competitionDetails.matches.sortRoundAsc')}
                             selected={state.sortBy === 'round_asc'}
                             onPress={() => setState({ ...state, sortBy: 'round_asc' })}
                         />
                         <RadioOption
-                            label={t('competitionDetails.matches.sortRoundDesc', { defaultValue: 'Journée (38 -> 1)' })}
+                            label={t('competitionDetails.matches.sortRoundDesc')}
                             selected={state.sortBy === 'round_desc'}
                             onPress={() => setState({ ...state, sortBy: 'round_desc' })}
                         />
 
-                        <Text style={styles.sectionTitle}>{t('competitionDetails.matches.filterTeam', { defaultValue: 'Filtrer par équipe' })}</Text>
+                        <Text style={styles.sectionTitle}>{t('competitionDetails.matches.filterTeam')}</Text>
                         <RadioOption
-                            label={t('competitionDetails.matches.allTeams', { defaultValue: 'Toutes les équipes' })}
+                            label={t('competitionDetails.matches.allTeams')}
                             selected={state.teamId === null}
                             onPress={() => setState({ ...state, teamId: null })}
                         />
@@ -206,7 +205,7 @@ export function MatchesFilterBottomSheet({
 
                     <View style={styles.footerRow}>
                         <Pressable onPress={handleApply}>
-                            <Text style={styles.doneText}>{t('common.done', { defaultValue: 'Terminé' })}</Text>
+                            <Text style={styles.doneText}>{t('common.done')}</Text>
                         </Pressable>
                     </View>
                 </Pressable>

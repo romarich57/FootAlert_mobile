@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -87,30 +88,88 @@ function createStyles(colors: ThemeColors) {
     },
     transferTopRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      gap: 10,
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      paddingBottom: 10,
+    },
+    transferPhotoContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surfaceElevated,
+      overflow: 'hidden',
+    },
+    transferPhoto: {
+      width: '100%',
+      height: '100%',
+    },
+    transferPlayerInfo: {
+      flex: 1,
     },
     transferPlayer: {
       color: colors.text,
       fontSize: 16,
       fontWeight: '700',
-      flex: 1,
     },
     transferDate: {
       color: colors.textMuted,
       fontSize: 12,
       fontWeight: '500',
+      marginTop: 2,
     },
-    transferLine: {
+    transferTeamsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginVertical: 4,
+      backgroundColor: 'rgba(255,255,255,0.02)',
+      borderRadius: 12,
+      padding: 12,
+    },
+    transferTeamCol: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 6,
+    },
+    teamLogoContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.surfaceElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    teamLogo: {
+      width: 24,
+      height: 24,
+    },
+    transferTeamText: {
       color: colors.text,
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
+      textAlign: 'center',
+    },
+    transferArrow: {
+      marginHorizontal: 12,
+      opacity: 0.5,
+    },
+    transferMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4,
     },
     transferMeta: {
       color: colors.textMuted,
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: '500',
+    },
+    transferMetaValue: {
+      color: colors.text,
+      fontWeight: '700',
+      fontSize: 13,
     },
   });
 }
@@ -129,19 +188,52 @@ const TeamTransferRow = memo(function TeamTransferRow({
   return (
     <View style={styles.transferCard}>
       <View style={styles.transferTopRow}>
-        <Text numberOfLines={1} style={styles.transferPlayer}>
-          {toDisplayValue(item.playerName)}
-        </Text>
-        <Text style={styles.transferDate}>{toDisplayDate(item.date)}</Text>
+        <View style={styles.transferPhotoContainer}>
+          {item.playerPhoto ? (
+            <Image source={{ uri: item.playerPhoto }} style={styles.transferPhoto} resizeMode="cover" />
+          ) : (
+            <MaterialCommunityIcons name="account" size={24} color={styles.transferMeta.color} style={{ margin: 10 }} />
+          )}
+        </View>
+        <View style={styles.transferPlayerInfo}>
+          <Text numberOfLines={1} style={styles.transferPlayer}>
+            {toDisplayValue(item.playerName)}
+          </Text>
+          <Text style={styles.transferDate}>{toDisplayDate(item.date)}</Text>
+        </View>
       </View>
 
-      <Text numberOfLines={1} style={styles.transferLine}>
-        {toDisplayValue(item.fromTeamName)} → {toDisplayValue(item.toTeamName)}
-      </Text>
+      <View style={styles.transferTeamsRow}>
+        <View style={styles.transferTeamCol}>
+          <View style={styles.teamLogoContainer}>
+            {item.fromTeamLogo ? (
+              <Image source={{ uri: item.fromTeamLogo }} style={styles.teamLogo} resizeMode="contain" />
+            ) : null}
+          </View>
+          <Text numberOfLines={2} style={styles.transferTeamText}>
+            {toDisplayValue(item.fromTeamName)}
+          </Text>
+        </View>
 
-      <Text style={styles.transferMeta}>
-        {transferTypeLabel}: {toDisplayValue(item.type)}
-      </Text>
+        <MaterialCommunityIcons name="arrow-right-bold" size={20} color={styles.transferMeta.color} style={styles.transferArrow} />
+
+        <View style={styles.transferTeamCol}>
+          <View style={styles.teamLogoContainer}>
+            {item.toTeamLogo ? (
+              <Image source={{ uri: item.toTeamLogo }} style={styles.teamLogo} resizeMode="contain" />
+            ) : null}
+          </View>
+          <Text numberOfLines={2} style={styles.transferTeamText}>
+            {toDisplayValue(item.toTeamName)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.transferMetaRow}>
+        <Text style={styles.transferMeta}>
+          {transferTypeLabel}: <Text style={styles.transferMetaValue}>{toDisplayValue(item.type)}</Text>
+        </Text>
+      </View>
     </View>
   );
 });
@@ -208,6 +300,8 @@ export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTran
           data={list}
           keyExtractor={item => item.id}
           renderItem={renderTransferItem}
+          // @ts-ignore
+          estimatedItemSize={140}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />
       ) : null}

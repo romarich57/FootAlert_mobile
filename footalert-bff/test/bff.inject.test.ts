@@ -236,6 +236,70 @@ test('GET /v1/teams/:id returns upstream 5xx as normalized BFF 5xx', async t => 
   assert.equal(calls.length, 2);
 });
 
+test('GET /v1/teams/:id/trophies retries with team name when id response is empty', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const teamParam = url.searchParams.get('team');
+
+    if (url.pathname.endsWith('/trophies') && teamParam === '529') {
+      return jsonResponse({ response: [] });
+    }
+
+    if (url.pathname.endsWith('/teams') && url.searchParams.get('id') === '529') {
+      return jsonResponse({
+        response: [{ team: { id: 529, name: 'Barcelona' } }],
+      });
+    }
+
+    if (url.pathname.endsWith('/trophies') && teamParam === 'Barcelona') {
+      return jsonResponse({
+        response: [{ league: 'La Liga', place: 'Winner', season: '2024' }],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/529/trophies',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().response.length, 1);
+  assert.equal(calls.length, 3);
+  assert.equal(String(calls[0].input), 'https://api-football.test/trophies?team=529');
+  assert.equal(String(calls[1].input), 'https://api-football.test/teams?id=529');
+  assert.equal(String(calls[2].input), 'https://api-football.test/trophies?team=Barcelona');
+});
+
+test('GET /v1/teams/:id/trophies keeps id response when already non-empty', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    if (url.pathname.endsWith('/trophies')) {
+      return jsonResponse({
+        response: [{ league: 'Super Cup', place: 'Winner', season: '2025' }],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/530/trophies',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().response.length, 1);
+  assert.equal(calls.length, 1);
+  assert.equal(String(calls[0].input), 'https://api-football.test/trophies?team=530');
+});
+
 test('GET /v1/players/:id maps network failures to 502', async t => {
   const calls = installFetchMock(async () => {
     throw new TypeError('network down');
