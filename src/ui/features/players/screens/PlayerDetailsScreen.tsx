@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -54,11 +54,6 @@ export function PlayerDetailsScreen() {
         navigation.navigate('MatchDetails', { matchId: fixtureId });
     }, [navigation]);
 
-    const seasonText = useMemo(
-        () => `${screenModel.selectedSeason}/${screenModel.selectedSeason + 1}`,
-        [screenModel.selectedSeason],
-    );
-
     if (offlineUi.showOfflineNoCache) {
         return (
             <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -90,8 +85,10 @@ export function PlayerDetailsScreen() {
             tabContent = (
                 <PlayerProfileTab
                     profile={profile}
-                    stats={screenModel.basicSeasonStats}
+                    competitionStats={screenModel.profileCompetitionStats}
                     characteristics={screenModel.characteristics}
+                    positions={screenModel.profilePositions}
+                    trophiesByClub={screenModel.profileTrophiesByClub}
                 />
             );
             break;
@@ -111,12 +108,11 @@ export function PlayerDetailsScreen() {
             ) : (
                 <PlayerStatsTab
                     stats={screenModel.stats}
-                    leagueName={profile.league.name}
-                    leagueLogo={profile.league.logo}
-                    seasonText={seasonText}
-                    seasons={screenModel.availableSeasons}
-                    selectedSeason={screenModel.selectedSeason}
-                    onSelectSeason={screenModel.setSeason}
+                    leagueName={screenModel.statsLeagueName}
+                    competitions={screenModel.statsCompetitions}
+                    selectedSeason={screenModel.statsSelectedSeason}
+                    selectedLeagueId={screenModel.statsSelectedLeagueId}
+                    onSelectLeagueSeason={screenModel.setStatsLeagueSeason}
                 />
             );
             break;

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchPlayerDetails } from '@data/endpoints/playersApi';
-import { mapPlayerDetailsToSeasonStats } from '@data/mappers/playersMapper';
+import { mapPlayerDetailsToSeasonStatsDataset } from '@data/mappers/playersMapper';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
@@ -16,7 +16,7 @@ export function usePlayerStats(
       const dto = await fetchPlayerDetails(playerId, season, signal);
       if (!dto) throw new Error('Player not found');
 
-      return mapPlayerDetailsToSeasonStats(dto, season);
+      return mapPlayerDetailsToSeasonStatsDataset(dto, season);
     },
     enabled: enabled && !!playerId && !!season,
     ...featureQueryOptions.players.stats,

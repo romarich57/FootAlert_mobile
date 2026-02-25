@@ -1,15 +1,85 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { groupPlayerTrophiesByClub } from '@data/mappers/playersMapper';
 import { usePlayerCareer } from '@ui/features/players/hooks/usePlayerCareer';
 import { usePlayerDetails } from '@ui/features/players/hooks/usePlayerDetails';
 import { usePlayerMatches } from '@ui/features/players/hooks/usePlayerMatches';
+import { usePlayerStatsCatalog } from '@ui/features/players/hooks/usePlayerStatsCatalog';
 import { usePlayerStats } from '@ui/features/players/hooks/usePlayerStats';
 import type { PlayerTabType } from '@ui/features/players/components/PlayerTabs';
+import type {
+  PlayerProfileCompetitionStats,
+  PlayerSeasonStatsDataset,
+} from '@ui/features/players/types/players.types';
 
 type UsePlayerDetailsScreenModelParams = {
   playerId: string;
   activeTab: PlayerTabType;
 };
+
+type PlayerStatsSelection = {
+  season: number | null;
+  leagueId: string | null;
+};
+
+function toRatingWeight(value: string | null): number {
+  if (!value) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+function compareByMostPlayed(first: PlayerProfileCompetitionStats, second: PlayerProfileCompetitionStats): number {
+  const firstMatches = first.matches ?? Number.NEGATIVE_INFINITY;
+  const secondMatches = second.matches ?? Number.NEGATIVE_INFINITY;
+  if (secondMatches !== firstMatches) {
+    return secondMatches - firstMatches;
+  }
+
+  const firstRating = toRatingWeight(first.rating);
+  const secondRating = toRatingWeight(second.rating);
+  if (secondRating !== firstRating) {
+    return secondRating - firstRating;
+  }
+
+  return (first.leagueName ?? '').localeCompare(second.leagueName ?? '');
+}
+
+export function selectProfileCompetitionStats(
+  seasonStatsDataset: PlayerSeasonStatsDataset | null | undefined,
+): PlayerProfileCompetitionStats | null {
+  if (!seasonStatsDataset || seasonStatsDataset.byCompetition.length === 0) {
+    return null;
+  }
+
+  const mappedStats = seasonStatsDataset.byCompetition.map<PlayerProfileCompetitionStats>(competition => ({
+    leagueId: competition.leagueId,
+    leagueName: competition.leagueName,
+    leagueLogo: competition.leagueLogo,
+    season: competition.season,
+    matches: competition.stats.matches,
+    goals: competition.stats.goals,
+    assists: competition.stats.assists,
+    rating: competition.stats.rating,
+  }));
+
+  const recentSeasons = mappedStats
+    .map(item => item.season)
+    .filter((season): season is number => typeof season === 'number' && Number.isFinite(season));
+  const latestSeason = recentSeasons.length > 0 ? Math.max(...recentSeasons) : null;
+  const seasonScoped =
+    latestSeason !== null
+      ? mappedStats.filter(item => item.season === latestSeason)
+      : mappedStats;
+
+  if (seasonScoped.length === 0) {
+    return null;
+  }
+
+  return [...seasonScoped].sort(compareByMostPlayed)[0] ?? null;
+}
 
 export function usePlayerDetailsScreenModel({
   playerId,
@@ -22,16 +92,24 @@ export function usePlayerDetailsScreenModel({
       : currentDate.getUTCFullYear() - 1;
   }, []);
   const [selectedSeason, setSelectedSeason] = useState(currentSeason);
+  const [statsSelection, setStatsSelection] = useState<PlayerStatsSelection>({
+    season: currentSeason,
+    leagueId: null,
+  });
 
   const isMatchesTabActive = activeTab === 'matchs';
   const isStatsTabActive = activeTab === 'stats';
   const isCareerTabActive = activeTab === 'carriere';
-  const shouldLoadCareer = isCareerTabActive || isStatsTabActive;
+  const isProfileTabActive = activeTab === 'profil';
+  const shouldLoadCareer = isCareerTabActive || isStatsTabActive || isProfileTabActive;
 
   const {
     profile,
     characteristics,
+    positions,
     seasonStats: basicSeasonStats,
+    seasonStatsDataset,
+    trophies,
     isLoading: isProfileLoading,
     isError: isProfileError,
     dataUpdatedAt: profileDataUpdatedAt,
@@ -50,9 +128,23 @@ export function usePlayerDetailsScreenModel({
     isMatchesTabActive && Boolean(teamId),
   );
 
-  const { stats, isLoading: isStatsLoading, dataUpdatedAt: statsDataUpdatedAt } = usePlayerStats(
+  const {
+    competitions: statsCompetitions,
+    defaultSelection: statsDefaultSelection,
+    isLoading: isStatsCatalogLoading,
+    dataUpdatedAt: statsCatalogDataUpdatedAt,
+  } = usePlayerStatsCatalog(playerId, isStatsTabActive);
+
+  const statsSeason =
+    statsSelection.season ?? statsDefaultSelection.season ?? currentSeason;
+
+  const {
+    stats: statsDataset,
+    isLoading: isStatsDatasetLoading,
+    dataUpdatedAt: statsDataUpdatedAt,
+  } = usePlayerStats(
     playerId,
-    selectedSeason,
+    statsSeason,
     isStatsTabActive,
   );
 
@@ -68,6 +160,7 @@ export function usePlayerDetailsScreenModel({
       profileDataUpdatedAt,
       matchesDataUpdatedAt,
       statsDataUpdatedAt,
+      statsCatalogDataUpdatedAt,
       careerDataUpdatedAt,
     );
     return maxUpdatedAt > 0 ? maxUpdatedAt : null;
@@ -75,17 +168,116 @@ export function usePlayerDetailsScreenModel({
     careerDataUpdatedAt,
     matchesDataUpdatedAt,
     profileDataUpdatedAt,
+    statsCatalogDataUpdatedAt,
     statsDataUpdatedAt,
   ]);
+
+  useEffect(() => {
+    if (statsCompetitions.length === 0) {
+      if (statsSelection.leagueId !== null) {
+        setStatsSelection(current => ({
+          season: current.season ?? statsDefaultSelection.season ?? currentSeason,
+          leagueId: null,
+        }));
+      }
+      return;
+    }
+
+    const effectiveSeason = statsSelection.season ?? statsDefaultSelection.season ?? currentSeason;
+    const competitionsForSeason = statsCompetitions.filter(competition =>
+      competition.seasons.includes(effectiveSeason),
+    );
+
+    if (competitionsForSeason.length === 0) {
+      if (
+        statsDefaultSelection.leagueId &&
+        Number.isFinite(statsDefaultSelection.season)
+      ) {
+        if (
+          statsSelection.leagueId !== statsDefaultSelection.leagueId ||
+          statsSelection.season !== statsDefaultSelection.season
+        ) {
+          setStatsSelection(statsDefaultSelection);
+        }
+      }
+      return;
+    }
+
+    const hasActiveLeague =
+      typeof statsSelection.leagueId === 'string' &&
+      competitionsForSeason.some(competition => competition.leagueId === statsSelection.leagueId);
+
+    if (!hasActiveLeague || statsSelection.season !== effectiveSeason) {
+      setStatsSelection({
+        season: effectiveSeason,
+        leagueId: competitionsForSeason[0].leagueId,
+      });
+    }
+  }, [
+    currentSeason,
+    statsCompetitions,
+    statsDefaultSelection,
+    statsSelection.leagueId,
+    statsSelection.season,
+  ]);
+
+  const statsBySelectedCompetition = useMemo(() => {
+    if (!statsDataset || !statsSelection.leagueId) {
+      return null;
+    }
+
+    return (
+      statsDataset.byCompetition.find(
+        item =>
+          item.leagueId === statsSelection.leagueId &&
+          item.season === statsSeason,
+      ) ?? null
+    );
+  }, [statsDataset, statsSeason, statsSelection.leagueId]);
+
+  const stats = useMemo(
+    () => statsBySelectedCompetition?.stats ?? statsDataset?.overall ?? null,
+    [statsBySelectedCompetition, statsDataset],
+  );
+
+  const profileCompetitionStats = useMemo(
+    () => selectProfileCompetitionStats(seasonStatsDataset),
+    [seasonStatsDataset],
+  );
+
+  const profileTrophiesByClub = useMemo(
+    () => groupPlayerTrophiesByClub(trophies, careerSeasons),
+    [careerSeasons, trophies],
+  );
+
+  const profilePositions = useMemo(() => {
+    if (!positions || positions.all.length === 0) {
+      return null;
+    }
+
+    return positions;
+  }, [positions]);
 
   const hasCachedData = useMemo(
     () =>
       Boolean(profile) ||
       matches.length > 0 ||
       Boolean(stats) ||
+      Boolean(profileCompetitionStats) ||
+      statsCompetitions.length > 0 ||
       careerSeasons.length > 0 ||
-      careerTeams.length > 0,
-    [careerSeasons.length, careerTeams.length, matches.length, profile, stats],
+      careerTeams.length > 0 ||
+      trophies.length > 0,
+    [
+      careerSeasons.length,
+      careerTeams.length,
+      matches.length,
+      profile,
+      profileCompetitionStats,
+      stats,
+      statsCompetitions.length,
+      trophies.length,
+    ],
   );
 
   const availableSeasons = useMemo<number[]>(() => {
@@ -119,19 +311,41 @@ export function usePlayerDetailsScreenModel({
     setSelectedSeason(season);
   }, []);
 
+  const handleSetStatsLeagueSeason = useCallback((leagueId: string, season: number) => {
+    if (!leagueId || !Number.isFinite(season)) {
+      return;
+    }
+
+    setStatsSelection({
+      leagueId,
+      season,
+    });
+  }, []);
+
   return {
     currentSeason,
     selectedSeason,
     availableSeasons,
     profile,
     characteristics,
+    profileCompetitionStats,
+    profilePositions,
+    profileTrophiesByClub,
     basicSeasonStats,
     isProfileLoading,
     isProfileError,
     matches,
     isMatchesLoading,
     stats,
-    isStatsLoading,
+    isStatsLoading: isStatsDatasetLoading || isStatsCatalogLoading,
+    statsCompetitions,
+    statsSelectedSeason: statsSeason,
+    statsSelectedLeagueId: statsSelection.leagueId,
+    statsLeagueName:
+      statsBySelectedCompetition?.leagueName ??
+      profile?.league.name ??
+      null,
+    setStatsLeagueSeason: handleSetStatsLeagueSeason,
     careerSeasons,
     careerTeams,
     isCareerLoading,

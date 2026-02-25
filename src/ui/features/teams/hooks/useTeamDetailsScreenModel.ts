@@ -80,6 +80,11 @@ export function useTeamDetailsScreenModel() {
     return selectedStandingsCompetition?.seasons ?? [];
   }, [activeTab, selectedLeagueId, standingsCompetitions]);
 
+  const selectedCompetitionSeasons = useMemo(() => {
+    const selectedCompetition = competitions.find(item => item.leagueId === selectedLeagueId) ?? null;
+    return selectedCompetition?.seasons ?? [];
+  }, [competitions, selectedLeagueId]);
+
   useEffect(() => {
     if (activeTab !== 'standings') {
       return;
@@ -102,6 +107,7 @@ export function useTeamDetailsScreenModel() {
     leagueId: selectedLeagueId,
     season: selectedSeason,
     timezone,
+    competitionSeasons: selectedCompetitionSeasons,
     enabled: visitedTabs.overview && hasLeagueSelection,
   });
 
@@ -140,8 +146,13 @@ export function useTeamDetailsScreenModel() {
 
   const trophiesQuery = useTeamTrophies({
     teamId,
-    enabled: visitedTabs.trophies,
+    enabled: Boolean(teamId),
   });
+
+  const hasTrophiesTab = useMemo(
+    () => (trophiesQuery.data?.groups ?? []).some(group => group.placements.length > 0),
+    [trophiesQuery.data?.groups],
+  );
 
   useEffect(() => {
     if (activeTab !== 'standings') {
@@ -197,6 +208,18 @@ export function useTeamDetailsScreenModel() {
     }));
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'trophies' || hasTrophiesTab) {
+      return;
+    }
+
+    setActiveTab('overview');
+    setVisitedTabs(current => ({
+      ...current,
+      overview: true,
+    }));
+  }, [activeTab, hasTrophiesTab]);
+
   const handlePressMatch = useCallback(
     (matchId: string) => {
       navigation.navigate('MatchDetails', { matchId });
@@ -230,18 +253,22 @@ export function useTeamDetailsScreenModel() {
     toggleTeamFollow(teamId).catch(() => undefined);
   }, [teamId, toggleTeamFollow]);
 
-  const tabs = useMemo(
-    () => [
+  const tabs = useMemo(() => {
+    const baseTabs: Array<{ key: TeamDetailsTab; label: string }> = [
       { key: 'overview' as const, label: t('teamDetails.tabs.overview') },
       { key: 'matches' as const, label: t('teamDetails.tabs.matches') },
       { key: 'standings' as const, label: t('teamDetails.tabs.standings') },
       { key: 'stats' as const, label: t('teamDetails.tabs.stats') },
       { key: 'transfers' as const, label: t('teamDetails.tabs.transfers') },
       { key: 'squad' as const, label: t('teamDetails.tabs.squad') },
-      { key: 'trophies' as const, label: t('teamDetails.tabs.trophies') },
-    ],
-    [t],
-  );
+    ];
+
+    if (hasTrophiesTab) {
+      baseTabs.push({ key: 'trophies' as const, label: t('teamDetails.tabs.trophies') });
+    }
+
+    return baseTabs;
+  }, [hasTrophiesTab, t]);
 
   const activeTabDataUpdatedAt = useMemo(() => {
     if (activeTab === 'overview') {

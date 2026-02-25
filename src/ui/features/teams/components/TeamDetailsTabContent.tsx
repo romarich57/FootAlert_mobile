@@ -13,6 +13,7 @@ import { TeamTrophiesTab } from '@ui/features/teams/components/TeamTrophiesTab';
 import { TeamTransfersTab } from '@ui/features/teams/components/TeamTransfersTab';
 import type {
   TeamDetailsTab,
+  TeamCompetitionOption,
   TeamIdentity,
   TeamMatchesData,
   TeamOverviewData,
@@ -52,6 +53,8 @@ type TeamDetailsTabContentProps = {
   teamId: string;
   team: TeamIdentity;
   hasLeagueSelection: boolean;
+  competitions: TeamCompetitionOption[];
+  selectedSeason: number | null;
   labels: {
     noSelection: string;
   };
@@ -72,6 +75,8 @@ export function TeamDetailsTabContent({
   teamId,
   team,
   hasLeagueSelection,
+  competitions,
+  selectedSeason,
   labels,
   onPressMatch,
   onPressTeam,
@@ -103,6 +108,8 @@ export function TeamDetailsTabContent({
     return (
       <TeamOverviewTab
         team={team}
+        competitions={competitions}
+        selectedSeason={selectedSeason}
         data={overviewQuery.data}
         isLoading={overviewQuery.isLoading}
         isError={overviewQuery.isError}

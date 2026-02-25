@@ -38,6 +38,49 @@ export type PlayerTrophy = {
     count: number;
 };
 
+export type PlayerPositionPoint = {
+    id: string;
+    code: string;
+    shortLabel: string;
+    label: string;
+    x: number;
+    y: number;
+    appearances: number | null;
+    minutes: number | null;
+    score: number;
+    isPrimary: boolean;
+};
+
+export type PlayerPositionsData = {
+    primary: PlayerPositionPoint | null;
+    others: PlayerPositionPoint[];
+    all: PlayerPositionPoint[];
+};
+
+export type PlayerTrophyEntry = {
+    competition: string;
+    country: string | null;
+    season: string | null;
+    seasonYear: number | null;
+};
+
+export type PlayerTrophyCompetitionGroup = {
+    competition: string;
+    country: string | null;
+    count: number;
+    seasons: string[];
+};
+
+export type PlayerTrophyClubGroup = {
+    clubId: string | null;
+    clubName: string | null;
+    clubLogo: string | null;
+    total: number;
+    competitions: PlayerTrophyCompetitionGroup[];
+};
+
+export type PlayerTrophiesByClub = PlayerTrophyClubGroup[];
+
 export type PlayerSeasonStats = {
     matches: number | null;
     starts: number | null;
@@ -75,6 +118,30 @@ export type PlayerSeasonStats = {
     penaltiesWon: number | null;
     penaltiesMissed: number | null;
     penaltiesCommitted: number | null;
+};
+
+export type PlayerCompetitionSeasonStats = {
+    leagueId: string | null;
+    leagueName: string | null;
+    leagueLogo: string | null;
+    season: number | null;
+    stats: PlayerSeasonStats;
+};
+
+export type PlayerProfileCompetitionStats = {
+    leagueId: string | null;
+    leagueName: string | null;
+    leagueLogo: string | null;
+    season: number | null;
+    matches: number | null;
+    goals: number | null;
+    assists: number | null;
+    rating: string | null;
+};
+
+export type PlayerSeasonStatsDataset = {
+    overall: PlayerSeasonStats;
+    byCompetition: PlayerCompetitionSeasonStats[];
 };
 
 export type PlayerMatchPerformance = {

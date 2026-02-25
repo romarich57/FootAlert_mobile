@@ -14,7 +14,8 @@ export const queryKeys = {
       leagueId: string | null,
       season: number | null,
       timezone: string,
-    ) => ['team_overview', teamId, leagueId, season, timezone] as const,
+      historySeasonsKey: string,
+    ) => ['team_overview', teamId, leagueId, season, timezone, historySeasonsKey] as const,
     matches: (
       teamId: string,
       leagueId: string | null,
@@ -38,7 +39,8 @@ export const queryKeys = {
   },
   players: {
     details: (playerId: string, season: number) => ['player_details', playerId, season] as const,
-    stats: (playerId: string, season: number) => ['player_stats', playerId, season] as const,
+    stats: (playerId: string, season: number) => ['player_stats', 'v2', playerId, season] as const,
+    statsCatalog: (playerId: string) => ['player_stats_catalog', playerId] as const,
     trophies: (playerId: string) => ['player_trophies', playerId] as const,
     careerAggregate: (playerId: string) => ['player_career_aggregate', playerId] as const,
     matchesAggregate: (

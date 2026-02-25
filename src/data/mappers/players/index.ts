@@ -13,12 +13,19 @@ export {
 
 export {
   mapPlayerDetailsToCharacteristics,
+  mapPlayerDetailsToPositions,
   mapPlayerDetailsToProfile,
 } from './profileMapper';
 
-export { mapPlayerDetailsToSeasonStats } from './statsMapper';
+export {
+  mapPlayerDetailsToSeasonStats,
+  mapPlayerDetailsToSeasonStatsDataset,
+} from './statsMapper';
 
-export { mapPlayerTrophies } from './trophiesMapper';
+export {
+  groupPlayerTrophiesByClub,
+  mapPlayerTrophies,
+} from './trophiesMapper';
 
 export {
   mapPlayerMatchPerformance,

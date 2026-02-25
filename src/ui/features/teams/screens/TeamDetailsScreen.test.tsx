@@ -125,15 +125,33 @@ describe('TeamDetailsScreen', () => {
       data: {
         nextMatch: null,
         recentForm: [],
-        rank: 2,
-        points: 58,
-        played: 24,
-        goalDiff: 39,
-        wins: 18,
-        draws: 4,
-        losses: 2,
-        scored: 64,
-        conceded: 25,
+        seasonStats: {
+          rank: 2,
+          points: 58,
+          played: 24,
+          goalDiff: 39,
+          wins: 18,
+          draws: 4,
+          losses: 2,
+          scored: 64,
+          conceded: 25,
+        },
+        seasonLineup: {
+          formation: '4-3-3',
+          estimated: true,
+          goalkeeper: null,
+          defenders: [],
+          midfielders: [],
+          attackers: [],
+        },
+        miniStanding: null,
+        standingHistory: [],
+        coachPerformance: null,
+        playerLeaders: {
+          ratings: [],
+          scorers: [],
+          assisters: [],
+        },
         trophiesCount: 12,
         trophyWinsCount: 9,
       },
@@ -230,6 +248,31 @@ describe('TeamDetailsScreen', () => {
     expect(screen.getAllByText('Barcelona').length).toBeGreaterThan(0);
     expect(screen.getByText(i18n.t('teamDetails.tabs.overview'))).toBeTruthy();
     expect(screen.getByText(i18n.t('teamDetails.tabs.matches'))).toBeTruthy();
+    expect(screen.queryByText(i18n.t('teamDetails.tabs.trophies'))).toBeNull();
+  });
+
+  it('shows trophies tab only when API returns exploitable trophy groups', () => {
+    mockedUseTeamTrophies.mockReturnValue({
+      data: {
+        groups: [
+          {
+            id: 'laliga::spain',
+            competition: 'LaLiga',
+            country: 'Spain',
+            placements: [{ place: 'champion', count: 1, seasons: ['2024/25'] }],
+          },
+        ],
+        total: 1,
+        totalWins: 1,
+      },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(async () => undefined),
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText(i18n.t('teamDetails.tabs.trophies'))).toBeTruthy();
   });
 
   it('enables matches query after opening matches tab', () => {
@@ -244,10 +287,10 @@ describe('TeamDetailsScreen', () => {
     );
   });
 
-  it('shows the dynamic competition-season selector on league tabs', () => {
+  it('shows the dynamic competition-season selector only on league data tabs (not overview)', () => {
     renderScreen();
 
-    expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
+    expect(screen.queryByTestId('team-competition-season-trigger')).toBeNull();
 
     fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.matches')));
     expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
@@ -259,7 +302,7 @@ describe('TeamDetailsScreen', () => {
   it('keeps season-only selector on standings tab', () => {
     renderScreen();
 
-    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.standings')));
+    fireEvent.press(screen.getAllByText(i18n.t('teamDetails.tabs.standings'))[0]);
 
     expect(screen.queryByTestId('team-competition-season-trigger')).toBeNull();
     expect(screen.getByTestId('team-season-dropdown-logo')).toBeTruthy();

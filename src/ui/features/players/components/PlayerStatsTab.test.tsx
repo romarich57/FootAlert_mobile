@@ -3,12 +3,9 @@ import { fireEvent, screen } from '@testing-library/react-native';
 
 import { PlayerStatsTab } from '@ui/features/players/components/PlayerStatsTab';
 import type { PlayerSeasonStats } from '@ui/features/players/types/players.types';
+import type { TeamCompetitionOption } from '@ui/features/teams/types/teams.types';
 import '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
-
-jest.mock('@ui/features/players/components/ShotMap', () => ({
-  ShotMap: () => null,
-}));
 
 jest.mock('@ui/features/players/components/StatBar', () => ({
   StatBar: () => null,
@@ -46,28 +43,47 @@ const emptyStats: PlayerSeasonStats = {
   penaltiesCommitted: null,
 };
 
+const competitions: TeamCompetitionOption[] = [
+  {
+    leagueId: '39',
+    leagueName: 'Premier League',
+    leagueLogo: 'https://example.com/premier-league.png',
+    type: 'League',
+    country: 'England',
+    seasons: [2025, 2024],
+    currentSeason: 2025,
+  },
+  {
+    leagueId: '2',
+    leagueName: 'UEFA Champions League',
+    leagueLogo: 'https://example.com/ucl.png',
+    type: 'Cup',
+    country: null,
+    seasons: [2024],
+    currentSeason: 2024,
+  },
+];
+
 describe('PlayerStatsTab', () => {
-  it('renders league logo and allows selecting another season from the dropdown', () => {
-    const onSelectSeason = jest.fn();
+  it('renders competition season selector and forwards selected option', () => {
+    const onSelectLeagueSeason = jest.fn();
 
     renderWithAppProviders(
       <PlayerStatsTab
         stats={emptyStats}
         leagueName="Premier League"
-        leagueLogo="https://example.com/premier-league.png"
-        seasonText="2025/2026"
-        seasons={[2025, 2024, 2023]}
+        competitions={competitions}
         selectedSeason={2025}
-        onSelectSeason={onSelectSeason}
+        selectedLeagueId="39"
+        onSelectLeagueSeason={onSelectLeagueSeason}
       />,
     );
 
-    expect(screen.getByTestId('player-stats-league-logo')).toBeTruthy();
-    expect(screen.getByText('Premier League 2025/2026')).toBeTruthy();
+    expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('player-stats-season-dropdown'));
-    fireEvent.press(screen.getByTestId('player-stats-season-option-2024'));
+    fireEvent.press(screen.getByTestId('team-competition-season-trigger'));
+    fireEvent.press(screen.getByTestId('team-competition-season-option-39-2024'));
 
-    expect(onSelectSeason).toHaveBeenCalledWith(2024);
+    expect(onSelectLeagueSeason).toHaveBeenCalledWith('39', 2024);
   });
 });

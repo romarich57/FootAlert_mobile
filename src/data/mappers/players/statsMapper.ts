@@ -1,18 +1,23 @@
-import type { PlayerApiDetailsDto, PlayerSeasonStats } from '@ui/features/players/types/players.types';
+import type {
+  PlayerApiDetailsDto,
+  PlayerCompetitionSeasonStats,
+  PlayerSeasonStats,
+  PlayerSeasonStatsDataset,
+} from '@ui/features/players/types/players.types';
 
 import {
   normalizeNumber,
   normalizeRating,
+  normalizeString,
   resolveSeasonStatistics,
   sumOrNull,
   toFiniteNumber,
+  toId,
+  type PlayerApiStat,
 } from './shared';
 
-export function mapPlayerDetailsToSeasonStats(
-  dto: PlayerApiDetailsDto,
-  season?: number,
-): PlayerSeasonStats {
-  const emptyStats: PlayerSeasonStats = {
+function createEmptySeasonStats(): PlayerSeasonStats {
+  return {
     matches: null,
     starts: null,
     minutes: null,
@@ -43,10 +48,11 @@ export function mapPlayerDetailsToSeasonStats(
     penaltiesMissed: null,
     penaltiesCommitted: null,
   };
+}
 
-  const stats = resolveSeasonStatistics(dto.statistics, season);
-  if (stats.length === 0) {
-    return emptyStats;
+function aggregateSeasonStats(statsRows: PlayerApiStat[]): PlayerSeasonStats {
+  if (statsRows.length === 0) {
+    return createEmptySeasonStats();
   }
 
   let matches: number | null = null;
@@ -79,11 +85,10 @@ export function mapPlayerDetailsToSeasonStats(
 
   let ratingWeightedSum = 0;
   let ratingWeight = 0;
-
   let passesAccuracyWeightedSum = 0;
   let passesAccuracyWeight = 0;
 
-  stats.forEach(stat => {
+  statsRows.forEach(stat => {
     const appearances = normalizeNumber(stat.games?.appearences);
     const lineups = normalizeNumber(stat.games?.lineups);
     const playedMinutes = normalizeNumber(stat.games?.minutes);
@@ -192,5 +197,109 @@ export function mapPlayerDetailsToSeasonStats(
     penaltiesWon,
     penaltiesMissed,
     penaltiesCommitted,
+  };
+}
+
+type CompetitionGroup = {
+  leagueId: string | null;
+  leagueName: string | null;
+  leagueLogo: string | null;
+  season: number | null;
+  statsRows: PlayerApiStat[];
+};
+
+function groupStatsByCompetition(statsRows: PlayerApiStat[]): CompetitionGroup[] {
+  const groups = new Map<string, CompetitionGroup>();
+
+  statsRows.forEach((stat, index) => {
+    const leagueId = toId(stat.league?.id);
+    const leagueName = normalizeString(stat.league?.name);
+    const leagueLogo = normalizeString(stat.league?.logo);
+    const leagueSeason = normalizeNumber(stat.league?.season);
+    const fallbackKey = `competition-${index}`;
+    const key = `${leagueId ?? leagueName ?? fallbackKey}-${leagueSeason ?? 'unknown'}`;
+
+    const existing = groups.get(key);
+    if (existing) {
+      existing.statsRows.push(stat);
+      if (!existing.leagueName && leagueName) {
+        existing.leagueName = leagueName;
+      }
+      if (!existing.leagueLogo && leagueLogo) {
+        existing.leagueLogo = leagueLogo;
+      }
+      if (existing.season === null && leagueSeason !== null) {
+        existing.season = leagueSeason;
+      }
+      return;
+    }
+
+    groups.set(key, {
+      leagueId,
+      leagueName,
+      leagueLogo,
+      season: leagueSeason,
+      statsRows: [stat],
+    });
+  });
+
+  return Array.from(groups.values());
+}
+
+function compareCompetitionStats(
+  first: PlayerCompetitionSeasonStats,
+  second: PlayerCompetitionSeasonStats,
+): number {
+  const firstSeason = first.season ?? Number.NEGATIVE_INFINITY;
+  const secondSeason = second.season ?? Number.NEGATIVE_INFINITY;
+  if (secondSeason !== firstSeason) {
+    return secondSeason - firstSeason;
+  }
+
+  const firstMatches = first.stats.matches ?? Number.NEGATIVE_INFINITY;
+  const secondMatches = second.stats.matches ?? Number.NEGATIVE_INFINITY;
+  if (secondMatches !== firstMatches) {
+    return secondMatches - firstMatches;
+  }
+
+  return (first.leagueName ?? '').localeCompare(second.leagueName ?? '');
+}
+
+export function mapPlayerDetailsToSeasonStats(
+  dto: PlayerApiDetailsDto,
+  season?: number,
+): PlayerSeasonStats {
+  const statsRows = resolveSeasonStatistics(dto.statistics, season);
+  return aggregateSeasonStats(statsRows);
+}
+
+export function mapPlayerDetailsToSeasonStatsDataset(
+  dto: PlayerApiDetailsDto,
+  season?: number,
+): PlayerSeasonStatsDataset {
+  const statsRows = resolveSeasonStatistics(dto.statistics, season);
+  const overall = aggregateSeasonStats(statsRows);
+
+  if (statsRows.length === 0) {
+    return {
+      overall,
+      byCompetition: [],
+    };
+  }
+
+  const byCompetition = groupStatsByCompetition(statsRows)
+    .map<PlayerCompetitionSeasonStats>(group => ({
+      leagueId: group.leagueId,
+      leagueName: group.leagueName,
+      leagueLogo: group.leagueLogo,
+      season: group.season,
+      stats: aggregateSeasonStats(group.statsRows),
+    }))
+    .filter(item => (item.stats.matches ?? 0) > 0)
+    .sort(compareCompetitionStats);
+
+  return {
+    overall,
+    byCompetition,
   };
 }

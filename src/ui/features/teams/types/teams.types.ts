@@ -65,9 +65,7 @@ export type TeamFormEntry = {
   opponentLogo: string | null;
 };
 
-export type TeamOverviewData = {
-  nextMatch: TeamMatchItem | null;
-  recentForm: TeamFormEntry[];
+export type TeamOverviewSeasonStats = {
   rank: number | null;
   points: number | null;
   played: number | null;
@@ -77,6 +75,61 @@ export type TeamOverviewData = {
   losses: number | null;
   scored: number | null;
   conceded: number | null;
+};
+
+export type TeamOverviewMiniStanding = {
+  leagueId: string | null;
+  leagueName: string | null;
+  leagueLogo: string | null;
+  rows: TeamStandingRow[];
+};
+
+export type TeamOverviewHistoryPoint = {
+  season: number;
+  rank: number | null;
+};
+
+export type TeamOverviewCoach = {
+  id: string | null;
+  name: string | null;
+  photo: string | null;
+  age: number | null;
+};
+
+export type TeamOverviewCoachPerformance = {
+  coach: TeamOverviewCoach | null;
+  winRate: number | null;
+  pointsPerMatch: number | null;
+  played: number | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+};
+
+export type TeamSeasonLineup = {
+  formation: '4-3-3';
+  estimated: boolean;
+  goalkeeper: TeamTopPlayer | null;
+  defenders: TeamTopPlayer[];
+  midfielders: TeamTopPlayer[];
+  attackers: TeamTopPlayer[];
+};
+
+export type TeamOverviewPlayerLeaders = {
+  ratings: TeamTopPlayer[];
+  scorers: TeamTopPlayer[];
+  assisters: TeamTopPlayer[];
+};
+
+export type TeamOverviewData = {
+  nextMatch: TeamMatchItem | null;
+  recentForm: TeamFormEntry[];
+  seasonStats: TeamOverviewSeasonStats;
+  seasonLineup: TeamSeasonLineup;
+  miniStanding: TeamOverviewMiniStanding | null;
+  standingHistory: TeamOverviewHistoryPoint[];
+  coachPerformance: TeamOverviewCoachPerformance | null;
+  playerLeaders: TeamOverviewPlayerLeaders;
   trophiesCount: number | null;
   trophyWinsCount: number | null;
 };

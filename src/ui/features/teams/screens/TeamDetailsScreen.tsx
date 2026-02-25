@@ -93,6 +93,7 @@ export function TeamDetailsScreen() {
       ) : null}
 
       {!offlineUi.showOfflineNoCache &&
+      model.activeTab !== 'overview' &&
       model.activeTab !== 'squad' &&
         model.activeTab !== 'trophies' &&
         model.activeTab !== 'transfers' &&
@@ -157,6 +158,8 @@ export function TeamDetailsScreen() {
             teamId={model.teamId}
             team={model.team}
             hasLeagueSelection={model.hasLeagueSelection}
+            competitions={model.competitions}
+            selectedSeason={model.selectedSeason}
             labels={{
               noSelection: t('teamDetails.states.noSelection'),
             }}
