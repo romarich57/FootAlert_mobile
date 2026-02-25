@@ -21,6 +21,8 @@ export function useTeamTrophies({ teamId, enabled = true }: UseTeamTrophiesParam
   return useQuery({
     queryKey: queryKeys.teams.trophies(teamId),
     enabled: enabled && Boolean(teamId),
+    refetchOnMount: 'always',
+    refetchOnReconnect: 'always',
     ...featureQueryOptions.teams.trophies,
     queryFn: async ({ signal }): Promise<TeamTrophiesData> => {
       if (!teamId) {

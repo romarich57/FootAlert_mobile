@@ -131,6 +131,7 @@ export type TeamTopPlayer = {
   playerId: string;
   name: string | null;
   photo: string | null;
+  teamLogo: string | null;
   position: string | null;
   goals: number | null;
   assists: number | null;

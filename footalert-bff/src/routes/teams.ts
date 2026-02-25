@@ -176,37 +176,65 @@ function normalizeTeamName(teamName: string): string {
   return teamName.trim().replace(/\s+/g, ' ');
 }
 
+function stripDiacritics(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function pushTeamNameCandidate(candidates: Set<string>, value: string): void {
+  const normalized = normalizeTeamName(value);
+  if (!normalized) {
+    return;
+  }
+
+  candidates.add(normalized);
+}
+
 function buildTeamNameCandidates(teamName: string): string[] {
   const normalized = normalizeTeamName(teamName);
   if (!normalized) {
     return [];
   }
 
-  const strippedSuffix = normalizeTeamName(
-    normalized.replace(/\b(fc|cf|sc|ac|afc|fk|sk|nk|ssc|cfc)\b\.?/gi, ''),
-  );
+  const candidates = new Set<string>();
+  const baseVariants = new Set<string>([
+    normalized,
+    normalizeTeamName(normalized.replace(/[-–—]+/g, ' ')),
+    normalizeTeamName(normalized.replace(/[.'’]/g, '')),
+    normalizeTeamName(stripDiacritics(normalized)),
+  ]);
 
-  const candidates = new Set<string>([normalized]);
+  for (const baseVariant of baseVariants) {
+    if (!baseVariant) {
+      continue;
+    }
 
-  if (strippedSuffix && strippedSuffix !== normalized) {
-    candidates.add(strippedSuffix);
+    pushTeamNameCandidate(candidates, baseVariant);
+
+    const strippedSuffix = normalizeTeamName(
+      baseVariant.replace(/\b(fc|cf|sc|ac|afc|fk|sk|nk|ssc|cfc)\b\.?/gi, ''),
+    );
+    if (strippedSuffix && strippedSuffix !== baseVariant) {
+      pushTeamNameCandidate(candidates, strippedSuffix);
+    }
+
+    if (!/\bfc\b/i.test(baseVariant)) {
+      pushTeamNameCandidate(candidates, `${strippedSuffix || baseVariant} FC`);
+    }
   }
 
-  if (!/\bfc\b/i.test(normalized)) {
-    candidates.add(`${strippedSuffix || normalized} FC`);
-  }
+  const aliasSource = stripDiacritics(normalized).toLowerCase();
 
   // Common aliases that can help on API-Football side.
-  if (/paris saint[-\s]?germain/i.test(normalized)) {
-    candidates.add('Paris SG');
-    candidates.add('PSG');
+  if (/paris saint[-\s]?germain/i.test(aliasSource)) {
+    pushTeamNameCandidate(candidates, 'Paris SG');
+    pushTeamNameCandidate(candidates, 'PSG');
   }
 
-  if (/internazionale/i.test(normalized)) {
-    candidates.add('Inter');
+  if (/internazionale/i.test(aliasSource)) {
+    pushTeamNameCandidate(candidates, 'Inter');
   }
 
-  return Array.from(candidates).filter(Boolean);
+  return Array.from(candidates);
 }
 
 function normalizeTransferDate(value: string): string | null {
@@ -873,6 +901,26 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
         return trophiesById;
       }
 
+      const attemptedTeamParams = new Set<string>();
+      const tryTrophiesByTeamParam = async (teamParam: string): Promise<{ response?: unknown[] } | null> => {
+        const normalizedTeamParam = normalizeTeamName(teamParam);
+        if (!normalizedTeamParam) {
+          return null;
+        }
+
+        const dedupeKey = normalizedTeamParam.toLowerCase();
+        if (attemptedTeamParams.has(dedupeKey)) {
+          return null;
+        }
+        attemptedTeamParams.add(dedupeKey);
+
+        const payload = await apiFootballGet<{ response?: unknown[] }>(
+          `/trophies?team=${encodeURIComponent(normalizedTeamParam)}`,
+        );
+
+        return (payload.response?.length ?? 0) > 0 ? payload : null;
+      };
+
       try {
         const teamLookup = await apiFootballGet<{
           response?: Array<{
@@ -890,12 +938,36 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
 
         const teamNameCandidates = buildTeamNameCandidates(teamName);
         for (const teamNameCandidate of teamNameCandidates) {
-          const trophiesByName = await apiFootballGet<{ response?: unknown[] }>(
-            `/trophies?team=${encodeURIComponent(teamNameCandidate)}`,
-          );
-
-          if ((trophiesByName.response?.length ?? 0) > 0) {
+          const trophiesByName = await tryTrophiesByTeamParam(teamNameCandidate);
+          if (trophiesByName) {
             return trophiesByName;
+          }
+        }
+
+        const teamSearch = await apiFootballGet<{
+          response?: Array<{
+            team?: {
+              name?: string;
+            };
+          }>;
+        }>(`/teams?search=${encodeURIComponent(teamName)}`);
+
+        const searchCandidates = new Set<string>();
+        for (const entry of (teamSearch.response ?? []).slice(0, 8)) {
+          const candidateName = entry?.team?.name?.trim();
+          if (!candidateName) {
+            continue;
+          }
+
+          for (const candidate of buildTeamNameCandidates(candidateName)) {
+            searchCandidates.add(candidate);
+          }
+        }
+
+        for (const searchCandidate of searchCandidates) {
+          const trophiesBySearchName = await tryTrophiesByTeamParam(searchCandidate);
+          if (trophiesBySearchName) {
+            return trophiesBySearchName;
           }
         }
       } catch (outerErr) {

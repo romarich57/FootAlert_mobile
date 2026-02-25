@@ -65,6 +65,12 @@ export function TeamDetailsScreen() {
     () => Array.from(new Set(model.competitions.flatMap(c => c.seasons))).sort((a, b) => b - a),
     [model.competitions]
   );
+  const standingsLogoUri = useMemo(
+    () =>
+      model.competitions.find(competition => competition.leagueId === model.selectedLeagueId)?.leagueLogo ??
+      null,
+    [model.competitions, model.selectedLeagueId],
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -89,7 +95,8 @@ export function TeamDetailsScreen() {
       {!offlineUi.showOfflineNoCache &&
       model.activeTab !== 'squad' &&
         model.activeTab !== 'trophies' &&
-        model.activeTab !== 'transfers' ? (
+        model.activeTab !== 'transfers' &&
+        model.activeTab !== 'standings' ? (
         <TeamCompetitionSeasonSelector
           competitions={model.competitions}
           selectedLeagueId={model.selectedLeagueId}
@@ -105,6 +112,15 @@ export function TeamDetailsScreen() {
           seasons={allSeasons}
           selectedSeason={model.selectedSeason}
           onSelectSeason={model.setSeason}
+        />
+      ) : null}
+
+      {!offlineUi.showOfflineNoCache && model.activeTab === 'standings' ? (
+        <TeamSeasonDropdown
+          seasons={model.standingsSeasons}
+          selectedSeason={model.selectedSeason}
+          onSelectSeason={model.setSeason}
+          logoUri={standingsLogoUri}
         />
       ) : null}
 

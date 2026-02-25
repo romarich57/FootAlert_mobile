@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type {
@@ -29,7 +30,7 @@ function createStyles(colors: ThemeColors) {
     content: {
       paddingHorizontal: 16,
       paddingBottom: 24,
-      gap: 12,
+      gap: 10,
     },
     stateCard: {
       borderRadius: 16,
@@ -43,51 +44,74 @@ function createStyles(colors: ThemeColors) {
     },
     stateText: {
       color: colors.textMuted,
-      fontSize: 15,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: '500',
     },
     retryText: {
       color: colors.primary,
-      fontSize: 15,
-      fontWeight: '700',
+      fontSize: 14,
+      fontWeight: '600',
     },
     sectionTitle: {
       color: colors.text,
-      fontSize: 30,
-      lineHeight: 34,
-      fontWeight: '900',
+      fontSize: 22,
+      lineHeight: 26,
+      fontWeight: '800',
       marginTop: 8,
     },
     card: {
-      borderRadius: 18,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      padding: 14,
-      gap: 12,
+      padding: 12,
+      gap: 10,
     },
     cardTitleRow: {
       flexDirection: 'row',
-      alignItems: 'baseline',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: 12,
     },
     cardTitle: {
       color: colors.text,
-      fontSize: 18,
-      fontWeight: '900',
+      fontSize: 16,
+      fontWeight: '700',
       flex: 1,
+      lineHeight: 20,
     },
     cardValue: {
       color: colors.text,
-      fontSize: 40,
-      lineHeight: 42,
-      fontWeight: '900',
+      fontSize: 30,
+      lineHeight: 32,
+      fontWeight: '800',
+      flexShrink: 1,
+      textAlign: 'right',
+    },
+    pointsValue: {
+      color: colors.text,
+      fontSize: 27,
+      lineHeight: 30,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+      letterSpacing: 0.2,
+      minWidth: 54,
+      textAlign: 'right',
+    },
+    goalsValue: {
+      color: colors.text,
+      fontSize: 24,
+      lineHeight: 28,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+      letterSpacing: 0.3,
+      minWidth: 78,
+      textAlign: 'right',
     },
     mutedValue: {
       color: colors.textMuted,
-      fontSize: 14,
-      fontWeight: '700',
+      fontSize: 13,
+      fontWeight: '600',
     },
     divider: {
       height: 1,
@@ -101,46 +125,46 @@ function createStyles(colors: ThemeColors) {
     },
     rowLabel: {
       color: colors.textMuted,
-      fontSize: 15,
-      fontWeight: '700',
+      fontSize: 14,
+      fontWeight: '600',
       flex: 1,
     },
     rowValue: {
       color: colors.text,
-      fontSize: 17,
-      fontWeight: '800',
+      fontSize: 15,
+      fontWeight: '700',
     },
     tableHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 4,
       paddingVertical: 2,
     },
     tableHeadLabel: {
       color: colors.textMuted,
-      fontSize: 13,
-      fontWeight: '800',
-      width: 32,
+      fontSize: 11,
+      fontWeight: '700',
+      width: 22,
       textAlign: 'center',
     },
     venueLabel: {
       color: colors.text,
-      fontSize: 18,
-      fontWeight: '700',
-      width: 86,
+      fontSize: 13,
+      fontWeight: '600',
+      width: 60,
     },
     tableValue: {
       color: colors.text,
-      fontSize: 17,
-      fontWeight: '700',
-      width: 32,
+      fontSize: 12,
+      fontWeight: '600',
+      width: 22,
       textAlign: 'center',
     },
     scoreColumn: {
-      width: 56,
+      width: 40,
     },
     diffColumn: {
-      width: 38,
+      width: 26,
     },
     barsWrap: {
       gap: 10,
@@ -188,36 +212,77 @@ function createStyles(colors: ThemeColors) {
     },
     playersCardTitle: {
       color: colors.text,
-      fontSize: 17,
-      fontWeight: '800',
+      fontSize: 15,
+      fontWeight: '700',
     },
     playerRow: {
-      minHeight: 40,
+      minHeight: 44,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 10,
     },
+    playerLeft: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    playerPhotoContainer: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.surfaceElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    playerPhoto: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+    },
     playerInfo: {
       flex: 1,
       minWidth: 0,
-      gap: 2,
+      gap: 1,
     },
     playerName: {
       color: colors.text,
-      fontSize: 15,
-      fontWeight: '700',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    playerMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
     },
     playerMeta: {
       color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: '600',
+      fontSize: 11,
+      fontWeight: '500',
+      flex: 1,
+      minWidth: 0,
+    },
+    playerTeamLogoContainer: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    playerTeamLogo: {
+      width: 12,
+      height: 12,
     },
     playerValue: {
       color: colors.text,
-      fontSize: 18,
-      fontWeight: '800',
-      minWidth: 54,
+      fontSize: 16,
+      fontWeight: '700',
+      minWidth: 48,
       textAlign: 'right',
     },
     comparisonCard: {
@@ -230,56 +295,70 @@ function createStyles(colors: ThemeColors) {
     },
     comparisonTopRow: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: 12,
     },
     comparisonTitle: {
       color: colors.text,
-      fontSize: 16,
-      fontWeight: '800',
+      fontSize: 14,
+      fontWeight: '700',
       flex: 1,
+      lineHeight: 18,
     },
     comparisonValue: {
       color: colors.primary,
-      fontSize: 24,
-      fontWeight: '900',
+      fontSize: 20,
+      fontWeight: '800',
     },
     comparisonRank: {
       color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: '700',
+      fontSize: 11,
+      fontWeight: '600',
     },
     leaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: 6,
     },
     leaderLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
       flex: 1,
       minWidth: 0,
     },
     leaderRank: {
       color: colors.textMuted,
-      width: 16,
-      fontSize: 12,
-      fontWeight: '700',
+      width: 14,
+      fontSize: 11,
+      fontWeight: '600',
       textAlign: 'right',
+    },
+    leaderLogoContainer: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: colors.surfaceElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    leaderLogo: {
+      width: 14,
+      height: 14,
     },
     leaderName: {
       color: colors.text,
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 12,
+      fontWeight: '500',
       flex: 1,
     },
     leaderValue: {
       color: colors.text,
-      fontSize: 13,
-      fontWeight: '700',
+      fontSize: 12,
+      fontWeight: '600',
       minWidth: 44,
       textAlign: 'right',
     },
@@ -344,6 +423,7 @@ type PlayerCategoryCardProps = {
   valueSelector: (player: TeamTopPlayer) => string;
   localizePosition: (value: string | null | undefined) => string;
   onPressPlayer: (playerId: string) => void;
+  colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
 };
 
@@ -353,6 +433,7 @@ const PlayerCategoryCard = memo(function PlayerCategoryCard({
   valueSelector,
   localizePosition,
   onPressPlayer,
+  colors,
   styles,
 }: PlayerCategoryCardProps) {
   if (players.length === 0) {
@@ -368,12 +449,36 @@ const PlayerCategoryCard = memo(function PlayerCategoryCard({
           onPress={() => onPressPlayer(player.playerId)}
           style={styles.playerRow}
         >
-          <View style={styles.playerInfo}>
-            <Text numberOfLines={1} style={styles.playerName}>
-              {toDisplayValue(player.name)}
-            </Text>
-            <Text style={styles.playerMeta}>{localizePosition(player.position)}</Text>
+          <View style={styles.playerLeft}>
+            <View style={styles.playerPhotoContainer}>
+              {player.photo ? (
+                <Image source={{ uri: player.photo }} style={styles.playerPhoto} resizeMode="cover" />
+              ) : (
+                <MaterialCommunityIcons name="account" size={18} color={colors.textMuted} />
+              )}
+            </View>
+
+            <View style={styles.playerInfo}>
+              <Text numberOfLines={1} style={styles.playerName}>
+                {toDisplayValue(player.name)}
+              </Text>
+
+              <View style={styles.playerMetaRow}>
+                <Text numberOfLines={1} style={styles.playerMeta}>
+                  {localizePosition(player.position)}
+                </Text>
+
+                <View style={styles.playerTeamLogoContainer}>
+                  {player.teamLogo ? (
+                    <Image source={{ uri: player.teamLogo }} style={styles.playerTeamLogo} resizeMode="contain" />
+                  ) : (
+                    <MaterialCommunityIcons name="shield-outline" size={10} color={colors.textMuted} />
+                  )}
+                </View>
+              </View>
+            </View>
           </View>
+
           <Text style={styles.playerValue}>{valueSelector(player)}</Text>
         </Pressable>
       ))}
@@ -490,7 +595,9 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t('teamDetails.stats.pointsCard')}</Text>
-              {hasValue(data?.points) ? <Text style={styles.cardValue}>{toDisplayNumber(data?.points)}</Text> : null}
+              {hasValue(data?.points) ? (
+                <Text style={styles.pointsValue}>{toDisplayNumber(data?.points)}</Text>
+              ) : null}
             </View>
 
             {hasValue(data?.rank) ? (
@@ -539,7 +646,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t('teamDetails.stats.goalsCard')}</Text>
               {(hasValue(data?.goalsFor) || hasValue(data?.goalsAgainst)) ? (
-                <Text style={styles.cardValue}>
+                <Text style={styles.goalsValue}>
                   {toDisplayNumber(data?.goalsFor)}-{toDisplayNumber(data?.goalsAgainst)}
                 </Text>
               ) : null}
@@ -587,6 +694,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
                 valueSelector={player => formatDecimal(player.rating, 2)}
                 localizePosition={localizePosition}
                 onPressPlayer={onPressPlayer}
+                colors={colors}
                 styles={styles}
               />
 
@@ -596,6 +704,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
                 valueSelector={player => toDisplayNumber(player.goals)}
                 localizePosition={localizePosition}
                 onPressPlayer={onPressPlayer}
+                colors={colors}
                 styles={styles}
               />
 
@@ -605,6 +714,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
                 valueSelector={player => toDisplayNumber(player.assists)}
                 localizePosition={localizePosition}
                 onPressPlayer={onPressPlayer}
+                colors={colors}
                 styles={styles}
               />
             </View>
@@ -633,6 +743,15 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
                   <View key={`${metric.key}-${leader.teamId}-${index}`} style={styles.leaderRow}>
                     <View style={styles.leaderLeft}>
                       <Text style={styles.leaderRank}>{index + 1}</Text>
+
+                      <View style={styles.leaderLogoContainer}>
+                        {leader.teamLogo ? (
+                          <Image source={{ uri: leader.teamLogo }} style={styles.leaderLogo} resizeMode="contain" />
+                        ) : (
+                          <MaterialCommunityIcons name="shield-outline" size={11} color={colors.textMuted} />
+                        )}
+                      </View>
+
                       <Text style={styles.leaderName} numberOfLines={1}>
                         {toDisplayValue(leader.teamName)}
                       </Text>

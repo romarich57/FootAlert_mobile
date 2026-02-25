@@ -47,6 +47,7 @@ function mapPlayerStat(item: TeamApiPlayerDto, context: TeamPlayerStatContext): 
     playerId,
     name: toText(item.player?.name),
     photo: toText(item.player?.photo),
+    teamLogo: toText(stat?.team?.logo),
     position: toText(stat?.games?.position),
     goals: toNumber(stat?.goals?.total),
     assists: toNumber(stat?.goals?.assists),

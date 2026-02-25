@@ -370,6 +370,63 @@ test('GET /v1/teams/:id/trophies keeps id response when already non-empty', asyn
   assert.equal(String(calls[0].input), 'https://api-football.test/trophies?team=530');
 });
 
+test('GET /v1/teams/:id/trophies retries with search-name candidates when direct name candidates fail', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const teamParam = url.searchParams.get('team');
+
+    if (url.pathname.endsWith('/trophies') && teamParam === '540') {
+      return jsonResponse({ response: [] });
+    }
+
+    if (url.pathname.endsWith('/teams') && url.searchParams.get('id') === '540') {
+      return jsonResponse({
+        response: [{ team: { id: 540, name: 'Olympique Marseille' } }],
+      });
+    }
+
+    if (url.pathname.endsWith('/trophies') && teamParam === 'Olympique Marseille') {
+      return jsonResponse({ response: [] });
+    }
+
+    if (url.pathname.endsWith('/trophies') && teamParam === 'Olympique Marseille FC') {
+      return jsonResponse({ response: [] });
+    }
+
+    if (url.pathname.endsWith('/teams') && url.searchParams.get('search') === 'Olympique Marseille') {
+      return jsonResponse({
+        response: [{ team: { name: 'Olympique de Marseille' } }],
+      });
+    }
+
+    if (url.pathname.endsWith('/trophies') && teamParam === 'Olympique de Marseille') {
+      return jsonResponse({
+        response: [{ league: 'Ligue 1', place: 'Winner', season: '2010' }],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/540/trophies',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().response.length, 1);
+  assert.equal(
+    calls.some(call => String(call.input) === 'https://api-football.test/teams?search=Olympique%20Marseille'),
+    true,
+  );
+  assert.equal(
+    calls.some(call => String(call.input) === 'https://api-football.test/trophies?team=Olympique%20de%20Marseille'),
+    true,
+  );
+});
+
 test('GET /v1/teams/:id/trophies returns explicit empty response when ID and name lookups are empty', async t => {
   const calls = installFetchMock(async call => {
     const url = new URL(String(call.input));

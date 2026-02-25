@@ -22,6 +22,10 @@ import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions'
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
 
+function isLeagueCompetition(type: string | null | undefined): boolean {
+  return (type ?? '').trim().toLowerCase() === 'league';
+}
+
 export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
   const navigation = useNavigation<TeamDetailsNavigation>();
@@ -59,6 +63,39 @@ export function useTeamDetailsScreenModel() {
   } = useTeamContext({ teamId });
 
   const hasLeagueSelection = Boolean(selectedLeagueId) && typeof selectedSeason === 'number';
+  const standingsCompetitions = useMemo(
+    () => competitions.filter(item => isLeagueCompetition(item.type)),
+    [competitions],
+  );
+  const standingsSeasons = useMemo(() => {
+    if (activeTab !== 'standings') {
+      return [];
+    }
+
+    const selectedStandingsCompetition =
+      standingsCompetitions.find(item => item.leagueId === selectedLeagueId) ??
+      standingsCompetitions[0] ??
+      null;
+
+    return selectedStandingsCompetition?.seasons ?? [];
+  }, [activeTab, selectedLeagueId, standingsCompetitions]);
+
+  useEffect(() => {
+    if (activeTab !== 'standings') {
+      return;
+    }
+
+    if (standingsCompetitions.length === 0) {
+      return;
+    }
+
+    const selectedCompetition = competitions.find(item => item.leagueId === selectedLeagueId) ?? null;
+    if (selectedCompetition && isLeagueCompetition(selectedCompetition.type)) {
+      return;
+    }
+
+    setLeague(standingsCompetitions[0].leagueId);
+  }, [activeTab, competitions, selectedLeagueId, setLeague, standingsCompetitions]);
 
   const overviewQuery = useTeamOverview({
     teamId,
@@ -268,6 +305,7 @@ export function useTeamDetailsScreenModel() {
     activeTab,
     tabs,
     competitions,
+    standingsSeasons,
     selectedLeagueId,
     selectedSeason,
     isContextLoading,

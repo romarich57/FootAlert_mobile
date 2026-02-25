@@ -7,13 +7,17 @@ import type {
 import { toText } from './shared';
 
 function isWinnerTrophy(place: string | null): boolean {
-  return (place ?? '').toLowerCase().includes('winner');
+  const normalizedPlace = (place ?? '').toLowerCase();
+  if (normalizedPlace.includes('runner') || normalizedPlace.includes('vice')) {
+    return false;
+  }
+  return normalizedPlace.includes('winner') || normalizedPlace.includes('champion');
 }
 
 function normalizeTrophyPlace(place: string | null): string {
   const norm = (place ?? '').toLowerCase();
-  if (norm.includes('winner') || norm.includes('champion')) return 'champion';
   if (norm.includes('runner') || norm.includes('vice')) return 'runnerUp';
+  if (norm.includes('winner') || norm.includes('champion')) return 'champion';
   if (norm.includes('semi')) return 'semifinalist';
   return 'title';
 }
@@ -24,6 +28,69 @@ const PLACE_SCORE: Record<string, number> = {
   semifinalist: 1,
   title: 0,
 };
+
+type SeasonBounds = {
+  start: number;
+  end: number;
+};
+
+function parseSeasonBounds(value: string): SeasonBounds | null {
+  const normalized = value.trim();
+  const startMatch = normalized.match(/\d{4}/);
+  if (!startMatch) {
+    return null;
+  }
+
+  const start = Number(startMatch[0]);
+  if (!Number.isFinite(start)) {
+    return null;
+  }
+
+  const remaining = normalized.slice((startMatch.index ?? 0) + startMatch[0].length);
+  const endMatch = remaining.match(/(?:\/|-|–|—)\s*(\d{2,4})/);
+  if (!endMatch) {
+    return { start, end: start };
+  }
+
+  const rawEnd = endMatch[1];
+  if (!rawEnd) {
+    return { start, end: start };
+  }
+
+  let end = Number(rawEnd);
+  if (!Number.isFinite(end)) {
+    return { start, end: start };
+  }
+
+  if (rawEnd.length === 2) {
+    // Expand "2003/04" and handle season rollovers like "1999/00".
+    end = Math.floor(start / 100) * 100 + end;
+    if (end < start) {
+      end += 100;
+    }
+  }
+
+  return { start, end };
+}
+
+function compareSeasonStringsDesc(first: string, second: string): number {
+  const firstBounds = parseSeasonBounds(first);
+  const secondBounds = parseSeasonBounds(second);
+
+  if (firstBounds && secondBounds) {
+    if (secondBounds.start !== firstBounds.start) {
+      return secondBounds.start - firstBounds.start;
+    }
+    if (secondBounds.end !== firstBounds.end) {
+      return secondBounds.end - firstBounds.end;
+    }
+    return second.localeCompare(first);
+  }
+
+  if (firstBounds) return -1;
+  if (secondBounds) return 1;
+  return second.localeCompare(first);
+}
 
 export function mapTrophiesToTeamTrophies(payload: TeamApiTrophyDto[]): TeamTrophiesData {
   const groupsByCompetition = new Map<string, TeamTrophyGroup>();
@@ -63,20 +130,13 @@ export function mapTrophiesToTeamTrophies(payload: TeamApiTrophyDto[]): TeamTrop
     }
   });
 
-  const groups = Array.from(groupsByCompetition.values())
-    .map(group => {
-      group.placements.forEach(p => p.seasons.sort((a, b) => b.localeCompare(a)));
-      group.placements.sort((a, b) => (PLACE_SCORE[b.place] ?? 0) - (PLACE_SCORE[a.place] ?? 0));
-      return group;
-    })
-    .sort((first, second) => {
-      const firstWins = first.placements.find(p => p.place === 'champion')?.count ?? 0;
-      const secondWins = second.placements.find(p => p.place === 'champion')?.count ?? 0;
-      if (secondWins !== firstWins) {
-        return secondWins - firstWins;
-      }
-      return (first.competition ?? '').localeCompare(second.competition ?? '');
+  const groups = Array.from(groupsByCompetition.values()).map(group => {
+    group.placements.forEach(placement => {
+      placement.seasons.sort(compareSeasonStringsDesc);
     });
+    group.placements.sort((a, b) => (PLACE_SCORE[b.place] ?? 0) - (PLACE_SCORE[a.place] ?? 0));
+    return group;
+  });
 
   return {
     groups,

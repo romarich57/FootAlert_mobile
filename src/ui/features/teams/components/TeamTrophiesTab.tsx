@@ -25,7 +25,10 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       paddingHorizontal: 16,
       paddingBottom: 24,
-      gap: 10,
+    },
+    listContent: {
+      paddingTop: 12,
+      paddingBottom: 16,
     },
     stateCard: {
       borderRadius: 16,
@@ -39,93 +42,87 @@ function createStyles(colors: ThemeColors) {
     },
     stateText: {
       color: colors.textMuted,
-      fontSize: 15,
-      fontWeight: '600',
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 20,
     },
     retryText: {
       color: colors.primary,
-      fontSize: 15,
-      fontWeight: '700',
-    },
-    summaryCard: {
-      marginTop: 12,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      padding: 14,
-      gap: 10,
-    },
-    summaryTitle: {
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '900',
-    },
-    summaryRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: 12,
-    },
-    summaryLabel: {
-      color: colors.textMuted,
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    summaryValue: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '900',
+      fontSize: 14,
+      fontWeight: '600',
     },
     groupCard: {
-      borderRadius: 14,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
-      marginTop: 10,
-      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginTop: 12,
     },
     groupHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      marginBottom: 6,
+      marginBottom: 2,
+    },
+    groupIcon: {
+      width: 18,
+      textAlign: 'center',
     },
     groupTitle: {
       color: colors.text,
-      fontSize: 16,
-      fontWeight: '800',
+      fontSize: 17,
+      fontWeight: '700',
+      flexShrink: 1,
+      lineHeight: 24,
+    },
+    placementsWrap: {
+      marginTop: 2,
     },
     placeRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      marginTop: 12,
+      paddingTop: 12,
+      paddingBottom: 10,
       gap: 12,
     },
     placeCount: {
       color: colors.textMuted,
-      fontSize: 15,
-      fontWeight: '600',
-      width: 24,
+      fontSize: 16,
+      fontWeight: '500',
+      lineHeight: 24,
+      width: 26,
       textAlign: 'right',
     },
-    placeInfo: {
+    placeBody: {
       flex: 1,
+      minWidth: 0,
+    },
+    placeLine: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 4,
+      alignItems: 'baseline',
+      columnGap: 6,
+      rowGap: 2,
     },
     placeText: {
       color: colors.text,
       fontSize: 15,
       fontWeight: '600',
+      lineHeight: 22,
+      flexShrink: 1,
     },
     seasonText: {
       color: colors.textMuted,
       fontSize: 14,
-      fontWeight: '500',
+      fontWeight: '400',
+      lineHeight: 22,
+      flexShrink: 1,
+    },
+    rowDivider: {
+      height: 1,
+      backgroundColor: colors.border,
     },
   });
 }
@@ -143,25 +140,40 @@ const TeamTrophyGroupRow = memo(function TeamTrophyGroupRow({
   placeLabels,
   styles,
 }: TeamTrophyGroupRowProps) {
-
   return (
     <View style={styles.groupCard}>
       <View style={styles.groupHeaderRow}>
-        <MaterialCommunityIcons name="trophy-outline" size={20} color={styles.groupTitle.color} />
+        <MaterialCommunityIcons
+          name="trophy-outline"
+          size={18}
+          color={styles.groupTitle.color}
+          style={styles.groupIcon}
+        />
         <Text style={styles.groupTitle}>{toDisplayValue(group.competition)}</Text>
       </View>
 
-      {group.placements.map((item, index) => (
-        <View key={index} style={styles.placeRow}>
-          <Text style={styles.placeCount}>{item.count}</Text>
-          <View style={styles.placeInfo}>
-            <Text style={styles.placeText}>{placeLabels[item.place as TrophyPlaceKey] || item.place}</Text>
-            {item.seasons.length > 0 ? (
-              <Text style={styles.seasonText}>({item.seasons.join(' • ')})</Text>
+      <View style={styles.placementsWrap}>
+        {group.placements.map((item, index) => (
+          <View key={item.place}>
+            <View style={styles.placeRow}>
+              <Text style={styles.placeCount}>{item.count}</Text>
+              <View style={styles.placeBody}>
+                <View style={styles.placeLine}>
+                  <Text style={styles.placeText}>
+                    {placeLabels[item.place as TrophyPlaceKey] || item.place}
+                  </Text>
+                  {item.seasons.length > 0 ? (
+                    <Text style={styles.seasonText}>({item.seasons.join(' • ')})</Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+            {index < group.placements.length - 1 ? (
+              <View testID="team-trophy-placement-separator" style={styles.rowDivider} />
             ) : null}
           </View>
-        </View>
-      ))}
+        ))}
+      </View>
     </View>
   );
 });
@@ -200,8 +212,6 @@ export function TeamTrophiesTab({
 
   return (
     <View style={styles.container}>
-
-
       {isLoading ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
@@ -222,6 +232,7 @@ export function TeamTrophiesTab({
           data={groups}
           keyExtractor={item => item.id}
           renderItem={renderGroupItem}
+          contentContainerStyle={styles.listContent}
           // @ts-ignore FlashList runtime supports estimatedItemSize.
           estimatedItemSize={96}
           ListEmptyComponent={

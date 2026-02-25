@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +12,7 @@ type TeamSeasonDropdownProps = {
     selectedSeason: number | null;
     onSelectSeason: (season: number) => void;
     label?: string;
+    logoUri?: string | null;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -38,6 +39,15 @@ function createStyles(colors: ThemeColors) {
             color: colors.text,
             fontSize: 15,
             fontWeight: '700',
+        },
+        triggerContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+        },
+        triggerLogo: {
+            width: 18,
+            height: 18,
         },
         modalOverlay: {
             flex: 1,
@@ -98,6 +108,7 @@ export const TeamSeasonDropdown = memo(function TeamSeasonDropdown({
     selectedSeason,
     onSelectSeason,
     label,
+    logoUri,
 }: TeamSeasonDropdownProps) {
     const { colors } = useAppTheme();
     const { t } = useTranslation();
@@ -126,7 +137,17 @@ export const TeamSeasonDropdown = memo(function TeamSeasonDropdown({
     return (
         <View style={styles.container}>
             <Pressable onPress={handleOpen} style={styles.dropdownTrigger}>
-                <Text style={styles.triggerText}>{displayLabel}</Text>
+                <View style={styles.triggerContent}>
+                    {logoUri ? (
+                        <Image
+                            source={{ uri: logoUri }}
+                            style={styles.triggerLogo}
+                            resizeMode="contain"
+                            testID="team-season-dropdown-logo"
+                        />
+                    ) : null}
+                    <Text style={styles.triggerText}>{displayLabel}</Text>
+                </View>
                 <MaterialCommunityIcons name="chevron-down" size={22} color={colors.textMuted} />
             </Pressable>
 

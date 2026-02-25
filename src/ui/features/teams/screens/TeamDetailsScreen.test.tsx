@@ -101,7 +101,8 @@ describe('TeamDetailsScreen', () => {
         {
           leagueId: '140',
           leagueName: 'LaLiga',
-          leagueLogo: null,
+          leagueLogo: 'https://example.com/laliga.png',
+          type: 'League',
           country: 'Spain',
           seasons: [2025, 2024],
           currentSeason: 2025,
@@ -251,11 +252,18 @@ describe('TeamDetailsScreen', () => {
     fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.matches')));
     expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
 
-    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.standings')));
-    expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
-
     fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.stats')));
     expect(screen.getByTestId('team-competition-season-trigger')).toBeTruthy();
+  });
+
+  it('keeps season-only selector on standings tab', () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByText(i18n.t('teamDetails.tabs.standings')));
+
+    expect(screen.queryByTestId('team-competition-season-trigger')).toBeNull();
+    expect(screen.getByTestId('team-season-dropdown-logo')).toBeTruthy();
+    expect(screen.getAllByText('2025/2026').length).toBeGreaterThan(0);
   });
 
   it('keeps season-only selector on transfers tab', () => {

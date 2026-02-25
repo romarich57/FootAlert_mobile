@@ -30,28 +30,28 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
     },
     trigger: {
-      minHeight: 48,
+      minHeight: 42,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingVertical: 6,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 12,
+      gap: 10,
     },
     triggerLeft: {
       flex: 1,
       minWidth: 0,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 8,
     },
     leagueLogo: {
-      width: 24,
-      height: 24,
+      width: 20,
+      height: 20,
     },
     triggerTextWrap: {
       flex: 1,
@@ -59,33 +59,32 @@ function createStyles(colors: ThemeColors) {
     },
     triggerLeagueName: {
       color: colors.text,
-      fontSize: 16,
-      fontWeight: '800',
+      fontSize: 13,
+      fontWeight: '500',
     },
     triggerSeason: {
       color: colors.textMuted,
-      fontSize: 14,
-      fontWeight: '600',
-      marginTop: 1,
+      fontSize: 11,
+      fontWeight: '400',
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.68)',
+      backgroundColor: 'rgba(0, 0, 0, 0.56)',
       justifyContent: 'flex-end',
     },
     modalSheet: {
       backgroundColor: colors.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      maxHeight: '86%',
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      maxHeight: '84%',
       borderTopWidth: 1,
       borderLeftWidth: 1,
       borderRightWidth: 1,
       borderColor: colors.border,
     },
     modalHeader: {
-      paddingHorizontal: 20,
-      paddingVertical: 18,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
       flexDirection: 'row',
@@ -96,34 +95,35 @@ function createStyles(colors: ThemeColors) {
     modalTitle: {
       flex: 1,
       color: colors.text,
-      fontSize: 18,
-      fontWeight: '900',
+      fontSize: 15,
+      fontWeight: '600',
     },
     closeButton: {
-      minHeight: 40,
-      minWidth: 40,
+      minHeight: 36,
+      minWidth: 36,
       alignItems: 'center',
       justifyContent: 'center',
     },
     seasonGroup: {
-      paddingHorizontal: 20,
-      paddingTop: 16,
-      paddingBottom: 8,
-      gap: 8,
+      paddingHorizontal: 18,
+      paddingTop: 12,
+      paddingBottom: 6,
+      gap: 6,
     },
     seasonHeading: {
-      color: colors.text,
-      fontSize: 36,
-      lineHeight: 40,
-      fontWeight: '900',
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '600',
+      letterSpacing: 0.2,
     },
     competitionRow: {
-      minHeight: 52,
-      borderRadius: 12,
+      minHeight: 44,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surfaceElevated,
-      paddingHorizontal: 12,
+      paddingHorizontal: 10,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -138,13 +138,13 @@ function createStyles(colors: ThemeColors) {
       minWidth: 0,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 8,
     },
     competitionName: {
       flex: 1,
       color: colors.text,
-      fontSize: 17,
-      fontWeight: '700',
+      fontSize: 13,
+      fontWeight: '500',
     },
     competitionNameActive: {
       color: colors.primary,
@@ -152,14 +152,14 @@ function createStyles(colors: ThemeColors) {
     modalFooter: {
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingHorizontal: 20,
-      paddingVertical: 12,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
       alignItems: 'flex-end',
     },
     doneLabel: {
       color: colors.primary,
-      fontSize: 18,
-      fontWeight: '800',
+      fontSize: 14,
+      fontWeight: '600',
     },
   });
 }
@@ -231,7 +231,7 @@ export function TeamCompetitionSeasonSelector({
             <Text style={styles.triggerSeason}>{toDisplaySeasonLabel(displaySeason)}</Text>
           </View>
         </View>
-        <MaterialCommunityIcons name="chevron-down" size={22} color={colors.textMuted} />
+        <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textMuted} />
       </Pressable>
 
       <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
@@ -240,7 +240,7 @@ export function TeamCompetitionSeasonSelector({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{modalTitle}</Text>
               <Pressable onPress={() => setIsOpen(false)} style={styles.closeButton}>
-                <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                <MaterialCommunityIcons name="close" size={20} color={colors.text} />
               </Pressable>
             </View>
 
@@ -280,7 +280,7 @@ export function TeamCompetitionSeasonSelector({
                         </View>
 
                         {isActive ? (
-                          <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                          <MaterialCommunityIcons name="check" size={16} color={colors.primary} />
                         ) : null}
                       </Pressable>
                     );
