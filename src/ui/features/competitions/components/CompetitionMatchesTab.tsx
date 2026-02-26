@@ -1,12 +1,12 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, Image, ActivityIndicator, Pressable } from 'react-native';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { Fixture } from '../types/competitions.types';
 import { useCompetitionFixtures } from '../hooks/useCompetitionFixtures';
 import { MatchesFilterBottomSheet, MatchesFilterState } from './MatchesFilterBottomSheet';
+import { createCompetitionMatchesTabStyles } from './CompetitionMatchesTab.styles';
 
 type CompetitionMatchesTabProps = {
     competitionId: number;
@@ -16,130 +16,6 @@ type CompetitionMatchesTabProps = {
 type ListItem =
     | { type: 'header'; key: string; title: string }
     | { type: 'fixture'; key: string; data: Fixture };
-
-function createStyles(colors: ThemeColors) {
-    return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
-        centerContainer: {
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        emptyText: {
-            color: colors.textMuted,
-            fontSize: 16,
-            textAlign: 'center',
-            lineHeight: 24,
-            marginTop: 24,
-        },
-        headerRow: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-        },
-        headerTitle: {
-            color: colors.text,
-            fontSize: 16,
-            fontWeight: '600',
-        },
-        headerActions: {
-            flexDirection: 'row',
-            gap: 16,
-        },
-        headerActionText: {
-            color: colors.textMuted,
-            fontSize: 14,
-            fontWeight: '500',
-        },
-        roundHeader: {
-            backgroundColor: colors.surfaceElevated,
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            marginTop: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.surface,
-        },
-        roundHeaderText: {
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: '700',
-            textTransform: 'uppercase',
-        },
-        fixtureCard: {
-            backgroundColor: colors.surface,
-            paddingVertical: 16,
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.surfaceElevated,
-        },
-        fixtureTopRow: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-        },
-        matchStatus: {
-            color: colors.textMuted,
-            fontSize: 12,
-            fontWeight: '600',
-        },
-        matchStatusLive: {
-            color: colors.primary,
-        },
-        matchDate: {
-            color: colors.textMuted,
-            fontSize: 12,
-        },
-        teamsContainer: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-        },
-        teamBlock: {
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-        },
-        teamBlockAway: {
-            justifyContent: 'flex-end',
-            textAlign: 'right',
-        },
-        teamLogo: {
-            width: 28,
-            height: 28,
-        },
-        teamName: {
-            color: colors.text,
-            fontSize: 15,
-            fontWeight: '600',
-            flex: 1,
-        },
-        teamNameAway: {
-            textAlign: 'right',
-        },
-        scoreBlock: {
-            width: 60,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.surfaceElevated,
-            paddingVertical: 6,
-            borderRadius: 8,
-            marginHorizontal: 12,
-        },
-        scoreText: {
-            color: colors.text,
-            fontSize: 18,
-            fontWeight: '900',
-            letterSpacing: 2,
-        },
-    });
-}
 
 function displayValue(value: string | number | null | undefined): string | number {
     return value !== null && value !== undefined && value !== '' ? value : '';
@@ -168,7 +44,7 @@ function formatMatchDate(dateString: string, locale: string) {
 export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatchesTabProps) {
     const { colors } = useAppTheme();
     const { t, i18n } = useTranslation();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = useMemo(() => createCompetitionMatchesTabStyles(colors), [colors]);
     const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-US';
 
     const { data: fixtures, isLoading, error } = useCompetitionFixtures(competitionId, season);
@@ -373,7 +249,6 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 getItemType={(item) => item.type}
-                // @ts-ignore - TS types are currently flawed for estimatedItemSize in FlashList in this environment
                 estimatedItemSize={70}
                 showsVerticalScrollIndicator={false}
             />

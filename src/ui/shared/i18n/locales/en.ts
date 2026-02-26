@@ -715,6 +715,18 @@ export const en = {
     },
     search: {
       title: 'Search',
+      hint: 'Search for a team or player.',
+      tabs: {
+        teams: 'Teams',
+        players: 'Players',
+      },
+      placeholderTeams: 'Search teams',
+      placeholderPlayers: 'Search players',
+      minChars: 'Type at least {{count}} characters.',
+      loading: 'Searching...',
+      empty: 'No result found.',
+      error: 'Unable to run search.',
+      clear: 'Clear search',
     },
   },
 } as const;

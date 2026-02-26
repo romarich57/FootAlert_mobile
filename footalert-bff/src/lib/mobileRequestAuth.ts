@@ -1,17 +1,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
+import { buildRequestSignaturePayload } from '@footalert/app-core/security/requestSignaturePayload';
 
 const HEADER_TIMESTAMP = 'x-mobile-request-timestamp';
 const HEADER_NONCE = 'x-mobile-request-nonce';
 const HEADER_SIGNATURE = 'x-mobile-request-signature';
-
-type SignatureInput = {
-  method: string;
-  pathWithQuery: string;
-  timestamp: string;
-  nonce: string;
-  body: unknown;
-};
 
 type MobileRequestAuthOptions = {
   signingKey?: string | null;
@@ -26,46 +19,6 @@ export type MobileRequestAuthFailure = {
 };
 
 const seenNonceStore = new Map<string, number>();
-
-function normalizePrimitive(value: unknown): unknown {
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    value === null
-  ) {
-    return value;
-  }
-
-  return null;
-}
-
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(item => stableStringify(item)).join(',')}]`;
-  }
-
-  if (value && typeof value === 'object') {
-    const objectValue = value as Record<string, unknown>;
-    const keys = Object.keys(objectValue).sort();
-    const serializedEntries = keys.map(
-      key => `${JSON.stringify(key)}:${stableStringify(objectValue[key])}`,
-    );
-    return `{${serializedEntries.join(',')}}`;
-  }
-
-  return JSON.stringify(normalizePrimitive(value));
-}
-
-function buildSignaturePayload(input: SignatureInput): string {
-  return [
-    input.method.toUpperCase(),
-    input.pathWithQuery,
-    input.timestamp,
-    input.nonce,
-    stableStringify(input.body ?? null),
-  ].join('\n');
-}
 
 function computeMobileRequestSignature(payload: string, key: string): string {
   return createHmac('sha256', key).update(payload).digest('hex');
@@ -165,7 +118,7 @@ export function verifyMobileRequestAuth(
     };
   }
 
-  const signaturePayload = buildSignaturePayload({
+  const signaturePayload = buildRequestSignaturePayload({
     method: request.method,
     pathWithQuery: resolvePathWithQuery(request),
     timestamp,

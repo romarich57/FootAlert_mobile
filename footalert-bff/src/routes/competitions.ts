@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { apiFootballGet } from '../lib/apiFootballClient.js';
 import { withCache } from '../lib/cache.js';
+import { mapWithConcurrency } from '../lib/concurrency/mapWithConcurrency.js';
 import { numericStringSchema, seasonSchema } from '../lib/schemas.js';
 import { parseOrThrow } from '../lib/validation.js';
 
@@ -168,36 +169,6 @@ function normalizeTransferDate(value: string): string | null {
   }
 
   return parsed.toISOString().slice(0, 10);
-}
-
-async function mapWithConcurrency<T, U>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T) => Promise<U>,
-): Promise<U[]> {
-  if (items.length === 0) {
-    return [];
-  }
-
-  const boundedConcurrency = Math.max(1, Math.min(concurrency, items.length));
-  const results = new Array<U>(items.length);
-  let nextIndex = 0;
-
-  const consume = async (): Promise<void> => {
-    while (true) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-
-      if (currentIndex >= items.length) {
-        return;
-      }
-
-      results[currentIndex] = await worker(items[currentIndex] as T);
-    }
-  };
-
-  await Promise.all(Array.from({ length: boundedConcurrency }, () => consume()));
-  return results;
 }
 
 function buildPlayerStatsPath(type: string, leagueId: string, season: number): string {

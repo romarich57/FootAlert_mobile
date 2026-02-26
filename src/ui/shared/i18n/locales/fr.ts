@@ -716,6 +716,18 @@ export const fr = {
     },
     search: {
       title: 'Recherche',
+      hint: 'Recherchez une équipe ou un joueur.',
+      tabs: {
+        teams: 'Équipes',
+        players: 'Joueurs',
+      },
+      placeholderTeams: 'Rechercher une équipe',
+      placeholderPlayers: 'Rechercher un joueur',
+      minChars: 'Saisissez au moins {{count}} caractères.',
+      loading: 'Recherche en cours...',
+      empty: 'Aucun résultat trouvé.',
+      error: 'Impossible de lancer la recherche.',
+      clear: 'Effacer la recherche',
     },
   },
 } as const;

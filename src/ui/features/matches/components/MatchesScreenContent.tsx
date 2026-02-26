@@ -6,6 +6,7 @@ import { CompetitionSection } from '@ui/features/matches/components/CompetitionS
 import { DateChipsRow } from '@ui/features/matches/components/DateChipsRow';
 import { MatchNotificationModal } from '@ui/features/matches/components/MatchNotificationModal';
 import { MatchesHeader } from '@ui/features/matches/components/MatchesHeader';
+import { HiddenCompetitionsModal } from '@ui/features/matches/components/HiddenCompetitionsModal';
 import { PartnerBannerCard } from '@ui/features/matches/components/PartnerBannerCard';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 import { StatusFiltersRow } from '@ui/features/matches/components/StatusFiltersRow';
@@ -18,14 +19,14 @@ import type {
 
 type MatchesFeedItem =
   | {
-      type: 'section';
-      key: string;
-      section: CompetitionSectionType;
-    }
+    type: 'section';
+    key: string;
+    section: CompetitionSectionType;
+  }
   | {
-      type: 'ad';
-      key: string;
-    };
+    type: 'ad';
+    key: string;
+  };
 
 type MatchesScreenContentProps = {
   styles: {
@@ -56,9 +57,15 @@ type MatchesScreenContentProps = {
   onPressCalendar: () => void;
   onPressSearch: () => void;
   onPressNotifications: () => void;
+  onPressManageHidden: () => void;
   onRetry: () => void;
   onCloseNotificationModal: () => void;
   onSaveNotificationPrefs: (prefs: MatchNotificationPrefs) => void;
+  onHideCompetition: (competitionId: string) => void;
+  onUnhideCompetition: (competitionId: string) => void;
+  hiddenCompetitionsIds: string[];
+  isManageHiddenModalVisible: boolean;
+  onCloseManageHiddenModal: () => void;
 };
 
 export function MatchesScreenContent({
@@ -87,9 +94,15 @@ export function MatchesScreenContent({
   onPressCalendar,
   onPressSearch,
   onPressNotifications,
+  onPressManageHidden,
   onRetry,
   onCloseNotificationModal,
   onSaveNotificationPrefs,
+  onHideCompetition,
+  onUnhideCompetition,
+  hiddenCompetitionsIds,
+  isManageHiddenModalVisible,
+  onCloseManageHiddenModal,
 }: MatchesScreenContentProps) {
   const keyExtractor = useCallback((item: MatchesFeedItem) => item.key, []);
   const renderItem = useCallback<ListRenderItem<MatchesFeedItem>>(
@@ -107,10 +120,11 @@ export function MatchesScreenContent({
           onPressNotification={onPressNotification}
           onPressHomeTeam={onPressTeam}
           onPressAwayTeam={onPressTeam}
+          onHide={() => onHideCompetition(item.section.id)}
         />
       );
     },
-    [collapsedSections, onPressMatch, onPressNotification, onPressTeam, onToggleSection],
+    [collapsedSections, onPressMatch, onPressNotification, onPressTeam, onToggleSection, onHideCompetition],
   );
   const listHeaderComponent = useMemo(
     () => (
@@ -119,6 +133,7 @@ export function MatchesScreenContent({
           onPressCalendar={onPressCalendar}
           onPressSearch={onPressSearch}
           onPressNotifications={onPressNotifications}
+          onPressManageHidden={onPressManageHidden}
         />
         <DateChipsRow selectedDate={selectedDate} onSelectDate={onSelectDate} />
         <StatusFiltersRow filter={statusFilter} onFilterChange={onFilterChange} />
@@ -142,6 +157,7 @@ export function MatchesScreenContent({
       onFilterChange,
       onPressCalendar,
       onPressNotifications,
+      onPressManageHidden,
       onPressSearch,
       onRetry,
       onSelectDate,
@@ -163,7 +179,6 @@ export function MatchesScreenContent({
         data={listData}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        // @ts-ignore FlashList runtime supports estimatedItemSize.
         estimatedItemSize={420}
         refreshing={isRefetching}
         onRefresh={onRetry}
@@ -177,6 +192,13 @@ export function MatchesScreenContent({
         initialPrefs={notificationPrefs}
         onClose={onCloseNotificationModal}
         onSave={onSaveNotificationPrefs}
+      />
+
+      <HiddenCompetitionsModal
+        visible={isManageHiddenModalVisible}
+        onClose={onCloseManageHiddenModal}
+        hiddenIds={hiddenCompetitionsIds}
+        onUnhide={onUnhideCompetition}
       />
     </>
   );

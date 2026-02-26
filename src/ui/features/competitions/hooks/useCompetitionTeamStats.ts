@@ -12,6 +12,7 @@ import type {
   CompetitionTeamHomeAwayMetricKey,
   CompetitionTeamStatsMetricKey,
 } from '@ui/features/competitions/types/competitions.types';
+import { mapWithConcurrency } from '@ui/shared/query/mapWithConcurrency';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { useCompetitionStandings } from './useCompetitionStandings';
@@ -106,31 +107,6 @@ async function fetchTeamAdvancedPayload(
     advanced: advancedResult.status === 'fulfilled' ? advancedResult.value : null,
     hasRequestError: statsResult.status === 'rejected' || advancedResult.status === 'rejected',
   };
-}
-
-async function mapWithConcurrency<TInput, TOutput>(
-  input: TInput[],
-  concurrency: number,
-  mapper: (item: TInput) => Promise<TOutput>,
-): Promise<TOutput[]> {
-  if (input.length === 0) {
-    return [];
-  }
-
-  const result = new Array<TOutput>(input.length);
-  let currentIndex = 0;
-
-  const worker = async (): Promise<void> => {
-    while (currentIndex < input.length) {
-      const workerIndex = currentIndex;
-      currentIndex += 1;
-      result[workerIndex] = await mapper(input[workerIndex]);
-    }
-  };
-
-  const workerCount = Math.min(concurrency, input.length);
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  return result;
 }
 
 type UseCompetitionTeamStatsResult = {

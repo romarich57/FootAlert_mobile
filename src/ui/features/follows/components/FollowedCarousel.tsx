@@ -57,7 +57,6 @@ export const FollowedCarousel = memo(function FollowedCarousel<T>({
           horizontal
           keyExtractor={keyExtractor}
           renderItem={renderCarouselItem}
-          // @ts-ignore FlashList runtime supports estimatedItemSize.
           estimatedItemSize={180}
           contentContainerStyle={styles.content}
           showsHorizontalScrollIndicator={false}

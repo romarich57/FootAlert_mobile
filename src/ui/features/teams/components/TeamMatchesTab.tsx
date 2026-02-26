@@ -1,18 +1,19 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamMatchItem, TeamMatchesData } from '@ui/features/teams/types/teams.types';
+import { createTeamMatchesTabStyles } from '@ui/features/teams/components/TeamMatchesTab.styles';
 import {
   toDisplayDate,
   toDisplayHour,
   toDisplayScore,
   toDisplayValue,
 } from '@ui/features/teams/utils/teamDisplay';
-import { DEFAULT_HIT_SLOP, MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
+import { DEFAULT_HIT_SLOP } from '@ui/shared/theme/theme';
 
 type VenueFilter = 'all' | 'home' | 'away';
 
@@ -37,163 +38,6 @@ type MatchFeedItem =
     key: string;
     match: TeamMatchItem;
   };
-
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      paddingHorizontal: 16,
-      paddingBottom: 24,
-      gap: 10,
-    },
-    stateCard: {
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      gap: 8,
-      marginTop: 12,
-    },
-    stateText: {
-      color: colors.textMuted,
-      fontSize: 15,
-      fontWeight: '600',
-    },
-    retryText: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '700',
-    },
-    filtersRow: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 12,
-      marginBottom: 4,
-    },
-    chip: {
-      minHeight: MIN_TOUCH_TARGET,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: colors.chipBorder,
-      backgroundColor: colors.chipBackground,
-      justifyContent: 'center',
-      paddingHorizontal: 14,
-    },
-    chipActive: {
-      borderColor: colors.primary,
-      backgroundColor: 'rgba(21,248,106,0.18)',
-    },
-    chipText: {
-      color: colors.text,
-      fontSize: 15,
-      fontWeight: '700',
-    },
-    chipTextActive: {
-      color: colors.primary,
-    },
-    sectionHeader: {
-      marginTop: 10,
-      marginBottom: 8,
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '900',
-    },
-    matchCard: {
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      paddingHorizontal: 16,
-      paddingVertical: 16,
-      gap: 12,
-      marginBottom: 10,
-    },
-    metaRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: 10,
-    },
-    metaLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    metaIcon: {
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-    },
-    metaText: {
-      color: colors.textMuted,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    teamsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 8,
-    },
-    teamSide: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      minHeight: MIN_TOUCH_TARGET,
-      gap: 8,
-    },
-    teamSideRight: {
-      flexDirection: 'row-reverse',
-    },
-    teamLogoContainer: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: colors.surfaceElevated,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    teamLogo: {
-      width: 20,
-      height: 20,
-    },
-    teamName: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '700',
-      flex: 1,
-    },
-    awayTeamName: {
-      textAlign: 'right',
-    },
-    middleArea: {
-      minWidth: 70,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    middleScoreBox: {
-      backgroundColor: colors.surfaceElevated,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 8,
-    },
-    middleScoreText: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '900',
-      textAlign: 'center',
-      letterSpacing: 2,
-    },
-    middleHourText: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '800',
-      textAlign: 'center',
-    },
-  });
-}
 
 function applyVenueFilter(items: TeamMatchItem[], teamId: string, filter: VenueFilter): TeamMatchItem[] {
   if (filter === 'all') {
@@ -260,7 +104,7 @@ const TeamMatchRow = memo(function TeamMatchRow({
   onPressTeam,
 }: {
   match: TeamMatchItem;
-  styles: ReturnType<typeof createStyles>;
+  styles: ReturnType<typeof createTeamMatchesTabStyles>;
   onPressMatch: (matchId: string) => void;
   onPressTeam: (teamId: string) => void;
 }) {
@@ -357,7 +201,7 @@ export function TeamMatchesTab({
 }: TeamMatchesTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createTeamMatchesTabStyles(colors), [colors]);
   const [venueFilter, setVenueFilter] = useState<VenueFilter>('all');
 
   const feedItems = useMemo(
@@ -411,7 +255,7 @@ export function TeamMatchesTab({
 
       {isLoading ? (
         <View style={styles.stateCard}>
-          <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
+          <ActivityIndicator size="large" color={colors.primary} style={{ alignSelf: 'center' }} />
         </View>
       ) : null}
 
@@ -429,7 +273,6 @@ export function TeamMatchesTab({
           data={feedItems}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          // @ts-ignore - TS types are currently flawed for estimatedItemSize in FlashList in this environment
           estimatedItemSize={120}
           ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
         />

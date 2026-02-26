@@ -88,6 +88,54 @@ export function mapFixtureToMatchItem(dto: ApiFootballFixtureDto): MatchItem {
   };
 }
 
+const COMPETITION_WEIGHTS: Record<string, number> = {
+  // Top International Tournaments
+  '1': 110, // World Cup
+  '4': 105, // Euro Championship
+  '9': 100, // Copa America
+  '12': 95, // Africa Cup of Nations
+  // Top European Clubs
+  '2': 100, // UEFA Champions League
+  '3': 90,  // UEFA Europa League
+  '848': 85, // UEFA Europa Conference League
+  // Top 5 Leagues
+  '39': 95, // Premier League (England)
+  '140': 90, // La Liga (Spain)
+  '61': 85, // Ligue 1 (France)
+  '78': 85, // Bundesliga (Germany)
+  '135': 85, // Serie A (Italy)
+  // Others
+  '94': 70, // Primeira Liga (Portugal)
+  '88': 70, // Eredivisie (Netherlands)
+  '301': 65, // Ligue 2 (France)
+  '40': 65, // Championship (England)
+  '141': 65, // Segunda Division (Spain)
+  '136': 65, // Serie B (Italy)
+  '79': 65, // 2. Bundesliga (Germany)
+};
+
+function getCompetitionWeight(competitionId: string, competitionName: string): number {
+  if (COMPETITION_WEIGHTS[competitionId]) {
+    return COMPETITION_WEIGHTS[competitionId];
+  }
+
+  const normalizedName = competitionName.trim().toLowerCase();
+  if (normalizedName.includes('champions league')) return 100;
+  if (normalizedName.includes('europa league')) return 90;
+  if (normalizedName.includes('premier league')) return 95;
+  if (normalizedName.includes('ligue 1')) return 85;
+  if (normalizedName.includes('bundesliga')) return 85;
+  if (normalizedName.includes('serie a')) return 85;
+  if (normalizedName.includes('la liga')) return 90;
+
+  // Fallback weights based on general names
+  if (normalizedName.includes('cup') || normalizedName.includes('coupe')) return 50;
+  if (normalizedName.includes('league 1') || normalizedName.includes('division 1')) return 60;
+  if (normalizedName.includes('league 2') || normalizedName.includes('division 2') || normalizedName.includes('ligue 2')) return 40;
+
+  return 10; // Default weight
+}
+
 export function mapFixturesToSections(fixtures: ApiFootballFixtureDto[]): CompetitionSection[] {
   const byCompetition = new Map<string, CompetitionSection>();
 
@@ -104,6 +152,7 @@ export function mapFixturesToSections(fixtures: ApiFootballFixtureDto[]): Compet
         country: match.competitionCountry,
         isTopCompetition: isTopCompetition(sectionId, match.competitionName),
         matches: [match],
+        weight: getCompetitionWeight(sectionId, match.competitionName),
       });
       return;
     }
@@ -111,6 +160,7 @@ export function mapFixturesToSections(fixtures: ApiFootballFixtureDto[]): Compet
     existingSection.isTopCompetition =
       Boolean(existingSection.isTopCompetition) || isTopCompetition(sectionId, match.competitionName);
     existingSection.matches.push(match);
+    existingSection.weight = existingSection.weight || getCompetitionWeight(sectionId, match.competitionName);
   });
 
   const sections = Array.from(byCompetition.values());
@@ -124,10 +174,18 @@ export function mapFixturesToSections(fixtures: ApiFootballFixtureDto[]): Compet
   });
 
   sections.sort((a, b) => {
-    if (a.isTopCompetition === b.isTopCompetition) {
-      return a.name.localeCompare(b.name);
+    const weightA = a.weight ?? 0;
+    const weightB = b.weight ?? 0;
+
+    if (weightA !== weightB) {
+      return weightB - weightA; // Higher weight first
     }
-    return a.isTopCompetition ? -1 : 1;
+
+    if (a.isTopCompetition !== b.isTopCompetition) {
+      return a.isTopCompetition ? -1 : 1;
+    }
+
+    return a.name.localeCompare(b.name);
   });
   return sections;
 }

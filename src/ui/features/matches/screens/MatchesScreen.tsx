@@ -65,6 +65,12 @@ export function MatchesScreen() {
         onRetry={model.refetch}
         onCloseNotificationModal={model.closeNotificationModal}
         onSaveNotificationPrefs={model.handleSaveNotificationPrefs}
+        onPressManageHidden={model.handlePressManageHidden}
+        onHideCompetition={model.handleHideCompetition}
+        onUnhideCompetition={model.handleUnhideCompetition}
+        hiddenCompetitionsIds={model.hiddenCompetitionsIds}
+        isManageHiddenModalVisible={model.isManageHiddenModalVisible}
+        onCloseManageHiddenModal={model.closeManageHiddenModal}
       />
     </SafeAreaView>
   );

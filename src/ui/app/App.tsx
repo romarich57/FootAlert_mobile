@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getAppVersion } from '@data/config/appMeta';
 import { appEnv } from '@data/config/env';
+import { registerBackgroundRefresh } from '@data/background/backgroundRefresh';
 import { requestInAppReviewWithFallback } from '@data/reviews/inAppReview';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import {
@@ -48,6 +49,10 @@ function AppContent() {
     getMobileTelemetry().setUserContext({
       appVersion: getAppVersion(),
     });
+  }, []);
+
+  useEffect(() => {
+    registerBackgroundRefresh().catch(() => undefined);
   }, []);
 
   const handleNavigationReady = useCallback(() => {

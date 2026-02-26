@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -146,7 +146,7 @@ export function TeamDetailsScreen() {
       {!offlineUi.showOfflineNoCache && model.isContextLoading ? (
         <View style={styles.stateWrap}>
           <View style={styles.stateCard}>
-            <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
+            <ActivityIndicator size="large" color={colors.primary} style={{ alignSelf: 'center' }} />
           </View>
         </View>
       ) : null}

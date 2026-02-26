@@ -39,6 +39,7 @@ export type CompetitionSection = {
   isFollowSection?: boolean;
   isTopCompetition?: boolean;
   matches: MatchItem[];
+  weight?: number;
 };
 
 export type ApiFootballFixtureDto = {

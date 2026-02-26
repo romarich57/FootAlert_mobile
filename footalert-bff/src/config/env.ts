@@ -8,8 +8,12 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_TRUST_PROXY_HOPS = 0;
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
+const DEFAULT_CACHE_BACKEND = 'memory';
+const DEFAULT_REDIS_CACHE_PREFIX = 'footalert:bff:';
 const DEFAULT_BFF_EXPOSE_ERROR_DETAILS = false;
 const DEFAULT_MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS = 5 * 60_000;
+
+type CacheBackend = 'memory' | 'redis';
 
 type BffEnv = {
   port: number;
@@ -25,6 +29,9 @@ type BffEnv = {
   webAppOrigin: string | null;
   cacheMaxEntries: number;
   cacheCleanupIntervalMs: number;
+  cacheBackend: CacheBackend;
+  redisUrl: string | null;
+  redisCachePrefix: string;
   bffExposeErrorDetails: boolean;
   mobileRequestSigningKey: string | null;
   mobileRequestSignatureMaxSkewMs: number;
@@ -76,6 +83,29 @@ function readBoolean(rawValue: string | undefined, fallback: boolean): boolean {
   }
 
   return fallback;
+}
+
+function readCacheBackend(rawValue: string | undefined): CacheBackend {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (normalized === 'redis') {
+    return 'redis';
+  }
+
+  return 'memory';
+}
+
+function readOptionalValue(rawValue: string | undefined): string | null {
+  const value = rawValue?.trim();
+  return value ? value : null;
+}
+
+function readRedisCachePrefix(rawValue: string | undefined): string {
+  const prefix = rawValue?.trim();
+  if (!prefix) {
+    return DEFAULT_REDIS_CACHE_PREFIX;
+  }
+
+  return prefix;
 }
 
 function readCsvList(rawValue: string | undefined): string[] {
@@ -146,6 +176,9 @@ export const env: BffEnv = {
     process.env.CACHE_CLEANUP_INTERVAL_MS,
     DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
   ),
+  cacheBackend: readCacheBackend(process.env.CACHE_BACKEND || DEFAULT_CACHE_BACKEND),
+  redisUrl: readOptionalValue(process.env.REDIS_URL),
+  redisCachePrefix: readRedisCachePrefix(process.env.REDIS_CACHE_PREFIX),
   bffExposeErrorDetails: readBoolean(
     process.env.BFF_EXPOSE_ERROR_DETAILS,
     DEFAULT_BFF_EXPOSE_ERROR_DETAILS,

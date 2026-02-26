@@ -1,18 +1,26 @@
 import { createHash } from 'node:crypto';
+import { Redis as IORedis } from 'ioredis';
 
 type CacheEntry<T> = {
   expiresAt: number;
   value: T;
 };
 
+type CacheBackend = 'memory' | 'redis';
+
 type CacheConfig = {
   maxEntries: number;
   cleanupIntervalMs: number;
+  backend: CacheBackend;
+  redisUrl: string | null;
+  redisPrefix: string;
 };
 
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
 const DEFAULT_MAX_CACHE_KEY_LENGTH = 120;
+const DEFAULT_CACHE_BACKEND: CacheBackend = 'memory';
+const DEFAULT_REDIS_PREFIX = 'footalert:bff:';
 
 function toPositiveInt(value: number, fallback: number): number {
   if (!Number.isFinite(value) || value <= 0) {
@@ -20,6 +28,19 @@ function toPositiveInt(value: number, fallback: number): number {
   }
 
   return Math.floor(value);
+}
+
+function normalizeBackend(rawValue: string | undefined): CacheBackend {
+  return rawValue === 'redis' ? 'redis' : 'memory';
+}
+
+function normalizeRedisPrefix(rawValue: string | undefined): string {
+  const normalized = rawValue?.trim();
+  if (!normalized) {
+    return DEFAULT_REDIS_PREFIX;
+  }
+
+  return normalized;
 }
 
 function hashCacheKey(rawKey: string): string {
@@ -32,13 +53,15 @@ function hashCacheKey(rawKey: string): string {
 
 export class MemoryCache {
   private readonly store = new Map<string, CacheEntry<unknown>>();
-  private readonly inFlight = new Map<string, Promise<unknown>>();
   private maxEntries: number;
   private cleanupIntervalMs: number;
   private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(config: Partial<CacheConfig> = {}) {
-    this.maxEntries = toPositiveInt(config.maxEntries ?? DEFAULT_CACHE_MAX_ENTRIES, DEFAULT_CACHE_MAX_ENTRIES);
+    this.maxEntries = toPositiveInt(
+      config.maxEntries ?? DEFAULT_CACHE_MAX_ENTRIES,
+      DEFAULT_CACHE_MAX_ENTRIES,
+    );
     this.cleanupIntervalMs = toPositiveInt(
       config.cleanupIntervalMs ?? DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
       DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
@@ -89,19 +112,6 @@ export class MemoryCache {
     this.evictIfNeeded();
   }
 
-  getInFlight<T>(key: string): Promise<T> | null {
-    const pending = this.inFlight.get(hashCacheKey(key));
-    return pending ? (pending as Promise<T>) : null;
-  }
-
-  setInFlight<T>(key: string, promise: Promise<T>): void {
-    this.inFlight.set(hashCacheKey(key), promise);
-  }
-
-  clearInFlight(key: string): void {
-    this.inFlight.delete(hashCacheKey(key));
-  }
-
   sweepExpiredEntries(now = Date.now()): void {
     for (const [key, entry] of this.store.entries()) {
       if (now > entry.expiresAt) {
@@ -112,7 +122,6 @@ export class MemoryCache {
 
   clear(): void {
     this.store.clear();
-    this.inFlight.clear();
   }
 
   resetForTests(): void {
@@ -148,10 +157,180 @@ export class MemoryCache {
   }
 }
 
-export const cache = new MemoryCache();
+const memoryCache = new MemoryCache();
+const inFlight = new Map<string, Promise<unknown>>();
+
+let cacheBackend: CacheBackend = DEFAULT_CACHE_BACKEND;
+let redisUrl: string | null = null;
+let redisPrefix = DEFAULT_REDIS_PREFIX;
+let redisClient: IORedis | null = null;
+let redisReady = false;
+let hasLoggedRedisFallback = false;
+
+function logRedisFallback(error?: unknown): void {
+  if (hasLoggedRedisFallback) {
+    return;
+  }
+
+  hasLoggedRedisFallback = true;
+  if (error) {
+    console.warn('[bff][cache] Redis unavailable, falling back to in-memory cache.', error);
+    return;
+  }
+
+  console.warn('[bff][cache] Redis unavailable, falling back to in-memory cache.');
+}
+
+function buildRedisCacheKey(rawKey: string): string {
+  return `${redisPrefix}${hashCacheKey(rawKey)}`;
+}
+
+function teardownRedisClient(): void {
+  if (redisClient) {
+    redisClient.removeAllListeners();
+    redisClient.disconnect();
+  }
+
+  redisClient = null;
+  redisReady = false;
+}
+
+function ensureRedisClient(): void {
+  if (cacheBackend !== 'redis' || !redisUrl || redisClient) {
+    if (cacheBackend === 'redis' && !redisUrl) {
+      logRedisFallback();
+    }
+    return;
+  }
+
+  try {
+    const client = new IORedis(redisUrl, {
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+    });
+
+    client.on('ready', () => {
+      redisReady = true;
+      hasLoggedRedisFallback = false;
+    });
+    client.on('error', (error: unknown) => {
+      redisReady = false;
+      logRedisFallback(error);
+    });
+    client.on('end', () => {
+      redisReady = false;
+    });
+
+    redisClient = client;
+  } catch (error) {
+    redisReady = false;
+    logRedisFallback(error);
+    redisClient = null;
+  }
+}
+
+async function getFromRedis<T>(key: string): Promise<T | null> {
+  if (!redisClient || !redisReady) {
+    return null;
+  }
+
+  try {
+    const payload = await redisClient.get(buildRedisCacheKey(key));
+    if (!payload) {
+      return null;
+    }
+
+    return JSON.parse(payload) as T;
+  } catch (error) {
+    redisReady = false;
+    logRedisFallback(error);
+    return null;
+  }
+}
+
+async function setToRedis<T>(key: string, value: T, ttlMs: number): Promise<void> {
+  if (!redisClient || !redisReady) {
+    return;
+  }
+
+  try {
+    await redisClient.set(
+      buildRedisCacheKey(key),
+      JSON.stringify(value),
+      'PX',
+      Math.max(1, Math.floor(ttlMs)),
+    );
+  } catch (error) {
+    redisReady = false;
+    logRedisFallback(error);
+  }
+}
+
+async function getCachedValue<T>(key: string): Promise<T | null> {
+  if (cacheBackend === 'redis') {
+    const redisValue = await getFromRedis<T>(key);
+    if (redisValue !== null) {
+      return redisValue;
+    }
+  }
+
+  return memoryCache.get<T>(key);
+}
+
+async function setCachedValue<T>(key: string, value: T, ttlMs: number): Promise<void> {
+  memoryCache.set(key, value, ttlMs);
+
+  if (cacheBackend === 'redis') {
+    await setToRedis(key, value, ttlMs);
+  }
+}
+
+function getInFlight<T>(key: string): Promise<T> | null {
+  const pending = inFlight.get(hashCacheKey(key));
+  return pending ? (pending as Promise<T>) : null;
+}
+
+function setInFlight<T>(key: string, promise: Promise<T>): void {
+  inFlight.set(hashCacheKey(key), promise);
+}
+
+function clearInFlight(key: string): void {
+  inFlight.delete(hashCacheKey(key));
+}
 
 export function configureCache(config: Partial<CacheConfig>): void {
-  cache.configure(config);
+  memoryCache.configure(config);
+
+  const nextBackend =
+    typeof config.backend === 'string'
+      ? normalizeBackend(config.backend)
+      : cacheBackend;
+  const nextRedisUrl =
+    typeof config.redisUrl === 'string'
+      ? config.redisUrl.trim() || null
+      : config.redisUrl === null
+        ? null
+        : redisUrl;
+  const nextRedisPrefix =
+    typeof config.redisPrefix === 'string'
+      ? normalizeRedisPrefix(config.redisPrefix)
+      : redisPrefix;
+
+  const shouldReconnectRedis =
+    nextBackend !== cacheBackend ||
+    nextRedisUrl !== redisUrl ||
+    nextRedisPrefix !== redisPrefix;
+
+  cacheBackend = nextBackend;
+  redisUrl = nextRedisUrl;
+  redisPrefix = nextRedisPrefix;
+
+  if (shouldReconnectRedis) {
+    teardownRedisClient();
+    hasLoggedRedisFallback = false;
+  }
+
+  ensureRedisClient();
 }
 
 export async function withCache<T>(
@@ -159,29 +338,35 @@ export async function withCache<T>(
   ttlMs: number,
   producer: () => Promise<T>,
 ): Promise<T> {
-  const cached = cache.get<T>(key);
+  const cached = await getCachedValue<T>(key);
   if (cached !== null) {
     return cached;
   }
 
-  const existingPromise = cache.getInFlight<T>(key);
+  const existingPromise = getInFlight<T>(key);
   if (existingPromise) {
     return existingPromise;
   }
 
   const pendingPromise = producer()
-    .then(value => {
-      cache.set(key, value, ttlMs);
+    .then(async value => {
+      await setCachedValue(key, value, ttlMs);
       return value;
     })
     .finally(() => {
-      cache.clearInFlight(key);
+      clearInFlight(key);
     });
 
-  cache.setInFlight(key, pendingPromise);
+  setInFlight(key, pendingPromise);
   return pendingPromise;
 }
 
 export function resetCacheForTests(): void {
-  cache.resetForTests();
+  memoryCache.resetForTests();
+  inFlight.clear();
+  cacheBackend = DEFAULT_CACHE_BACKEND;
+  redisUrl = null;
+  redisPrefix = DEFAULT_REDIS_PREFIX;
+  hasLoggedRedisFallback = false;
+  teardownRedisClient();
 }

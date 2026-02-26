@@ -1,7 +1,7 @@
 import { gzip as gzipCallback } from 'node:zlib';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { promisify } from 'node:util';
 
 import { env } from './config/env.js';
@@ -71,6 +71,26 @@ function resolveCacheControl(routePath?: string): string | undefined {
   return CACHE_CONTROL_BY_ROUTE[routePath];
 }
 
+function appendVaryHeader(reply: FastifyReply, value: string): void {
+  const currentHeader = reply.getHeader('Vary');
+  const currentValues = Array.isArray(currentHeader)
+    ? currentHeader.join(',')
+    : String(currentHeader ?? '');
+
+  const entries = currentValues
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean);
+  const hasValue = entries.some(entry => entry.toLowerCase() === value.toLowerCase());
+  if (!hasValue) {
+    entries.push(value);
+  }
+
+  if (entries.length > 0) {
+    reply.header('Vary', entries.join(', '));
+  }
+}
+
 async function registerCompression(app: FastifyInstance): Promise<void> {
   const compressModuleName = '@fastify/compress';
 
@@ -123,7 +143,7 @@ async function registerCompression(app: FastifyInstance): Promise<void> {
 
     const compressedPayload = await gzip(payloadBuffer);
     reply.header('Content-Encoding', 'gzip');
-    reply.header('Vary', 'Accept-Encoding');
+    appendVaryHeader(reply, 'Accept-Encoding');
     reply.removeHeader('Content-Length');
     return compressedPayload;
   });
@@ -138,6 +158,9 @@ export async function buildServer(): Promise<FastifyInstance> {
   configureCache({
     maxEntries: env.cacheMaxEntries,
     cleanupIntervalMs: env.cacheCleanupIntervalMs,
+    backend: env.cacheBackend,
+    redisUrl: env.redisUrl,
+    redisPrefix: env.redisCachePrefix,
   });
 
   await app.register(cors, {
@@ -176,10 +199,14 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerCompression(app);
 
   app.addHook('onSend', (request, reply, payload, done) => {
-    if (request.method === 'GET' && !reply.hasHeader('Cache-Control')) {
-      const cacheControl = resolveCacheControl(request.routeOptions.url);
-      if (cacheControl) {
-        reply.header('Cache-Control', cacheControl);
+    if (request.method === 'GET') {
+      appendVaryHeader(reply, 'Accept-Encoding');
+
+      if (!reply.hasHeader('Cache-Control')) {
+        const cacheControl = resolveCacheControl(request.routeOptions.url);
+        if (cacheControl) {
+          reply.header('Cache-Control', cacheControl);
+        }
       }
     }
 

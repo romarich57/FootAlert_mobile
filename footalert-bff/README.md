@@ -30,6 +30,9 @@ Security-related env vars:
 - `WEB_APP_ORIGIN` (optional single origin merged into CORS allowlist, e.g. `http://localhost:5173`)
 - `CACHE_MAX_ENTRIES` (default `1000`)
 - `CACHE_CLEANUP_INTERVAL_MS` (default `60000`)
+- `CACHE_BACKEND` (`memory` | `redis`, default `memory`)
+- `REDIS_URL` (required if `CACHE_BACKEND=redis`)
+- `REDIS_CACHE_PREFIX` (default `footalert:bff:`)
 - `BFF_EXPOSE_ERROR_DETAILS` (default `false`)
 - `MOBILE_REQUEST_SIGNING_KEY` (shared secret for signed mobile technical routes)
 - `MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS` (default `300000`)
@@ -86,5 +89,5 @@ Required GitHub secrets:
 
 ## Notes
 
-- Cache is in-memory only (ephemeral per process).
+- Cache backend supports `memory` and `redis` (with in-memory fallback if Redis is unavailable).
 - For production, use a shared cache and centralized rate limiting.

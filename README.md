@@ -167,12 +167,54 @@ npm run aso:validate:metadata
 npm run aso:validate:assets
 npm run aso:validate:icon-ios
 npm run aso:validate
+npm run check:file-size
 npm run check:all
+npm run check:lazy-screens
+npm run check:hermes-enabled
 npm run web:typecheck
 npm run web:build
 npm run desktop:typecheck
 npm run desktop:build
+npm run storybook
+npm run storybook:ios
+npm run storybook:android
 ```
+
+Guide Storybook React Native: `docs/mobile/storybook-react-native.md`.
+
+## Performance runtime (Hermes + cold-start)
+
+- Hermes est activé côté Android (`android/gradle.properties`) et iOS (`ios/Mobile_Foot.xcodeproj/project.pbxproj`).
+- Prefetch React Query activé sur navigation onglets (`Matches`, `Competitions`, `Follows`).
+- Refresh live adapté au mode batterie faible via `MATCHES_BATTERY_SAVER_REFRESH_INTERVAL_MS` (défaut `300000` ms).
+- Validation locale rapide:
+
+```bash
+npm run check:hermes-enabled
+npm run check:lazy-screens
+```
+
+- Audit cold-start Android:
+
+```bash
+npm run perf:android:audit
+npm run perf:android:audit:slo
+npm run perf:android:audit:slo -- "" 750 1200 6
+```
+
+Seuils SLO courants:
+
+- `p50 < 750ms`
+- `p95 < 1200ms`
+- `janky_frames < 6%`
+
+- Smoke PR (runs réduits):
+
+```bash
+npm run perf:android:audit:smoke
+```
+
+Référence complète: `docs/mobile/performance.md`.
 
 ## Vérification contrat API
 
@@ -241,6 +283,28 @@ src/
       testing/
       theme/
 ```
+
+### Modules refactorisés
+
+- UI Teams:
+  - `src/ui/features/teams/components/overview/*`
+  - `src/ui/features/teams/components/stats/*`
+  - `src/ui/features/teams/components/standings/*`
+- UI Players:
+  - `src/ui/features/players/components/stats/*`
+  - `src/ui/features/players/components/career/*`
+  - `src/ui/features/players/components/profile/*`
+- BFF routes:
+  - `footalert-bff/src/routes/teams/*`
+  - `footalert-bff/src/routes/players/*`
+  - façade de compatibilité conservée via `footalert-bff/src/routes/teams.ts` et `footalert-bff/src/routes/players.ts`
+
+## Gates de taille (bloquants)
+
+- `npm run check:file-size` est intégré à `npm run check:all`.
+- Seuil UI: tout `src/ui/**/*.tsx` (hors tests) doit rester `<= 350` lignes.
+- Seuil BFF routes: tout `footalert-bff/src/routes/**/*.ts` (hors tests) doit rester `<= 500` lignes.
+- Script utilisé: `scripts/quality/check-file-line-limits.sh`.
 
 ## Règles de base
 

@@ -9,6 +9,7 @@ type MatchesHeaderProps = {
   onPressCalendar: () => void;
   onPressSearch: () => void;
   onPressNotifications: () => void;
+  onPressManageHidden: () => void;
 };
 
 function createStyles(colors: ThemeColors, isCompact: boolean) {
@@ -60,6 +61,7 @@ export function MatchesHeader({
   onPressCalendar,
   onPressSearch,
   onPressNotifications,
+  onPressManageHidden,
 }: MatchesHeaderProps) {
   const { width } = useWindowDimensions();
   const { colors } = useAppTheme();
@@ -77,6 +79,14 @@ export function MatchesHeader({
       </View>
 
       <View style={styles.actions}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPressManageHidden}
+          testID="matches-header-manage-hidden-button"
+          style={styles.actionButton}
+        >
+          <MaterialCommunityIcons name="eye-outline" size={24} color={colors.text} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={onPressCalendar}

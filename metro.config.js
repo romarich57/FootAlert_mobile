@@ -1,5 +1,6 @@
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { resolve: resolveMetroRequest } = require('metro-resolver');
+const { withStorybook } = require('@storybook/react-native/metro/withStorybook');
 const path = require('path');
 
 /**
@@ -13,6 +14,14 @@ const NOBLE_HASHES_PACKAGE_SEGMENT = `${path.sep}node_modules${path.sep}@noble${
 
 const config = {
   watchFolders: [path.resolve(projectRoot, 'packages')],
+  transformer: {
+    getTransformOptions: async () => ({
+      transform: {
+        experimentalImportSupport: false,
+        inlineRequires: true,
+      },
+    }),
+  },
   resolver: {
     unstable_enablePackageExports: false,
     extraNodeModules: {
@@ -41,4 +50,9 @@ const config = {
   },
 };
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+const mergedConfig = mergeConfig(getDefaultConfig(__dirname), config);
+
+module.exports = withStorybook(mergedConfig, {
+  enabled: process.env.STORYBOOK_ENABLED === 'true',
+  configPath: path.resolve(__dirname, '.storybook'),
+});

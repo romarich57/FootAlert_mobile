@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { Image, StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import type { FollowedTeamCard as FollowedTeamCardType } from '@ui/features/follows/types/follows.types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppImage } from '@ui/shared/media/AppImage';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -143,7 +144,7 @@ export function FollowedTeamCard({
         style={styles.contentPressable}
       >
         <View style={styles.topRow}>
-          <Image source={{ uri: card.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
+          <AppImage source={{ uri: card.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
           <Text numberOfLines={1} style={styles.teamName}>
             {teamName}
           </Text>

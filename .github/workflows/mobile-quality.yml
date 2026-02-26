@@ -3,6 +3,7 @@ name: Mobile Quality
 on:
   push:
   pull_request:
+  workflow_dispatch:
   schedule:
     - cron: '0 3 * * *'
 
@@ -29,6 +30,12 @@ jobs:
       - name: Check index key usage
         run: npm run check:keys
 
+      - name: Check lazy-loaded screens
+        run: npm run check:lazy-screens
+
+      - name: Check Hermes enabled
+        run: npm run check:hermes-enabled
+
       - name: API contract check
         run: npm run contract:check
 
@@ -40,6 +47,86 @@ jobs:
 
       - name: ASO metadata validation
         run: npm run aso:validate
+
+  android-perf-smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: quality
+    continue-on-error: true
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enable KVM for Android emulator
+        run: |
+          sudo tee /etc/udev/rules.d/99-kvm4all.rules <<'EOF'
+          KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
+          EOF
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Android perf smoke audit and SLO on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb devices -l
+            npm run perf:android:audit:smoke
+            npm run perf:android:audit:slo -- "" 750 1200 6
+
+      - name: Write perf smoke summary
+        run: |
+          summary_file="$(find perf-results -type f -name 'audit-summary.txt' | sort | tail -n 1)"
+          if [[ -z "$summary_file" ]]; then
+            echo "No perf summary generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          p50="$(grep '^p50_ms=' "$summary_file" | tail -n 1 | cut -d'=' -f2)"
+          p95="$(grep '^p95_ms=' "$summary_file" | tail -n 1 | cut -d'=' -f2)"
+          echo "### Android perf smoke" >> "$GITHUB_STEP_SUMMARY"
+          echo "- summary: $summary_file" >> "$GITHUB_STEP_SUMMARY"
+          echo "- cold_start_p50_ms: ${p50:-n/a}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- cold_start_p95_ms: ${p95:-n/a}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve perf smoke artifact directory
+        id: perf_smoke_dir
+        run: |
+          summary_file="$(find perf-results -type f -name 'audit-summary.txt' | sort | tail -n 1)"
+          if [[ -z "$summary_file" ]]; then
+            echo "No perf summary found to upload"
+            exit 1
+          fi
+          echo "run_dir=$(dirname "$summary_file")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Android perf smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-perf-smoke
+          path: ${{ steps.perf_smoke_dir.outputs.run_dir }}
+          if-no-files-found: error
 
   android-build:
     runs-on: ubuntu-latest
@@ -163,7 +250,7 @@ jobs:
           script: |
             adb devices -l
             npm run perf:android:audit
-            npm run perf:android:audit:slo
+            npm run perf:android:audit:slo -- "" 750 1200 6
 
       - name: Compare Android perf against baseline
         run: |

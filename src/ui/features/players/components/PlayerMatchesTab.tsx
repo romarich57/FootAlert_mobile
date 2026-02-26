@@ -303,7 +303,6 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                 data={matches}
                 keyExtractor={(item) => item.fixtureId}
                 renderItem={renderItem}
-                // @ts-ignore FlashList runtime supports estimatedItemSize.
                 estimatedItemSize={118}
                 contentContainerStyle={styles.listContent}
             />

@@ -2,14 +2,7 @@ import Config from 'react-native-config';
 import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha2';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils';
-
-type SignatureInput = {
-  method: string;
-  pathWithQuery: string;
-  timestamp: string;
-  nonce: string;
-  body: unknown;
-};
+import { buildRequestSignaturePayload } from '@app-core/security/requestSignaturePayload';
 
 const HEADER_TIMESTAMP = 'x-mobile-request-timestamp';
 const HEADER_NONCE = 'x-mobile-request-nonce';
@@ -22,46 +15,6 @@ function resolveSigningKey(): string | null {
   }
 
   return signingKey;
-}
-
-function normalizePrimitive(value: unknown): unknown {
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    value === null
-  ) {
-    return value;
-  }
-
-  return null;
-}
-
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(item => stableStringify(item)).join(',')}]`;
-  }
-
-  if (value && typeof value === 'object') {
-    const objectValue = value as Record<string, unknown>;
-    const keys = Object.keys(objectValue).sort();
-    const serializedEntries = keys.map(
-      key => `${JSON.stringify(key)}:${stableStringify(objectValue[key])}`,
-    );
-    return `{${serializedEntries.join(',')}}`;
-  }
-
-  return JSON.stringify(normalizePrimitive(value));
-}
-
-function buildSignaturePayload(input: SignatureInput): string {
-  return [
-    input.method.toUpperCase(),
-    input.pathWithQuery,
-    input.timestamp,
-    input.nonce,
-    stableStringify(input.body ?? null),
-  ].join('\n');
 }
 
 export function computeMobileRequestSignature(payload: string, key: string): string {
@@ -96,7 +49,7 @@ export function buildMobileRequestSecurityHeaders(options: {
 
   const timestamp = Date.now().toString();
   const nonce = buildNonce();
-  const signaturePayload = buildSignaturePayload({
+  const signaturePayload = buildRequestSignaturePayload({
     method: options.method,
     pathWithQuery: resolvePathWithQuery(options.url),
     timestamp,

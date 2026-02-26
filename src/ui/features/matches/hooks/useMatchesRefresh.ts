@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { appEnv } from '@data/config/env';
 
@@ -7,6 +7,7 @@ type UseMatchesRefreshParams = {
   hasLiveMatches: boolean;
   isSlowNetwork: boolean;
   networkLiteMode?: boolean;
+  batteryLiteMode?: boolean;
   refetch: () => Promise<{ isError?: boolean } | unknown>;
 };
 
@@ -15,11 +16,13 @@ export function useMatchesRefresh({
   hasLiveMatches,
   isSlowNetwork,
   networkLiteMode = false,
+  batteryLiteMode = false,
   refetch,
 }: UseMatchesRefreshParams): void {
   const liveRefreshIntervalMs = appEnv.matchesLiveRefreshIntervalMs;
   const slowRefreshIntervalMs = appEnv.matchesSlowRefreshIntervalMs;
   const maxRefreshBackoffMs = appEnv.matchesMaxRefreshBackoffMs;
+  const batterySaverRefreshIntervalMs = appEnv.matchesBatterySaverRefreshIntervalMs;
   const networkLiteRefreshIntervalMs = Math.max(
     slowRefreshIntervalMs,
     liveRefreshIntervalMs * 3,
@@ -28,17 +31,36 @@ export function useMatchesRefresh({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshDelayRef = useRef<number>(liveRefreshIntervalMs);
 
-  useEffect(() => {
-    refreshDelayRef.current = networkLiteMode
+  const resolveBaseRefreshIntervalMs = useCallback(() => {
+    const networkIntervalMs = networkLiteMode
       ? networkLiteRefreshIntervalMs
       : isSlowNetwork
         ? slowRefreshIntervalMs
         : liveRefreshIntervalMs;
+
+    return batteryLiteMode
+      ? Math.max(networkIntervalMs, batterySaverRefreshIntervalMs)
+      : networkIntervalMs;
   }, [
+    batteryLiteMode,
+    batterySaverRefreshIntervalMs,
     isSlowNetwork,
     liveRefreshIntervalMs,
     networkLiteMode,
     networkLiteRefreshIntervalMs,
+    slowRefreshIntervalMs,
+  ]);
+
+  useEffect(() => {
+    refreshDelayRef.current = resolveBaseRefreshIntervalMs();
+  }, [
+    batteryLiteMode,
+    batterySaverRefreshIntervalMs,
+    isSlowNetwork,
+    liveRefreshIntervalMs,
+    networkLiteMode,
+    networkLiteRefreshIntervalMs,
+    resolveBaseRefreshIntervalMs,
     slowRefreshIntervalMs,
   ]);
 
@@ -67,11 +89,7 @@ export function useMatchesRefresh({
               maxRefreshBackoffMs,
             );
           } else {
-            refreshDelayRef.current = networkLiteMode
-              ? networkLiteRefreshIntervalMs
-              : isSlowNetwork
-                ? slowRefreshIntervalMs
-                : liveRefreshIntervalMs;
+            refreshDelayRef.current = resolveBaseRefreshIntervalMs();
           }
         } catch {
           refreshDelayRef.current = Math.min(
@@ -95,6 +113,8 @@ export function useMatchesRefresh({
       }
     };
   }, [
+    batteryLiteMode,
+    batterySaverRefreshIntervalMs,
     enabled,
     hasLiveMatches,
     isSlowNetwork,
@@ -103,6 +123,7 @@ export function useMatchesRefresh({
     networkLiteMode,
     networkLiteRefreshIntervalMs,
     refetch,
+    resolveBaseRefreshIntervalMs,
     slowRefreshIntervalMs,
   ]);
 }

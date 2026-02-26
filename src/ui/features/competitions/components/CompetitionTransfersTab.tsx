@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlashList } from '@shopify/flash-list';
 
@@ -60,7 +60,7 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
     if (isLoading) {
         return (
             <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>{t('competitionDetails.states.loading')}</Text>
+                <ActivityIndicator size="large" color={colors.primary} />
             </View>
         );
     }
@@ -131,7 +131,6 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
                 data={displayedTransfers}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
-                // @ts-ignore - TS types are currently flawed for estimatedItemSize in FlashList in this environment
                 estimatedItemSize={150}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}

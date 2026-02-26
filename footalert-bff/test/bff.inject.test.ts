@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import type { FastifyInstance } from 'fastify';
+import { buildRequestSignaturePayload } from '@footalert/app-core/security/requestSignaturePayload';
 
 type FetchCall = {
   input: string | URL | Request;
@@ -48,36 +49,6 @@ function installFetchMock(handler: (call: FetchCall) => Promise<Response>): Fetc
   return calls;
 }
 
-function normalizePrimitive(value: unknown): unknown {
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    value === null
-  ) {
-    return value;
-  }
-
-  return null;
-}
-
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(item => stableStringify(item)).join(',')}]`;
-  }
-
-  if (value && typeof value === 'object') {
-    const objectValue = value as Record<string, unknown>;
-    const keys = Object.keys(objectValue).sort();
-    const serializedEntries = keys.map(
-      key => `${JSON.stringify(key)}:${stableStringify(objectValue[key])}`,
-    );
-    return `{${serializedEntries.join(',')}}`;
-  }
-
-  return JSON.stringify(normalizePrimitive(value));
-}
-
 function buildSignedMobileHeaders(options: {
   method: 'POST' | 'DELETE';
   url: string;
@@ -87,13 +58,13 @@ function buildSignedMobileHeaders(options: {
 }): Record<string, string> {
   const timestamp = options.timestamp ?? Date.now().toString();
   const nonce = options.nonce ?? randomUUID();
-  const signingPayload = [
-    options.method,
-    options.url,
+  const signingPayload = buildRequestSignaturePayload({
+    method: options.method,
+    pathWithQuery: options.url,
     timestamp,
     nonce,
-    stableStringify(options.body ?? null),
-  ].join('\n');
+    body: options.body ?? null,
+  });
   const signature = createHmac('sha256', BASE_ENV.MOBILE_REQUEST_SIGNING_KEY)
     .update(signingPayload)
     .digest('hex');
@@ -205,6 +176,7 @@ test('GET /v1/matches applies short Cache-Control header', async t => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['cache-control'], 'public, max-age=30, stale-while-revalidate=30');
+  assert.match(String(response.headers.vary ?? ''), /accept-encoding/i);
 });
 
 test('GET /v1/competitions/:id/standings applies longer Cache-Control header', async t => {
@@ -257,6 +229,7 @@ test('GET /v1/competitions compresses large JSON payloads when client accepts gz
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['content-encoding'], 'gzip');
+  assert.match(String(response.headers.vary ?? ''), /accept-encoding/i);
 });
 
 test('GET /v1/matches returns 400 when required query params are missing', async t => {

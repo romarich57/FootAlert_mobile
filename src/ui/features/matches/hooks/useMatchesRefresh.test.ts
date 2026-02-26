@@ -82,4 +82,24 @@ describe('useMatchesRefresh', () => {
 
     expect(refetch).toHaveBeenCalledTimes(5);
   });
+
+  it('enforces battery-saver minimum cadence when low power mode is on', async () => {
+    const refetch = jest.fn(async () => ({ isError: false }));
+
+    renderHook(() =>
+      useMatchesRefresh({
+        enabled: true,
+        hasLiveMatches: true,
+        isSlowNetwork: false,
+        batteryLiteMode: true,
+        refetch,
+      }),
+    );
+
+    await advance(300_000 - 1);
+    expect(refetch).toHaveBeenCalledTimes(0);
+
+    await advance(1);
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
 });

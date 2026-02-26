@@ -19,6 +19,7 @@ type CompetitionSectionProps = {
   onPressNotification: (match: MatchItem) => void;
   onPressHomeTeam?: (teamId: string) => void;
   onPressAwayTeam?: (teamId: string) => void;
+  onHide?: () => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -31,6 +32,15 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 12,
+      shadowColor: colors.text,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
     },
     leftHeader: {
       flexDirection: 'row',
@@ -55,10 +65,11 @@ function createStyles(colors: ThemeColors) {
     },
     title: {
       color: colors.text,
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: '800',
       textTransform: 'uppercase',
       maxWidth: '100%',
+      letterSpacing: 0.2,
     },
     topBadge: {
       borderRadius: 999,
@@ -82,6 +93,7 @@ function createStyles(colors: ThemeColors) {
     },
     list: {
       gap: 12,
+      marginTop: 4,
     },
     emptyText: {
       color: colors.textMuted,
@@ -89,6 +101,17 @@ function createStyles(colors: ThemeColors) {
       fontWeight: '600',
       paddingVertical: 8,
       paddingHorizontal: 4,
+      textAlign: 'center',
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    actionButton: {
+      padding: 6,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
     },
   });
 }
@@ -101,6 +124,7 @@ export function CompetitionSection({
   onPressNotification,
   onPressHomeTeam,
   onPressAwayTeam,
+  onHide,
 }: CompetitionSectionProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
@@ -127,11 +151,20 @@ export function CompetitionSection({
             <Text style={styles.count}>{section.matches.length}</Text>
           </View>
         </View>
-        <MaterialCommunityIcons
-          name={collapsed ? 'chevron-down' : 'chevron-up'}
-          size={20}
-          color={colors.textMuted}
-        />
+        <View style={styles.actionsRow}>
+          {!section.isFollowSection && onHide ? (
+            <Pressable onPress={onHide} style={styles.actionButton} hitSlop={8}>
+              <MaterialCommunityIcons name="eye-off-outline" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
+          <View style={styles.actionButton}>
+            <MaterialCommunityIcons
+              name={collapsed ? 'chevron-down' : 'chevron-up'}
+              size={18}
+              color={colors.textMuted}
+            />
+          </View>
+        </View>
       </Pressable>
 
       {collapsed ? null : (

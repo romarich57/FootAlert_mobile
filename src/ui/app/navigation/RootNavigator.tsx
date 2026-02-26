@@ -5,19 +5,25 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { MainTabParamList, RootStackParamList } from '@ui/app/navigation/types';
+import { useMainTabsPrefetch } from '@ui/app/navigation/useMainTabsPrefetch';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { CompetitionsScreen } from '@ui/features/competitions';
-import { CompetitionDetailsScreen } from '@ui/features/competitions/screens/CompetitionDetailsScreen';
 import { FollowsScreen } from '@ui/features/follows';
 import { MatchesScreen } from '@ui/features/matches';
-import { MatchDetailsScreen } from '@ui/features/matches/screens/MatchDetailsScreen';
 import { MoreScreen } from '@ui/features/more';
-import { PlayerDetailsScreen } from '@ui/features/players/screens/PlayerDetailsScreen';
-import { SearchPlaceholderScreen } from '@ui/features/search';
-import { TeamDetailsScreen } from '@ui/features/teams';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
+
+const getMatchDetailsScreen = () =>
+  require('@ui/features/matches/screens/MatchDetailsScreen').MatchDetailsScreen;
+const getCompetitionDetailsScreen = () =>
+  require('@ui/features/competitions/screens/CompetitionDetailsScreen').CompetitionDetailsScreen;
+const getTeamDetailsScreen = () =>
+  require('@ui/features/teams/screens/TeamDetailsScreen').TeamDetailsScreen;
+const getPlayerDetailsScreen = () =>
+  require('@ui/features/players/screens/PlayerDetailsScreen').PlayerDetailsScreen;
+const getSearchScreen = () => require('@ui/features/search').SearchScreen;
 
 type TabBarIconProps = {
   routeName: keyof MainTabParamList;
@@ -41,6 +47,7 @@ function TabsNavigator() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const prefetchListeners = useMainTabsPrefetch();
   const bottomPadding = Math.max(insets.bottom, 8);
 
   return (
@@ -70,6 +77,7 @@ function TabsNavigator() {
       <Tabs.Screen
         name="Matches"
         component={MatchesScreen}
+        listeners={prefetchListeners.Matches}
         options={{
           title: t('tabs.matches'),
         }}
@@ -77,6 +85,7 @@ function TabsNavigator() {
       <Tabs.Screen
         name="Competitions"
         component={CompetitionsScreen}
+        listeners={prefetchListeners.Competitions}
         options={{
           title: t('tabs.competitions'),
         }}
@@ -84,6 +93,7 @@ function TabsNavigator() {
       <Tabs.Screen
         name="Follows"
         component={FollowsScreen}
+        listeners={prefetchListeners.Follows}
         options={{
           title: t('tabs.follows'),
         }}
@@ -93,7 +103,6 @@ function TabsNavigator() {
         component={MoreScreen}
         options={{
           title: t('tabs.more'),
-          lazy: false,
         }}
       />
     </Tabs.Navigator>
@@ -110,17 +119,17 @@ export function RootNavigator() {
         component={TabsNavigator}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="MatchDetails" component={MatchDetailsScreen} />
+      <Stack.Screen name="MatchDetails" getComponent={getMatchDetailsScreen} />
       <Stack.Screen
         name="CompetitionDetails"
-        component={CompetitionDetailsScreen}
+        getComponent={getCompetitionDetailsScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="TeamDetails" component={TeamDetailsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="PlayerDetails" component={PlayerDetailsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="TeamDetails" getComponent={getTeamDetailsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="PlayerDetails" getComponent={getPlayerDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="SearchPlaceholder"
-        component={SearchPlaceholderScreen}
+        getComponent={getSearchScreen}
         options={{ title: t('screens.search.title') }}
       />
     </Stack.Navigator>

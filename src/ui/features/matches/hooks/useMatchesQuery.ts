@@ -17,6 +17,12 @@ type UseMatchesQueryParams = {
   enabled?: boolean;
 };
 
+type BuildMatchesQueryResultParams = {
+  date: string;
+  timezone: string;
+  signal?: AbortSignal;
+};
+
 export const MATCHES_QUERY_STALE_TIME_MS = appEnv.matchesQueryStaleTimeMs;
 
 function isRetriableStatus(status: number): boolean {
@@ -38,6 +44,24 @@ export function shouldRetryMatchesQuery(
   return true;
 }
 
+export async function buildMatchesQueryResult({
+  date,
+  timezone,
+  signal,
+}: BuildMatchesQueryResultParams): Promise<MatchesQueryResult> {
+  const requestStartedAt = Date.now();
+  const fixtures = await fetchFixturesByDate({ date, timezone, signal });
+  const sections = mapFixturesToSections(fixtures);
+  const requestDurationMs = Date.now() - requestStartedAt;
+
+  return {
+    sections,
+    requestDurationMs,
+    fetchedAt: new Date().toISOString(),
+    hasLiveMatches: hasLiveMatches(sections),
+  };
+}
+
 export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQueryParams) {
   const query = useQuery({
     queryKey: queryKeys.matches(date, timezone),
@@ -46,19 +70,7 @@ export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQu
     refetchOnReconnect: true,
     refetchOnMount: true,
     retry: shouldRetryMatchesQuery,
-    queryFn: async ({ signal }): Promise<MatchesQueryResult> => {
-      const requestStartedAt = Date.now();
-      const fixtures = await fetchFixturesByDate({ date, timezone, signal });
-      const sections = mapFixturesToSections(fixtures);
-      const requestDurationMs = Date.now() - requestStartedAt;
-
-      return {
-        sections,
-        requestDurationMs,
-        fetchedAt: new Date().toISOString(),
-        hasLiveMatches: hasLiveMatches(sections),
-      };
-    },
+    queryFn: ({ signal }) => buildMatchesQueryResult({ date, timezone, signal }),
   });
 
   const isSlowNetwork = useMemo(() => {

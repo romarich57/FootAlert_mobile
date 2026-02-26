@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -13,178 +13,24 @@ import {
   FollowsTrendRow,
 } from '@ui/features/follows/components';
 import { useFollowsScreenModel } from '@ui/features/follows/hooks/useFollowsScreenModel';
+import {
+  buildFollowsFeedItems,
+  type FollowsFeedItem,
+} from '@ui/features/follows/screens/FollowsScreen.helpers';
+import { createFollowsScreenStyles } from '@ui/features/follows/screens/FollowsScreen.styles';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 import type {
-  FollowsSearchResultPlayer,
   FollowsSearchResultTeam,
-  TrendPlayerItem,
   TrendTeamItem,
 } from '@ui/features/follows/types/follows.types';
 import { useOfflineUiState } from '@ui/shared/hooks';
 import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
-import {
-  DEFAULT_HIT_SLOP,
-  MIN_TOUCH_TARGET,
-  type ThemeColors,
-} from '@ui/shared/theme/theme';
-
-type FollowsFeedItem =
-  | {
-    type: 'trend-team';
-    key: string;
-    item: TrendTeamItem;
-  }
-  | {
-    type: 'trend-player';
-    key: string;
-    item: TrendPlayerItem;
-  }
-  | {
-    type: 'search-team';
-    key: string;
-    item: FollowsSearchResultTeam;
-  }
-  | {
-    type: 'search-player';
-    key: string;
-    item: FollowsSearchResultPlayer;
-  }
-  | {
-    type: 'empty';
-    key: string;
-    message: string;
-  };
-
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    listContent: {
-      paddingBottom: 28,
-    },
-    trendsSection: {
-      paddingHorizontal: 20,
-      paddingTop: 14,
-      gap: 12,
-    },
-    trendsHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      minHeight: 44,
-      marginBottom: 4,
-    },
-    trendsTitle: {
-      color: colors.text,
-      fontSize: 24,
-      fontWeight: '800',
-    },
-    trendsActionText: {
-      color: colors.primary,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    trendsActionButton: {
-      minHeight: MIN_TOUCH_TARGET,
-      justifyContent: 'center',
-      paddingHorizontal: 4,
-    },
-    infoText: {
-      color: colors.textMuted,
-      fontSize: 18,
-      fontWeight: '600',
-      paddingHorizontal: 20,
-      paddingTop: 8,
-    },
-    limitError: {
-      color: colors.warning,
-      fontSize: 16,
-      fontWeight: '700',
-      paddingHorizontal: 20,
-      paddingBottom: 6,
-    },
-    stateContainer: {
-      paddingHorizontal: 20,
-      paddingVertical: 24,
-    },
-    offlineStateContainer: {
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 8,
-    },
-    stateText: {
-      color: colors.textMuted,
-      fontSize: 18,
-      fontWeight: '600',
-    },
-  });
-}
-
-function buildFeedItems(
-  selectedTab: 'teams' | 'players',
-  hideTrends: boolean,
-  teamTrends: TrendTeamItem[],
-  playerTrends: TrendPlayerItem[],
-  emptyMessage: string,
-  search: ReturnType<typeof useFollowsScreenModel>['search'],
-): FollowsFeedItem[] {
-  if (search.hasEnoughChars) {
-    if (selectedTab === 'teams') {
-      const results = search.results as FollowsSearchResultTeam[];
-      if (results.length === 0 && !search.isLoading) {
-        return [{ type: 'empty', key: 'empty-search-teams', message: emptyMessage }];
-      }
-      return results.map(item => ({
-        type: 'search-team',
-        key: `search-team-${item.teamId}`,
-        item,
-      }));
-    }
-
-    const results = search.results as FollowsSearchResultPlayer[];
-    if (results.length === 0 && !search.isLoading) {
-      return [{ type: 'empty', key: 'empty-search-players', message: emptyMessage }];
-    }
-    return results.map(item => ({
-      type: 'search-player',
-      key: `search-player-${item.playerId}`,
-      item,
-    }));
-  }
-
-  if (hideTrends) {
-    return [];
-  }
-
-  if (selectedTab === 'teams') {
-    if (teamTrends.length === 0) {
-      return [{ type: 'empty', key: 'empty-teams', message: emptyMessage }];
-    }
-
-    return teamTrends.map(item => ({
-      type: 'trend-team',
-      key: `trend-team-${item.teamId}`,
-      item,
-    }));
-  }
-
-  if (playerTrends.length === 0) {
-    return [{ type: 'empty', key: 'empty-players', message: emptyMessage }];
-  }
-
-  return playerTrends.map(item => ({
-    type: 'trend-player',
-    key: `trend-player-${item.playerId}`,
-    item,
-  }));
-}
+import { DEFAULT_HIT_SLOP } from '@ui/shared/theme/theme';
 
 export function FollowsScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createFollowsScreenStyles(colors), [colors]);
 
   const model = useFollowsScreenModel();
   const {
@@ -215,16 +61,16 @@ export function FollowsScreen() {
 
   const feedItems = useMemo(
     () =>
-      buildFeedItems(
+      buildFollowsFeedItems({
         selectedTab,
-        hideTrendsCurrentTab,
-        asTeamTrends,
-        asPlayerTrends,
-        search.hasEnoughChars
+        hideTrends: hideTrendsCurrentTab,
+        teamTrends: asTeamTrends,
+        playerTrends: asPlayerTrends,
+        emptyMessage: search.hasEnoughChars
           ? t('follows.search.empty')
           : t('follows.states.noTrends'),
         search,
-      ),
+      }),
     [
       asPlayerTrends,
       asTeamTrends,
@@ -258,7 +104,6 @@ export function FollowsScreen() {
     if (item.type === 'trend-team' || item.type === 'search-team') {
       const isSearch = item.type === 'search-team';
       const trendItem = item.item;
-      // FollowsSearchResultTeam has 'country', TrendTeamItem has 'leagueName'
       const subtitle = isSearch
         ? (trendItem as FollowsSearchResultTeam).country
         : (trendItem as TrendTeamItem).leagueName;
@@ -320,8 +165,6 @@ export function FollowsScreen() {
         }
       />
 
-      {/* Hide segmented control when searching for a cleaner look, or keep it?
-          We'll keep it so users can switch tabs while searching. */}
       {!search.hasEnoughChars || isSearchVisible ? (
         <FollowsSegmentedControl
           selectedTab={selectedTab}
@@ -330,7 +173,6 @@ export function FollowsScreen() {
           playersLabel={t('follows.tabs.players')}
         />
       ) : null}
-
 
       {showLimitError ? (
         <Text style={styles.limitError}>
@@ -353,7 +195,7 @@ export function FollowsScreen() {
           playerCards={playerCards}
           isEditMode={false}
           onPressAdd={() => {
-            // Now handled by typing in the search bar above
+            // Search input is the entrypoint for adding new follows.
           }}
           onUnfollowTeam={handleToggleTeam}
           onUnfollowPlayer={handleTogglePlayer}
@@ -372,9 +214,7 @@ export function FollowsScreen() {
 
       {isSectionLoading || search.isLoading ? (
         <Text style={styles.infoText}>
-          {search.hasEnoughChars
-            ? t('follows.search.loading')
-            : t('follows.states.loading')}
+          {search.hasEnoughChars ? t('follows.search.loading') : t('follows.states.loading')}
         </Text>
       ) : null}
 
@@ -397,9 +237,7 @@ export function FollowsScreen() {
               }
             >
               <Text style={styles.trendsActionText}>
-                {hideTrendsCurrentTab
-                  ? t('follows.trends.show')
-                  : t('follows.trends.hide')}
+                {hideTrendsCurrentTab ? t('follows.trends.show') : t('follows.trends.hide')}
               </Text>
             </Pressable>
           </View>
@@ -453,7 +291,6 @@ export function FollowsScreen() {
         data={feedItems}
         keyExtractor={item => item.key}
         renderItem={renderItem}
-        // @ts-ignore FlashList runtime supports estimatedItemSize.
         estimatedItemSize={280}
         ListHeaderComponent={listHeaderComponent}
         contentContainerStyle={styles.listContent}

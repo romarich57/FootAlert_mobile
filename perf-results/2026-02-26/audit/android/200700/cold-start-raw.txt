@@ -1,0 +1,162 @@
+[perf] cold start run_dir=perf-results/2026-02-26/audit/android/200700
+[perf] app_id=com.footalert.app activity=.MainActivity runs=20
+[perf] run=1
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 1762
+WaitTime: 1795
+Complete
+[perf] run=2
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 880
+WaitTime: 882
+Complete
+[perf] run=3
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 773
+WaitTime: 776
+Complete
+[perf] run=4
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 742
+WaitTime: 745
+Complete
+[perf] run=5
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 1537
+WaitTime: 1540
+Complete
+[perf] run=6
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 683
+WaitTime: 685
+Complete
+[perf] run=7
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 696
+WaitTime: 697
+Complete
+[perf] run=8
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 692
+WaitTime: 694
+Complete
+[perf] run=9
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 740
+WaitTime: 744
+Complete
+[perf] run=10
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 692
+WaitTime: 693
+Complete
+[perf] run=11
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 712
+WaitTime: 715
+Complete
+[perf] run=12
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 674
+WaitTime: 675
+Complete
+[perf] run=13
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 770
+WaitTime: 774
+Complete
+[perf] run=14
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 825
+WaitTime: 828
+Complete
+[perf] run=15
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 701
+WaitTime: 703
+Complete
+[perf] run=16
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 696
+WaitTime: 698
+Complete
+[perf] run=17
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 860
+WaitTime: 862
+Complete
+[perf] run=18
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 724
+WaitTime: 725
+Complete
+[perf] run=19
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 703
+WaitTime: 705
+Complete
+[perf] run=20
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 692
+WaitTime: 697
+Complete

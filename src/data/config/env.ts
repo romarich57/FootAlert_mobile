@@ -8,6 +8,7 @@ import {
 
 const DEFAULT_MOBILE_API_BASE_URL = 'http://localhost:3001/v1';
 const DEFAULT_MATCHES_QUERY_STALE_TIME_MS = 60_000;
+const DEFAULT_MATCHES_BATTERY_SAVER_REFRESH_INTERVAL_MS = 300_000;
 const DEFAULT_FOLLOWS_SEARCH_DEBOUNCE_MS = 500;
 const DEFAULT_FOLLOWS_SEARCH_MIN_CHARS = 2;
 const DEFAULT_FOLLOWS_SEARCH_RESULTS_LIMIT = 20;
@@ -40,6 +41,7 @@ export type AppEnv = {
   matchesLiveRefreshIntervalMs: number;
   matchesSlowRefreshIntervalMs: number;
   matchesMaxRefreshBackoffMs: number;
+  matchesBatterySaverRefreshIntervalMs: number;
   followsSearchDebounceMs: number;
   followsSearchMinChars: number;
   followsSearchResultsLimit: number;
@@ -246,6 +248,10 @@ export const appEnv: AppEnv = {
   matchesLiveRefreshIntervalMs: configuredLiveRefreshIntervalMs,
   matchesSlowRefreshIntervalMs: configuredSlowRefreshIntervalMs,
   matchesMaxRefreshBackoffMs: configuredMaxRefreshBackoffMs,
+  matchesBatterySaverRefreshIntervalMs: readPositiveIntConfig(
+    Config.MATCHES_BATTERY_SAVER_REFRESH_INTERVAL_MS,
+    DEFAULT_MATCHES_BATTERY_SAVER_REFRESH_INTERVAL_MS,
+  ),
   followsSearchDebounceMs: readPositiveIntInRangeConfig(
     Config.FOLLOWS_SEARCH_DEBOUNCE_MS,
     DEFAULT_FOLLOWS_SEARCH_DEBOUNCE_MS,

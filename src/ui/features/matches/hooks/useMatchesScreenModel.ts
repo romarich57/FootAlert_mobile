@@ -6,6 +6,7 @@ import {
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNetInfo } from '@react-native-community/netinfo';
+import { usePowerState } from 'react-native-device-info';
 import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
@@ -13,6 +14,7 @@ import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import { hasLiveMatches } from '@data/mappers/fixturesMapper';
 import { useMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
+import { useHiddenCompetitions } from '@ui/features/matches/hooks/useHiddenCompetitions';
 import { useFollowedTeamIdsQuery } from '@ui/features/follows/hooks/useFollowedTeamIdsQuery';
 import {
   DEFAULT_MATCH_NOTIFICATION_PREFS,
@@ -28,14 +30,14 @@ import type {
 
 type MatchesFeedItem =
   | {
-      type: 'section';
-      key: string;
-      section: CompetitionSection;
-    }
+    type: 'section';
+    key: string;
+    section: CompetitionSection;
+  }
   | {
-      type: 'ad';
-      key: string;
-    };
+    type: 'ad';
+    key: string;
+  };
 
 function toApiDateString(date: Date): string {
   const year = date.getFullYear();
@@ -126,6 +128,7 @@ export function useMatchesScreenModel() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const isFocused = useIsFocused();
   const netInfo = useNetInfo();
+  const powerState = usePowerState();
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -139,6 +142,9 @@ export function useMatchesScreenModel() {
     DEFAULT_MATCH_NOTIFICATION_PREFS,
   );
   const [consecutiveSlowSamples, setConsecutiveSlowSamples] = useState(0);
+  const [isManageHiddenModalVisible, setIsManageHiddenModalVisible] = useState(false);
+
+  const { hiddenIds, hideCompetition, unhideCompetition } = useHiddenCompetitions();
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
@@ -195,8 +201,10 @@ export function useMatchesScreenModel() {
   );
 
   const sectionsForFeed = useMemo<CompetitionSection[]>(() => {
-    return [followsSection, ...filteredSections];
-  }, [filteredSections, followsSection]);
+    return [followsSection, ...filteredSections].filter(
+      section => section.isFollowSection || !hiddenIds.includes(section.id)
+    );
+  }, [filteredSections, followsSection, hiddenIds]);
 
   const feedItems = useMemo(() => buildFeedItems(sectionsForFeed), [sectionsForFeed]);
   const hasVisibleMatches = filteredSections.some(section => section.matches.length > 0);
@@ -206,12 +214,14 @@ export function useMatchesScreenModel() {
     isOffline ||
     netInfo.details?.isConnectionExpensive === true ||
     consecutiveSlowSamples >= 3;
+  const batteryLiteMode = powerState.lowPowerMode === true;
 
   useMatchesRefresh({
     enabled: refreshEnabled,
     hasLiveMatches: hasLive,
     isSlowNetwork: matchesQuery.isSlowNetwork,
     networkLiteMode,
+    batteryLiteMode,
     refetch: matchesQuery.refetch,
   });
 
@@ -317,6 +327,12 @@ export function useMatchesScreenModel() {
     handlePressCalendar,
     handlePressSearch,
     handlePressNotifications,
+    handlePressManageHidden: () => setIsManageHiddenModalVisible(true),
+    handleHideCompetition: hideCompetition,
+    handleUnhideCompetition: unhideCompetition,
+    hiddenCompetitionsIds: hiddenIds,
+    isManageHiddenModalVisible,
+    closeManageHiddenModal: () => setIsManageHiddenModalVisible(false),
     refetch: () =>
       matchesQuery.refetch().catch(() => {
         return undefined;

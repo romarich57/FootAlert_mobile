@@ -6,9 +6,12 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prebuild": "npm --prefix ../packages/app-core run build",
     "build": "tsc -p tsconfig.json",
+    "pretypecheck": "npm --prefix ../packages/app-core run build",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "npm --prefix ../packages/app-core run build",
     "test": "node --import tsx --test test/**/*.test.ts",
     "smoke:staging": "node scripts/smoke-staging.mjs"
   },
@@ -16,9 +19,11 @@
     "node": ">=22.11.0"
   },
   "dependencies": {
+    "@footalert/app-core": "file:../packages/app-core",
     "@fastify/cors": "^11.1.0",
     "@fastify/rate-limit": "^10.3.0",
     "fastify": "^5.6.2",
+    "ioredis": "^5.8.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -304,7 +304,6 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 getItemType={(item) => item.type}
-                // @ts-ignore FlashList runtime supports estimatedItemSize.
                 estimatedItemSize={340}
             />
         </View>

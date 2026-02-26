@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { Image, StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import type { FollowedPlayerCard as FollowedPlayerCardType } from '@ui/features/follows/types/follows.types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppImage } from '@ui/shared/media/AppImage';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
@@ -157,7 +158,7 @@ export function FollowedPlayerCard({
         style={styles.contentPressable}
       >
         <View style={styles.top}>
-          <Image source={{ uri: card.playerPhoto }} style={styles.playerPhoto} resizeMode="cover" />
+          <AppImage source={{ uri: card.playerPhoto }} style={styles.playerPhoto} resizeMode="cover" />
           <View style={styles.playerInfo}>
             <Text numberOfLines={1} style={styles.playerName}>
               {toDisplayValue(card.playerName)}
@@ -169,7 +170,7 @@ export function FollowedPlayerCard({
         </View>
 
         <View style={styles.clubRow}>
-          <Image source={{ uri: card.teamLogo }} style={styles.clubLogo} resizeMode="contain" />
+          <AppImage source={{ uri: card.teamLogo }} style={styles.clubLogo} resizeMode="contain" />
           <Text numberOfLines={1} style={styles.clubName}>
             {toDisplayValue(card.teamName)}
           </Text>

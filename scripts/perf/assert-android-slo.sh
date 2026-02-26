@@ -2,9 +2,9 @@
 set -euo pipefail
 
 summary_file="${1:-}"
-p50_threshold_ms="${2:-800}"
-p95_threshold_ms="${3:-1400}"
-jank_threshold_percent="${4:-8}"
+p50_threshold_ms="${2:-750}"
+p95_threshold_ms="${3:-1200}"
+jank_threshold_percent="${4:-6}"
 
 if [[ -z "$summary_file" ]]; then
   summary_file="$(find perf-results -type f -name 'audit-summary.txt' -print 2>/dev/null | sort | tail -n 1 || true)"
@@ -86,4 +86,3 @@ assert_less_than "janky_frames_percent" "$jank_percent" "$jank_threshold_percent
 if [[ "$failed" -ne 0 ]]; then
   exit 1
 fi
-

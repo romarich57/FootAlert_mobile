@@ -91,3 +91,25 @@ test('withCache uses bounded global capacity after configureCache', async () => 
   assert.equal(producerCalls, 3);
   resetCacheForTests();
 });
+
+test('withCache falls back to memory backend when redis is selected without url', async () => {
+  resetCacheForTests();
+  configureCache({
+    backend: 'redis',
+    redisUrl: null,
+  });
+
+  let producerCalls = 0;
+  const producer = async (): Promise<number> => {
+    producerCalls += 1;
+    return producerCalls;
+  };
+
+  const first = await withCache('redis-fallback-key', 1_000, producer);
+  const second = await withCache('redis-fallback-key', 1_000, producer);
+
+  assert.equal(first, 1);
+  assert.equal(second, 1);
+  assert.equal(producerCalls, 1);
+  resetCacheForTests();
+});

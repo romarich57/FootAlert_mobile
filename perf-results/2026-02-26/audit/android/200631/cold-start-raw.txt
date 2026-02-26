@@ -1,0 +1,3 @@
+[perf] cold start run_dir=perf-results/2026-02-26/audit/android/200631
+[perf] app_id=com.footalert.app activity=.MainActivity runs=20
+[perf] run=1

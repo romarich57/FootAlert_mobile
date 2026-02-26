@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { apiFootballGet } from '../lib/apiFootballClient.js';
 import { withCache } from '../lib/cache.js';
+import { mapWithConcurrency } from '../lib/concurrency/mapWithConcurrency.js';
 import {
   commaSeparatedNumericIdsSchema,
   numericStringSchema,
@@ -59,31 +60,6 @@ type PlayerProfilesResponse = {
     };
   }>;
 };
-
-async function mapWithConcurrency<T, U>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T) => Promise<U>,
-): Promise<U[]> {
-  const boundedConcurrency = Math.max(1, Math.min(concurrency, items.length));
-  const results = new Array<U>(items.length);
-  let nextIndex = 0;
-
-  const consume = async (): Promise<void> => {
-    while (true) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      if (currentIndex >= items.length) {
-        return;
-      }
-
-      results[currentIndex] = await worker(items[currentIndex] as T);
-    }
-  };
-
-  await Promise.all(Array.from({ length: boundedConcurrency }, () => consume()));
-  return results;
-}
 
 export async function registerFollowsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/v1/follows/search/teams', async request => {

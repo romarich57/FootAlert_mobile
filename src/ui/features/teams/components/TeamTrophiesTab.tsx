@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
@@ -214,7 +214,7 @@ export function TeamTrophiesTab({
     <View style={styles.container}>
       {isLoading ? (
         <View style={styles.stateCard}>
-          <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
+          <ActivityIndicator size="large" color={colors.primary} style={{ alignSelf: 'center' }} />
         </View>
       ) : null}
 
@@ -233,7 +233,6 @@ export function TeamTrophiesTab({
           keyExtractor={item => item.id}
           renderItem={renderGroupItem}
           contentContainerStyle={styles.listContent}
-          // @ts-ignore FlashList runtime supports estimatedItemSize.
           estimatedItemSize={96}
           ListEmptyComponent={
             hasFetched ? <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text> : null

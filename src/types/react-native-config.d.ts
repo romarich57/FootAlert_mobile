@@ -16,6 +16,7 @@ declare module 'react-native-config' {
     MATCHES_LIVE_REFRESH_INTERVAL_MS?: string;
     MATCHES_SLOW_REFRESH_INTERVAL_MS?: string;
     MATCHES_MAX_REFRESH_BACKOFF_MS?: string;
+    MATCHES_BATTERY_SAVER_REFRESH_INTERVAL_MS?: string;
     FOLLOWS_SEARCH_DEBOUNCE_MS?: string;
     FOLLOWS_SEARCH_MIN_CHARS?: string;
     FOLLOWS_SEARCH_RESULTS_LIMIT?: string;
@@ -28,6 +29,7 @@ declare module 'react-native-config' {
     FOLLOWS_MAX_FOLLOWED_TEAMS?: string;
     FOLLOWS_MAX_FOLLOWED_PLAYERS?: string;
     MOBILE_ENABLE_BFF_PLAYER_AGGREGATES?: string;
+    MOBILE_ENABLE_STORYBOOK?: string;
   }
 
   const Config: NativeConfig;
