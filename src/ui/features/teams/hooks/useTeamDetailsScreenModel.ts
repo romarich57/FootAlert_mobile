@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useNavigation,
   useRoute,
@@ -13,13 +14,17 @@ import { useTeamContext } from '@ui/features/teams/hooks/useTeamContext';
 import { useTeamMatches } from '@ui/features/teams/hooks/useTeamMatches';
 import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
-import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
-import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
+import {
+  fetchTeamStandingsData,
+  useTeamStandings,
+} from '@ui/features/teams/hooks/useTeamStandings';
+import { fetchTeamStatsData, useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
 import { useTeamTrophies } from '@ui/features/teams/hooks/useTeamTrophies';
 import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
-import { firstAvailableTab, hasAnyPresentValue, type TabAvailability } from '@ui/shared/availability';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
@@ -30,14 +35,22 @@ function isLeagueCompetition(type: string | null | undefined): boolean {
 
 export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const navigation = useNavigation<TeamDetailsNavigation>();
   const route = useRoute<TeamDetailsRoute>();
   const safeTeamId = sanitizeNumericEntityId(route.params.teamId);
   const teamId = safeTeamId ?? '';
 
-  const [activeTab, setActiveTab] = useState<TeamDetailsTab>(
-    route.params.initialTab ?? 'overview',
-  );
+  const [activeTab, setActiveTab] = useState<TeamDetailsTab>('overview');
+  const [visitedTabs, setVisitedTabs] = useState<Record<TeamDetailsTab, boolean>>({
+    overview: true,
+    matches: false,
+    standings: false,
+    stats: false,
+    transfers: false,
+    squad: false,
+    trophies: false,
+  });
 
   const { followedTeamIds, toggleTeamFollow } = useFollowsActions();
   const isFollowed = Boolean(safeTeamId) && followedTeamIds.includes(teamId);
@@ -104,7 +117,7 @@ export function useTeamDetailsScreenModel() {
     season: selectedSeason,
     timezone,
     competitionSeasons: selectedCompetitionSeasons,
-    enabled: hasLeagueSelection,
+    enabled: visitedTabs.overview && hasLeagueSelection,
   });
 
   const matchesQuery = useTeamMatches({
@@ -112,38 +125,114 @@ export function useTeamDetailsScreenModel() {
     leagueId: selectedLeagueId,
     season: selectedSeason,
     timezone,
-    enabled: hasLeagueSelection,
+    enabled: visitedTabs.matches && hasLeagueSelection,
   });
 
   const standingsQuery = useTeamStandings({
     teamId,
     leagueId: selectedLeagueId,
     season: selectedSeason,
-    enabled: hasLeagueSelection,
+    enabled: visitedTabs.standings && hasLeagueSelection,
   });
 
   const statsQuery = useTeamStats({
     teamId,
     leagueId: selectedLeagueId,
     season: selectedSeason,
-    enabled: hasLeagueSelection,
+    enabled: visitedTabs.stats && hasLeagueSelection,
   });
 
   const transfersQuery = useTeamTransfers({
     teamId,
     season: selectedSeason,
-    enabled: Boolean(safeTeamId),
+    enabled: visitedTabs.transfers,
   });
 
   const squadQuery = useTeamSquad({
     teamId,
-    enabled: Boolean(safeTeamId),
+    enabled: visitedTabs.squad,
   });
 
   const trophiesQuery = useTeamTrophies({
     teamId,
     enabled: Boolean(safeTeamId),
   });
+
+  const hasTrophiesTab = useMemo(
+    () => (trophiesQuery.data?.groups ?? []).some(group => group.placements.length > 0),
+    [trophiesQuery.data?.groups],
+  );
+
+  useEffect(() => {
+    if (!teamId || !selectedLeagueId || typeof selectedSeason !== 'number') {
+      return;
+    }
+
+    if (isContextLoading || isContextError) {
+      return;
+    }
+
+    const shouldPrefetchStandings = !visitedTabs.standings;
+    const shouldPrefetchStats = !visitedTabs.stats;
+    if (!shouldPrefetchStandings && !shouldPrefetchStats) {
+      return;
+    }
+
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+
+    if (shouldPrefetchStandings) {
+      timers.push(
+        setTimeout(() => {
+          queryClient
+            .prefetchQuery({
+              queryKey: queryKeys.teams.standings(teamId, selectedLeagueId, selectedSeason),
+              ...featureQueryOptions.teams.standings,
+              queryFn: ({ signal }) =>
+                fetchTeamStandingsData({
+                  teamId,
+                  leagueId: selectedLeagueId,
+                  season: selectedSeason,
+                  signal,
+                }),
+            })
+            .catch(() => undefined);
+        }, 150),
+      );
+    }
+
+    if (shouldPrefetchStats) {
+      timers.push(
+        setTimeout(() => {
+          queryClient
+            .prefetchQuery({
+              queryKey: queryKeys.teams.stats(teamId, selectedLeagueId, selectedSeason),
+              ...featureQueryOptions.teams.stats,
+              queryFn: ({ signal }) =>
+                fetchTeamStatsData({
+                  teamId,
+                  leagueId: selectedLeagueId,
+                  season: selectedSeason,
+                  signal,
+                }),
+            })
+            .catch(() => undefined);
+        }, 550),
+      );
+    }
+
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, [
+    isContextError,
+    isContextLoading,
+    queryClient,
+    selectedLeagueId,
+    selectedSeason,
+    teamId,
+    visitedTabs.standings,
+    visitedTabs.stats,
+  ]);
 
   useEffect(() => {
     if (activeTab !== 'standings') {
@@ -196,7 +285,23 @@ export function useTeamDetailsScreenModel() {
 
   const handleChangeTab = useCallback((tab: TeamDetailsTab) => {
     setActiveTab(tab);
+    setVisitedTabs(current => ({
+      ...current,
+      [tab]: true,
+    }));
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'trophies' || hasTrophiesTab) {
+      return;
+    }
+
+    setActiveTab('overview');
+    setVisitedTabs(current => ({
+      ...current,
+      overview: true,
+    }));
+  }, [activeTab, hasTrophiesTab]);
 
   const handlePressMatch = useCallback(
     (matchId: string) => {
@@ -241,105 +346,54 @@ export function useTeamDetailsScreenModel() {
 
     toggleTeamFollow(teamId).catch(() => undefined);
   }, [safeTeamId, teamId, toggleTeamFollow]);
-  const tabAvailability = useMemo<Array<TabAvailability<TeamDetailsTab>>>(() => {
-    const hasOverviewData = hasAnyPresentValue(overviewQuery.data as Record<string, unknown> | null);
-    const hasMatchesData = (matchesQuery.data?.all ?? []).length > 0;
-    const hasStandingsData = (standingsQuery.data?.groups ?? []).some(group => group.rows.length > 0);
-    const hasStatsData = hasAnyPresentValue(statsQuery.data as Record<string, unknown> | null);
-    const hasTransfersData =
-      (transfersQuery.data?.arrivals ?? []).length > 0 ||
-      (transfersQuery.data?.departures ?? []).length > 0;
-    const hasSquadData =
-      (squadQuery.data?.players ?? []).length > 0 ||
-      hasAnyPresentValue(squadQuery.data?.coach as Record<string, unknown> | null);
-    const hasTrophiesData = (trophiesQuery.data?.groups ?? []).some(group => group.placements.length > 0);
 
-    const resolveState = (
-      hasData: boolean,
-      isError: boolean,
-      data: unknown,
-    ): 'available' | 'missing' | 'unknown' => {
-      if (hasData) {
-        return 'available';
-      }
-      if (isError && !data) {
-        return 'unknown';
-      }
-      return 'missing';
-    };
-
-    return [
-      {
-        key: 'overview',
-        state: resolveState(hasOverviewData, overviewQuery.isError, overviewQuery.data),
-      },
-      {
-        key: 'matches',
-        state: resolveState(hasMatchesData, matchesQuery.isError, matchesQuery.data),
-      },
-      {
-        key: 'standings',
-        state: resolveState(hasStandingsData, standingsQuery.isError, standingsQuery.data),
-      },
-      {
-        key: 'stats',
-        state: resolveState(hasStatsData, statsQuery.isError, statsQuery.data),
-      },
-      {
-        key: 'transfers',
-        state: resolveState(hasTransfersData, transfersQuery.isError, transfersQuery.data),
-      },
-      {
-        key: 'squad',
-        state: resolveState(hasSquadData, squadQuery.isError, squadQuery.data),
-      },
-      {
-        key: 'trophies',
-        state: resolveState(hasTrophiesData, trophiesQuery.isError, trophiesQuery.data),
-      },
+  const tabs = useMemo(() => {
+    const baseTabs: Array<{ key: TeamDetailsTab; label: string }> = [
+      { key: 'overview' as const, label: t('teamDetails.tabs.overview') },
+      { key: 'matches' as const, label: t('teamDetails.tabs.matches') },
+      { key: 'standings' as const, label: t('teamDetails.tabs.standings') },
+      { key: 'stats' as const, label: t('teamDetails.tabs.stats') },
+      { key: 'transfers' as const, label: t('teamDetails.tabs.transfers') },
+      { key: 'squad' as const, label: t('teamDetails.tabs.squad') },
     ];
-  }, [
-    matchesQuery.data,
-    matchesQuery.isError,
-    overviewQuery.data,
-    overviewQuery.isError,
-    squadQuery.data,
-    squadQuery.isError,
-    standingsQuery.data,
-    standingsQuery.isError,
-    statsQuery.data,
-    statsQuery.isError,
-    transfersQuery.data,
-    transfersQuery.isError,
-    trophiesQuery.data,
-    trophiesQuery.isError,
-  ]);
 
-  const availableTabs = useMemo(
-    () => tabAvailability.filter(tab => tab.state !== 'missing').map(tab => tab.key),
-    [tabAvailability],
-  );
-
-  useEffect(() => {
-    const nextActiveTab = firstAvailableTab(tabAvailability, activeTab);
-    if (nextActiveTab && nextActiveTab !== activeTab) {
-      setActiveTab(nextActiveTab);
+    if (hasTrophiesTab) {
+      baseTabs.push({ key: 'trophies' as const, label: t('teamDetails.tabs.trophies') });
     }
-  }, [activeTab, tabAvailability]);
 
-  const tabs = useMemo(
-    () =>
-      availableTabs.map(tabKey => ({
-        key: tabKey,
-        label: t(`teamDetails.tabs.${tabKey}`),
-      })),
-    [availableTabs, t],
-  );
+    return baseTabs;
+  }, [hasTrophiesTab, t]);
 
-  const hasAnyAvailableTab = useMemo(
-    () => tabAvailability.some(tab => tab.state === 'available'),
-    [tabAvailability],
-  );
+  const activeTabDataUpdatedAt = useMemo(() => {
+    if (activeTab === 'overview') {
+      return overviewQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'matches') {
+      return matchesQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'standings') {
+      return standingsQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'stats') {
+      return statsQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'transfers') {
+      return transfersQuery.dataUpdatedAt;
+    }
+    if (activeTab === 'squad') {
+      return squadQuery.dataUpdatedAt;
+    }
+    return trophiesQuery.dataUpdatedAt;
+  }, [
+    activeTab,
+    matchesQuery.dataUpdatedAt,
+    overviewQuery.dataUpdatedAt,
+    squadQuery.dataUpdatedAt,
+    standingsQuery.dataUpdatedAt,
+    statsQuery.dataUpdatedAt,
+    transfersQuery.dataUpdatedAt,
+    trophiesQuery.dataUpdatedAt,
+  ]);
 
   const lastUpdatedAt = useMemo(() => {
     const maxUpdatedAt = Math.max(
@@ -363,17 +417,8 @@ export function useTeamDetailsScreenModel() {
     transfersQuery.dataUpdatedAt,
     trophiesQuery.dataUpdatedAt,
   ]);
-  const hasCachedData =
-    hasContextCachedData ||
-    [
-      overviewQuery.dataUpdatedAt,
-      matchesQuery.dataUpdatedAt,
-      standingsQuery.dataUpdatedAt,
-      statsQuery.dataUpdatedAt,
-      transfersQuery.dataUpdatedAt,
-      squadQuery.dataUpdatedAt,
-      trophiesQuery.dataUpdatedAt,
-    ].some(updatedAt => updatedAt > 0);
+
+  const hasCachedData = hasContextCachedData || activeTabDataUpdatedAt > 0;
 
   return {
     isValidTeamId: Boolean(safeTeamId),
@@ -381,8 +426,6 @@ export function useTeamDetailsScreenModel() {
     team,
     activeTab,
     tabs,
-    availableTabs,
-    hasAnyAvailableTab,
     competitions,
     standingsSeasons,
     selectedLeagueId,

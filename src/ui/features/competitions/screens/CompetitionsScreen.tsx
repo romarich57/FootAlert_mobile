@@ -179,9 +179,6 @@ export function CompetitionsScreen() {
   const renderCompetitionItem = useCallback(
     ({ item, section }: { item: CompetitionListItem; section: CompetitionSection }) => {
       const { competition } = item;
-      const availabilityStatus = screenModel.availabilityByCompetitionId.get(competition.id);
-      const disabled = availabilityStatus?.disabled ?? false;
-      const disabledReason = availabilityStatus?.disabledReason;
 
       if (section.type === 'followed') {
         return (
@@ -192,10 +189,8 @@ export function CompetitionsScreen() {
             onUnfollow={() => {
               screenModel.handleToggleFollow(competition.id);
             }}
-            disabled={disabled}
-            disabledReason={disabledReason}
             onPress={() => {
-              if (!screenModel.isEditMode && !disabled) {
+              if (!screenModel.isEditMode) {
                 screenModel.handleOpenCompetition(competition);
               }
             }}
@@ -208,12 +203,8 @@ export function CompetitionsScreen() {
           name={competition.name}
           logoUrl={competition.logo}
           rightElement={renderFollowButton(competition.id)}
-          disabled={disabled}
-          disabledReason={disabledReason}
           onPress={() => {
-            if (!disabled) {
-              screenModel.handleOpenCompetition(competition);
-            }
+            screenModel.handleOpenCompetition(competition);
           }}
         />
       );
@@ -223,20 +214,13 @@ export function CompetitionsScreen() {
 
   const renderSearchItem = useCallback(
     ({ item }: { item: Competition }) => {
-      const availabilityStatus = screenModel.availabilityByCompetitionId.get(item.id);
-      const disabled = availabilityStatus?.disabled ?? false;
-
       return (
         <CompetitionCard
           name={item.name}
           logoUrl={item.logo}
           rightElement={renderFollowButton(item.id)}
-          disabled={disabled}
-          disabledReason={availabilityStatus?.disabledReason}
           onPress={() => {
-            if (!disabled) {
-              screenModel.handleOpenCompetition(item);
-            }
+            screenModel.handleOpenCompetition(item);
           }}
         />
       );

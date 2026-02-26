@@ -112,10 +112,6 @@ export const en = {
       hide: 'Hide',
       show: 'Show',
     },
-    availability: {
-      checking: 'Checking...',
-      noData: 'No data available',
-    },
     states: {
       loading: 'Loading data...',
       noTrends: 'No trending item available for now.',
@@ -301,7 +297,6 @@ export const en = {
     states: {
       loading: 'Loading API data...',
       loadError: 'Unable to load competition data.',
-      noAvailableData: 'No available data for this competition and season.',
     },
     labels: {
       season: 'Season {{start}}/{{end}}',
@@ -559,7 +554,6 @@ export const en = {
       states: {
         noCompetitionAvailable:
           'No competition with player participation is available. Season overall stats are shown.',
-        noStatsAvailable: 'No usable statistics are available for this player.',
       },
       chartAxes: {
         attack: 'Attack',
@@ -612,7 +606,6 @@ export const en = {
     },
     states: {
       loadError: 'Unable to load player data.',
-      noAvailableData: 'No available data for this player.',
     },
   },
   playerPositions: {
@@ -711,8 +704,6 @@ export const en = {
       allCompetitions: 'All competitions',
       loading: 'Loading competitions...',
       emptyFollowed: 'No followed competition yet.',
-      checkingAvailability: 'Checking...',
-      noAvailableData: 'No data',
     },
     follows: {
       title: 'Follows',

@@ -11,8 +11,6 @@ import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
 import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
 import { useCompetitionTotw } from '@ui/features/competitions/hooks/useCompetitionTotw';
-import { useCompetitionAvailability } from '@ui/features/competitions/hooks/useCompetitionAvailability';
-import { firstAvailableTab } from '@ui/shared/availability';
 
 import type { CompetitionTabKey } from '../components/CompetitionTabs';
 
@@ -68,10 +66,7 @@ export function useCompetitionDetailsScreenModel() {
 
   const defaultSeason = useMemo(() => {
     if (!seasons || seasons.length === 0) {
-      const currentDate = new Date();
-      return currentDate.getUTCMonth() + 1 >= 7
-        ? currentDate.getUTCFullYear()
-        : currentDate.getUTCFullYear() - 1;
+      return new Date().getFullYear();
     }
     const current = seasons.find(season => season.current);
     return current ? current.year : seasons[0].year;
@@ -88,33 +83,26 @@ export function useCompetitionDetailsScreenModel() {
     Number.isFinite(numericCompetitionId) ? numericCompetitionId : undefined,
     seasonsLoading ? undefined : actualSeason,
   );
-  const availabilityQuery = useCompetitionAvailability({
-    leagueId: Number.isFinite(numericCompetitionId) ? numericCompetitionId : undefined,
-    season: seasonsLoading ? undefined : actualSeason,
-    enabled: Boolean(safeCompetitionId) && !seasonsLoading,
-    concurrency: 3,
-  });
 
   const tabs = useMemo<CompetitionTabKey[]>(() => {
-    if (!availabilityQuery.data) {
-      return ['standings'];
+    const baseTabs: CompetitionTabKey[] = [
+      'standings',
+      'matches',
+      'playerStats',
+      'teamStats',
+      'transfers',
+    ];
+    if (totwData) {
+      baseTabs.push('totw');
     }
-
-    return availabilityQuery.data.tabs
-      .filter(tab => tab.state !== 'missing')
-      .map(tab => tab.key);
-  }, [availabilityQuery.data]);
+    return baseTabs;
+  }, [totwData]);
 
   useEffect(() => {
-    if (!availabilityQuery.data) {
-      return;
+    if (activeTab === 'totw' && !totwData) {
+      setActiveTab('standings');
     }
-
-    const nextTab = firstAvailableTab(availabilityQuery.data.tabs, activeTab);
-    if (nextTab && nextTab !== activeTab) {
-      setActiveTab(nextTab);
-    }
-  }, [activeTab, availabilityQuery.data]);
+  }, [activeTab, totwData]);
 
   const handleBack = useCallback(() => {
     navigation.goBack();
@@ -150,10 +138,6 @@ export function useCompetitionDetailsScreenModel() {
     setActiveTab,
     tabs,
     totwData,
-    availabilitySnapshot: availabilityQuery.data ?? null,
-    isAvailabilityLoading: availabilityQuery.isLoading,
-    isAvailabilityError: availabilityQuery.isError,
-    hasAnyAvailableTab: Boolean(availabilityQuery.data?.hasAnyTab),
     seasonsLoading,
     actualSeason,
     defaultSeason,

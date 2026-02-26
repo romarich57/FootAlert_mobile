@@ -202,8 +202,6 @@ export function FollowsScreen() {
     lastToggleError,
     teamCards,
     playerCards,
-    teamAvailabilityById,
-    playerAvailabilityById,
     handleToggleTeam,
     handleTogglePlayer,
     handleOpenPlayerDetails,
@@ -260,7 +258,6 @@ export function FollowsScreen() {
     if (item.type === 'trend-team' || item.type === 'search-team') {
       const isSearch = item.type === 'search-team';
       const trendItem = item.item;
-      const availabilityStatus = teamAvailabilityById.get(trendItem.teamId);
       // FollowsSearchResultTeam has 'country', TrendTeamItem has 'leagueName'
       const subtitle = isSearch
         ? (trendItem as FollowsSearchResultTeam).country
@@ -278,21 +275,11 @@ export function FollowsScreen() {
           followLabel={t('follows.actions.follow')}
           unfollowLabel={t('follows.actions.unfollow')}
           accessibilityLabel={`${t('follows.actions.follow')} ${trendItem.teamName}`}
-          disabled={availabilityStatus?.disabled}
-          isCheckingAvailability={availabilityStatus?.isCheckingAvailability}
-          disabledReason={
-            availabilityStatus?.reason === 'checking'
-              ? t('follows.availability.checking')
-              : availabilityStatus?.reason === 'missing'
-                ? t('follows.availability.noData')
-                : undefined
-          }
         />
       );
     }
 
     const trendItem = item.item;
-    const availabilityStatus = playerAvailabilityById.get(trendItem.playerId);
     return (
       <FollowsTrendRow
         title={trendItem.playerName}
@@ -305,15 +292,6 @@ export function FollowsScreen() {
         followLabel={t('follows.actions.follow')}
         unfollowLabel={t('follows.actions.unfollow')}
         accessibilityLabel={`${t('follows.actions.follow')} ${trendItem.playerName}`}
-        disabled={availabilityStatus?.disabled}
-        isCheckingAvailability={availabilityStatus?.isCheckingAvailability}
-        disabledReason={
-          availabilityStatus?.reason === 'checking'
-            ? t('follows.availability.checking')
-            : availabilityStatus?.reason === 'missing'
-              ? t('follows.availability.noData')
-              : undefined
-        }
       />
     );
   }, [
@@ -323,8 +301,6 @@ export function FollowsScreen() {
     handleToggleTeam,
     followedPlayerIdsSet,
     followedTeamIdsSet,
-    playerAvailabilityById,
-    teamAvailabilityById,
     styles.infoText,
     t,
   ]);
@@ -383,8 +359,6 @@ export function FollowsScreen() {
           onUnfollowPlayer={handleTogglePlayer}
           onPressTeam={handleOpenTeamDetails}
           onPressPlayer={handleOpenPlayerDetails}
-          getTeamAvailabilityStatus={teamId => teamAvailabilityById.get(teamId)}
-          getPlayerAvailabilityStatus={playerId => playerAvailabilityById.get(playerId)}
           labels={{
             addToFavorites: t('follows.cards.addToFavorites'),
             follow: t('follows.actions.follow'),
@@ -392,8 +366,6 @@ export function FollowsScreen() {
             noNextMatch: t('follows.cards.noNextMatch'),
             goals: t('follows.cards.goals'),
             assists: t('follows.cards.assists'),
-            checkingAvailability: t('follows.availability.checking'),
-            noData: t('follows.availability.noData'),
           }}
         />
       )}
@@ -445,7 +417,6 @@ export function FollowsScreen() {
     offlineLastUpdatedAt,
     offlineUi.showOfflineBanner,
     playerCards,
-    playerAvailabilityById,
     search,
     searchQuery,
     selectedTab,
@@ -453,7 +424,6 @@ export function FollowsScreen() {
     setSelectedTab,
     showLimitError,
     teamCards,
-    teamAvailabilityById,
     toggleSearchVisibility,
     updateHideTrends,
     styles.limitError,

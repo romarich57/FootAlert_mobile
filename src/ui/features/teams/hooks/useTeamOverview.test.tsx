@@ -391,39 +391,6 @@ describe('useTeamOverview', () => {
     expect(result.coachPerformance?.pointsPerMatch).toBe(2.32);
   });
 
-  it('keeps a 5-season continuous history window and falls back to null ranks when seasons are unavailable', async () => {
-    mockedFetchLeagueStandings.mockImplementation(async (_leagueId, season) => {
-      if (season === 2024 || season === 2022) {
-        throw new Error('history unavailable');
-      }
-
-      return { season } as never;
-    });
-
-    renderHook(() =>
-      useTeamOverview({
-        teamId: '529',
-        leagueId: '140',
-        season: 2025,
-        timezone: 'Europe/Paris',
-        competitionSeasons: [2025, 2023, 2021],
-      }),
-    );
-
-    const queryFn = capturedQueryConfig?.queryFn;
-    expect(queryFn).toBeDefined();
-
-    const result = (await queryFn?.({ signal: undefined } as never)) as TeamOverviewData;
-
-    expect(result.standingHistory).toEqual([
-      { season: 2025, rank: 2 },
-      { season: 2024, rank: null },
-      { season: 2023, rank: 2 },
-      { season: 2022, rank: null },
-      { season: 2021, rank: 2 },
-    ]);
-  });
-
   it('returns partial payload when players and one history season fail', async () => {
     mockedFetchTeamPlayers.mockRejectedValue(new Error('players failed'));
     mockedFetchLeagueStandings.mockImplementation(async (_leagueId, season) => {

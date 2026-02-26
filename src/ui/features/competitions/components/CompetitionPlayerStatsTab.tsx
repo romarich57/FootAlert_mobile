@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -115,39 +115,7 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
         [t],
     );
 
-    const goalsQuery = useCompetitionPlayerStats(competitionId, season, 'goals');
-    const assistsQuery = useCompetitionPlayerStats(competitionId, season, 'assists');
-    const yellowCardsQuery = useCompetitionPlayerStats(competitionId, season, 'yellowCards');
-    const redCardsQuery = useCompetitionPlayerStats(competitionId, season, 'redCards');
-
-    const queryByType = useMemo(
-      () => ({
-        goals: goalsQuery,
-        assists: assistsQuery,
-        yellowCards: yellowCardsQuery,
-        redCards: redCardsQuery,
-      }),
-      [assistsQuery, goalsQuery, redCardsQuery, yellowCardsQuery],
-    );
-
-    const availableStatTypes = useMemo(
-      () => STAT_TYPE_KEYS.filter(type => (queryByType[type].data ?? []).length > 0),
-      [queryByType],
-    );
-
-    useEffect(() => {
-      if (availableStatTypes.length === 0) {
-        return;
-      }
-
-      if (!availableStatTypes.includes(activeStatType)) {
-        setActiveStatType(availableStatTypes[0]);
-      }
-    }, [activeStatType, availableStatTypes]);
-
-    const activeQuery = queryByType[activeStatType];
-    const statsData = activeQuery.data ?? [];
-    const hasAnyLoading = STAT_TYPE_KEYS.some(type => queryByType[type].isLoading);
+    const { data: statsData, isLoading, error } = useCompetitionPlayerStats(competitionId, season, activeStatType);
 
     const leader = statsData && statsData.length > 0 ? statsData[0] : null;
     const runnersUp = statsData ? statsData.slice(1, 10) : [];
@@ -168,9 +136,7 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
         <View style={styles.container}>
             <View style={styles.selectorContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScroll}>
-                    {statTypes
-                      .filter(type => availableStatTypes.includes(type.key))
-                      .map(type => {
+                    {statTypes.map(type => {
                         const isActive = activeStatType === type.key;
                         return (
                             <Pressable
@@ -188,11 +154,11 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
                 </ScrollView>
             </View>
 
-            {availableStatTypes.length === 0 && hasAnyLoading ? (
+            {isLoading ? (
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
                 </View>
-            ) : availableStatTypes.length === 0 || !leader ? (
+            ) : error || !leader ? (
                 <View style={styles.centerContainer}>
                     <Text style={styles.emptyText}>{t('competitionDetails.playerStats.unavailable')}</Text>
                 </View>

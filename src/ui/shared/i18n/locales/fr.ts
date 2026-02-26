@@ -113,10 +113,6 @@ export const fr = {
       hide: 'Ne plus afficher',
       show: 'Afficher',
     },
-    availability: {
-      checking: 'Vérification...',
-      noData: 'Aucune donnée disponible',
-    },
     states: {
       loading: 'Chargement en cours...',
       noTrends: 'Aucune tendance disponible pour le moment.',
@@ -302,7 +298,6 @@ export const fr = {
     states: {
       loading: 'Chargement des données API...',
       loadError: 'Impossible de charger les données de la compétition.',
-      noAvailableData: 'Aucune donnée disponible pour cette compétition et cette saison.',
     },
     labels: {
       season: 'Saison {{start}}/{{end}}',
@@ -560,7 +555,6 @@ export const fr = {
       states: {
         noCompetitionAvailable:
           'Aucune compétition avec participation disponible pour ce joueur. Les stats globales de saison sont affichées.',
-        noStatsAvailable: 'Aucune statistique exploitable n’est disponible pour ce joueur.',
       },
       chartAxes: {
         attack: 'Attaque',
@@ -613,7 +607,6 @@ export const fr = {
     },
     states: {
       loadError: 'Impossible de charger le joueur.',
-      noAvailableData: 'Aucune donnée disponible pour ce joueur.',
     },
   },
   playerPositions: {
@@ -712,8 +705,6 @@ export const fr = {
       allCompetitions: 'Toutes les compétitions',
       loading: 'Chargement des compétitions...',
       emptyFollowed: 'Aucune compétition suivie.',
-      checkingAvailability: 'Vérification...',
-      noAvailableData: 'Aucune donnée',
     },
     follows: {
       title: 'Suivis',

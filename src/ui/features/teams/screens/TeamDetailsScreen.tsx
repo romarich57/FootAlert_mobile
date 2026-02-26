@@ -96,9 +96,7 @@ export function TeamDetailsScreen() {
         unfollowLabel={t('teamDetails.actions.unfollow')}
       />
 
-      {model.tabs.length > 0 ? (
-        <TeamTabs activeTab={model.activeTab} onChangeTab={model.handleChangeTab} tabs={model.tabs} />
-      ) : null}
+      <TeamTabs activeTab={model.activeTab} onChangeTab={model.handleChangeTab} tabs={model.tabs} />
 
       {offlineUi.showOfflineBanner ? (
         <View style={styles.stateWrap}>
@@ -165,18 +163,7 @@ export function TeamDetailsScreen() {
         </View>
       ) : null}
 
-      {!offlineUi.showOfflineNoCache &&
-      !model.isContextLoading &&
-      !model.isContextError &&
-      !model.hasAnyAvailableTab ? (
-        <View style={styles.stateWrap}>
-          <View style={styles.stateCard}>
-            <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-          </View>
-        </View>
-      ) : null}
-
-      {!offlineUi.showOfflineNoCache && !model.isContextLoading && !model.isContextError && model.hasAnyAvailableTab ? (
+      {!offlineUi.showOfflineNoCache && !model.isContextLoading && !model.isContextError ? (
         <View style={styles.content}>
           <TeamDetailsTabContent
             activeTab={model.activeTab}

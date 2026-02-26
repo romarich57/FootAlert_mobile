@@ -1,12 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQueries, useQueryClient } from '@tanstack/react-query';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
-import { fetchPlayerAvailabilitySnapshot } from '@ui/features/players/hooks/usePlayerAvailability';
-import { fetchTeamAvailabilitySnapshot } from '@ui/features/teams/hooks/useTeamAvailability';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
@@ -19,17 +16,8 @@ import type {
   TrendPlayerItem,
   TrendTeamItem,
 } from '@ui/features/follows/types/follows.types';
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
-
-type FollowAvailabilityStatus = {
-  disabled: boolean;
-  reason?: 'checking' | 'missing';
-  isCheckingAvailability: boolean;
-};
 
 export function useFollowsScreenModel() {
-  const queryClient = useQueryClient();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [selectedTab, setSelectedTab] = useState<FollowEntityTab>('teams');
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,12 +40,6 @@ export function useFollowsScreenModel() {
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
     [],
   );
-  const currentSeason = useMemo(() => {
-    const currentDate = new Date();
-    return currentDate.getUTCMonth() + 1 >= 7
-      ? currentDate.getUTCFullYear()
-      : currentDate.getUTCFullYear() - 1;
-  }, []);
 
   const teamCardsQuery = useFollowedTeamsCards({
     teamIds: followedTeamIds,
@@ -67,87 +49,6 @@ export function useFollowsScreenModel() {
   const playerCardsQuery = useFollowedPlayersCards({
     playerIds: followedPlayerIds,
   });
-  const teamCards = useMemo(() => teamCardsQuery.data ?? [], [teamCardsQuery.data]);
-  const playerCards = useMemo(() => playerCardsQuery.data ?? [], [playerCardsQuery.data]);
-
-  const teamAvailabilityQueries = useQueries({
-    queries: teamCards.map(card => ({
-      queryKey: queryKeys.teams.availability(card.teamId, null, currentSeason),
-      enabled: Boolean(card.teamId),
-      staleTime: featureQueryOptions.teams.availability.staleTime,
-      retry: featureQueryOptions.teams.availability.retry,
-      queryFn: () =>
-        fetchTeamAvailabilitySnapshot({
-          queryClient,
-          teamId: card.teamId,
-          leagueId: null,
-          season: currentSeason,
-          timezone,
-          concurrency: 2,
-        }),
-    })),
-  });
-  const playerAvailabilityQueries = useQueries({
-    queries: playerCards.map(card => ({
-      queryKey: queryKeys.players.availability(card.playerId, currentSeason),
-      enabled: Boolean(card.playerId),
-      staleTime: featureQueryOptions.players.availability.staleTime,
-      retry: featureQueryOptions.players.availability.retry,
-      queryFn: () =>
-        fetchPlayerAvailabilitySnapshot({
-          queryClient,
-          playerId: card.playerId,
-          season: currentSeason,
-          concurrency: 2,
-        }),
-    })),
-  });
-
-  const teamAvailabilityById = useMemo(() => {
-    const map = new Map<string, FollowAvailabilityStatus>();
-
-    teamCards.forEach((card, index) => {
-      const query = teamAvailabilityQueries[index];
-      const isCheckingAvailability = Boolean(
-        !query || query.isLoading || query.isFetching || !query.data,
-      );
-      const isMissing = Boolean(query?.data && query.data.state === 'missing' && !query.data.hasAnyTab);
-      map.set(card.teamId, {
-        disabled: isCheckingAvailability || isMissing,
-        isCheckingAvailability,
-        reason: isCheckingAvailability
-          ? 'checking'
-          : isMissing
-            ? 'missing'
-            : undefined,
-      });
-    });
-
-    return map;
-  }, [teamAvailabilityQueries, teamCards]);
-
-  const playerAvailabilityById = useMemo(() => {
-    const map = new Map<string, FollowAvailabilityStatus>();
-
-    playerCards.forEach((card, index) => {
-      const query = playerAvailabilityQueries[index];
-      const isCheckingAvailability = Boolean(
-        !query || query.isLoading || query.isFetching || !query.data,
-      );
-      const isMissing = Boolean(query?.data && query.data.state === 'missing' && !query.data.hasAnyTab);
-      map.set(card.playerId, {
-        disabled: isCheckingAvailability || isMissing,
-        isCheckingAvailability,
-        reason: isCheckingAvailability
-          ? 'checking'
-          : isMissing
-            ? 'missing'
-            : undefined,
-      });
-    });
-
-    return map;
-  }, [playerAvailabilityQueries, playerCards]);
 
   const hideTrendsCurrentTab = selectedTab === 'teams' ? hideTrendsTeams : hideTrendsPlayers;
 
@@ -165,18 +66,18 @@ export function useFollowsScreenModel() {
 
   const localTeams = useMemo(() => {
     const list: FollowsSearchResultTeam[] = [];
-    teamCards.forEach(t =>
+    teamCardsQuery.data?.forEach(t =>
       list.push({ teamId: t.teamId, teamName: t.teamName, teamLogo: t.teamLogo, country: '' }),
     );
     asTeamTrends.forEach(t =>
       list.push({ teamId: t.teamId, teamName: t.teamName, teamLogo: t.teamLogo, country: t.leagueName }),
     );
     return list;
-  }, [asTeamTrends, teamCards]);
+  }, [teamCardsQuery.data, asTeamTrends]);
 
   const localPlayers = useMemo(() => {
     const list: FollowsSearchResultPlayer[] = [];
-    playerCards.forEach(p =>
+    playerCardsQuery.data?.forEach(p =>
       list.push({
         playerId: p.playerId,
         playerName: p.playerName,
@@ -199,7 +100,7 @@ export function useFollowsScreenModel() {
       }),
     );
     return list;
-  }, [asPlayerTrends, playerCards]);
+  }, [playerCardsQuery.data, asPlayerTrends]);
 
   const search = useFollowsSearch({
     tab: selectedTab,
@@ -250,24 +151,16 @@ export function useFollowsScreenModel() {
 
   const handleOpenPlayerDetails = useCallback(
     (playerId: string) => {
-      const availabilityStatus = playerAvailabilityById.get(playerId);
-      if (availabilityStatus?.disabled) {
-        return;
-      }
       safeNavigateEntity(navigation, 'PlayerDetails', playerId);
     },
-    [navigation, playerAvailabilityById],
+    [navigation],
   );
 
   const handleOpenTeamDetails = useCallback(
     (nextTeamId: string) => {
-      const availabilityStatus = teamAvailabilityById.get(nextTeamId);
-      if (availabilityStatus?.disabled) {
-        return;
-      }
       safeNavigateEntity(navigation, 'TeamDetails', nextTeamId);
     },
-    [navigation, teamAvailabilityById],
+    [navigation],
   );
 
 
@@ -287,10 +180,8 @@ export function useFollowsScreenModel() {
       isLoading ||
       (selectedTab === 'teams' ? teamCardsQuery.isLoading : playerCardsQuery.isLoading),
     lastToggleError,
-    teamCards,
-    playerCards,
-    teamAvailabilityById,
-    playerAvailabilityById,
+    teamCards: teamCardsQuery.data ?? [],
+    playerCards: playerCardsQuery.data ?? [],
     trendsItems,
     handleToggleTeam,
     handleTogglePlayer,

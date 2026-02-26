@@ -7,7 +7,6 @@ import { CompetitionDetailsScreen } from '@ui/features/competitions/screens/Comp
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
 import { useCompetitionTotw } from '@ui/features/competitions/hooks/useCompetitionTotw';
 import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
-import { useCompetitionAvailability } from '@ui/features/competitions/hooks/useCompetitionAvailability';
 import i18n from '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
@@ -31,7 +30,6 @@ jest.mock('@tanstack/react-query', () => {
 jest.mock('@ui/features/competitions/hooks/useFollowedCompetitions');
 jest.mock('@ui/features/competitions/hooks/useCompetitionSeasons');
 jest.mock('@ui/features/competitions/hooks/useCompetitionTotw');
-jest.mock('@ui/features/competitions/hooks/useCompetitionAvailability');
 
 jest.mock('@ui/features/competitions/components/CompetitionStandingsTab', () => {
   const ReactLib = require('react');
@@ -70,7 +68,6 @@ const mockedUseQuery = jest.mocked(useQuery);
 const mockedUseFollowedCompetitions = jest.mocked(useFollowedCompetitions);
 const mockedUseCompetitionSeasons = jest.mocked(useCompetitionSeasons);
 const mockedUseCompetitionTotw = jest.mocked(useCompetitionTotw);
-const mockedUseCompetitionAvailability = jest.mocked(useCompetitionAvailability);
 
 const goBackMock = jest.fn();
 
@@ -95,18 +92,6 @@ const completeTotw = {
 
 function renderScreen() {
   return renderWithAppProviders(<CompetitionDetailsScreen />);
-}
-
-function createAvailabilitySnapshot(
-  tabs: Array<{ key: 'standings' | 'matches' | 'playerStats' | 'teamStats' | 'transfers' | 'totw'; state: 'available' | 'missing' | 'unknown' }>,
-) {
-  return {
-    entityId: '61',
-    tabs,
-    state: tabs.some(tab => tab.state === 'available') ? 'available' : 'missing',
-    hasAnyTab: tabs.some(tab => tab.state === 'available'),
-    checkedAt: Date.now(),
-  };
 }
 
 describe('CompetitionDetailsScreen', () => {
@@ -146,18 +131,6 @@ describe('CompetitionDetailsScreen', () => {
     mockedUseCompetitionTotw.mockReturnValue({
       data: null,
     } as never);
-    mockedUseCompetitionAvailability.mockReturnValue({
-      data: createAvailabilitySnapshot([
-        { key: 'standings', state: 'available' },
-        { key: 'matches', state: 'available' },
-        { key: 'playerStats', state: 'available' },
-        { key: 'teamStats', state: 'available' },
-        { key: 'transfers', state: 'available' },
-        { key: 'totw', state: 'missing' },
-      ]),
-      isLoading: false,
-      isError: false,
-    } as never);
   });
 
   it('does not render seasons tab', () => {
@@ -189,18 +162,6 @@ describe('CompetitionDetailsScreen', () => {
     mockedUseCompetitionTotw.mockReturnValue({
       data: completeTotw,
     } as never);
-    mockedUseCompetitionAvailability.mockReturnValue({
-      data: createAvailabilitySnapshot([
-        { key: 'standings', state: 'available' },
-        { key: 'matches', state: 'available' },
-        { key: 'playerStats', state: 'available' },
-        { key: 'teamStats', state: 'available' },
-        { key: 'transfers', state: 'available' },
-        { key: 'totw', state: 'available' },
-      ]),
-      isLoading: false,
-      isError: false,
-    } as never);
 
     renderScreen();
 
@@ -210,18 +171,6 @@ describe('CompetitionDetailsScreen', () => {
   it('falls back to standings when active TOTW becomes unavailable after season change', async () => {
     mockedUseCompetitionTotw.mockImplementation((_leagueId, season) => ({
       data: season === 2025 ? completeTotw : null,
-    }) as never);
-    mockedUseCompetitionAvailability.mockImplementation((params: { season?: number }) => ({
-      data: createAvailabilitySnapshot([
-        { key: 'standings', state: 'available' },
-        { key: 'matches', state: 'available' },
-        { key: 'playerStats', state: 'available' },
-        { key: 'teamStats', state: 'available' },
-        { key: 'transfers', state: 'available' },
-        { key: 'totw', state: params.season === 2025 ? 'available' : 'missing' },
-      ]),
-      isLoading: false,
-      isError: false,
     }) as never);
 
     renderScreen();
@@ -237,24 +186,5 @@ describe('CompetitionDetailsScreen', () => {
     });
     expect(screen.queryByText('totw-content')).toBeNull();
     expect(screen.queryByText(i18n.t('competitionDetails.tabs.totw'))).toBeNull();
-  });
-
-  it('shows no-available-data state when all tabs are missing', () => {
-    mockedUseCompetitionAvailability.mockReturnValue({
-      data: createAvailabilitySnapshot([
-        { key: 'standings', state: 'missing' },
-        { key: 'matches', state: 'missing' },
-        { key: 'playerStats', state: 'missing' },
-        { key: 'teamStats', state: 'missing' },
-        { key: 'transfers', state: 'missing' },
-        { key: 'totw', state: 'missing' },
-      ]),
-      isLoading: false,
-      isError: false,
-    } as never);
-
-    renderScreen();
-
-    expect(screen.getByText(i18n.t('competitionDetails.states.noAvailableData'))).toBeTruthy();
   });
 });

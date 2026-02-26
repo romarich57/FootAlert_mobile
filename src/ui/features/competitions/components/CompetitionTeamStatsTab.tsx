@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -299,7 +299,7 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
         return isExpensiveConnection || isLowGenerationCellular;
     }, [netInfo.details, netInfo.isConnected, netInfo.isInternetReachable, netInfo.type]);
 
-  const {
+    const {
         summary,
         homeAway,
         advanced,
@@ -307,70 +307,17 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
         isAdvancedLoading,
         advancedProgress,
         baseError,
-    hasAdvancedData,
-  } = useCompetitionTeamStats({
+        hasAdvancedData,
+    } = useCompetitionTeamStats({
         leagueId: competitionId,
         season,
         advancedEnabled,
         networkLiteMode,
-  });
+    });
 
-  const summaryMetrics = useMemo(
-    () =>
-      summary.metrics.filter(metric => summary.leaderboards[metric].items.length > 0),
-    [summary.leaderboards, summary.metrics],
-  );
-  const homeAwayMetrics = useMemo(
-    () =>
-      homeAway.metrics.filter(metric => homeAway.leaderboards[metric].items.length > 0),
-    [homeAway.leaderboards, homeAway.metrics],
-  );
-  const advancedMetrics = useMemo(
-    () =>
-      advanced.metrics.filter(metric => advanced.leaderboards[metric].items.length > 0),
-    [advanced.leaderboards, advanced.metrics],
-  );
-
-  useEffect(() => {
-    if (summaryMetrics.length === 0) {
-      return;
-    }
-    if (!summaryMetrics.includes(selectedSummaryMetric)) {
-      setSelectedSummaryMetric(summaryMetrics[0]);
-    }
-  }, [selectedSummaryMetric, summaryMetrics]);
-
-  useEffect(() => {
-    if (homeAwayMetrics.length === 0) {
-      return;
-    }
-    if (!homeAwayMetrics.includes(selectedHomeAwayMetric)) {
-      setSelectedHomeAwayMetric(homeAwayMetrics[0]);
-    }
-  }, [homeAwayMetrics, selectedHomeAwayMetric]);
-
-  useEffect(() => {
-    if (advancedMetrics.length === 0) {
-      return;
-    }
-    if (!advancedMetrics.includes(selectedAdvancedMetric)) {
-      setSelectedAdvancedMetric(advancedMetrics[0]);
-    }
-  }, [advancedMetrics, selectedAdvancedMetric]);
-
-  const effectiveSelectedSummaryMetric = summaryMetrics.includes(selectedSummaryMetric)
-    ? selectedSummaryMetric
-    : summaryMetrics[0] ?? selectedSummaryMetric;
-  const effectiveSelectedHomeAwayMetric = homeAwayMetrics.includes(selectedHomeAwayMetric)
-    ? selectedHomeAwayMetric
-    : homeAwayMetrics[0] ?? selectedHomeAwayMetric;
-  const effectiveSelectedAdvancedMetric = advancedMetrics.includes(selectedAdvancedMetric)
-    ? selectedAdvancedMetric
-    : advancedMetrics[0] ?? selectedAdvancedMetric;
-
-  const selectedSummaryLeaderboard = summary.leaderboards[effectiveSelectedSummaryMetric];
-  const selectedHomeAwayLeaderboard = homeAway.leaderboards[effectiveSelectedHomeAwayMetric];
-  const selectedAdvancedLeaderboard = advanced.leaderboards[effectiveSelectedAdvancedMetric];
+    const selectedSummaryLeaderboard = summary.leaderboards[selectedSummaryMetric];
+    const selectedHomeAwayLeaderboard = homeAway.leaderboards[selectedHomeAwayMetric];
+    const selectedAdvancedLeaderboard = advanced.leaderboards[selectedAdvancedMetric];
 
     const summaryChartData = useMemo(
         () => toChartData(selectedSummaryLeaderboard),
@@ -380,14 +327,10 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
         () => toChartData(selectedHomeAwayLeaderboard),
         [selectedHomeAwayLeaderboard],
     );
-  const advancedChartData = useMemo(
-    () => toChartData(selectedAdvancedLeaderboard),
-    [selectedAdvancedLeaderboard],
-  );
-  const hasSummarySection = summaryMetrics.length > 0;
-  const hasHomeAwaySection = homeAwayMetrics.length > 0;
-  const hasAdvancedSection = !advancedEnabled || isAdvancedLoading || hasAdvancedData;
-  const hasAnySection = hasSummarySection || hasHomeAwaySection || hasAdvancedSection;
+    const advancedChartData = useMemo(
+        () => toChartData(selectedAdvancedLeaderboard),
+        [selectedAdvancedLeaderboard],
+    );
 
     if (isBaseLoading) {
         return (
@@ -397,26 +340,17 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
         );
     }
 
-  if (baseError) {
+    if (baseError) {
         return (
             <View style={styles.centerContainer}>
                 <Text style={styles.emptyText}>{t('competitionDetails.teamStats.unavailable')}</Text>
             </View>
         );
-  }
+    }
 
-  if (!hasAnySection) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyText}>{t('competitionDetails.teamStats.unavailable')}</Text>
-      </View>
-    );
-  }
-
-  return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {hasSummarySection ? (
                 <View style={styles.sectionCard} testID="competition-team-stats-section-summary">
                     <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionTitle}>{t('competitionDetails.teamStats.sections.summary.title')}</Text>
@@ -426,8 +360,8 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                     </Text>
 
                     <View style={styles.chipsWrap}>
-                        {summaryMetrics.map(metric => {
-                            const isActive = metric === effectiveSelectedSummaryMetric;
+                        {summary.metrics.map(metric => {
+                            const isActive = metric === selectedSummaryMetric;
                             return (
                                 <Pressable
                                     key={metric}
@@ -444,15 +378,19 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                         })}
                     </View>
 
-                    <HorizontalBarChart
-                        title={t(SUMMARY_METRICS[effectiveSelectedSummaryMetric].labelKey)}
-                        data={summaryChartData}
-                        valueFormatter={value => formatMetricValue(value, SUMMARY_METRICS[effectiveSelectedSummaryMetric].format)}
-                    />
+                    {summaryChartData.length > 0 ? (
+                        <HorizontalBarChart
+                            title={t(SUMMARY_METRICS[selectedSummaryMetric].labelKey)}
+                            data={summaryChartData}
+                            valueFormatter={value => formatMetricValue(value, SUMMARY_METRICS[selectedSummaryMetric].format)}
+                        />
+                    ) : (
+                        <View style={styles.stateCard}>
+                            <Text style={styles.stateText}>{t('competitionDetails.teamStats.unavailable')}</Text>
+                        </View>
+                    )}
                 </View>
-                ) : null}
 
-                {hasHomeAwaySection ? (
                 <View style={styles.sectionCard} testID="competition-team-stats-section-home-away">
                     <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionTitle}>{t('competitionDetails.teamStats.sections.homeAway.title')}</Text>
@@ -462,8 +400,8 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                     </Text>
 
                     <View style={styles.chipsWrap}>
-                        {homeAwayMetrics.map(metric => {
-                            const isActive = metric === effectiveSelectedHomeAwayMetric;
+                        {homeAway.metrics.map(metric => {
+                            const isActive = metric === selectedHomeAwayMetric;
                             return (
                                 <Pressable
                                     key={metric}
@@ -480,15 +418,19 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                         })}
                     </View>
 
-                    <HorizontalBarChart
-                        title={t(HOME_AWAY_METRICS[effectiveSelectedHomeAwayMetric].labelKey)}
-                        data={homeAwayChartData}
-                        valueFormatter={value => formatMetricValue(value, HOME_AWAY_METRICS[effectiveSelectedHomeAwayMetric].format)}
-                    />
+                    {homeAwayChartData.length > 0 ? (
+                        <HorizontalBarChart
+                            title={t(HOME_AWAY_METRICS[selectedHomeAwayMetric].labelKey)}
+                            data={homeAwayChartData}
+                            valueFormatter={value => formatMetricValue(value, HOME_AWAY_METRICS[selectedHomeAwayMetric].format)}
+                        />
+                    ) : (
+                        <View style={styles.stateCard}>
+                            <Text style={styles.stateText}>{t('competitionDetails.teamStats.unavailable')}</Text>
+                        </View>
+                    )}
                 </View>
-                ) : null}
 
-                {hasAdvancedSection ? (
                 <View style={styles.sectionCard} testID="competition-team-stats-section-advanced">
                     <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionTitle}>{t('competitionDetails.teamStats.sections.advanced.title')}</Text>
@@ -519,8 +461,8 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                     ) : (
                         <>
                             <View style={styles.chipsWrap}>
-                                {advancedMetrics.map(metric => {
-                                    const isActive = metric === effectiveSelectedAdvancedMetric;
+                                {advanced.metrics.map(metric => {
+                                    const isActive = metric === selectedAdvancedMetric;
                                     return (
                                         <Pressable
                                             key={metric}
@@ -555,18 +497,23 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                                         </Text>
                                     ) : null}
                                     <HorizontalBarChart
-                                        title={t(ADVANCED_METRICS[effectiveSelectedAdvancedMetric].labelKey)}
+                                        title={t(ADVANCED_METRICS[selectedAdvancedMetric].labelKey)}
                                         data={advancedChartData}
                                         valueFormatter={value =>
-                                            formatMetricValue(value, ADVANCED_METRICS[effectiveSelectedAdvancedMetric].format)
+                                            formatMetricValue(value, ADVANCED_METRICS[selectedAdvancedMetric].format)
                                         }
                                     />
                                 </>
-                            ) : null}
+                            ) : (
+                                <View style={styles.stateCard} testID="competition-team-stats-advanced-unavailable">
+                                    <Text style={styles.stateText}>
+                                        {t('competitionDetails.teamStats.advanced.unavailable')}
+                                    </Text>
+                                </View>
+                            )}
                         </>
                     )}
                 </View>
-                ) : null}
             </ScrollView>
         </View>
     );

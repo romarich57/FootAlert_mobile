@@ -1,6 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { Competition } from '@ui/features/competitions/types/competitions.types';
-import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
 
 export type MainTabParamList = {
   Matches: undefined;
@@ -13,7 +12,7 @@ export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   MatchDetails: { matchId: string };
   CompetitionDetails: { competitionId: string; competition?: Competition };
-  TeamDetails: { teamId: string; initialTab?: TeamDetailsTab };
+  TeamDetails: { teamId: string };
   PlayerDetails: { playerId: string };
   SearchPlaceholder: undefined;
 };

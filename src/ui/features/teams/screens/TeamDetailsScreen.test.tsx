@@ -161,16 +161,21 @@ describe('TeamDetailsScreen', () => {
     } as never);
 
     mockedUseTeamMatches.mockReturnValue({
-      data: undefined,
+      data: {
+        all: [],
+        upcoming: [],
+        live: [],
+        past: [],
+      },
       isLoading: false,
-      isError: true,
+      isError: false,
       refetch: jest.fn(async () => undefined),
     } as never);
 
     mockedUseTeamStandings.mockReturnValue({
-      data: undefined,
+      data: { groups: [] },
       isLoading: false,
-      isError: true,
+      isError: false,
       refetch: jest.fn(async () => undefined),
     } as never);
 
@@ -216,9 +221,9 @@ describe('TeamDetailsScreen', () => {
     } as never);
 
     mockedUseTeamTransfers.mockReturnValue({
-      data: undefined,
+      data: { arrivals: [], departures: [] },
       isLoading: false,
-      isError: true,
+      isError: false,
       refetch: jest.fn(async () => undefined),
     } as never);
 

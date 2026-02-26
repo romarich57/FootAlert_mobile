@@ -626,26 +626,6 @@ export function PlayerStatsTab({
   );
 
   const contentItems: PlayerStatsContentItem[] = [];
-  const hasSeasonSummaryCard = [
-    stats.goals,
-    stats.assists,
-    stats.rating,
-    stats.matches,
-    stats.starts,
-    stats.minutes,
-  ].some(value => value !== null && value !== '');
-  const hasShotsCard = [stats.shots, stats.shotsOnTarget, shotAccuracy, shotConversion].some(
-    value => value !== null,
-  );
-  const hasPerformanceSections = [
-    tirRows,
-    passeRows,
-    dribbleRows,
-    defenseRows,
-    disciplineRows,
-    gardienRows,
-    penaltyRows,
-  ].some(rows => rows.some(row => row.value !== null));
 
   if (competitions.length === 0) {
     contentItems.push({
@@ -667,172 +647,146 @@ export function PlayerStatsTab({
     });
   }
 
-  if (hasSeasonSummaryCard) {
-    contentItems.push({
-      key: 'season-stats-card',
-      content: (
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleRow}>
-              <MaterialCommunityIcons name="chart-box-outline" size={18} color={colors.text} />
-              <Text style={styles.cardTitle}>{t('teamDetails.overview.seasonStats')}</Text>
-            </View>
-            <Text style={styles.cardSubtitle}>{toDisplayValue(leagueName)}</Text>
+  contentItems.push({
+    key: 'season-stats-card',
+    content: (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleRow}>
+            <MaterialCommunityIcons name="chart-box-outline" size={18} color={colors.text} />
+            <Text style={styles.cardTitle}>{t('teamDetails.overview.seasonStats')}</Text>
           </View>
+          <Text style={styles.cardSubtitle}>{toDisplayValue(leagueName)}</Text>
+        </View>
 
-          <View style={styles.kpiTopRow}>
-            <View style={[styles.kpiTopTile, styles.kpiTopTileGoals]}>
-              {renderLabelWithIcon('soccer', t('playerDetails.stats.labels.goals'))}
-              <Text style={styles.kpiTopValue}>{toDisplayValue(stats.goals)}</Text>
-            </View>
-            <View style={[styles.kpiTopTile, styles.kpiTopTileAssists]}>
-              {renderLabelWithIcon('swap-horizontal', t('playerDetails.stats.labels.assists'))}
-              <Text style={styles.kpiTopValue}>{toDisplayValue(stats.assists)}</Text>
-            </View>
-            <View style={[styles.kpiTopTile, styles.kpiTopTileRating]}>
-              {renderLabelWithIcon('star', t('playerDetails.stats.labels.rating'), { isPrimary: true })}
-              <Text style={[styles.kpiTopValue, styles.kpiTopValuePrimary]}>
-                {toDisplayValue(stats.rating)}
+        <View style={styles.kpiTopRow}>
+          <View style={[styles.kpiTopTile, styles.kpiTopTileGoals]}>
+            {renderLabelWithIcon('soccer', t('playerDetails.stats.labels.goals'))}
+            <Text style={styles.kpiTopValue}>{toDisplayValue(stats.goals)}</Text>
+          </View>
+          <View style={[styles.kpiTopTile, styles.kpiTopTileAssists]}>
+            {renderLabelWithIcon('swap-horizontal', t('playerDetails.stats.labels.assists'))}
+            <Text style={styles.kpiTopValue}>{toDisplayValue(stats.assists)}</Text>
+          </View>
+          <View style={[styles.kpiTopTile, styles.kpiTopTileRating]}>
+            {renderLabelWithIcon('star', t('playerDetails.stats.labels.rating'), { isPrimary: true })}
+            <Text style={[styles.kpiTopValue, styles.kpiTopValuePrimary]}>
+              {toDisplayValue(stats.rating)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.kpiBottomRow}>
+          <View style={styles.kpiBottomTile}>
+            <Text style={styles.kpiBottomValue}>{toDisplayValue(stats.matches)}</Text>
+            {renderBottomLabelWithIcon('calendar-month-outline', t('playerDetails.stats.labels.matches'))}
+          </View>
+          <View style={styles.kpiBottomTile}>
+            <Text style={styles.kpiBottomValue}>{toDisplayValue(stats.starts)}</Text>
+            {renderBottomLabelWithIcon('account-check-outline', t('playerDetails.stats.labels.starts'))}
+          </View>
+          <View style={styles.kpiBottomTile}>
+            <Text style={styles.kpiBottomValue}>{toDisplayValue(stats.minutes)}</Text>
+            {renderBottomLabelWithIcon('timer-outline', t('playerDetails.stats.labels.minutes'))}
+          </View>
+        </View>
+      </View>
+    ),
+  });
+
+  contentItems.push({
+    key: 'shots-card',
+    content: (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleRow}>
+            <MaterialCommunityIcons name="target-variant" size={18} color={colors.text} />
+            <Text style={styles.cardTitle}>{t('playerDetails.stats.labels.seasonShots')}</Text>
+          </View>
+          <Text style={styles.cardSubtitle}>{toDisplayValue(leagueName)}</Text>
+        </View>
+
+        <View style={styles.shotGrid}>
+          <View style={styles.shotTile}>
+            {renderShotLabelWithIcon('target-variant', t('playerDetails.stats.labels.shots'))}
+            <Text style={styles.shotTileValue}>{toDisplayValue(stats.shots)}</Text>
+          </View>
+          <View style={styles.shotTile}>
+            {renderShotLabelWithIcon('bullseye', t('playerDetails.stats.labels.shotsOnTarget'))}
+            <Text style={styles.shotTileValue}>{toDisplayValue(stats.shotsOnTarget)}</Text>
+          </View>
+          <View style={styles.shotTile}>
+            {renderShotLabelWithIcon('chart-line', t('playerDetails.stats.labels.shotAccuracy'))}
+            <Text style={styles.shotTileValue}>{toPercentValue(shotAccuracy)}</Text>
+          </View>
+          <View style={styles.shotTile}>
+            {renderShotLabelWithIcon('percent', t('playerDetails.stats.labels.shotConversion'))}
+            <Text style={styles.shotTileValue}>{toPercentValue(shotConversion)}</Text>
+          </View>
+        </View>
+      </View>
+    ),
+  });
+
+  contentItems.push({
+    key: 'season-performance-card',
+    content: (
+      <View style={styles.card}>
+        <View style={styles.perfHeader}>
+          <View style={styles.perfTitleRow}>
+            <MaterialCommunityIcons name="chart-line" size={18} color={colors.text} />
+            <Text style={styles.perfTitle}>{t('playerDetails.stats.labels.seasonPerformance')}</Text>
+          </View>
+          <Text style={styles.perfSubtitle}>
+            {t('playerDetails.stats.labels.seasonPerformanceDetails')}
+          </Text>
+        </View>
+
+        <View style={styles.toggleRow}>
+          <Pressable
+            style={[styles.toggleButton, mode === 'total' ? styles.toggleButtonActive : null]}
+            onPress={() => setMode('total')}
+            hitSlop={DEFAULT_HIT_SLOP}
+          >
+            <View style={styles.toggleLabelRow}>
+              <MaterialCommunityIcons
+                name="counter"
+                size={14}
+                style={[styles.toggleIcon, mode === 'total' ? styles.toggleIconActive : null]}
+              />
+              <Text style={[styles.toggleText, mode === 'total' ? styles.toggleTextActive : null]}>
+                {t('playerDetails.stats.labels.total')}
               </Text>
             </View>
-          </View>
-
-          <View style={styles.kpiBottomRow}>
-            <View style={styles.kpiBottomTile}>
-              <Text style={styles.kpiBottomValue}>{toDisplayValue(stats.matches)}</Text>
-              {renderBottomLabelWithIcon('calendar-month-outline', t('playerDetails.stats.labels.matches'))}
+          </Pressable>
+          <Pressable
+            style={[styles.toggleButton, mode === 'per90' ? styles.toggleButtonActive : null]}
+            onPress={() => setMode('per90')}
+            hitSlop={DEFAULT_HIT_SLOP}
+          >
+            <View style={styles.toggleLabelRow}>
+              <MaterialCommunityIcons
+                name="speedometer-medium"
+                size={14}
+                style={[styles.toggleIcon, mode === 'per90' ? styles.toggleIconActive : null]}
+              />
+              <Text style={[styles.toggleText, mode === 'per90' ? styles.toggleTextActive : null]}>
+                {t('playerDetails.stats.labels.perNinety')}
+              </Text>
             </View>
-            <View style={styles.kpiBottomTile}>
-              <Text style={styles.kpiBottomValue}>{toDisplayValue(stats.starts)}</Text>
-              {renderBottomLabelWithIcon('account-check-outline', t('playerDetails.stats.labels.starts'))}
-            </View>
-            <View style={styles.kpiBottomTile}>
-              <Text style={styles.kpiBottomValue}>{toDisplayValue(stats.minutes)}</Text>
-              {renderBottomLabelWithIcon('timer-outline', t('playerDetails.stats.labels.minutes'))}
-            </View>
-          </View>
+          </Pressable>
         </View>
-      ),
-    });
-  }
 
-  if (hasShotsCard) {
-    contentItems.push({
-      key: 'shots-card',
-      content: (
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardTitleRow}>
-              <MaterialCommunityIcons name="target-variant" size={18} color={colors.text} />
-              <Text style={styles.cardTitle}>{t('playerDetails.stats.labels.seasonShots')}</Text>
-            </View>
-            <Text style={styles.cardSubtitle}>{toDisplayValue(leagueName)}</Text>
-          </View>
-
-          <View style={styles.shotGrid}>
-            <View style={styles.shotTile}>
-              {renderShotLabelWithIcon('target-variant', t('playerDetails.stats.labels.shots'))}
-              <Text style={styles.shotTileValue}>{toDisplayValue(stats.shots)}</Text>
-            </View>
-            <View style={styles.shotTile}>
-              {renderShotLabelWithIcon('bullseye', t('playerDetails.stats.labels.shotsOnTarget'))}
-              <Text style={styles.shotTileValue}>{toDisplayValue(stats.shotsOnTarget)}</Text>
-            </View>
-            <View style={styles.shotTile}>
-              {renderShotLabelWithIcon('chart-line', t('playerDetails.stats.labels.shotAccuracy'))}
-              <Text style={styles.shotTileValue}>{toPercentValue(shotAccuracy)}</Text>
-            </View>
-            <View style={styles.shotTile}>
-              {renderShotLabelWithIcon('percent', t('playerDetails.stats.labels.shotConversion'))}
-              <Text style={styles.shotTileValue}>{toPercentValue(shotConversion)}</Text>
-            </View>
-          </View>
-        </View>
-      ),
-    });
-  }
-
-  if (hasPerformanceSections) {
-    contentItems.push({
-      key: 'season-performance-card',
-      content: (
-        <View style={styles.card}>
-          <View style={styles.perfHeader}>
-            <View style={styles.perfTitleRow}>
-              <MaterialCommunityIcons name="chart-line" size={18} color={colors.text} />
-              <Text style={styles.perfTitle}>{t('playerDetails.stats.labels.seasonPerformance')}</Text>
-            </View>
-            <Text style={styles.perfSubtitle}>
-              {t('playerDetails.stats.labels.seasonPerformanceDetails')}
-            </Text>
-          </View>
-
-          <View style={styles.toggleRow}>
-            <Pressable
-              style={[styles.toggleButton, mode === 'total' ? styles.toggleButtonActive : null]}
-              onPress={() => setMode('total')}
-              hitSlop={DEFAULT_HIT_SLOP}
-            >
-              <View style={styles.toggleLabelRow}>
-                <MaterialCommunityIcons
-                  name="counter"
-                  size={14}
-                  style={[styles.toggleIcon, mode === 'total' ? styles.toggleIconActive : null]}
-                />
-                <Text style={[styles.toggleText, mode === 'total' ? styles.toggleTextActive : null]}>
-                  {t('playerDetails.stats.labels.total')}
-                </Text>
-              </View>
-            </Pressable>
-            <Pressable
-              style={[styles.toggleButton, mode === 'per90' ? styles.toggleButtonActive : null]}
-              onPress={() => setMode('per90')}
-              hitSlop={DEFAULT_HIT_SLOP}
-            >
-              <View style={styles.toggleLabelRow}>
-                <MaterialCommunityIcons
-                  name="speedometer-medium"
-                  size={14}
-                  style={[styles.toggleIcon, mode === 'per90' ? styles.toggleIconActive : null]}
-                />
-                <Text style={[styles.toggleText, mode === 'per90' ? styles.toggleTextActive : null]}>
-                  {t('playerDetails.stats.labels.perNinety')}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-
-          {renderSection('shooting', tirRows)}
-          {renderSection('passing', passeRows)}
-          {renderSection('dribbles', dribbleRows)}
-          {renderSection('defense', defenseRows)}
-          {renderSection('discipline', disciplineRows)}
-          {gardienRows.length > 0 ? renderSection('goalkeeper', gardienRows) : null}
-          {renderSection('penalties', penaltyRows)}
-        </View>
-      ),
-    });
-  }
-
-  if (contentItems.length === 0) {
-    contentItems.push({
-      key: 'stats-empty-state',
-      content: (
-        <View style={styles.infoBanner}>
-          <View style={styles.infoBannerContent}>
-            <MaterialCommunityIcons
-              name="information-outline"
-              size={16}
-              style={styles.infoBannerIcon}
-            />
-            <Text style={styles.infoBannerText}>
-              {t('playerDetails.stats.states.noStatsAvailable')}
-            </Text>
-          </View>
-        </View>
-      ),
-    });
-  }
+        {renderSection('shooting', tirRows)}
+        {renderSection('passing', passeRows)}
+        {renderSection('dribbles', dribbleRows)}
+        {renderSection('defense', defenseRows)}
+        {renderSection('discipline', disciplineRows)}
+        {gardienRows.length > 0 ? renderSection('goalkeeper', gardienRows) : null}
+        {renderSection('penalties', penaltyRows)}
+      </View>
+    ),
+  });
 
   return (
     <View style={styles.container}>

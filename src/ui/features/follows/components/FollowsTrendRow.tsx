@@ -1,10 +1,9 @@
 import { memo, useMemo } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 type FollowsTrendRowProps = {
   title: string;
@@ -17,9 +16,6 @@ type FollowsTrendRowProps = {
   followLabel: string;
   unfollowLabel: string;
   accessibilityLabel: string;
-  disabled?: boolean;
-  disabledReason?: string;
-  isCheckingAvailability?: boolean;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -38,9 +34,6 @@ function createStyles(colors: ThemeColors) {
       gap: 12,
       flexShrink: 1,
       flex: 1,
-    },
-    leftDisabled: {
-      opacity: 0.65,
     },
     avatarContainer: {
       width: 48,
@@ -65,18 +58,6 @@ function createStyles(colors: ThemeColors) {
       fontWeight: '600',
       marginTop: 2,
     },
-    lockStateRow: {
-      marginTop: 4,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    lockReason: {
-      color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: '600',
-      flexShrink: 1,
-    },
   });
 }
 
@@ -91,24 +72,18 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
   followLabel,
   unfollowLabel,
   accessibilityLabel,
-  disabled = false,
-  disabledReason,
-  isCheckingAvailability = false,
 }: FollowsTrendRowProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const isLocked = disabled || isCheckingAvailability;
 
   return (
     <View style={styles.container}>
       {onPressItem ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ disabled: isLocked }}
           accessibilityLabel={itemAccessibilityLabel ?? title}
-          style={[styles.left, isLocked ? styles.leftDisabled : null]}
+          style={styles.left}
           onPress={onPressItem}
-          disabled={isLocked}
         >
           <View style={styles.avatarContainer}>
             <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="contain" />
@@ -120,22 +95,10 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
             <Text numberOfLines={1} style={styles.subtitle}>
               {subtitle}
             </Text>
-            {isLocked ? (
-              <View style={styles.lockStateRow}>
-                {isCheckingAvailability ? (
-                  <ActivityIndicator size="small" color={colors.textMuted} />
-                ) : (
-                  <MaterialCommunityIcons name="lock-outline" size={16} color={colors.textMuted} />
-                )}
-                {disabledReason ? (
-                  <Text style={styles.lockReason}>{disabledReason}</Text>
-                ) : null}
-              </View>
-            ) : null}
           </View>
         </Pressable>
       ) : (
-        <View style={[styles.left, isLocked ? styles.leftDisabled : null]}>
+        <View style={styles.left}>
           <View style={styles.avatarContainer}>
             <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="contain" />
           </View>
@@ -146,9 +109,6 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
             <Text numberOfLines={1} style={styles.subtitle}>
               {subtitle}
             </Text>
-            {isLocked && disabledReason ? (
-              <Text style={styles.lockReason}>{disabledReason}</Text>
-            ) : null}
           </View>
         </View>
       )}

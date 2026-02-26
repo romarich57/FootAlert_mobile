@@ -10,7 +10,6 @@ export type PlayerTabType = 'profil' | 'matchs' | 'stats' | 'carriere';
 type PlayerTabsProps = {
     selectedTab: PlayerTabType;
     onChangeTab: (tab: PlayerTabType) => void;
-    tabs: PlayerTabType[];
     profilLabel?: string;
     matchsLabel?: string;
     statsLabel?: string;
@@ -72,7 +71,6 @@ function TabItem({
 export function PlayerTabs({
   selectedTab,
   onChangeTab,
-  tabs,
   profilLabel,
   matchsLabel,
   statsLabel,
@@ -86,24 +84,33 @@ export function PlayerTabs({
   const resolvedMatchsLabel = matchsLabel ?? t('playerDetails.tabs.matches');
   const resolvedStatsLabel = statsLabel ?? t('playerDetails.tabs.stats');
   const resolvedCarriereLabel = carriereLabel ?? t('playerDetails.tabs.career');
-  const labelsByTab: Record<PlayerTabType, string> = {
-    profil: resolvedProfilLabel,
-    matchs: resolvedMatchsLabel,
-    stats: resolvedStatsLabel,
-    carriere: resolvedCarriereLabel,
-  };
 
     return (
         <View style={styles.container}>
-            {tabs.map(tab => (
-              <TabItem
-                  key={tab}
-                  label={labelsByTab[tab]}
-                  selected={selectedTab === tab}
-                  onPress={() => onChangeTab(tab)}
-                  styles={styles}
-              />
-            ))}
+            <TabItem
+                label={resolvedProfilLabel}
+                selected={selectedTab === 'profil'}
+                onPress={() => onChangeTab('profil')}
+                styles={styles}
+            />
+            <TabItem
+                label={resolvedMatchsLabel}
+                selected={selectedTab === 'matchs'}
+                onPress={() => onChangeTab('matchs')}
+                styles={styles}
+            />
+            <TabItem
+                label={resolvedStatsLabel}
+                selected={selectedTab === 'stats'}
+                onPress={() => onChangeTab('stats')}
+                styles={styles}
+            />
+            <TabItem
+                label={resolvedCarriereLabel}
+                selected={selectedTab === 'carriere'}
+                onPress={() => onChangeTab('carriere')}
+                styles={styles}
+            />
         </View>
     );
 }

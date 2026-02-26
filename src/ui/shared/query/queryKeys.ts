@@ -9,11 +9,6 @@ export const queryKeys = {
   teams: {
     details: (teamId: string) => ['teams', 'details', teamId] as const,
     leagues: (teamId: string) => ['teams', 'leagues', teamId] as const,
-    availability: (
-      teamId: string,
-      leagueId: string | null,
-      season: number | null,
-    ) => ['teams', 'availability', teamId, leagueId, season] as const,
     overview: (
       teamId: string,
       leagueId: string | null,
@@ -44,11 +39,6 @@ export const queryKeys = {
   },
   players: {
     details: (playerId: string, season: number) => ['player_details', playerId, season] as const,
-    availability: (
-      playerId: string,
-      season: number,
-      leagueId?: string | null,
-    ) => ['player_availability', playerId, season, leagueId ?? null] as const,
     stats: (playerId: string, season: number) => ['player_stats', 'v2', playerId, season] as const,
     statsCatalog: (playerId: string) => ['player_stats_catalog', playerId] as const,
     trophies: (playerId: string) => ['player_trophies', playerId] as const,
@@ -67,8 +57,6 @@ export const queryKeys = {
   competitions: {
     catalog: () => ['competitions', 'catalog'] as const,
     search: (query: string) => ['competitions', 'search', query] as const,
-    availability: (leagueId: number | undefined, season: number | undefined) =>
-      ['competitions', 'availability', leagueId, season] as const,
     detailsHeader: (competitionId: string) =>
       ['competitions', 'details', 'header', competitionId] as const,
     followedIds: () => ['competitions', 'followed-ids'] as const,

@@ -273,21 +273,11 @@ function buildSeasonStats(
 }
 
 function buildHistorySeasons(currentSeason: number, competitionSeasons: number[] | undefined): number[] {
-  const fallbackSeason =
-    (competitionSeasons ?? [])
-      .filter(year => Number.isFinite(year))
-      .sort((first, second) => second - first)[0] ?? null;
+  const raw = [currentSeason, ...(competitionSeasons ?? [])];
 
-  const anchorSeason = Number.isFinite(currentSeason)
-    ? currentSeason
-    : fallbackSeason;
-
-  if (!Number.isFinite(anchorSeason)) {
-    return [];
-  }
-
-  // Keep a stable 5-season window so missing API seasons can still render as null ranks ("-").
-  return Array.from({ length: 5 }, (_, offset) => (anchorSeason as number) - offset);
+  return Array.from(new Set(raw.filter(year => Number.isFinite(year))))
+    .sort((first, second) => second - first)
+    .slice(0, 5);
 }
 
 function extractCurrentStandingRows(teamId: string, standingsPayload: ReturnType<typeof mapStandingsToTeamData>) {
