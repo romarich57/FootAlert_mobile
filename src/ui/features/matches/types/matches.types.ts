@@ -53,6 +53,7 @@ export type ApiFootballFixtureDto = {
     };
     venue: {
       name: string | null;
+      city?: string | null;
     };
   };
   league: {
@@ -60,6 +61,7 @@ export type ApiFootballFixtureDto = {
     name: string;
     country: string;
     logo: string;
+    season?: number;
   };
   teams: {
     home: {
@@ -77,6 +79,16 @@ export type ApiFootballFixtureDto = {
     home: number | null;
     away: number | null;
   };
+  score?: {
+    halftime?: {
+      home?: number | null;
+      away?: number | null;
+    };
+    fulltime?: {
+      home?: number | null;
+      away?: number | null;
+    };
+  };
 };
 
 export type ApiFootballResponse<T> = {
@@ -92,4 +104,71 @@ export type MatchesQueryResult = {
   requestDurationMs: number;
   fetchedAt: string;
   hasLiveMatches: boolean;
+};
+
+export type MatchLifecycleState = 'pre_match' | 'live' | 'finished';
+
+export type MatchDetailsTabKey =
+  | 'primary'
+  | 'timeline'
+  | 'lineups'
+  | 'standings'
+  | 'stats'
+  | 'h2h';
+
+export type MatchDetailTabDefinition = {
+  key: MatchDetailsTabKey;
+  label: string;
+};
+
+export type MatchOverviewStat = {
+  label: string;
+  homeValue: string;
+  awayValue: string;
+  highlight?: 'home' | 'away' | null;
+};
+
+export type MatchTimelineItem = {
+  id: string;
+  minute: string;
+  type: string;
+  detail: string;
+  team: 'home' | 'away' | 'neutral';
+  isNew?: boolean;
+};
+
+export type MatchLineupPlayer = {
+  id: string;
+  name: string;
+  number?: number | null;
+  position?: string | null;
+  rating?: number | null;
+  goals?: number | null;
+  assists?: number | null;
+  yellowCards?: number | null;
+  redCards?: number | null;
+  inMinute?: number | null;
+  outMinute?: number | null;
+  penaltyScored?: number | null;
+  penaltyMissed?: number | null;
+  statusTag?: string | null;
+};
+
+export type MatchLineupTeam = {
+  teamId: string;
+  teamName: string;
+  teamLogo: string | null;
+  formation: string | null;
+  coach: string | null;
+  startingXI: MatchLineupPlayer[];
+  substitutes: MatchLineupPlayer[];
+  reserves: MatchLineupPlayer[];
+  absences: string[];
+};
+
+export type MatchH2HSummary = {
+  homeWins: number;
+  draws: number;
+  awayWins: number;
+  total: number;
 };

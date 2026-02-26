@@ -53,6 +53,94 @@ paths:
         '404':
           $ref: '#/components/responses/ProblemResponse'
 
+  /v1/matches/{id}/events:
+    get:
+      summary: Get fixture events
+      operationId: getMatchEvents
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/matches/{id}/statistics:
+    get:
+      summary: Get fixture statistics
+      operationId: getMatchStatistics
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/matches/{id}/lineups:
+    get:
+      summary: Get fixture lineups
+      operationId: getMatchLineups
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/matches/{id}/head-to-head:
+    get:
+      summary: Get head-to-head fixtures for match teams
+      operationId: getMatchHeadToHead
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/OptionalTimezoneQuery'
+        - $ref: '#/components/parameters/OptionalLastQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/matches/{id}/predictions:
+    get:
+      summary: Get fixture predictions
+      operationId: getMatchPredictions
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/matches/{id}/players/{teamId}/stats:
+    get:
+      summary: Get fixture player stats for one team
+      operationId: getMatchPlayersStatsByTeam
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/TeamIdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/matches/{id}/absences:
+    get:
+      summary: Get absences (injuries/suspensions) for both match teams
+      operationId: getMatchAbsences
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/OptionalTimezoneQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
   /v1/competitions:
     get:
       summary: List competitions

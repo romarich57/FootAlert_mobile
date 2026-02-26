@@ -16,18 +16,8 @@ type HiddenCompetitionsModalProps = {
 
 // We will attempt to get competition names from the cached matches query
 function getCompetitionName(id: string): string {
-    try {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const dateKey = `${year}-${month}-${day}`;
-
-        // Simplistic approach: just returning ID if name not found easily in cache
-        return `Competition ${id}`;
-    } catch {
-        return `Competition ${id}`;
-    }
+    // Simplistic fallback while name lookup is not wired to cache yet.
+    return `Competition ${id}`;
 }
 
 function createStyles(colors: ThemeColors) {

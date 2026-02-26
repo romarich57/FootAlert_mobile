@@ -13,7 +13,7 @@ export function useHiddenCompetitions() {
         try {
             const ids = await getHiddenCompetitionIds();
             setHiddenIds(ids);
-        } catch (e) {
+        } catch {
             // Ignore
         }
     }, []);

@@ -248,6 +248,147 @@ test('GET /v1/matches returns 400 when required query params are missing', async
   assert.equal(calls.length, 0);
 });
 
+test('GET /v1/matches/:id/events proxies to API-Football and applies short cache header', async t => {
+  const calls = installFetchMock(async () =>
+    jsonResponse({
+      response: [{ type: 'Goal' }],
+    }),
+  );
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches/101/events',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    response: [{ type: 'Goal' }],
+  });
+  assert.equal(response.headers['cache-control'], 'public, max-age=30, stale-while-revalidate=30');
+  assert.equal(
+    String(calls[0].input),
+    'https://api-football.test/fixtures/events?fixture=101',
+  );
+});
+
+test('GET /v1/matches/:id/events rejects unsupported query params', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches/101/events?timezone=Europe/Paris',
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, 'VALIDATION_ERROR');
+  assert.equal(calls.length, 0);
+});
+
+test('GET /v1/matches/:id/head-to-head fetches fixture context and proxies h2h query', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('id') === '101') {
+      return jsonResponse({
+        response: [
+          {
+            teams: {
+              home: { id: 10 },
+              away: { id: 20 },
+            },
+          },
+        ],
+      });
+    }
+
+    if (url.pathname.endsWith('/fixtures/headtohead')) {
+      return jsonResponse({
+        response: [{ fixture: { id: 999 } }],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches/101/head-to-head?timezone=Europe/Paris&last=5',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['cache-control'], 'public, max-age=300, stale-while-revalidate=600');
+  assert.deepEqual(response.json(), {
+    response: [{ fixture: { id: 999 } }],
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(
+    String(calls[0].input),
+    'https://api-football.test/fixtures?id=101&timezone=Europe%2FParis',
+  );
+  assert.equal(
+    String(calls[1].input),
+    'https://api-football.test/fixtures/headtohead?h2h=10-20&last=5',
+  );
+});
+
+test('GET /v1/matches/:id/absences returns partial fallback when one upstream injuries call fails', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('id') === '202') {
+      return jsonResponse({
+        response: [
+          {
+            league: { id: 61, season: 2025 },
+            teams: {
+              home: { id: 10 },
+              away: { id: 20 },
+            },
+          },
+        ],
+      });
+    }
+
+    if (url.pathname.endsWith('/injuries') && url.searchParams.get('team') === '10') {
+      return new Response('upstream error', { status: 500 });
+    }
+
+    if (url.pathname.endsWith('/injuries') && url.searchParams.get('team') === '20') {
+      return jsonResponse({
+        response: [{ player: { name: 'Player Two' } }],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches/202/absences?timezone=Europe/Paris',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    response: [
+      { teamId: 10, response: [] },
+      { teamId: 20, response: [{ player: { name: 'Player Two' } }] },
+    ],
+  });
+
+  const urls = calls.map(call => String(call.input));
+  assert.ok(urls.some(url => url.includes('/fixtures?id=202&timezone=Europe%2FParis')));
+  assert.ok(urls.some(url => url.includes('/injuries?league=61&season=2025&team=10')));
+  assert.ok(urls.some(url => url.includes('/injuries?league=61&season=2025&team=20')));
+});
+
 test('CORS rejects non-allowlisted origins with 403', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
   const app = await buildApp(t);

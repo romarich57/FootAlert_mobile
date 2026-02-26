@@ -291,6 +291,125 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/matches/{id}/absences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get absences (injuries/suspensions) for both match teams */
+        get: operations["getMatchAbsences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/matches/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get fixture events */
+        get: operations["getMatchEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/matches/{id}/head-to-head": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get head-to-head fixtures for match teams */
+        get: operations["getMatchHeadToHead"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/matches/{id}/lineups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get fixture lineups */
+        get: operations["getMatchLineups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/matches/{id}/players/{teamId}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get fixture player stats for one team */
+        get: operations["getMatchPlayersStatsByTeam"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/matches/{id}/predictions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get fixture predictions */
+        get: operations["getMatchPredictions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/matches/{id}/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get fixture statistics */
+        get: operations["getMatchStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/notifications/tokens": {
         parameters: {
             query?: never;
@@ -1119,6 +1238,117 @@ export interface operations {
             200: components["responses"]["ListEnvelopeResponse"];
             400: components["responses"]["ProblemResponse"];
             404: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchAbsences: {
+        parameters: {
+            query?: {
+                timezone?: components["parameters"]["OptionalTimezoneQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchHeadToHead: {
+        parameters: {
+            query?: {
+                last?: components["parameters"]["OptionalLastQuery"];
+                timezone?: components["parameters"]["OptionalTimezoneQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchLineups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchPlayersStatsByTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+                teamId: components["parameters"]["TeamIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchPredictions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchStatistics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
         };
     };
     registerPushToken: {

@@ -28,6 +28,10 @@ const CACHE_CONTROL_LONG = 'public, max-age=300, stale-while-revalidate=600';
 const CACHE_CONTROL_BY_ROUTE: Record<string, string> = {
   '/v1/matches': CACHE_CONTROL_SHORT,
   '/v1/matches/:id': CACHE_CONTROL_SHORT,
+  '/v1/matches/:id/events': CACHE_CONTROL_SHORT,
+  '/v1/matches/:id/statistics': CACHE_CONTROL_SHORT,
+  '/v1/matches/:id/lineups': CACHE_CONTROL_SHORT,
+  '/v1/matches/:id/players/:teamId/stats': CACHE_CONTROL_SHORT,
   '/v1/competitions/:id/matches': CACHE_CONTROL_SHORT,
   '/v1/teams/:id/fixtures': CACHE_CONTROL_SHORT,
   '/v1/teams/:id/next-fixture': CACHE_CONTROL_SHORT,
@@ -48,6 +52,9 @@ const CACHE_CONTROL_BY_ROUTE: Record<string, string> = {
 
   '/v1/competitions': CACHE_CONTROL_LONG,
   '/v1/competitions/:id': CACHE_CONTROL_LONG,
+  '/v1/matches/:id/head-to-head': CACHE_CONTROL_LONG,
+  '/v1/matches/:id/predictions': CACHE_CONTROL_LONG,
+  '/v1/matches/:id/absences': CACHE_CONTROL_LONG,
   '/v1/competitions/:id/standings': CACHE_CONTROL_LONG,
   '/v1/competitions/:id/player-stats': CACHE_CONTROL_LONG,
   '/v1/competitions/:id/transfers': CACHE_CONTROL_LONG,

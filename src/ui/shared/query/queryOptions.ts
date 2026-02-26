@@ -54,5 +54,12 @@ export const featureQueryOptions = {
   },
   matches: {
     details: { staleTime: 60_000, retry: 2 },
+    events: { staleTime: 15_000, retry: 2 },
+    statistics: { staleTime: 15_000, retry: 2 },
+    lineups: { staleTime: 30_000, retry: 2 },
+    h2h: { staleTime: 10 * 60_000, retry: 1 },
+    predictions: { staleTime: 10 * 60_000, retry: 1 },
+    playersStats: { staleTime: 20_000, retry: 2 },
+    absences: { staleTime: 30 * 60_000, retry: 1 },
   },
 } satisfies Record<string, Record<string, QueryTimingOptions>>;

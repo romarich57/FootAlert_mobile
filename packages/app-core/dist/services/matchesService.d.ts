@@ -15,6 +15,38 @@ export declare function createMatchesReadService({ http, telemetry }: MatchesSer
         timezone: string;
         signal?: AbortSignal;
     }): Promise<T | null>;
+    fetchFixtureEvents<T = unknown>(params: {
+        fixtureId: string;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
+    fetchFixtureStatistics<T = unknown>(params: {
+        fixtureId: string;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
+    fetchFixtureLineups<T = unknown>(params: {
+        fixtureId: string;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
+    fetchFixtureHeadToHead<T = unknown>(params: {
+        fixtureId: string;
+        timezone?: string;
+        last?: number;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
+    fetchFixturePredictions<T = unknown>(params: {
+        fixtureId: string;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
+    fetchFixturePlayersStatsByTeam<T = unknown>(params: {
+        fixtureId: string;
+        teamId: string;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
+    fetchFixtureAbsences<T = unknown>(params: {
+        fixtureId: string;
+        timezone?: string;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
 };
 export {};
 //# sourceMappingURL=matchesService.d.ts.map
