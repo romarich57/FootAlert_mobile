@@ -269,7 +269,7 @@ describe('CompetitionTeamStatsTab', () => {
     expect(await screen.findByTestId('competition-team-stats-advanced-loading')).toBeTruthy();
   });
 
-  it('shows advanced unavailable and partial states correctly', async () => {
+  it('shows advanced partial state when some advanced metrics are unavailable', async () => {
     mockedUseCompetitionTeamStats.mockImplementation(
       ({ advancedEnabled }) =>
         createHookResult({
@@ -294,30 +294,36 @@ describe('CompetitionTeamStatsTab', () => {
     fireEvent.press(screen.getByTestId('competition-team-stats-advanced-load'));
 
     expect(await screen.findByText(i18n.t('competitionDetails.teamStats.advanced.partial'))).toBeTruthy();
+  });
 
-    mockedUseCompetitionTeamStats.mockReturnValue(
-      createHookResult({
-        hasAdvancedData: false,
-        advanced: {
-          ...createHookResult().advanced,
-          unavailableMetrics: ['xGPerMatch', 'shotsPerMatch'],
-          leaderboards: {
-            ...createHookResult().advanced.leaderboards,
-            cleanSheets: {
-              metric: 'cleanSheets',
-              sortOrder: 'desc',
-              items: [],
+  it('hides advanced section when loaded advanced stats are empty', async () => {
+    mockedUseCompetitionTeamStats.mockImplementation(
+      ({ advancedEnabled: _advancedEnabled }) =>
+        createHookResult({
+          hasAdvancedData: false,
+          advanced: {
+            ...createHookResult().advanced,
+            unavailableMetrics: ['xGPerMatch', 'shotsPerMatch'],
+            leaderboards: {
+              ...createHookResult().advanced.leaderboards,
+              cleanSheets: {
+                metric: 'cleanSheets',
+                sortOrder: 'desc',
+                items: [],
+              },
             },
           },
-        },
-      }) as never,
+          isAdvancedLoading: false,
+        }) as never,
     );
 
     renderWithAppProviders(<CompetitionTeamStatsTab competitionId={61} season={2025} />);
 
     fireEvent.press(screen.getByTestId('competition-team-stats-advanced-load'));
 
-    expect(await screen.findByTestId('competition-team-stats-advanced-unavailable')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByTestId('competition-team-stats-section-advanced')).toBeNull();
+    });
   });
 
   it('keeps chart rendering with expected testIDs and values', () => {

@@ -129,9 +129,14 @@ function createStyles(colors: ThemeColors) {
             backgroundColor: colors.surfaceElevated,
         },
         ratingText: {
-            color: colors.background,
             fontSize: 14,
             fontWeight: '700',
+        },
+        ratingTextTinted: {
+            color: colors.background,
+        },
+        ratingTextMuted: {
+            color: colors.textMuted,
         },
         yellowCard: {
             width: 12,
@@ -184,12 +189,14 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
 
             const ratingVal = playerStats.rating ? Number.parseFloat(playerStats.rating) : NaN;
             let ratingStyle = styles.ratingNone;
+            let ratingTextStyle = styles.ratingTextMuted;
             if (!isNaN(ratingVal)) {
                 if (ratingVal >= 7.0) {
                     ratingStyle = styles.ratingHigh;
                 } else {
                     ratingStyle = styles.ratingLow;
                 }
+                ratingTextStyle = styles.ratingTextTinted;
             }
 
             const dateObj = new Date(date ?? '');
@@ -285,7 +292,7 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                             )}
 
                             <View style={[styles.ratingBox, ratingStyle]}>
-                                <Text style={styles.ratingText}>
+                                <Text style={[styles.ratingText, ratingTextStyle]}>
                                     {!isNaN(ratingVal) ? toDisplayValue(playerStats.rating) : '-'}
                                 </Text>
                             </View>

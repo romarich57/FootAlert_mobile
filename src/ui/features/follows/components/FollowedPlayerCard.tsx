@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Image, StyleSheet, Text, View, Pressable } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
@@ -34,6 +34,9 @@ function createStyles(colors: ThemeColors) {
     },
     contentPressable: {
       gap: 8,
+    },
+    contentPressableLocked: {
+      opacity: 0.65,
     },
     top: {
       flexDirection: 'row',
@@ -94,6 +97,18 @@ function createStyles(colors: ThemeColors) {
       gap: 8,
       marginTop: 12,
     },
+    lockStateRow: {
+      marginTop: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    lockReason: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+      flexShrink: 1,
+    },
     statBox: {
       borderRadius: 8,
       borderWidth: 1,
@@ -130,6 +145,9 @@ type FollowedPlayerCardProps = {
   goalsLabel: string;
   assistsLabel: string;
   isEditMode?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  isCheckingAvailability?: boolean;
 };
 
 export function FollowedPlayerCard({
@@ -141,20 +159,25 @@ export function FollowedPlayerCard({
   goalsLabel,
   assistsLabel,
   isEditMode,
+  disabled = false,
+  disabledReason,
+  isCheckingAvailability = false,
 }: FollowedPlayerCardProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const localizedPosition = localizePlayerPosition(card.position, t);
+  const isLocked = disabled || isCheckingAvailability;
 
   return (
     <View style={styles.card}>
       <Pressable
-        disabled={!onPressPlayer || isEditMode}
+        disabled={!onPressPlayer || isEditMode || isLocked}
         onPress={() => onPressPlayer?.(card.playerId)}
         accessibilityRole="button"
+        accessibilityState={{ disabled: Boolean(!onPressPlayer || isEditMode || isLocked) }}
         accessibilityLabel={toDisplayValue(card.playerName)}
-        style={styles.contentPressable}
+        style={[styles.contentPressable, isLocked ? styles.contentPressableLocked : null]}
       >
         <View style={styles.top}>
           <Image source={{ uri: card.playerPhoto }} style={styles.playerPhoto} resizeMode="cover" />
@@ -189,6 +212,21 @@ export function FollowedPlayerCard({
             <Text style={styles.statValue}>{toDisplayValue(card.assists)}</Text>
           </View>
         </View>
+
+        {isLocked ? (
+          <View style={styles.lockStateRow}>
+            {isCheckingAvailability ? (
+              <ActivityIndicator size="small" color={colors.textMuted} />
+            ) : (
+              <MaterialCommunityIcons name="lock-outline" size={16} color={colors.textMuted} />
+            )}
+            {disabledReason ? (
+              <Text numberOfLines={2} style={styles.lockReason}>
+                {disabledReason}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </Pressable>
 
       <View>

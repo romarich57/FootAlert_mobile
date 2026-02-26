@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -35,6 +35,12 @@ function createStyles(colors: ThemeColors) {
             color: colors.danger,
             fontSize: 16,
         },
+        stateText: {
+            color: colors.textMuted,
+            fontSize: 15,
+            textAlign: 'center',
+            paddingHorizontal: 24,
+        },
     });
 }
 
@@ -44,7 +50,7 @@ export function CompetitionDetailsScreen() {
     const styles = useMemo(() => createStyles(colors), [colors]);
     const screenModel = useCompetitionDetailsScreenModel();
 
-    const renderTabContent = useCallback(() => {
+    const renderTabContent = () => {
         switch (screenModel.activeTab) {
             case 'standings':
                 return (
@@ -82,11 +88,17 @@ export function CompetitionDetailsScreen() {
                   />
                 );
             case 'totw':
-                return screenModel.totwData ? <CompetitionTotwTab totw={screenModel.totwData} /> : null;
+                return screenModel.totwData ? (
+                  <CompetitionTotwTab totw={screenModel.totwData} />
+                ) : (
+                  <View style={styles.centerContainer}>
+                    <Text style={styles.stateText}>{t('competitionDetails.totw.unavailable')}</Text>
+                  </View>
+                );
             default:
                 return null;
         }
-    }, [screenModel]);
+    };
 
     if (!screenModel.competition && screenModel.isCompetitionQueryLoading) {
         return (
@@ -131,6 +143,49 @@ export function CompetitionDetailsScreen() {
         );
     }
 
+    if (screenModel.isAvailabilityLoading && !screenModel.availabilitySnapshot) {
+      return (
+        <View style={styles.container}>
+          <CompetitionHeader
+            competition={screenModel.competition}
+            currentSeason={screenModel.actualSeason}
+            availableSeasons={screenModel.availableSeasons}
+            isFollowed={screenModel.isCompetitionFollowed}
+            onBack={screenModel.handleBack}
+            onToggleFollow={screenModel.handleToggleFollow}
+            onOpenSeasonPicker={screenModel.openSeasonPicker}
+          />
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.stateText}>{t('competitionDetails.states.loading')}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (
+      !screenModel.isAvailabilityLoading &&
+      screenModel.availabilitySnapshot &&
+      !screenModel.hasAnyAvailableTab
+    ) {
+      return (
+        <View style={styles.container}>
+          <CompetitionHeader
+            competition={screenModel.competition}
+            currentSeason={screenModel.actualSeason}
+            availableSeasons={screenModel.availableSeasons}
+            isFollowed={screenModel.isCompetitionFollowed}
+            onBack={screenModel.handleBack}
+            onToggleFollow={screenModel.handleToggleFollow}
+            onOpenSeasonPicker={screenModel.openSeasonPicker}
+          />
+          <View style={styles.centerContainer}>
+            <Text style={styles.stateText}>{t('competitionDetails.states.noAvailableData')}</Text>
+          </View>
+        </View>
+      );
+    }
+
     return (
         <View style={styles.container}>
             <CompetitionHeader
@@ -143,11 +198,13 @@ export function CompetitionDetailsScreen() {
                 onOpenSeasonPicker={screenModel.openSeasonPicker}
             />
 
-            <CompetitionTabs
-                activeTab={screenModel.activeTab}
-                tabs={screenModel.tabs}
-                onTabChange={screenModel.setActiveTab}
-            />
+            {screenModel.tabs.length > 0 ? (
+              <CompetitionTabs
+                  activeTab={screenModel.activeTab}
+                  tabs={screenModel.tabs}
+                  onTabChange={screenModel.setActiveTab}
+              />
+            ) : null}
 
             <View style={styles.content}>
                 {renderTabContent()}

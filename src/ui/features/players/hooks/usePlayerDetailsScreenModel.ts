@@ -7,6 +7,7 @@ import { usePlayerMatches } from '@ui/features/players/hooks/usePlayerMatches';
 import { usePlayerStatsCatalog } from '@ui/features/players/hooks/usePlayerStatsCatalog';
 import { usePlayerStats } from '@ui/features/players/hooks/usePlayerStats';
 import type { PlayerTabType } from '@ui/features/players/components/PlayerTabs';
+import { firstAvailableTab, hasAnyPresentValue, type TabAvailability } from '@ui/shared/availability';
 import type {
   PlayerProfileCompetitionStats,
   PlayerSeasonStatsDataset,
@@ -97,11 +98,7 @@ export function usePlayerDetailsScreenModel({
     leagueId: null,
   });
 
-  const isMatchesTabActive = activeTab === 'matchs';
-  const isStatsTabActive = activeTab === 'stats';
-  const isCareerTabActive = activeTab === 'carriere';
-  const isProfileTabActive = activeTab === 'profil';
-  const shouldLoadCareer = isCareerTabActive || isStatsTabActive || isProfileTabActive;
+  const shouldLoadCareer = true;
 
   const {
     profile,
@@ -120,20 +117,22 @@ export function usePlayerDetailsScreenModel({
   const {
     matches,
     isLoading: isMatchesLoading,
+    isError: isMatchesError,
     dataUpdatedAt: matchesDataUpdatedAt,
   } = usePlayerMatches(
     playerId,
     teamId,
     selectedSeason,
-    isMatchesTabActive && Boolean(teamId),
+    Boolean(teamId),
   );
 
   const {
     competitions: statsCompetitions,
     defaultSelection: statsDefaultSelection,
     isLoading: isStatsCatalogLoading,
+    isError: isStatsCatalogError,
     dataUpdatedAt: statsCatalogDataUpdatedAt,
-  } = usePlayerStatsCatalog(playerId, isStatsTabActive);
+  } = usePlayerStatsCatalog(playerId, true);
 
   const statsSeason =
     statsSelection.season ?? statsDefaultSelection.season ?? currentSeason;
@@ -141,17 +140,19 @@ export function usePlayerDetailsScreenModel({
   const {
     stats: statsDataset,
     isLoading: isStatsDatasetLoading,
+    isError: isStatsDatasetError,
     dataUpdatedAt: statsDataUpdatedAt,
   } = usePlayerStats(
     playerId,
     statsSeason,
-    isStatsTabActive,
+    true,
   );
 
   const {
     careerSeasons,
     careerTeams,
     isLoading: isCareerLoading,
+    isError: isCareerError,
     dataUpdatedAt: careerDataUpdatedAt,
   } = usePlayerCareer(playerId, shouldLoadCareer);
 
@@ -322,6 +323,94 @@ export function usePlayerDetailsScreenModel({
     });
   }, []);
 
+  const tabAvailability = useMemo<Array<TabAvailability<PlayerTabType>>>(() => {
+    const profileHasData =
+      Boolean(profile) ||
+      hasAnyPresentValue(characteristics as Record<string, unknown> | null) ||
+      Boolean(profileCompetitionStats) ||
+      Boolean(profilePositions) ||
+      profileTrophiesByClub.length > 0;
+    const matchesHasData = matches.length > 0;
+    const statsHasData = hasAnyPresentValue(stats as Record<string, unknown> | null);
+    const careerHasData = careerSeasons.length > 0 || careerTeams.length > 0;
+
+    const resolveState = (
+      hasData: boolean,
+      isLoading: boolean,
+      isError: boolean,
+    ): 'available' | 'missing' | 'unknown' => {
+      if (hasData) {
+        return 'available';
+      }
+
+      if (isLoading) {
+        return 'unknown';
+      }
+
+      if (isError) {
+        return 'unknown';
+      }
+
+      return 'missing';
+    };
+
+    return [
+      {
+        key: 'profil',
+        state: resolveState(profileHasData, isProfileLoading && !profileHasData, isProfileError && !profileHasData),
+      },
+      {
+        key: 'matchs',
+        state: resolveState(matchesHasData, isMatchesLoading && !matchesHasData, isMatchesError && !matchesHasData),
+      },
+      {
+        key: 'stats',
+        state: resolveState(
+          statsHasData,
+          (isStatsDatasetLoading || isStatsCatalogLoading) && !statsHasData,
+          (isStatsDatasetError || isStatsCatalogError) && !statsHasData,
+        ),
+      },
+      {
+        key: 'carriere',
+        state: resolveState(careerHasData, isCareerLoading && !careerHasData, isCareerError && !careerHasData),
+      },
+    ];
+  }, [
+    careerSeasons.length,
+    careerTeams.length,
+    characteristics,
+    isCareerError,
+    isCareerLoading,
+    isMatchesError,
+    isMatchesLoading,
+    isProfileError,
+    isProfileLoading,
+    isStatsCatalogError,
+    isStatsCatalogLoading,
+    isStatsDatasetError,
+    isStatsDatasetLoading,
+    matches.length,
+    profile,
+    profileCompetitionStats,
+    profilePositions,
+    profileTrophiesByClub.length,
+    stats,
+  ]);
+
+  const availableTabs = useMemo(
+    () => tabAvailability.filter(tab => tab.state !== 'missing').map(tab => tab.key),
+    [tabAvailability],
+  );
+  const nextActiveTab = useMemo(
+    () => firstAvailableTab(tabAvailability, activeTab),
+    [activeTab, tabAvailability],
+  );
+  const hasAnyAvailableTab = useMemo(
+    () => tabAvailability.some(tab => tab.state === 'available'),
+    [tabAvailability],
+  );
+
   return {
     currentSeason,
     selectedSeason,
@@ -334,6 +423,10 @@ export function usePlayerDetailsScreenModel({
     basicSeasonStats,
     isProfileLoading,
     isProfileError,
+    availableTabs,
+    tabAvailability,
+    nextActiveTab,
+    hasAnyAvailableTab,
     matches,
     isMatchesLoading,
     stats,

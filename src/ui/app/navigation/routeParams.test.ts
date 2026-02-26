@@ -29,6 +29,15 @@ describe('routeParams', () => {
 
     navigate.mockClear();
     expect(
+      safeNavigateEntity(navigation, 'TeamDetails', '42', { initialTab: 'squad' }),
+    ).toBe(true);
+    expect(navigate).toHaveBeenCalledWith('TeamDetails', {
+      teamId: '42',
+      initialTab: 'squad',
+    });
+
+    navigate.mockClear();
+    expect(
       safeNavigateEntity(navigation, 'PlayerDetails', 'invalid'),
     ).toBe(false);
     expect(navigate).not.toHaveBeenCalled();

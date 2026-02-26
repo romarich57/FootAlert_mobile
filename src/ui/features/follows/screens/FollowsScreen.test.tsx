@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,6 +9,8 @@ import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedP
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { useFollowsTrends } from '@ui/features/follows/hooks/useFollowsTrends';
+import { fetchPlayerAvailabilitySnapshot } from '@ui/features/players/hooks/usePlayerAvailability';
+import { fetchTeamAvailabilitySnapshot } from '@ui/features/teams/hooks/useTeamAvailability';
 import i18n from '@ui/shared/i18n';
 
 jest.mock('@react-navigation/native', () => {
@@ -23,6 +25,24 @@ jest.mock('@ui/features/follows/hooks/useFollowsActions');
 jest.mock('@ui/features/follows/hooks/useFollowedTeamsCards');
 jest.mock('@ui/features/follows/hooks/useFollowedPlayersCards');
 jest.mock('@ui/features/follows/hooks/useFollowsTrends');
+jest.mock('@ui/features/teams/hooks/useTeamAvailability', () => ({
+  fetchTeamAvailabilitySnapshot: jest.fn(async () => ({
+    entityId: '529',
+    state: 'available',
+    tabs: [{ key: 'overview', state: 'available' }],
+    hasAnyTab: true,
+    checkedAt: Date.now(),
+  })),
+}));
+jest.mock('@ui/features/players/hooks/usePlayerAvailability', () => ({
+  fetchPlayerAvailabilitySnapshot: jest.fn(async () => ({
+    entityId: '278',
+    state: 'available',
+    tabs: [{ key: 'profil', state: 'available' }],
+    hasAnyTab: true,
+    checkedAt: Date.now(),
+  })),
+}));
 jest.mock('@ui/app/providers/ThemeProvider', () => ({
   useAppTheme: () => ({
     colors: {
@@ -55,6 +75,8 @@ const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 const mockedUseFollowedTeamsCards = jest.mocked(useFollowedTeamsCards);
 const mockedUseFollowedPlayersCards = jest.mocked(useFollowedPlayersCards);
 const mockedUseFollowsTrends = jest.mocked(useFollowsTrends);
+const mockedFetchTeamAvailabilitySnapshot = jest.mocked(fetchTeamAvailabilitySnapshot);
+const mockedFetchPlayerAvailabilitySnapshot = jest.mocked(fetchPlayerAvailabilitySnapshot);
 
 const navigateMock = jest.fn();
 
@@ -143,6 +165,21 @@ describe('FollowsScreen', () => {
       ],
       isLoading: false,
     } as never);
+
+    mockedFetchTeamAvailabilitySnapshot.mockResolvedValue({
+      entityId: '529',
+      state: 'available',
+      tabs: [{ key: 'overview', state: 'available' }],
+      hasAnyTab: true,
+      checkedAt: Date.now(),
+    } as never);
+    mockedFetchPlayerAvailabilitySnapshot.mockResolvedValue({
+      entityId: '278',
+      state: 'available',
+      tabs: [{ key: 'profil', state: 'available' }],
+      hasAnyTab: true,
+      checkedAt: Date.now(),
+    } as never);
   });
 
   it('renders follows title and trends', () => {
@@ -160,10 +197,14 @@ describe('FollowsScreen', () => {
     expect(screen.getByText(i18n.t('follows.tabs.players'))).toBeTruthy();
   });
 
-  it('opens player details when pressing a followed player card', () => {
+  it('opens player details when pressing a followed player card', async () => {
     renderScreen();
 
     fireEvent.press(screen.getByText(i18n.t('follows.tabs.players')));
+    await waitFor(() => {
+      expect(mockedFetchPlayerAvailabilitySnapshot).toHaveBeenCalled();
+      expect(screen.getByLabelText('Kylian Mbappé').props.accessibilityState?.disabled).toBeFalsy();
+    });
     fireEvent.press(screen.getByLabelText('Kylian Mbappé'));
 
     expect(navigateMock).toHaveBeenCalledWith('PlayerDetails', {
@@ -171,14 +212,16 @@ describe('FollowsScreen', () => {
     });
   });
 
-  it('opens team details from followed team card', () => {
+  it('opens team details from followed team card', async () => {
     renderScreen();
 
+    await waitFor(() => {
+      expect(mockedFetchTeamAvailabilitySnapshot).toHaveBeenCalled();
+      expect(screen.getByLabelText('Barcelona').props.accessibilityState?.disabled).toBeFalsy();
+    });
     fireEvent.press(screen.getByLabelText('Barcelona'));
 
-    expect(navigateMock).toHaveBeenCalledWith('TeamDetails', {
-      teamId: '529',
-    });
+    expect(navigateMock).toHaveBeenCalledWith('TeamDetails', { teamId: '529' });
   });
 
   it('opens team details from team trends row', () => {
@@ -186,9 +229,7 @@ describe('FollowsScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Man City'));
 
-    expect(navigateMock).toHaveBeenCalledWith('TeamDetails', {
-      teamId: '50',
-    });
+    expect(navigateMock).toHaveBeenCalledWith('TeamDetails', { teamId: '50' });
   });
 
   it('renders offline no-cache state when offline and without trends data', () => {

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Image, StyleSheet, Text, View, Pressable } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View, Pressable } from 'react-native';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import type { FollowedTeamCard as FollowedTeamCardType } from '@ui/features/follows/types/follows.types';
@@ -47,6 +47,9 @@ function createStyles(colors: ThemeColors) {
     },
     contentPressable: {
       gap: 12,
+    },
+    contentPressableLocked: {
+      opacity: 0.65,
     },
     topRow: {
       flexDirection: 'row',
@@ -96,6 +99,18 @@ function createStyles(colors: ThemeColors) {
       fontSize: 14,
       fontWeight: '500',
     },
+    lockStateRow: {
+      marginTop: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    lockReason: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+      flexShrink: 1,
+    },
     removeButton: {
       padding: 4,
       backgroundColor: 'rgba(255,0,0,0.1)',
@@ -112,6 +127,9 @@ type FollowedTeamCardProps = {
   onPressTeam?: (teamId: string) => void;
   noNextMatchLabel: string;
   isEditMode?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  isCheckingAvailability?: boolean;
 };
 
 export function FollowedTeamCard({
@@ -122,25 +140,31 @@ export function FollowedTeamCard({
   onPressTeam,
   noNextMatchLabel,
   isEditMode,
+  disabled = false,
+  disabledReason,
+  isCheckingAvailability = false,
 }: FollowedTeamCardProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const teamName = toDisplayValue(card.teamName);
   const opponentTeamName = toDisplayValue(card.nextMatch?.opponentTeamName);
+  const isLocked = disabled || isCheckingAvailability;
 
   return (
     <View style={styles.card}>
       <Pressable
         accessibilityRole="button"
+        accessibilityState={{ disabled: Boolean(isEditMode || isLocked || !onPressTeam) }}
         accessibilityLabel={teamName}
+        disabled={isEditMode || isLocked || !onPressTeam}
         onPress={() => {
-          if (isEditMode || !onPressTeam) {
+          if (isEditMode || isLocked || !onPressTeam) {
             return;
           }
 
           onPressTeam(card.teamId);
         }}
-        style={styles.contentPressable}
+        style={[styles.contentPressable, isLocked ? styles.contentPressableLocked : null]}
       >
         <View style={styles.topRow}>
           <Image source={{ uri: card.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
@@ -163,6 +187,21 @@ export function FollowedTeamCard({
             <Text style={styles.noMatch}>{noNextMatchLabel}</Text>
           )}
         </View>
+
+        {isLocked ? (
+          <View style={styles.lockStateRow}>
+            {isCheckingAvailability ? (
+              <ActivityIndicator size="small" color={colors.textMuted} />
+            ) : (
+              <MaterialCommunityIcons name="lock-outline" size={16} color={colors.textMuted} />
+            )}
+            {disabledReason ? (
+              <Text numberOfLines={2} style={styles.lockReason}>
+                {disabledReason}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </Pressable>
 
       <View>

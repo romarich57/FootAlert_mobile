@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -35,6 +35,11 @@ export function PlayerDetailsScreen() {
       playerId: safePlayerId ?? '',
       activeTab,
     });
+    useEffect(() => {
+      if (screenModel.nextActiveTab && screenModel.nextActiveTab !== activeTab) {
+        setActiveTab(screenModel.nextActiveTab);
+      }
+    }, [activeTab, screenModel.nextActiveTab]);
     const offlineUi = useOfflineUiState({
         hasData: screenModel.hasCachedData,
         isLoading:
@@ -94,6 +99,14 @@ export function PlayerDetailsScreen() {
             </View>
         );
     }
+
+    if (!screenModel.hasAnyAvailableTab) {
+      return (
+        <View style={[styles.center, { backgroundColor: colors.background }]}>
+          <Text style={{ color: colors.textMuted }}>{t('playerDetails.states.noAvailableData')}</Text>
+        </View>
+      );
+    }
     const profile = screenModel.profile;
 
     let tabContent: React.ReactNode = null;
@@ -120,8 +133,14 @@ export function PlayerDetailsScreen() {
             );
             break;
         case 'stats':
-            tabContent = screenModel.isStatsLoading || !screenModel.stats ? (
+            tabContent = screenModel.isStatsLoading ? (
                 <ActivityIndicator style={styles.loader} color={colors.primary} />
+            ) : !screenModel.stats ? (
+              <View style={styles.center}>
+                <Text style={{ color: colors.textMuted }}>
+                  {t('playerDetails.stats.states.noStatsAvailable')}
+                </Text>
+              </View>
             ) : (
                 <PlayerStatsTab
                     stats={screenModel.stats}
@@ -159,6 +178,7 @@ export function PlayerDetailsScreen() {
             <PlayerTabs
                 selectedTab={activeTab}
                 onChangeTab={setActiveTab}
+                tabs={screenModel.availableTabs}
             />
             {offlineUi.showOfflineBanner ? (
                 <View style={styles.offlineBannerWrap}>
