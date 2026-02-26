@@ -500,7 +500,12 @@ export function PlayerProfileTab({
     : [];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      removeClippedSubviews
+      scrollEventThrottle={16}
+    >
       {infoTiles.length > 0 ? (
         <View style={styles.card}>
           <View style={styles.infoGrid}>
@@ -685,7 +690,9 @@ export function PlayerProfileTab({
                 </View>
 
                 {clubGroup.competitions.map((competition, index) => (
-                  <View key={`${clubGroup.clubId ?? 'unknown'}-${competition.competition}-${index}`}>
+                  <View
+                    key={`${clubGroup.clubId ?? 'unknown'}-${competition.competition}-${competition.count}-${competition.seasons.join('-')}`}
+                  >
                     <View style={styles.trophyCompetitionRow}>
                       <Text style={styles.trophyCount}>{competition.count}</Text>
                       <View style={styles.trophyBody}>

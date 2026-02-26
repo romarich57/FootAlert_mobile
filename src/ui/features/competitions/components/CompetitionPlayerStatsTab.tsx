@@ -2,7 +2,11 @@ import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import {
+    DEFAULT_HIT_SLOP,
+    MIN_TOUCH_TARGET,
+    type ThemeColors,
+} from '@ui/shared/theme/theme';
 import { useCompetitionPlayerStats, PlayerStatType } from '../hooks/useCompetitionPlayerStats';
 import { HeroPlayerStatCard } from './HeroPlayerStatCard';
 import { HorizontalBarChart, type HorizontalBarChartItem } from './HorizontalBarChart';
@@ -48,6 +52,10 @@ function createStyles(colors: ThemeColors) {
             backgroundColor: colors.surface,
             borderWidth: 1,
             borderColor: colors.surfaceElevated,
+            minHeight: MIN_TOUCH_TARGET,
+            minWidth: MIN_TOUCH_TARGET,
+            justifyContent: 'center',
+            alignItems: 'center',
         },
         selectorPillActive: {
             backgroundColor: colors.primary,
@@ -135,6 +143,7 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
                                 key={type.key}
                                 style={[styles.selectorPill, isActive && styles.selectorPillActive]}
                                 onPress={() => setActiveStatType(type.key)}
+                                hitSlop={DEFAULT_HIT_SLOP}
                             >
                                 <Text style={[styles.selectorText, isActive && styles.selectorTextActive]}>
                                     {type.label}

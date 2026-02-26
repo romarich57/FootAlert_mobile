@@ -1,8 +1,13 @@
 import { useMemo } from 'react';
 import { ScrollView, Pressable, Text, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import {
+    DEFAULT_HIT_SLOP,
+    MIN_TOUCH_TARGET,
+    type ThemeColors,
+} from '@ui/shared/theme/theme';
 
 export type CompetitionTabKey =
     | 'standings'
@@ -10,23 +15,22 @@ export type CompetitionTabKey =
     | 'playerStats'
     | 'teamStats'
     | 'transfers'
-    | 'totw'
-    | 'seasons';
+    | 'totw';
 
 type CompetitionTabsProps = {
     activeTab: CompetitionTabKey;
+    tabs: CompetitionTabKey[];
     onTabChange: (tab: CompetitionTabKey) => void;
 };
 
-const TABS: { key: CompetitionTabKey; labelKey: string }[] = [
-    { key: 'standings', labelKey: 'competitionDetails.tabs.standings' },
-    { key: 'matches', labelKey: 'competitionDetails.tabs.matches' },
-    { key: 'playerStats', labelKey: 'competitionDetails.tabs.playerStats' },
-    { key: 'teamStats', labelKey: 'competitionDetails.tabs.teamStats' },
-    { key: 'transfers', labelKey: 'competitionDetails.tabs.transfers' },
-    { key: 'totw', labelKey: 'competitionDetails.tabs.totw' },
-    { key: 'seasons', labelKey: 'competitionDetails.tabs.seasons' },
-];
+const TAB_LABEL_KEYS: Record<CompetitionTabKey, string> = {
+    standings: 'competitionDetails.tabs.standings',
+    matches: 'competitionDetails.tabs.matches',
+    playerStats: 'competitionDetails.tabs.playerStats',
+    teamStats: 'competitionDetails.tabs.teamStats',
+    transfers: 'competitionDetails.tabs.transfers',
+    totw: 'competitionDetails.tabs.totw',
+};
 
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
@@ -43,6 +47,10 @@ function createStyles(colors: ThemeColors) {
             paddingVertical: 12,
             paddingHorizontal: 4,
             position: 'relative',
+            minHeight: MIN_TOUCH_TARGET,
+            minWidth: MIN_TOUCH_TARGET,
+            justifyContent: 'center',
+            alignItems: 'center',
         },
         tabLabel: {
             fontSize: 15,
@@ -65,7 +73,7 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
-export function CompetitionTabs({ activeTab, onTabChange }: CompetitionTabsProps) {
+export function CompetitionTabs({ activeTab, tabs, onTabChange }: CompetitionTabsProps) {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -77,18 +85,19 @@ export function CompetitionTabs({ activeTab, onTabChange }: CompetitionTabsProps
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.contentContainer}
             >
-                {TABS.map((tab) => {
-                    const isActive = activeTab === tab.key;
+                {tabs.map(tab => {
+                    const isActive = activeTab === tab;
                     return (
                         <Pressable
-                            key={tab.key}
+                            key={tab}
                             style={styles.tab}
-                            onPress={() => onTabChange(tab.key)}
+                            onPress={() => onTabChange(tab)}
+                            hitSlop={DEFAULT_HIT_SLOP}
                         >
-                            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-                                {t(tab.labelKey)}
+                            <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null]}>
+                                {t(TAB_LABEL_KEYS[tab])}
                             </Text>
-                            {isActive && <View style={styles.indicator} />}
+                            {isActive ? <View style={styles.indicator} /> : null}
                         </Pressable>
                     );
                 })}

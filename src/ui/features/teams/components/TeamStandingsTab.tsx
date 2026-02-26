@@ -361,8 +361,11 @@ const StandingRowItem = memo(function StandingRowItem({
 
       {mode === 'form' && (
         <View style={styles.colForm}>
-          {row.form?.split('').map((char, idx) => (
-            <View key={idx} style={[styles.formBox, { backgroundColor: FORM_COLORS[char] || '#333' }]}>
+          {row.form?.split('').map((char, formSlot) => (
+            <View
+              key={`${row.teamId ?? row.teamName ?? 'team'}-form-${char}-${formSlot}`}
+              style={[styles.formBox, { backgroundColor: FORM_COLORS[char] || '#333' }]}
+            >
               <Text style={styles.formBoxText}>{formLabels[char as 'W' | 'D' | 'L'] || char}</Text>
             </View>
           ))}

@@ -1,38 +1,47 @@
 import { useQuery } from '@tanstack/react-query';
 
+import {
+  fetchLeagueTopAssists,
+  fetchLeagueTopRedCards,
+  fetchLeagueTopScorers,
+  fetchLeagueTopYellowCards,
+} from '@data/endpoints/competitionsApi';
+import {
+  mapCompetitionPlayerStatsToTotw,
+  mapPlayerStatsDtoToPlayerStats,
+} from '@data/mappers/competitionsMapper';
+import type { CompetitionTotwData } from '@ui/features/competitions/types/competitions.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
-
-export type TotwPlayer = {
-  id: number;
-  name: string;
-  photo: string;
-  position: string;
-  gridX: number;
-  gridY: number;
-  rating: string;
-};
-
-export type TeamOfTheWeek = {
-  round: string;
-  players: TotwPlayer[];
-};
 
 export function useCompetitionTotw(
   leagueId: number | undefined,
   season: number | undefined,
-  round: string | undefined,
 ) {
-  return useQuery<TeamOfTheWeek | null, Error>({
-    queryKey: queryKeys.competitions.totw(leagueId, season, round),
-    queryFn: async () => {
-      if (!leagueId || !season || !round) {
+  return useQuery<CompetitionTotwData | null, Error>({
+    queryKey: queryKeys.competitions.totw(leagueId, season),
+    queryFn: async ({ signal }) => {
+      if (!leagueId || !season) {
         return null;
       }
 
-      return null;
+      const [topScorers, topAssists, topYellowCards, topRedCards] = await Promise.all([
+        fetchLeagueTopScorers(leagueId, season, signal),
+        fetchLeagueTopAssists(leagueId, season, signal),
+        fetchLeagueTopYellowCards(leagueId, season, signal),
+        fetchLeagueTopRedCards(leagueId, season, signal),
+      ]);
+
+      const allPlayers = [
+        ...mapPlayerStatsDtoToPlayerStats(topScorers, season),
+        ...mapPlayerStatsDtoToPlayerStats(topAssists, season),
+        ...mapPlayerStatsDtoToPlayerStats(topYellowCards, season),
+        ...mapPlayerStatsDtoToPlayerStats(topRedCards, season),
+      ];
+
+      return mapCompetitionPlayerStatsToTotw(allPlayers, season);
     },
-    enabled: !!leagueId && !!season && !!round,
+    enabled: !!leagueId && !!season,
     ...featureQueryOptions.competitions.totw,
   });
 }

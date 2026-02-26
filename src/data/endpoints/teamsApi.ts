@@ -1,6 +1,7 @@
-import { bffGet } from '@data/endpoints/bffClient';
+import { createTeamsReadService } from '@app-core/services/teamsService';
+
+import { mobileReadHttpAdapter, mobileReadTelemetryAdapter } from '@data/endpoints/sharedReadServiceAdapters';
 import type {
-  ApiFootballListResponse,
   ApiFootballPagedResponse,
   TeamAdvancedStatsDto,
   TeamApiFixtureDto,
@@ -14,30 +15,23 @@ import type {
   TeamApiTransferDto,
 } from '@ui/features/teams/types/teams.types';
 
+const teamsReadService = createTeamsReadService({
+  http: mobileReadHttpAdapter,
+  telemetry: mobileReadTelemetryAdapter,
+});
+
 export async function fetchTeamDetails(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<TeamApiTeamDetailsDto | null> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiTeamDetailsDto>>(
-    `/teams/${encodeURIComponent(teamId)}`,
-    undefined,
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return teamsReadService.fetchTeamDetails<TeamApiTeamDetailsDto>(teamId, signal);
 }
 
 export async function fetchTeamLeagues(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<TeamApiLeagueDto[]> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiLeagueDto>>(
-    `/teams/${encodeURIComponent(teamId)}/leagues`,
-    undefined,
-    { signal },
-  );
-
-  return payload.response ?? [];
+  return teamsReadService.fetchTeamLeagues<TeamApiLeagueDto>(teamId, signal);
 }
 
 type FetchTeamFixturesParams = {
@@ -52,18 +46,7 @@ export async function fetchTeamFixtures(
   params: FetchTeamFixturesParams,
   signal?: AbortSignal,
 ): Promise<TeamApiFixtureDto[]> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiFixtureDto>>(
-    `/teams/${encodeURIComponent(params.teamId)}/fixtures`,
-    {
-      season: params.season,
-      leagueId: params.leagueId,
-      timezone: params.timezone,
-      next: params.next,
-    },
-    { signal },
-  );
-
-  return payload.response ?? [];
+  return teamsReadService.fetchTeamFixtures<TeamApiFixtureDto>(params, signal);
 }
 
 export async function fetchTeamNextFixture(
@@ -71,15 +54,7 @@ export async function fetchTeamNextFixture(
   timezone: string,
   signal?: AbortSignal,
 ): Promise<TeamApiFixtureDto | null> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiFixtureDto>>(
-    `/teams/${encodeURIComponent(teamId)}/next-fixture`,
-    {
-      timezone,
-    },
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return teamsReadService.fetchTeamNextFixture<TeamApiFixtureDto>(teamId, timezone, signal);
 }
 
 export async function fetchLeagueStandings(
@@ -87,16 +62,7 @@ export async function fetchLeagueStandings(
   season: number,
   signal?: AbortSignal,
 ): Promise<TeamApiStandingsDto | null> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiStandingsDto>>(
-    '/teams/standings',
-    {
-      leagueId,
-      season,
-    },
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return teamsReadService.fetchLeagueStandings<TeamApiStandingsDto>(leagueId, season, signal);
 }
 
 export async function fetchTeamStatistics(
@@ -105,16 +71,12 @@ export async function fetchTeamStatistics(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<TeamApiStatisticsDto | null> {
-  const payload = await bffGet<{ response?: TeamApiStatisticsDto }>(
-    `/teams/${encodeURIComponent(teamId)}/stats`,
-    {
-      leagueId,
-      season,
-    },
-    { signal },
+  return teamsReadService.fetchTeamStatistics<TeamApiStatisticsDto>(
+    leagueId,
+    season,
+    teamId,
+    signal,
   );
-
-  return payload.response ?? null;
 }
 
 export async function fetchTeamAdvancedStats(
@@ -123,16 +85,12 @@ export async function fetchTeamAdvancedStats(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<TeamAdvancedStatsDto | null> {
-  const payload = await bffGet<{ response?: TeamAdvancedStatsDto }>(
-    `/teams/${encodeURIComponent(teamId)}/advanced-stats`,
-    {
-      leagueId,
-      season,
-    },
-    { signal },
+  return teamsReadService.fetchTeamAdvancedStats<TeamAdvancedStatsDto>(
+    leagueId,
+    season,
+    teamId,
+    signal,
   );
-
-  return payload.response ?? null;
 }
 
 type FetchTeamPlayersParams = {
@@ -146,18 +104,9 @@ export async function fetchTeamPlayers(
   params: FetchTeamPlayersParams,
   signal?: AbortSignal,
 ): Promise<ApiFootballPagedResponse<TeamApiPlayerDto>> {
-  const payload = await bffGet<ApiFootballPagedResponse<TeamApiPlayerDto>>(
-    `/teams/${encodeURIComponent(params.teamId)}/players`,
-    {
-      leagueId: params.leagueId,
-      season: params.season,
-      page: params.page,
-    },
-    { signal },
-  );
-
+  const payload = await teamsReadService.fetchTeamPlayers<TeamApiPlayerDto>(params, signal);
   return {
-    response: payload.response ?? [],
+    response: payload.response,
     paging: payload.paging,
   };
 }
@@ -166,37 +115,19 @@ export async function fetchTeamSquad(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<TeamApiSquadDto | null> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiSquadDto>>(
-    `/teams/${encodeURIComponent(teamId)}/squad`,
-    undefined,
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return teamsReadService.fetchTeamSquad<TeamApiSquadDto>(teamId, signal);
 }
 
 export async function fetchTeamTransfers(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<TeamApiTransferDto[]> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiTransferDto>>(
-    `/teams/${encodeURIComponent(teamId)}/transfers`,
-    undefined,
-    { signal },
-  );
-
-  return payload.response ?? [];
+  return teamsReadService.fetchTeamTransfers<TeamApiTransferDto>(teamId, signal);
 }
 
 export async function fetchTeamTrophies(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<TeamApiTrophyDto[]> {
-  const payload = await bffGet<ApiFootballListResponse<TeamApiTrophyDto>>(
-    `/teams/${encodeURIComponent(teamId)}/trophies`,
-    undefined,
-    { signal },
-  );
-
-  return payload.response ?? [];
+  return teamsReadService.fetchTeamTrophies<TeamApiTrophyDto>(teamId, signal);
 }

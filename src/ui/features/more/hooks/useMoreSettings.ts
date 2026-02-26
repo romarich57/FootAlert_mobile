@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Linking } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { appEnv } from '@data/config/env';
 import { getAppVersionLabel } from '@data/config/appMeta';
@@ -24,6 +25,7 @@ import type {
 } from '@ui/features/more/types/more.types';
 
 export function useMoreSettings() {
+  const { t } = useTranslation();
   const {
     preferences,
     isHydrated,
@@ -51,27 +53,27 @@ export function useMoreSettings() {
 
   const themeOptions = useMemo<ThemeOption[]>(
     () => [
-      { value: 'system', label: 'system' },
-      { value: 'light', label: 'light' },
-      { value: 'dark', label: 'dark' },
+      { value: 'system', label: t('more.values.theme.system') },
+      { value: 'light', label: t('more.values.theme.light') },
+      { value: 'dark', label: t('more.values.theme.dark') },
     ],
-    [],
+    [t],
   );
 
   const languageOptions = useMemo<LanguageOption[]>(
     () => [
-      { value: 'fr', label: 'fr' },
-      { value: 'en', label: 'en' },
+      { value: 'fr', label: t('more.values.language.fr') },
+      { value: 'en', label: t('more.values.language.en') },
     ],
-    [],
+    [t],
   );
 
   const measurementOptions = useMemo<MeasurementOption[]>(
     () => [
-      { value: 'metric', label: 'metric' },
-      { value: 'imperial', label: 'imperial' },
+      { value: 'metric', label: t('more.values.measurement.metric') },
+      { value: 'imperial', label: t('more.values.measurement.imperial') },
     ],
-    [],
+    [t],
   );
 
   const handleThemeChange = useCallback(

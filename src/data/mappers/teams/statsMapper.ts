@@ -430,9 +430,7 @@ export function mapTeamStatisticsToStats(
     played,
   );
 
-  const expectedGoalsFor =
-    toNumber(advancedStats?.metrics?.expectedGoalsPerMatch?.value ?? undefined) ??
-    goalsForPerMatch;
+  const expectedGoalsFor = toNumber(advancedStats?.metrics?.expectedGoalsPerMatch?.value ?? undefined);
 
   return {
     rank: standingRow?.rank ?? null,

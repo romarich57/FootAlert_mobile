@@ -26,23 +26,20 @@ function displayValue(value: string | null | undefined): string {
 function createStyles(colors: ThemeColors, topInset: number) {
     return StyleSheet.create({
         container: {
-            paddingTop: topInset + 12,
-            paddingHorizontal: 20,
-            paddingBottom: 24,
+            paddingTop: topInset + 8,
+            paddingHorizontal: 16,
+            paddingBottom: 14,
             backgroundColor: colors.background,
         },
         topBar: {
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 20,
+            marginBottom: 10,
         },
-        navTitle: {
-            color: colors.text,
-            fontSize: 20,
-            fontWeight: '700',
-            flex: 1,
-            textAlign: 'center',
+        topBarSpacer: {
+            width: 44,
+            height: 44,
         },
         iconButton: {
             backgroundColor: colors.surface,
@@ -52,19 +49,19 @@ function createStyles(colors: ThemeColors, topInset: number) {
         },
         photoContainer: {
             position: 'relative',
-            marginBottom: 16,
+            marginBottom: 10,
         },
         photoBackground: {
-            width: 100,
-            height: 100,
-            borderRadius: 50,
+            width: 82,
+            height: 82,
+            borderRadius: 41,
             borderWidth: 2,
             borderColor: colors.surfaceElevated,
             overflow: 'hidden',
             backgroundColor: '#ffffff', // Usually logos are better on white if transparent
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 10,
+            padding: 8,
         },
         photo: {
             width: '100%',
@@ -72,21 +69,21 @@ function createStyles(colors: ThemeColors, topInset: number) {
         },
         name: {
             color: colors.text,
-            fontSize: 26,
+            fontSize: 18,
             fontWeight: '800',
-            letterSpacing: -0.5,
-            marginBottom: 6,
+            letterSpacing: -0.3,
+            marginBottom: 2,
             textAlign: 'center',
         },
         subtitleRow: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            marginBottom: 16,
+            marginBottom: 10,
         },
         country: {
             color: colors.textMuted,
-            fontSize: 16,
+            fontSize: 13,
             fontWeight: '600',
             textTransform: 'uppercase',
         },
@@ -94,14 +91,14 @@ function createStyles(colors: ThemeColors, topInset: number) {
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: colors.surface,
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 20,
-            gap: 8,
+            paddingHorizontal: 14,
+            paddingVertical: 7,
+            borderRadius: 18,
+            gap: 6,
         },
         seasonText: {
             color: colors.text,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: '600',
         },
     });
@@ -136,9 +133,7 @@ export function CompetitionHeader({
                     <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
                 </IconActionButton>
 
-                <Text style={styles.navTitle} numberOfLines={1}>
-                    {displayValue(competition.name)}
-                </Text>
+                <View style={styles.topBarSpacer} />
 
                 <IconActionButton
                     accessibilityLabel={t('actions.openNotifications')}
@@ -171,7 +166,11 @@ export function CompetitionHeader({
                 </View>
 
                 {availableSeasons.length > 0 && (
-                    <Pressable style={styles.seasonSelector} onPress={handleSeasonPress}>
+                    <Pressable
+                        testID="competition-season-trigger"
+                        style={styles.seasonSelector}
+                        onPress={handleSeasonPress}
+                    >
                         <Text style={styles.seasonText}>
                             {t('competitionDetails.labels.season', {
                                 start: currentSeason,

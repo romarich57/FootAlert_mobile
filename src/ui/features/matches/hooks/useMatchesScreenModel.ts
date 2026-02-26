@@ -9,6 +9,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import { hasLiveMatches } from '@data/mappers/fixturesMapper';
 import { useMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
@@ -137,6 +138,7 @@ export function useMatchesScreenModel() {
   const [notificationPrefs, setNotificationPrefs] = useState<MatchNotificationPrefs>(
     DEFAULT_MATCH_NOTIFICATION_PREFS,
   );
+  const [consecutiveSlowSamples, setConsecutiveSlowSamples] = useState(0);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
@@ -157,6 +159,20 @@ export function useMatchesScreenModel() {
     [followedTeamIdsQuery.data],
   );
   const lastUpdatedAt = matchesQuery.data?.fetchedAt ?? null;
+
+  useEffect(() => {
+    if (!matchesQuery.data && !matchesQuery.error) {
+      return;
+    }
+
+    setConsecutiveSlowSamples(current => {
+      if (matchesQuery.isSlowNetwork) {
+        return Math.min(current + 1, 10);
+      }
+
+      return 0;
+    });
+  }, [matchesQuery.data, matchesQuery.error, matchesQuery.isSlowNetwork]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
@@ -186,11 +202,16 @@ export function useMatchesScreenModel() {
   const hasVisibleMatches = filteredSections.some(section => section.matches.length > 0);
   const hasLive = useMemo(() => hasLiveMatches(baseSections), [baseSections]);
   const refreshEnabled = isFocused && appState === 'active' && !isOffline;
+  const networkLiteMode =
+    isOffline ||
+    netInfo.details?.isConnectionExpensive === true ||
+    consecutiveSlowSamples >= 3;
 
   useMatchesRefresh({
     enabled: refreshEnabled,
     hasLiveMatches: hasLive,
     isSlowNetwork: matchesQuery.isSlowNetwork,
+    networkLiteMode,
     refetch: matchesQuery.refetch,
   });
 
@@ -203,18 +224,14 @@ export function useMatchesScreenModel() {
 
   const handlePressMatch = useCallback(
     (match: MatchItem) => {
-      navigation.navigate('MatchDetails', { matchId: match.fixtureId });
+      safeNavigateEntity(navigation, 'MatchDetails', match.fixtureId);
     },
     [navigation],
   );
 
   const handlePressTeam = useCallback(
     (selectedTeamId: string) => {
-      if (!selectedTeamId) {
-        return;
-      }
-
-      navigation.navigate('TeamDetails', { teamId: selectedTeamId });
+      safeNavigateEntity(navigation, 'TeamDetails', selectedTeamId);
     },
     [navigation],
   );

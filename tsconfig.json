@@ -14,6 +14,18 @@
       ],
       "@ui/*": [
         "src/ui/*"
+      ],
+      "@app-core": [
+        "packages/app-core/src/index"
+      ],
+      "@app-core/*": [
+        "packages/app-core/src/*"
+      ],
+      "@api-contract": [
+        "packages/api-contract/generated/types"
+      ],
+      "@api-contract/*": [
+        "packages/api-contract/generated/*"
       ]
     },
     "strict": true,
@@ -27,6 +39,9 @@
   "exclude": [
     "**/node_modules",
     "**/Pods",
-    "footalert-bff/**"
+    "footalert-bff/**",
+    "web/**",
+    "desktop/**",
+    "packages/api-contract/**"
   ]
 }

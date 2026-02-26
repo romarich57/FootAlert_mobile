@@ -13,7 +13,7 @@ BFF (Backend For Frontend) for the FootAlert mobile app.
 
 1. Copy `.env.example` to `.env`.
 2. Set `API_FOOTBALL_KEY`.
-3. For proxy/staging/prod set `TRUST_PROXY_HOPS` and `CORS_ALLOWED_ORIGINS`.
+3. For proxy/staging/prod set `TRUST_PROXY_HOPS` and `CORS_ALLOWED_ORIGINS` (or `WEB_APP_ORIGIN`).
 4. Install dependencies and start:
 
 ```bash
@@ -27,9 +27,12 @@ Security-related env vars:
 
 - `TRUST_PROXY_HOPS` (default `0` local, `1` behind trusted proxy/CDN)
 - `CORS_ALLOWED_ORIGINS` (comma-separated allowlist; mandatory when proxy/staging/prod)
+- `WEB_APP_ORIGIN` (optional single origin merged into CORS allowlist, e.g. `http://localhost:5173`)
 - `CACHE_MAX_ENTRIES` (default `1000`)
 - `CACHE_CLEANUP_INTERVAL_MS` (default `60000`)
 - `BFF_EXPOSE_ERROR_DETAILS` (default `false`)
+- `MOBILE_REQUEST_SIGNING_KEY` (shared secret for signed mobile technical routes)
+- `MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS` (default `300000`)
 
 ## Integration tests (fastify.inject)
 

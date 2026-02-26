@@ -6,14 +6,20 @@ import {
   useAppPreferences,
 } from '@ui/app/providers/AppPreferencesProvider';
 import i18n from '@ui/shared/i18n';
+import { syncPushTokenRegistration } from '@data/notifications/pushTokenLifecycle';
 import { loadAppPreferences, updateAppPreferences } from '@data/storage/appPreferencesStorage';
 import type { AppPreferences } from '@/shared/types/preferences.types';
+
+jest.mock('@data/notifications/pushTokenLifecycle', () => ({
+  syncPushTokenRegistration: jest.fn(async () => undefined),
+}));
 
 jest.mock('@data/storage/appPreferencesStorage', () => ({
   loadAppPreferences: jest.fn(),
   updateAppPreferences: jest.fn(),
 }));
 
+const mockedSyncPushTokenRegistration = jest.mocked(syncPushTokenRegistration);
 const mockedLoadAppPreferences = jest.mocked(loadAppPreferences);
 const mockedUpdateAppPreferences = jest.mocked(updateAppPreferences);
 
@@ -33,6 +39,7 @@ function wrapper({ children }: React.PropsWithChildren) {
 describe('AppPreferencesProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedSyncPushTokenRegistration.mockResolvedValue(undefined);
     mockedLoadAppPreferences.mockResolvedValue(initialPreferences);
     mockedUpdateAppPreferences.mockImplementation(async partial => ({
       ...initialPreferences,

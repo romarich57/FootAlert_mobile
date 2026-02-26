@@ -4,7 +4,11 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { MatchStatusFilter } from '@ui/features/matches/types/matches.types';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import {
+  DEFAULT_HIT_SLOP,
+  MIN_TOUCH_TARGET,
+  type ThemeColors,
+} from '@ui/shared/theme/theme';
 
 type StatusFiltersRowProps = {
   filter: MatchStatusFilter;
@@ -25,7 +29,10 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      paddingVertical: 7,
+      minHeight: MIN_TOUCH_TARGET,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 8,
       paddingHorizontal: 14,
     },
     chipActive: {
@@ -58,6 +65,10 @@ export function StatusFiltersRow({ filter, onFilterChange }: StatusFiltersRowPro
           <Pressable
             key={item}
             onPress={() => onFilterChange(item)}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: isActive }}
+            hitSlop={DEFAULT_HIT_SLOP}
             style={[styles.chip, isActive ? styles.chipActive : undefined]}
           >
             <Text style={[styles.text, isActive ? styles.textActive : undefined]}>{label}</Text>

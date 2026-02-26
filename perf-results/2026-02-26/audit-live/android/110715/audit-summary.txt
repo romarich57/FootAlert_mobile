@@ -1,0 +1,27 @@
+label=audit-live
+runs=2
+app_id=com.footalert.app
+activity=.MainActivity
+cold_start_run_dir=perf-results/2026-02-26/audit-live/android/110711
+runtime_run_dir=perf-results/2026-02-26/audit-live/android/110715
+journey_run_dir=perf-results/2026-02-26/audit-live/android/110715
+
+[cold-start-summary]
+count=2
+min_ms=670
+p50_ms=670
+p95_ms=775
+max_ms=775
+
+[runtime-summary]
+app_id=com.footalert.app
+Total frames rendered: 1
+Janky frames: 1 (100.00%)
+           TOTAL PSS:    87202            TOTAL RSS:   176624       TOTAL SWAP PSS:      315
+
+[journey-summary]
+app_id=com.footalert.app
+duration_seconds=30
+Total frames rendered: 1397
+Janky frames: 29 (2.08%)
+           TOTAL PSS:    92764            TOTAL RSS:   191200       TOTAL SWAP PSS:      118

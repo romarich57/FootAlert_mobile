@@ -279,11 +279,135 @@ export type StandingRow = {
     group: string;
     form: string;
     description: string | null;
+    home: StandingVenueStats;
+    away: StandingVenueStats;
+};
+
+export type StandingVenueStats = {
+    played: number;
+    win: number;
+    draw: number;
+    lose: number;
+    goalsFor: number;
+    goalsAgainst: number;
 };
 
 export type StandingGroup = {
     groupName: string;
     rows: StandingRow[];
+};
+
+export type CompetitionTeamStatsMetricKey =
+    | 'pointsPerMatch'
+    | 'winRate'
+    | 'goalsScoredPerMatch'
+    | 'goalsConcededPerMatch'
+    | 'goalDiffPerMatch'
+    | 'formIndex'
+    | 'formPointsPerMatch';
+
+export type CompetitionTeamHomeAwayMetricKey =
+    | 'homePPG'
+    | 'awayPPG'
+    | 'homeGoalsFor'
+    | 'awayGoalsFor'
+    | 'homeGoalsAgainst'
+    | 'awayGoalsAgainst'
+    | 'deltaHomeAwayPPG'
+    | 'deltaHomeAwayGoalsFor'
+    | 'deltaHomeAwayGoalsAgainst';
+
+export type CompetitionTeamAdvancedMetricKey =
+    | 'cleanSheets'
+    | 'failedToScore'
+    | 'xGPerMatch'
+    | 'possession'
+    | 'shotsPerMatch'
+    | 'shotsOnTargetPerMatch';
+
+export type CompetitionTeamGoalMinuteBreakdownItem = {
+    key: string;
+    label: string;
+    value: number | null;
+};
+
+export type CompetitionTeamStatsComputedRow = {
+    rank: number;
+    teamId: number;
+    teamName: string;
+    teamLogo: string;
+    points: number;
+    goalsDiff: number;
+    played: number;
+    win: number;
+    draw: number;
+    lose: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    form: string;
+    home: StandingVenueStats;
+    away: StandingVenueStats;
+    pointsPerMatch: number | null;
+    winRate: number | null;
+    goalsScoredPerMatch: number | null;
+    goalsConcededPerMatch: number | null;
+    goalDiffPerMatch: number | null;
+    formIndex: number | null;
+    formPointsPerMatch: number | null;
+    homePPG: number | null;
+    awayPPG: number | null;
+    homeGoalsFor: number | null;
+    awayGoalsFor: number | null;
+    homeGoalsAgainst: number | null;
+    awayGoalsAgainst: number | null;
+    deltaHomeAwayPPG: number | null;
+    deltaHomeAwayGoalsFor: number | null;
+    deltaHomeAwayGoalsAgainst: number | null;
+};
+
+export type CompetitionTeamAdvancedRow = {
+    teamId: number;
+    teamName: string;
+    teamLogo: string;
+    cleanSheets: number | null;
+    failedToScore: number | null;
+    xGPerMatch: number | null;
+    possession: number | null;
+    shotsPerMatch: number | null;
+    shotsOnTargetPerMatch: number | null;
+    goalMinuteBreakdown: CompetitionTeamGoalMinuteBreakdownItem[];
+};
+
+export type CompetitionTeamStatsLeaderboardItem = {
+    teamId: number;
+    teamName: string;
+    teamLogo: string;
+    value: number;
+};
+
+export type CompetitionTeamStatsSortOrder = 'asc' | 'desc';
+
+export type CompetitionTeamStatsLeaderboard<K extends string> = {
+    metric: K;
+    sortOrder: CompetitionTeamStatsSortOrder;
+    items: CompetitionTeamStatsLeaderboardItem[];
+};
+
+export type CompetitionTeamStatsSection<K extends string> = {
+    metrics: K[];
+    leaderboards: Record<K, CompetitionTeamStatsLeaderboard<K>>;
+};
+
+export type CompetitionTeamAdvancedSection = CompetitionTeamStatsSection<CompetitionTeamAdvancedMetricKey> & {
+    rows: CompetitionTeamAdvancedRow[];
+    top10TeamIds: number[];
+    unavailableMetrics: CompetitionTeamAdvancedMetricKey[];
+};
+
+export type CompetitionTeamStatsDashboardData = {
+    summary: CompetitionTeamStatsSection<CompetitionTeamStatsMetricKey>;
+    homeAway: CompetitionTeamStatsSection<CompetitionTeamHomeAwayMetricKey>;
+    advanced: CompetitionTeamAdvancedSection;
 };
 
 export type Fixture = {
@@ -350,4 +474,29 @@ export type CompetitionPlayerStat = {
     assists: number | null;
     yellowCards: number | null;
     redCards: number | null;
+};
+
+export type CompetitionTotwRole = 'GK' | 'DEF' | 'MID' | 'ATT';
+
+export type CompetitionTotwFormation = '4-3-3';
+
+export type CompetitionTotwPlayer = {
+    playerId: number;
+    playerName: string;
+    playerPhoto: string;
+    teamId: number;
+    teamName: string;
+    teamLogo: string;
+    position: string;
+    role: CompetitionTotwRole;
+    rating: number;
+    gridX: number;
+    gridY: number;
+};
+
+export type CompetitionTotwData = {
+    formation: CompetitionTotwFormation;
+    season: number;
+    averageRating: number;
+    players: CompetitionTotwPlayer[];
 };

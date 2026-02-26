@@ -9,6 +9,7 @@ const DEFAULT_TRUST_PROXY_HOPS = 0;
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
 const DEFAULT_BFF_EXPOSE_ERROR_DETAILS = false;
+const DEFAULT_MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS = 5 * 60_000;
 
 type BffEnv = {
   port: number;
@@ -21,9 +22,12 @@ type BffEnv = {
   rateLimitWindowMs: number;
   trustProxyHops: number;
   corsAllowedOrigins: string[];
+  webAppOrigin: string | null;
   cacheMaxEntries: number;
   cacheCleanupIntervalMs: number;
   bffExposeErrorDetails: boolean;
+  mobileRequestSigningKey: string | null;
+  mobileRequestSignatureMaxSkewMs: number;
 };
 
 function normalizeUrl(value: string): string {
@@ -50,6 +54,11 @@ function readApiFootballKey(): string {
   }
 
   return apiFootballKey;
+}
+
+function readOptionalSigningKey(rawValue: string | undefined): string | null {
+  const signingKey = rawValue?.trim();
+  return signingKey ? signingKey : null;
 }
 
 function readBoolean(rawValue: string | undefined, fallback: boolean): boolean {
@@ -80,6 +89,29 @@ function readCsvList(rawValue: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function readOptionalOrigin(rawValue: string | undefined): string | null {
+  const trimmed = rawValue?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.origin;
+  } catch {
+    throw new Error(`Invalid WEB_APP_ORIGIN value: "${trimmed}"`);
+  }
+}
+
+function buildCorsAllowedOrigins(rawOrigins: string | undefined, webAppOrigin: string | null): string[] {
+  const normalizedOrigins = new Set<string>(readCsvList(rawOrigins));
+  if (webAppOrigin) {
+    normalizedOrigins.add(webAppOrigin);
+  }
+
+  return [...normalizedOrigins];
+}
+
 function isProxyLikeEnvironment(trustProxyHops: number): boolean {
   const runtimeEnv = process.env.APP_ENV?.trim().toLowerCase() || process.env.NODE_ENV?.trim().toLowerCase();
   if (runtimeEnv === 'production' || runtimeEnv === 'staging') {
@@ -104,7 +136,8 @@ export const env: BffEnv = {
     DEFAULT_RATE_LIMIT_WINDOW_MS,
   ),
   trustProxyHops: readPositiveInt(process.env.TRUST_PROXY_HOPS, DEFAULT_TRUST_PROXY_HOPS),
-  corsAllowedOrigins: readCsvList(process.env.CORS_ALLOWED_ORIGINS),
+  webAppOrigin: readOptionalOrigin(process.env.WEB_APP_ORIGIN),
+  corsAllowedOrigins: [],
   cacheMaxEntries: readPositiveInt(
     process.env.CACHE_MAX_ENTRIES,
     DEFAULT_CACHE_MAX_ENTRIES,
@@ -117,7 +150,14 @@ export const env: BffEnv = {
     process.env.BFF_EXPOSE_ERROR_DETAILS,
     DEFAULT_BFF_EXPOSE_ERROR_DETAILS,
   ),
+  mobileRequestSigningKey: readOptionalSigningKey(process.env.MOBILE_REQUEST_SIGNING_KEY),
+  mobileRequestSignatureMaxSkewMs: readPositiveInt(
+    process.env.MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS,
+    DEFAULT_MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS,
+  ),
 };
+
+env.corsAllowedOrigins = buildCorsAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS, env.webAppOrigin);
 
 env.trustProxyHops = Math.max(env.trustProxyHops, 0);
 

@@ -6,6 +6,7 @@ import {
   isNotificationsPermissionGranted,
 } from '@data/permissions/notificationsPermission';
 import { getJsonValue, setJsonValue } from '@data/storage/asyncStorage';
+import { DEFAULT_LANGUAGE, resolveDeviceLanguage } from '@/shared/i18n/language';
 import type {
   AppLanguage,
   AppPreferences,
@@ -82,7 +83,7 @@ export async function resolveDefaultPreferencesFromLocale(): Promise<AppPreferen
 
   return {
     theme: 'system',
-    language: 'fr',
+    language: resolveDeviceLanguage(DEFAULT_LANGUAGE),
     currencyCode: resolveCurrencyFromLocale(),
     measurementSystem: resolveMeasurementSystemFromCountry(countryCode),
     notificationsEnabled,
@@ -122,4 +123,3 @@ export async function updateAppPreferences(
   };
   return saveAppPreferences(merged);
 }
-

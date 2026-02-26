@@ -1,8 +1,12 @@
 import {
+  mapCompetitionPlayerStatsToTotw,
   mapPlayerStatsDtoToPlayerStats,
   mapTransfersDtoToCompetitionTransfers,
 } from '@data/mappers/competitionsMapper';
-import type { CompetitionsApiTransferDto } from '@ui/features/competitions/types/competitions.types';
+import type {
+  CompetitionPlayerStat,
+  CompetitionsApiTransferDto,
+} from '@ui/features/competitions/types/competitions.types';
 
 describe('competitionsMapper transfers', () => {
   it('maps, deduplicates and sorts transfers with direction flags', () => {
@@ -284,5 +288,120 @@ describe('competitionsMapper transfers', () => {
     expect(mapped[0]?.assists).toBe(7);
     expect(mapped[0]?.yellowCards).toBe(3);
     expect(mapped[0]?.redCards).toBe(1);
+  });
+});
+
+describe('competitionsMapper totw', () => {
+  function createPlayerStat(
+    playerId: number,
+    position: string,
+    rating: string | null,
+    roleSeed: string,
+  ): CompetitionPlayerStat {
+    return {
+      playerId,
+      playerName: `${roleSeed} Player ${playerId}`,
+      playerPhoto: `https://img/${playerId}.png`,
+      teamId: playerId + 100,
+      teamName: `Team ${playerId}`,
+      teamLogo: `https://logo/${playerId}.png`,
+      position,
+      rating,
+      matchesPlayed: 20,
+      goals: 0,
+      assists: 0,
+      yellowCards: 0,
+      redCards: 0,
+    };
+  }
+
+  it('returns null when parameters are missing or invalid', () => {
+    expect(mapCompetitionPlayerStatsToTotw([], 2025)).toBeNull();
+    expect(mapCompetitionPlayerStatsToTotw([createPlayerStat(1, 'GK', '8.0', 'GK')], Number.NaN)).toBeNull();
+  });
+
+  it('builds a strict 4-3-3 TOTW, deduplicates by player and computes one-decimal average', () => {
+    const stats: CompetitionPlayerStat[] = [
+      createPlayerStat(1, 'Goalkeeper', '8.2', 'GK'),
+      createPlayerStat(1, 'Goalkeeper', '7.1', 'GK'),
+      createPlayerStat(2, 'CB', '8.0', 'DEF'),
+      createPlayerStat(3, 'LB', '7.9', 'DEF'),
+      createPlayerStat(4, 'RB', '7.8', 'DEF'),
+      createPlayerStat(5, 'Defender', '7.7', 'DEF'),
+      createPlayerStat(6, 'CM', '8.4', 'MID'),
+      createPlayerStat(7, 'DM', '8.1', 'MID'),
+      createPlayerStat(8, 'AM', '7.6', 'MID'),
+      createPlayerStat(9, 'ST', '8.1', 'ATT'),
+      createPlayerStat(9, 'ST', '9.0', 'ATT'),
+      createPlayerStat(10, 'RW', '8.8', 'ATT'),
+      createPlayerStat(11, 'LW', '8.3', 'ATT'),
+      createPlayerStat(12, 'RW', '7.5', 'ATT'),
+    ];
+
+    const result = mapCompetitionPlayerStatsToTotw(stats, 2025);
+
+    expect(result).not.toBeNull();
+    expect(result?.formation).toBe('4-3-3');
+    expect(result?.players).toHaveLength(11);
+    expect(result?.averageRating).toBe(8.2);
+
+    const roles = result?.players.reduce<Record<string, number>>((acc, player) => {
+      acc[player.role] = (acc[player.role] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    expect(roles).toEqual({
+      GK: 1,
+      DEF: 4,
+      MID: 3,
+      ATT: 3,
+    });
+
+    expect(result?.players.some(player => player.playerId === 9 && player.rating === 9.0)).toBe(true);
+    expect(result?.players.some(player => player.playerId === 1 && player.rating === 8.2)).toBe(true);
+  });
+
+  it('returns null when one mandatory role quota cannot be filled', () => {
+    const stats: CompetitionPlayerStat[] = [
+      createPlayerStat(2, 'CB', '8.0', 'DEF'),
+      createPlayerStat(3, 'LB', '7.9', 'DEF'),
+      createPlayerStat(4, 'RB', '7.8', 'DEF'),
+      createPlayerStat(5, 'Defender', '7.7', 'DEF'),
+      createPlayerStat(6, 'CM', '8.4', 'MID'),
+      createPlayerStat(7, 'DM', '8.1', 'MID'),
+      createPlayerStat(8, 'AM', '7.6', 'MID'),
+      createPlayerStat(9, 'ST', '9.0', 'ATT'),
+      createPlayerStat(10, 'RW', '8.8', 'ATT'),
+      createPlayerStat(11, 'LW', '8.3', 'ATT'),
+    ];
+
+    expect(mapCompetitionPlayerStatsToTotw(stats, 2025)).toBeNull();
+  });
+
+  it('excludes invalid ratings and still selects valid 4-3-3 players only', () => {
+    const stats: CompetitionPlayerStat[] = [
+      createPlayerStat(1, 'GK', null, 'GK'),
+      createPlayerStat(2, 'GK', '8.0', 'GK'),
+      createPlayerStat(3, 'CB', '8.0', 'DEF'),
+      createPlayerStat(4, 'LB', '7.9', 'DEF'),
+      createPlayerStat(5, 'RB', '7.8', 'DEF'),
+      createPlayerStat(6, 'Defender', '7.7', 'DEF'),
+      createPlayerStat(7, 'CM', '8.4', 'MID'),
+      createPlayerStat(8, 'DM', '8.1', 'MID'),
+      createPlayerStat(9, 'AM', '7.6', 'MID'),
+      createPlayerStat(10, 'ST', '8.9', 'ATT'),
+      createPlayerStat(11, 'RW', '8.5', 'ATT'),
+      createPlayerStat(12, 'LW', '0', 'ATT'),
+      createPlayerStat(13, 'LW', '8.2', 'ATT'),
+    ];
+
+    const result = mapCompetitionPlayerStatsToTotw(stats, 2025);
+
+    expect(result).not.toBeNull();
+    expect(result?.players).toHaveLength(11);
+    expect(result?.players.some(player => player.playerId === 1)).toBe(false);
+    expect(result?.players.some(player => player.playerId === 12)).toBe(false);
+    expect(result?.players.some(player => player.playerId === 2)).toBe(true);
+    expect(result?.players.some(player => player.playerId === 13)).toBe(true);
   });
 });

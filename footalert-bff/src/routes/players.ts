@@ -213,6 +213,9 @@ const playerMatchesQuerySchema = z
   })
   .strict();
 
+const MIN_CAREER_SEASON_YEAR = 2005;
+const CAREER_DETAILS_MAX_CONCURRENCY = 4;
+
 function normalizeString(value: string | null | undefined): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -340,6 +343,62 @@ function compareCareerSeasonsDesc(
   const firstGoals = toComparableNumber(first.goals, Number.NEGATIVE_INFINITY);
   const secondGoals = toComparableNumber(second.goals, Number.NEGATIVE_INFINITY);
   return secondGoals - firstGoals;
+}
+
+async function mapWithConcurrency<T, U>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<U>,
+): Promise<U[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const boundedConcurrency = Math.max(1, Math.min(concurrency, items.length));
+  const results = new Array<U>(items.length);
+  let nextIndex = 0;
+
+  const consume = async (): Promise<void> => {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+
+      if (currentIndex >= items.length) {
+        return;
+      }
+
+      results[currentIndex] = await worker(items[currentIndex] as T);
+    }
+  };
+
+  await Promise.all(Array.from({ length: boundedConcurrency }, () => consume()));
+  return results;
+}
+
+function buildCareerSeasonsToFetch(availableSeasons: number[]): number[] {
+  const uniqueSortedSeasons = Array.from(
+    new Set(availableSeasons.filter(value => Number.isInteger(value))),
+  ).sort((a, b) => b - a);
+
+  if (uniqueSortedSeasons.length === 0) {
+    return [];
+  }
+
+  const earliestAvailableSeason = uniqueSortedSeasons.at(-1);
+  if (typeof earliestAvailableSeason !== 'number' || earliestAvailableSeason <= MIN_CAREER_SEASON_YEAR) {
+    return uniqueSortedSeasons;
+  }
+
+  const backfilledSeasons: number[] = [];
+  for (
+    let season = earliestAvailableSeason - 1;
+    season >= MIN_CAREER_SEASON_YEAR;
+    season -= 1
+  ) {
+    backfilledSeasons.push(season);
+  }
+
+  return uniqueSortedSeasons.concat(backfilledSeasons);
 }
 
 export function mapCareerSeasons(detailsDto: PlayerDetailsResponseDto): PlayerCareerSeasonAggregate[] {
@@ -727,9 +786,7 @@ export async function registerPlayersRoutes(app: FastifyInstance): Promise<void>
       const seasonsPayload = await apiFootballGet<ApiFootballListResponse<number>>(
         `/players/seasons?player=${encodeURIComponent(params.id)}`,
       );
-      const seasons = (seasonsPayload.response ?? [])
-        .filter(value => Number.isInteger(value))
-        .sort((a, b) => b - a);
+      const seasons = buildCareerSeasonsToFetch(seasonsPayload.response ?? []);
 
       if (seasons.length === 0) {
         return {
@@ -740,19 +797,25 @@ export async function registerPlayersRoutes(app: FastifyInstance): Promise<void>
         };
       }
 
-      const detailsPayloads = await Promise.all(
-        seasons.map(async season => {
-          const payload = await withCache(
-            `players:details:career:${params.id}:${season}`,
-            60_000,
-            () =>
-              apiFootballGet<ApiFootballListResponse<PlayerDetailsResponseDto>>(
-                `/players?id=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(season))}`,
-              ),
-          );
+      const detailsPayloads = await mapWithConcurrency(
+        seasons,
+        CAREER_DETAILS_MAX_CONCURRENCY,
+        async season => {
+          try {
+            const payload = await withCache(
+              `players:details:career:${params.id}:${season}`,
+              60_000,
+              () =>
+                apiFootballGet<ApiFootballListResponse<PlayerDetailsResponseDto>>(
+                  `/players?id=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(season))}`,
+                ),
+            );
 
-          return payload.response?.[0] ?? null;
-        }),
+            return payload.response?.[0] ?? null;
+          } catch {
+            return null;
+          }
+        },
       );
 
       const allSeasons = detailsPayloads.flatMap(details =>

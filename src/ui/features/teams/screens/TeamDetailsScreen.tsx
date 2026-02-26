@@ -72,6 +72,18 @@ export function TeamDetailsScreen() {
     [model.competitions, model.selectedLeagueId],
   );
 
+  if (!model.isValidTeamId) {
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <View style={styles.stateWrap}>
+          <View style={styles.stateCard}>
+            <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <TeamHeader

@@ -8,13 +8,19 @@ export const QUERY_PERSIST_CACHE_KEY = `footalert-query-cache-${APP_CACHE_SCHEMA
 
 export const defaultQueryOptions: Pick<
   QueryObserverOptions,
-  'retry' | 'staleTime' | 'gcTime' | 'refetchOnReconnect' | 'refetchOnMount'
+  | 'retry'
+  | 'staleTime'
+  | 'gcTime'
+  | 'refetchOnReconnect'
+  | 'refetchOnMount'
+  | 'networkMode'
 > = {
   retry: 2,
   staleTime: QUERY_STALE_TIME_MS,
   gcTime: QUERY_GC_TIME_MS,
   refetchOnReconnect: true,
   refetchOnMount: false,
+  networkMode: 'offlineFirst',
 };
 
 type QueryTimingOptions = Pick<QueryObserverOptions, 'staleTime' | 'retry'>;
@@ -43,6 +49,7 @@ export const featureQueryOptions = {
     seasons: { staleTime: 24 * 60 * 60 * 1000, retry: 1 },
     playerStats: { staleTime: 60 * 60 * 1000, retry: 1 },
     teamStats: { staleTime: 5 * 60 * 1000, retry: 1 },
+    teamAdvancedStats: { staleTime: 30 * 60 * 1000, retry: 1 },
     totw: { staleTime: 24 * 60 * 60 * 1000, retry: 1 },
   },
   matches: {

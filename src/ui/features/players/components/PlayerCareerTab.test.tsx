@@ -97,4 +97,46 @@ describe('PlayerCareerTab', () => {
 
     expect(screen.queryByText('-')).toBeNull();
   });
+
+  it('sorts teams by latest career period end year (not period start)', () => {
+    const { toJSON } = renderWithAppProviders(
+      <PlayerCareerTab
+        seasons={seasons}
+        teams={[
+          {
+            team: {
+              id: '100',
+              name: 'Long Cycle FC',
+              logo: null,
+            },
+            period: '2020 - 2025',
+            matches: 30,
+            goals: 12,
+            assists: 4,
+          },
+          {
+            team: {
+              id: '101',
+              name: 'Short Cycle FC',
+              logo: null,
+            },
+            period: '2024 - 2024',
+            matches: 42,
+            goals: 25,
+            assists: 7,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('Équipe'));
+
+    const renderedTree = JSON.stringify(toJSON());
+    const longCycleIndex = renderedTree.indexOf('Long Cycle FC');
+    const shortCycleIndex = renderedTree.indexOf('Short Cycle FC');
+
+    expect(longCycleIndex).toBeGreaterThanOrEqual(0);
+    expect(shortCycleIndex).toBeGreaterThanOrEqual(0);
+    expect(longCycleIndex).toBeLessThan(shortCycleIndex);
+  });
 });

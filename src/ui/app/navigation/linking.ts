@@ -1,6 +1,7 @@
 import type { LinkingOptions } from '@react-navigation/native';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import { APP_SCHEME } from '@/shared/constants';
 
 export const linking: LinkingOptions<RootStackParamList> = {
@@ -15,10 +16,30 @@ export const linking: LinkingOptions<RootStackParamList> = {
           More: 'more',
         },
       },
-      MatchDetails: 'match/:matchId',
-      CompetitionDetails: 'competition/:competitionId',
-      TeamDetails: 'team/:teamId',
-      PlayerDetails: 'player/:playerId',
+      MatchDetails: {
+        path: 'match/:matchId',
+        parse: {
+          matchId: value => sanitizeNumericEntityId(value) ?? '',
+        },
+      },
+      CompetitionDetails: {
+        path: 'competition/:competitionId',
+        parse: {
+          competitionId: value => sanitizeNumericEntityId(value) ?? '',
+        },
+      },
+      TeamDetails: {
+        path: 'team/:teamId',
+        parse: {
+          teamId: value => sanitizeNumericEntityId(value) ?? '',
+        },
+      },
+      PlayerDetails: {
+        path: 'player/:playerId',
+        parse: {
+          playerId: value => sanitizeNumericEntityId(value) ?? '',
+        },
+      },
       SearchPlaceholder: 'search',
     },
   },

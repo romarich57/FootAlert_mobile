@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { MoreScreen } from '@ui/features/more/screens/MoreScreen';
 import { useMoreSettings } from '@ui/features/more/hooks/useMoreSettings';
@@ -124,8 +124,17 @@ function renderScreen() {
 
 describe('MoreScreen', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.clearAllMocks();
     mockedUseMoreSettings.mockReturnValue(createMoreSettingsMock());
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    cleanup();
+    jest.useRealTimers();
   });
 
   it('renders settings sections and rows', () => {

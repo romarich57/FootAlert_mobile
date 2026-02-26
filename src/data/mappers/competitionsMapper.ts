@@ -1,6 +1,9 @@
 import { normalizeNumber, normalizeRating, normalizeString } from '@data/mappers/playersMapper';
 import type {
     Competition,
+    CompetitionTotwData,
+    CompetitionTotwPlayer,
+    CompetitionTotwRole,
     CompetitionPlayerStat,
     CompetitionsApiFixtureDto,
     CompetitionsApiLeagueDto,
@@ -8,6 +11,7 @@ import type {
     CompetitionsApiStandingDto,
     CompetitionsApiTransferDto,
     Fixture,
+    StandingVenueStats,
     StandingGroup,
     StandingRow,
     Transfer,
@@ -15,6 +19,19 @@ import type {
 } from '@ui/features/competitions/types/competitions.types';
 
 type CompetitionPlayerStatistic = CompetitionsApiPlayerStatDto['statistics'][number];
+
+function mapStandingVenueStats(
+    split: CompetitionsApiStandingDto['league']['standings'][number][number]['home'],
+): StandingVenueStats {
+    return {
+        played: normalizeNumber(split?.played) ?? 0,
+        win: normalizeNumber(split?.win) ?? 0,
+        draw: normalizeNumber(split?.draw) ?? 0,
+        lose: normalizeNumber(split?.lose) ?? 0,
+        goalsFor: normalizeNumber(split?.goals?.for) ?? 0,
+        goalsAgainst: normalizeNumber(split?.goals?.against) ?? 0,
+    };
+}
 
 export function mapLeagueDtoToCompetition(dto: CompetitionsApiLeagueDto | null): Competition | null {
     if (!dto) {
@@ -60,6 +77,8 @@ export function mapStandingDtoToGroups(dto: CompetitionsApiStandingDto | null): 
                 group: groupName,
                 form: normalizeString(teamStanding.form) || '',
                 description: normalizeString(teamStanding.description),
+                home: mapStandingVenueStats(teamStanding.home),
+                away: mapStandingVenueStats(teamStanding.away),
             };
 
             groupsMap.get(groupName)?.push(row);
@@ -185,6 +204,261 @@ export function mapPlayerStatsDtoToPlayerStats(
             redCards: normalizeNumber(stats?.cards?.red),
         };
     });
+}
+
+type TotwSlot = {
+    x: number;
+    y: number;
+};
+
+type TotwCandidate = CompetitionPlayerStat & {
+    role: CompetitionTotwRole;
+    ratingValue: number;
+};
+
+const TOTW_SLOTS: Record<CompetitionTotwRole, TotwSlot[]> = {
+    ATT: [
+        { x: 22, y: 18 },
+        { x: 50, y: 14 },
+        { x: 78, y: 18 },
+    ],
+    MID: [
+        { x: 26, y: 44 },
+        { x: 50, y: 40 },
+        { x: 74, y: 44 },
+    ],
+    DEF: [
+        { x: 16, y: 68 },
+        { x: 38, y: 72 },
+        { x: 62, y: 72 },
+        { x: 84, y: 68 },
+    ],
+    GK: [{ x: 50, y: 88 }],
+};
+
+const TOTW_ROLE_COUNTS: Record<CompetitionTotwRole, number> = {
+    GK: 1,
+    DEF: 4,
+    MID: 3,
+    ATT: 3,
+};
+
+function normalizePositionToken(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '')
+        .trim();
+}
+
+function resolveTotwRole(position: string): CompetitionTotwRole | null {
+    const normalized = normalizePositionToken(position);
+    if (!normalized) {
+        return null;
+    }
+
+    if (
+        normalized === 'gk' ||
+        normalized === 'goalkeeper' ||
+        normalized.includes('keeper')
+    ) {
+        return 'GK';
+    }
+
+    if (
+        normalized === 'cb' ||
+        normalized === 'lb' ||
+        normalized === 'rb' ||
+        normalized === 'lwb' ||
+        normalized === 'rwb' ||
+        normalized.includes('defender') ||
+        normalized.includes('centerback') ||
+        normalized.includes('centreback') ||
+        normalized.includes('fullback') ||
+        normalized.includes('wingback') ||
+        normalized.includes('leftback') ||
+        normalized.includes('rightback') ||
+        normalized.includes('back')
+    ) {
+        return 'DEF';
+    }
+
+    if (
+        normalized === 'dm' ||
+        normalized === 'cm' ||
+        normalized === 'am' ||
+        normalized === 'lm' ||
+        normalized === 'rm' ||
+        normalized === 'cdm' ||
+        normalized === 'cam' ||
+        normalized.includes('midfield')
+    ) {
+        return 'MID';
+    }
+
+    if (
+        normalized === 'st' ||
+        normalized === 'cf' ||
+        normalized === 'ss' ||
+        normalized === 'lw' ||
+        normalized === 'rw' ||
+        normalized.includes('attacker') ||
+        normalized.includes('forward') ||
+        normalized.includes('striker') ||
+        normalized.includes('winger') ||
+        normalized.includes('leftwing') ||
+        normalized.includes('rightwing') ||
+        normalized.includes('avantcentre')
+    ) {
+        return 'ATT';
+    }
+
+    return null;
+}
+
+function compareTotwCandidates(first: TotwCandidate, second: TotwCandidate): number {
+    if (second.ratingValue !== first.ratingValue) {
+        return second.ratingValue - first.ratingValue;
+    }
+
+    const firstMatches = toComparableNumber(first.matchesPlayed);
+    const secondMatches = toComparableNumber(second.matchesPlayed);
+    if (secondMatches !== firstMatches) {
+        return secondMatches - firstMatches;
+    }
+
+    const firstContributions = toComparableNumber(first.goals) + toComparableNumber(first.assists);
+    const secondContributions = toComparableNumber(second.goals) + toComparableNumber(second.assists);
+    if (secondContributions !== firstContributions) {
+        return secondContributions - firstContributions;
+    }
+
+    return first.playerId - second.playerId;
+}
+
+function selectTotwLineByRole(
+    candidates: TotwCandidate[],
+    role: CompetitionTotwRole,
+    selectedIds: Set<number>,
+): TotwCandidate[] | null {
+    const selected = candidates
+        .filter(candidate => candidate.role === role && !selectedIds.has(candidate.playerId))
+        .sort(compareTotwCandidates)
+        .slice(0, TOTW_ROLE_COUNTS[role]);
+
+    if (selected.length < TOTW_ROLE_COUNTS[role]) {
+        return null;
+    }
+
+    selected.forEach(candidate => {
+        selectedIds.add(candidate.playerId);
+    });
+
+    return selected;
+}
+
+function mapTotwPlayers(role: CompetitionTotwRole, line: TotwCandidate[]): CompetitionTotwPlayer[] {
+    const slots = TOTW_SLOTS[role];
+
+    return line.map((candidate, index) => {
+        const slot = slots[index] ?? slots[slots.length - 1];
+
+        return {
+            playerId: candidate.playerId,
+            playerName: candidate.playerName,
+            playerPhoto: candidate.playerPhoto,
+            teamId: candidate.teamId,
+            teamName: candidate.teamName,
+            teamLogo: candidate.teamLogo,
+            position: candidate.position,
+            role,
+            rating: Number(candidate.ratingValue.toFixed(1)),
+            gridX: slot?.x ?? 50,
+            gridY: slot?.y ?? 50,
+        };
+    });
+}
+
+function toTotwCandidate(stat: CompetitionPlayerStat): TotwCandidate | null {
+    if (!stat.playerId || !stat.position) {
+        return null;
+    }
+
+    const role = resolveTotwRole(stat.position);
+    if (!role) {
+        return null;
+    }
+
+    const ratingValue = toComparableRating(stat.rating);
+    if (ratingValue <= 0) {
+        return null;
+    }
+
+    return {
+        ...stat,
+        role,
+        ratingValue,
+    };
+}
+
+export function mapCompetitionPlayerStatsToTotw(
+    playerStats: CompetitionPlayerStat[],
+    season: number,
+): CompetitionTotwData | null {
+    if (!Array.isArray(playerStats) || playerStats.length === 0 || !Number.isFinite(season)) {
+        return null;
+    }
+
+    const dedupedCandidatesByPlayer = new Map<number, TotwCandidate>();
+    playerStats.forEach(stat => {
+        const candidate = toTotwCandidate(stat);
+        if (!candidate) {
+            return;
+        }
+
+        const existing = dedupedCandidatesByPlayer.get(candidate.playerId);
+        if (!existing || compareTotwCandidates(candidate, existing) < 0) {
+            dedupedCandidatesByPlayer.set(candidate.playerId, candidate);
+        }
+    });
+
+    const dedupedCandidates = Array.from(dedupedCandidatesByPlayer.values());
+    if (dedupedCandidates.length < 11) {
+        return null;
+    }
+
+    const selectedIds = new Set<number>();
+    const goalkeepers = selectTotwLineByRole(dedupedCandidates, 'GK', selectedIds);
+    const defenders = selectTotwLineByRole(dedupedCandidates, 'DEF', selectedIds);
+    const midfielders = selectTotwLineByRole(dedupedCandidates, 'MID', selectedIds);
+    const attackers = selectTotwLineByRole(dedupedCandidates, 'ATT', selectedIds);
+
+    if (!goalkeepers || !defenders || !midfielders || !attackers) {
+        return null;
+    }
+
+    const players = [
+        ...mapTotwPlayers('ATT', attackers),
+        ...mapTotwPlayers('MID', midfielders),
+        ...mapTotwPlayers('DEF', defenders),
+        ...mapTotwPlayers('GK', goalkeepers),
+    ];
+
+    if (players.length !== 11) {
+        return null;
+    }
+
+    const averageRating = Number(
+        (players.reduce((sum, player) => sum + player.rating, 0) / players.length).toFixed(1),
+    );
+
+    return {
+        formation: '4-3-3',
+        season,
+        averageRating,
+        players,
+    };
 }
 
 function toTransferTimestamp(value: string | null): number {

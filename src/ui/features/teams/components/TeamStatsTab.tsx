@@ -1,5 +1,6 @@
-import { memo, useMemo } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useMemo, type ReactElement } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -20,6 +21,11 @@ type TeamStatsTabProps = {
   isError: boolean;
   onRetry: () => void;
   onPressPlayer: (playerId: string) => void;
+};
+
+type TeamStatsContentItem = {
+  key: string;
+  content: ReactElement;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -573,207 +579,268 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
   const localizePosition = (value: string | null | undefined) =>
     localizePlayerPosition(value, t);
 
-  return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {isLoading ? (
-          <View style={styles.stateCard}>
-            <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
-          </View>
-        ) : null}
+  const contentItems: TeamStatsContentItem[] = [];
 
-        {isError ? (
-          <View style={styles.stateCard}>
-            <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
-            <Pressable onPress={onRetry}>
-              <Text style={styles.retryText}>{t('actions.retry')}</Text>
-            </Pressable>
-          </View>
-        ) : null}
+  if (isLoading) {
+    contentItems.push({
+      key: 'loading-state',
+      content: (
+        <View style={styles.stateCard}>
+          <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
+        </View>
+      ),
+    });
+  }
 
-        {!isLoading && !isError && pointsCardVisible ? (
-          <View style={styles.card}>
-            <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>{t('teamDetails.stats.pointsCard')}</Text>
-              {hasValue(data?.points) ? (
-                <Text style={styles.pointsValue}>{toDisplayNumber(data?.points)}</Text>
+  if (isError) {
+    contentItems.push({
+      key: 'error-state',
+      content: (
+        <View style={styles.stateCard}>
+          <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
+          <Pressable onPress={onRetry}>
+            <Text style={styles.retryText}>{t('actions.retry')}</Text>
+          </Pressable>
+        </View>
+      ),
+    });
+  }
+
+  if (!isLoading && !isError && pointsCardVisible) {
+    contentItems.push({
+      key: 'points-card',
+      content: (
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>{t('teamDetails.stats.pointsCard')}</Text>
+            {hasValue(data?.points) ? (
+              <Text style={styles.pointsValue}>{toDisplayNumber(data?.points)}</Text>
+            ) : null}
+          </View>
+
+          {hasValue(data?.rank) ? (
+            <Text style={styles.mutedValue}>
+              {t('teamDetails.labels.rank')} {toDisplayNumber(data?.rank)}
+            </Text>
+          ) : null}
+
+          {hasVenueStats(data?.pointsByVenue?.home ?? null) ||
+          hasVenueStats(data?.pointsByVenue?.away ?? null) ? (
+            <>
+              <View style={styles.divider} />
+
+              <View style={styles.tableHeader}>
+                <Text style={styles.venueLabel}>{t('teamDetails.stats.venue')}</Text>
+                <Text style={styles.tableHeadLabel}>{t('teamDetails.standings.headers.played')}</Text>
+                <Text style={styles.tableHeadLabel}>{t('teamDetails.standings.headers.win')}</Text>
+                <Text style={styles.tableHeadLabel}>{t('teamDetails.standings.headers.draw')}</Text>
+                <Text style={styles.tableHeadLabel}>{t('teamDetails.standings.headers.loss')}</Text>
+                <Text style={[styles.tableHeadLabel, styles.scoreColumn]}>
+                  {t('teamDetails.standings.headers.goalsForAgainst')}
+                </Text>
+                <Text style={[styles.tableHeadLabel, styles.diffColumn]}>
+                  {t('teamDetails.standings.headers.goalDiff')}
+                </Text>
+                <Text style={styles.tableHeadLabel}>{t('teamDetails.standings.headers.points')}</Text>
+              </View>
+
+              {data?.pointsByVenue?.home ? (
+                <VenueStatsRow
+                  label={t('teamDetails.stats.home')}
+                  stats={data.pointsByVenue.home}
+                  styles={styles}
+                />
               ) : null}
-            </View>
+              {data?.pointsByVenue?.away ? (
+                <VenueStatsRow
+                  label={t('teamDetails.stats.away')}
+                  stats={data.pointsByVenue.away}
+                  styles={styles}
+                />
+              ) : null}
+            </>
+          ) : null}
+        </View>
+      ),
+    });
+  }
 
-            {hasValue(data?.rank) ? (
-              <Text style={styles.mutedValue}>
-                {t('teamDetails.labels.rank')} {toDisplayNumber(data?.rank)}
+  if (!isLoading && !isError && goalsCardVisible) {
+    contentItems.push({
+      key: 'goals-card',
+      content: (
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>{t('teamDetails.stats.goalsCard')}</Text>
+            {hasValue(data?.goalsFor) || hasValue(data?.goalsAgainst) ? (
+              <Text style={styles.goalsValue}>
+                {toDisplayNumber(data?.goalsFor)}-{toDisplayNumber(data?.goalsAgainst)}
               </Text>
             ) : null}
-
-            {hasVenueStats(data?.pointsByVenue?.home ?? null) ||
-            hasVenueStats(data?.pointsByVenue?.away ?? null) ? (
-              <>
-                <View style={styles.divider} />
-
-                <View style={styles.tableHeader}>
-                  <Text style={styles.venueLabel}>{t('teamDetails.stats.venue')}</Text>
-                  <Text style={styles.tableHeadLabel}>J</Text>
-                  <Text style={styles.tableHeadLabel}>G</Text>
-                  <Text style={styles.tableHeadLabel}>N</Text>
-                  <Text style={styles.tableHeadLabel}>D</Text>
-                  <Text style={[styles.tableHeadLabel, styles.scoreColumn]}>+/-</Text>
-                  <Text style={[styles.tableHeadLabel, styles.diffColumn]}>DB</Text>
-                  <Text style={styles.tableHeadLabel}>Pts</Text>
-                </View>
-
-                {data?.pointsByVenue?.home ? (
-                  <VenueStatsRow
-                    label={t('teamDetails.stats.home')}
-                    stats={data.pointsByVenue.home}
-                    styles={styles}
-                  />
-                ) : null}
-                {data?.pointsByVenue?.away ? (
-                  <VenueStatsRow
-                    label={t('teamDetails.stats.away')}
-                    stats={data.pointsByVenue.away}
-                    styles={styles}
-                  />
-                ) : null}
-              </>
-            ) : null}
           </View>
-        ) : null}
 
-        {!isLoading && !isError && goalsCardVisible ? (
-          <View style={styles.card}>
-            <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>{t('teamDetails.stats.goalsCard')}</Text>
-              {(hasValue(data?.goalsFor) || hasValue(data?.goalsAgainst)) ? (
-                <Text style={styles.goalsValue}>
-                  {toDisplayNumber(data?.goalsFor)}-{toDisplayNumber(data?.goalsAgainst)}
-                </Text>
-              ) : null}
+          {hasValue(data?.goalsForPerMatch) ? (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>{t('teamDetails.stats.goalsScoredPerMatch')}</Text>
+              <Text style={styles.rowValue}>{formatDecimal(data?.goalsForPerMatch, 1)}</Text>
             </View>
+          ) : null}
 
-            {hasValue(data?.goalsForPerMatch) ? (
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('teamDetails.stats.goalsScoredPerMatch')}</Text>
-                <Text style={styles.rowValue}>{formatDecimal(data?.goalsForPerMatch, 1)}</Text>
-              </View>
-            ) : null}
+          {hasValue(data?.goalsAgainstPerMatch) ? (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>{t('teamDetails.stats.goalsConcededPerMatch')}</Text>
+              <Text style={styles.rowValue}>{formatDecimal(data?.goalsAgainstPerMatch, 1)}</Text>
+            </View>
+          ) : null}
 
-            {hasValue(data?.goalsAgainstPerMatch) ? (
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('teamDetails.stats.goalsConcededPerMatch')}</Text>
-                <Text style={styles.rowValue}>{formatDecimal(data?.goalsAgainstPerMatch, 1)}</Text>
-              </View>
-            ) : null}
+          {hasValue(data?.cleanSheets) ? (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>{t('teamDetails.stats.cleanSheets')}</Text>
+              <Text style={styles.rowValue}>{toDisplayNumber(data?.cleanSheets)}</Text>
+            </View>
+          ) : null}
 
-            {hasValue(data?.cleanSheets) ? (
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('teamDetails.stats.cleanSheets')}</Text>
-                <Text style={styles.rowValue}>{toDisplayNumber(data?.cleanSheets)}</Text>
-              </View>
-            ) : null}
+          {hasValue(data?.failedToScore) ? (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>{t('teamDetails.stats.failedToScore')}</Text>
+              <Text style={styles.rowValue}>{toDisplayNumber(data?.failedToScore)}</Text>
+            </View>
+          ) : null}
 
-            {hasValue(data?.failedToScore) ? (
-              <View style={styles.row}>
-                <Text style={styles.rowLabel}>{t('teamDetails.stats.failedToScore')}</Text>
-                <Text style={styles.rowValue}>{toDisplayNumber(data?.failedToScore)}</Text>
-              </View>
-            ) : null}
+          <GoalsBreakdownBars goalBreakdown={data?.goalBreakdown ?? []} styles={styles} />
+        </View>
+      ),
+    });
+  }
 
-            <GoalsBreakdownBars goalBreakdown={data?.goalBreakdown ?? []} styles={styles} />
+  if (!isLoading && !isError && playersCardVisible) {
+    contentItems.push({
+      key: 'top-players',
+      content: (
+        <>
+          <Text style={styles.sectionTitle}>{t('teamDetails.stats.topPlayers')}</Text>
+          <View style={styles.playersGrid}>
+            <PlayerCategoryCard
+              title={t('teamDetails.stats.categories.rating')}
+              players={data?.topPlayersByCategory?.ratings ?? []}
+              valueSelector={player => formatDecimal(player.rating, 2)}
+              localizePosition={localizePosition}
+              onPressPlayer={onPressPlayer}
+              colors={colors}
+              styles={styles}
+            />
+
+            <PlayerCategoryCard
+              title={t('teamDetails.stats.categories.scorers')}
+              players={data?.topPlayersByCategory?.scorers ?? []}
+              valueSelector={player => toDisplayNumber(player.goals)}
+              localizePosition={localizePosition}
+              onPressPlayer={onPressPlayer}
+              colors={colors}
+              styles={styles}
+            />
+
+            <PlayerCategoryCard
+              title={t('teamDetails.stats.categories.assisters')}
+              players={data?.topPlayersByCategory?.assisters ?? []}
+              valueSelector={player => toDisplayNumber(player.assists)}
+              localizePosition={localizePosition}
+              onPressPlayer={onPressPlayer}
+              colors={colors}
+              styles={styles}
+            />
           </View>
-        ) : null}
+        </>
+      ),
+    });
+  }
 
-        {!isLoading && !isError && playersCardVisible ? (
-          <>
-            <Text style={styles.sectionTitle}>{t('teamDetails.stats.topPlayers')}</Text>
-            <View style={styles.playersGrid}>
-              <PlayerCategoryCard
-                title={t('teamDetails.stats.categories.rating')}
-                players={data?.topPlayersByCategory?.ratings ?? []}
-                valueSelector={player => formatDecimal(player.rating, 2)}
-                localizePosition={localizePosition}
-                onPressPlayer={onPressPlayer}
-                colors={colors}
-                styles={styles}
-              />
+  if (!isLoading && !isError && comparisonMetrics.length > 0) {
+    contentItems.push({
+      key: 'comparison-metrics',
+      content: (
+        <>
+          <Text style={styles.sectionTitle}>{t('teamDetails.stats.comparisons.title')}</Text>
 
-              <PlayerCategoryCard
-                title={t('teamDetails.stats.categories.scorers')}
-                players={data?.topPlayersByCategory?.scorers ?? []}
-                valueSelector={player => toDisplayNumber(player.goals)}
-                localizePosition={localizePosition}
-                onPressPlayer={onPressPlayer}
-                colors={colors}
-                styles={styles}
-              />
+          {comparisonMetrics.map(metric => (
+            <View key={metric.key} style={styles.comparisonCard}>
+              <View style={styles.comparisonTopRow}>
+                <Text style={styles.comparisonTitle}>{teamComparisonLabel(t, metric.key)}</Text>
+                <Text style={styles.comparisonValue}>{formatComparisonValue(metric)}</Text>
+              </View>
 
-              <PlayerCategoryCard
-                title={t('teamDetails.stats.categories.assisters')}
-                players={data?.topPlayersByCategory?.assisters ?? []}
-                valueSelector={player => toDisplayNumber(player.assists)}
-                localizePosition={localizePosition}
-                onPressPlayer={onPressPlayer}
-                colors={colors}
-                styles={styles}
-              />
-            </View>
-          </>
-        ) : null}
+              <Text style={styles.comparisonRank}>
+                {t('teamDetails.stats.comparisons.rank', {
+                  rank: metric.rank,
+                  total: metric.totalTeams,
+                })}
+              </Text>
 
-        {!isLoading && !isError && comparisonMetrics.length > 0 ? (
-          <>
-            <Text style={styles.sectionTitle}>{t('teamDetails.stats.comparisons.title')}</Text>
+              {metric.leaders.map((leader, index) => (
+                <View
+                  key={`${metric.key}-${leader.teamId ?? leader.teamName ?? 'unknown'}`}
+                  style={styles.leaderRow}
+                >
+                  <View style={styles.leaderLeft}>
+                    <Text style={styles.leaderRank}>{index + 1}</Text>
 
-            {comparisonMetrics.map(metric => (
-              <View key={metric.key} style={styles.comparisonCard}>
-                <View style={styles.comparisonTopRow}>
-                  <Text style={styles.comparisonTitle}>{teamComparisonLabel(t, metric.key)}</Text>
-                  <Text style={styles.comparisonValue}>{formatComparisonValue(metric)}</Text>
-                </View>
-
-                <Text style={styles.comparisonRank}>
-                  {t('teamDetails.stats.comparisons.rank', {
-                    rank: metric.rank,
-                    total: metric.totalTeams,
-                  })}
-                </Text>
-
-                {metric.leaders.map((leader, index) => (
-                  <View key={`${metric.key}-${leader.teamId}-${index}`} style={styles.leaderRow}>
-                    <View style={styles.leaderLeft}>
-                      <Text style={styles.leaderRank}>{index + 1}</Text>
-
-                      <View style={styles.leaderLogoContainer}>
-                        {leader.teamLogo ? (
-                          <Image source={{ uri: leader.teamLogo }} style={styles.leaderLogo} resizeMode="contain" />
-                        ) : (
-                          <MaterialCommunityIcons name="shield-outline" size={11} color={colors.textMuted} />
-                        )}
-                      </View>
-
-                      <Text style={styles.leaderName} numberOfLines={1}>
-                        {toDisplayValue(leader.teamName)}
-                      </Text>
+                    <View style={styles.leaderLogoContainer}>
+                      {leader.teamLogo ? (
+                        <Image source={{ uri: leader.teamLogo }} style={styles.leaderLogo} resizeMode="contain" />
+                      ) : (
+                        <MaterialCommunityIcons name="shield-outline" size={11} color={colors.textMuted} />
+                      )}
                     </View>
-                    <Text style={styles.leaderValue}>
-                      {metric.key === 'possession'
-                        ? `${formatDecimal(leader.value, 1)}%`
-                        : formatDecimal(leader.value, 1)}
+
+                    <Text style={styles.leaderName} numberOfLines={1}>
+                      {toDisplayValue(leader.teamName)}
                     </Text>
                   </View>
-                ))}
-              </View>
-            ))}
-          </>
-        ) : null}
+                  <Text style={styles.leaderValue}>
+                    {metric.key === 'possession'
+                      ? `${formatDecimal(leader.value, 1)}%`
+                      : formatDecimal(leader.value, 1)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </>
+      ),
+    });
+  }
 
-        {!isLoading && !isError && !pointsCardVisible && !goalsCardVisible && !playersCardVisible && comparisonMetrics.length === 0 ? (
-          <View style={styles.stateCard}>
-            <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-          </View>
-        ) : null}
-      </ScrollView>
+  if (
+    !isLoading &&
+    !isError &&
+    !pointsCardVisible &&
+    !goalsCardVisible &&
+    !playersCardVisible &&
+    comparisonMetrics.length === 0
+  ) {
+    contentItems.push({
+      key: 'empty-state',
+      content: (
+        <View style={styles.stateCard}>
+          <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+        </View>
+      ),
+    });
+  }
+
+  return (
+    <View style={styles.container}>
+      <FlashList
+        data={contentItems}
+        keyExtractor={item => item.key}
+        getItemType={() => 'team-stats-section'}
+        // @ts-ignore FlashList runtime supports estimatedItemSize.
+        estimatedItemSize={240}
+        renderItem={({ item }) => item.content}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+      />
     </View>
   );
 }

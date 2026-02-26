@@ -21,6 +21,15 @@ Le mobile ne parle plus directement à API-Football.
 
 Référence: `docs/architecture/mobile-data-flow.md`.
 
+## Architecture multi-plateforme (API-first)
+
+Le repo inclut maintenant un socle partagé pour web/mobile/desktop:
+
+- `packages/api-contract`: contrat OpenAPI versionné + types générés
+- `packages/app-core`: services de lecture BFF + validation runtime + modèles partagés
+- `web`: client React/Vite branché sur `app-core`
+- `desktop`: shell Tauri 2 réutilisant le build web
+
 ## Prérequis
 
 - Node `>=22.11.0`
@@ -49,6 +58,10 @@ MOBILE_API_BASE_URL=http://localhost:3001/v1
 MOBILE_PRIVACY_POLICY_URL=https://example.com/privacy
 MOBILE_SUPPORT_URL=https://example.com/support
 MOBILE_FOLLOW_US_URL=https://example.com/social
+MOBILE_PUSH_TOKEN=optional-test-token
+WEB_API_BASE_URL=http://localhost:3001/v1
+DESKTOP_API_BASE_URL=http://localhost:3001/v1
+WEB_APP_ORIGIN=http://localhost:5173
 ```
 
 Notes sécurité:
@@ -57,6 +70,9 @@ Notes sécurité:
 - En non-dev (staging/prod), `MOBILE_API_BASE_URL` doit être présent et en `https://`.
 - En non-dev (staging/prod), `MOBILE_PRIVACY_POLICY_URL`, `MOBILE_SUPPORT_URL` et `MOBILE_FOLLOW_US_URL` sont obligatoires et doivent être en `https://`.
 - `MOBILE_APP_STORE_URL` et `MOBILE_PLAY_STORE_URL` sont optionnelles (fallback pour l'action "Rate app").
+- `MOBILE_PUSH_TOKEN` est optionnelle (utile en QA/staging pour forcer un token push explicite).
+- `WEB_API_BASE_URL` et `DESKTOP_API_BASE_URL` pilotent les clients web/desktop.
+- `WEB_APP_ORIGIN` doit être ajouté à `CORS_ALLOWED_ORIGINS` côté BFF.
 
 Variables utiles pour la cadence et les limites UI :
 
@@ -143,20 +159,60 @@ npm run ios
 
 ```bash
 npm run lint
+npm run contract:check
 npm run typecheck
 npm test
+npm run qa:competitions:team-stats:preflight
 npm run aso:validate:metadata
 npm run aso:validate:assets
 npm run aso:validate:icon-ios
 npm run aso:validate
 npm run check:all
+npm run web:typecheck
+npm run web:build
+npm run desktop:typecheck
+npm run desktop:build
 ```
+
+## Vérification contrat API
+
+```bash
+npm run contract:lint
+npm run contract:generate
+npm run contract:check
+```
+
+Le contrat source est `packages/api-contract/openapi/footalert.v1.yaml` et les types générés sont `packages/api-contract/generated/types.ts`.
+
+## Client web
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+URL par défaut: `http://localhost:5173` (avec `VITE_WEB_API_BASE_URL` vers le BFF).
+
+## Desktop (Tauri 2 shell)
+
+```bash
+cd desktop
+npm install
+npm run build
+```
+
+Ce script génère d'abord le build web puis valide la configuration Tauri.
 
 ## Release Android (signing)
 
 Le build `release` Android nécessite un keystore dédié et 4 variables de signing (`FOOTALERT_UPLOAD_*`).
 
 Référence complète : `docs/mobile/android-release-signing.md`.
+
+## Parité multi-plateforme
+
+Matrice et scénarios de validation: `docs/architecture/multi-platform-parity.md`.
 
 ## Architecture (feature-first)
 
@@ -192,3 +248,9 @@ src/
 - Navigation strictement typée (`src/ui/app/navigation/types.ts`).
 - Données serveur via React Query.
 - Aucun secret API tiers dans l’application mobile.
+
+## QA visuelle guidée (Compétitions > Stats équipes)
+
+- Préflight ciblé: `npm run qa:competitions:team-stats:preflight`
+- Checklist manuelle (petits écrans / dark mode / scroll / lazy avancé):
+  `docs/mobile/competition-team-stats-qa-checklist.md`

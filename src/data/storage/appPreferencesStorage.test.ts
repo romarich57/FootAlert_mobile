@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getLocales } from 'react-native-localize';
 
 import {
   APP_PREFERENCES_STORAGE_KEY,
@@ -18,6 +19,7 @@ jest.mock('@data/permissions/notificationsPermission', () => ({
 
 const mockedGetNotificationsPermissionStatus = jest.mocked(getNotificationsPermissionStatus);
 const mockedIsNotificationsPermissionGranted = jest.mocked(isNotificationsPermissionGranted);
+const mockedGetLocales = jest.mocked(getLocales);
 
 describe('appPreferencesStorage', () => {
   beforeEach(async () => {
@@ -26,13 +28,21 @@ describe('appPreferencesStorage', () => {
     mockedIsNotificationsPermissionGranted.mockImplementation(
       (status: string) => status === 'granted',
     );
+    mockedGetLocales.mockReturnValue([
+      {
+        languageCode: 'en',
+        languageTag: 'en-US',
+        countryCode: 'US',
+        isRTL: false,
+      },
+    ]);
   });
 
   it('returns defaults when no payload exists', async () => {
     const preferences = await loadAppPreferences();
 
     expect(preferences.theme).toBe('system');
-    expect(preferences.language).toBe('fr');
+    expect(preferences.language).toBe('en');
     expect(preferences.currencyCode).toBe('USD');
     expect(preferences.measurementSystem).toBe('imperial');
     expect(preferences.notificationsEnabled).toBe(true);
@@ -72,7 +82,7 @@ describe('appPreferencesStorage', () => {
     const loaded = await loadAppPreferences();
 
     expect(loaded.theme).toBe('system');
-    expect(loaded.language).toBe('fr');
+    expect(loaded.language).toBe('en');
     expect(loaded.currencyCode).toBe('EUR');
     expect(loaded.measurementSystem).toBe('imperial');
     expect(loaded.notificationsEnabled).toBe(true);
@@ -90,5 +100,19 @@ describe('appPreferencesStorage', () => {
     const loaded = await loadAppPreferences();
     expect(loaded.language).toBe('en');
     expect(loaded.notificationsEnabled).toBe(false);
+  });
+
+  it('falls back to french when device locale is unsupported', async () => {
+    mockedGetLocales.mockReturnValue([
+      {
+        languageCode: 'de',
+        languageTag: 'de-DE',
+        countryCode: 'DE',
+        isRTL: false,
+      },
+    ]);
+
+    const loaded = await loadAppPreferences();
+    expect(loaded.language).toBe('fr');
   });
 });

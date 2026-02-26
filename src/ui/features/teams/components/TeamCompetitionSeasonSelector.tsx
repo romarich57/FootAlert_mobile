@@ -5,7 +5,11 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamCompetitionOption } from '@ui/features/teams/types/teams.types';
 import { toDisplaySeasonLabel, toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import {
+  DEFAULT_HIT_SLOP,
+  MIN_TOUCH_TARGET,
+  type ThemeColors,
+} from '@ui/shared/theme/theme';
 
 type TeamCompetitionSeasonSelectorProps = {
   competitions: TeamCompetitionOption[];
@@ -30,7 +34,7 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
     },
     trigger: {
-      minHeight: 42,
+      minHeight: MIN_TOUCH_TARGET,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.border,
@@ -99,8 +103,8 @@ function createStyles(colors: ThemeColors) {
       fontWeight: '600',
     },
     closeButton: {
-      minHeight: 36,
-      minWidth: 36,
+      minHeight: MIN_TOUCH_TARGET,
+      minWidth: MIN_TOUCH_TARGET,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -118,7 +122,7 @@ function createStyles(colors: ThemeColors) {
       letterSpacing: 0.2,
     },
     competitionRow: {
-      minHeight: 44,
+      minHeight: MIN_TOUCH_TARGET,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.border,
@@ -160,6 +164,10 @@ function createStyles(colors: ThemeColors) {
       color: colors.primary,
       fontSize: 14,
       fontWeight: '600',
+    },
+    doneButton: {
+      minHeight: MIN_TOUCH_TARGET,
+      justifyContent: 'center',
     },
   });
 }
@@ -218,6 +226,7 @@ export function TeamCompetitionSeasonSelector({
         accessibilityRole="button"
         onPress={() => setIsOpen(true)}
         style={styles.trigger}
+        hitSlop={DEFAULT_HIT_SLOP}
         testID="team-competition-season-trigger"
       >
         <View style={styles.triggerLeft}>
@@ -239,7 +248,11 @@ export function TeamCompetitionSeasonSelector({
           <Pressable style={styles.modalSheet} onPress={event => event.stopPropagation()}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{modalTitle}</Text>
-              <Pressable onPress={() => setIsOpen(false)} style={styles.closeButton}>
+              <Pressable
+                onPress={() => setIsOpen(false)}
+                style={styles.closeButton}
+                hitSlop={DEFAULT_HIT_SLOP}
+              >
                 <MaterialCommunityIcons name="close" size={20} color={colors.text} />
               </Pressable>
             </View>
@@ -260,6 +273,7 @@ export function TeamCompetitionSeasonSelector({
                           onSelect(competition.leagueId, group.season);
                           setIsOpen(false);
                         }}
+                        hitSlop={DEFAULT_HIT_SLOP}
                         style={[styles.competitionRow, isActive ? styles.competitionRowActive : null]}
                         testID={`team-competition-season-option-${competition.leagueId}-${group.season}`}
                       >
@@ -290,7 +304,11 @@ export function TeamCompetitionSeasonSelector({
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <Pressable onPress={() => setIsOpen(false)}>
+              <Pressable
+                onPress={() => setIsOpen(false)}
+                style={styles.doneButton}
+                hitSlop={DEFAULT_HIT_SLOP}
+              >
                 <Text style={styles.doneLabel}>{doneLabel}</Text>
               </Pressable>
             </View>

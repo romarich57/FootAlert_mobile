@@ -1,4 +1,7 @@
+import { z } from 'zod';
+
 import { bffGet } from '@data/endpoints/bffClient';
+import { parseRuntimePayloadOrFallback } from '@data/endpoints/runtimeValidation';
 import type {
   CompetitionsApiLeagueDto,
   CompetitionsApiResponse,
@@ -8,40 +11,67 @@ import type {
   CompetitionsApiTransferDto,
 } from '@ui/features/competitions/types/competitions.types';
 
+const listResponseSchema = z
+  .object({
+    response: z.array(z.unknown()).default([]),
+  })
+  .passthrough();
+
 export async function fetchAllLeagues(signal?: AbortSignal): Promise<CompetitionsApiLeagueDto[]> {
-  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(
+  const rawPayload = await bffGet<unknown>(
     '/competitions',
     undefined,
     { signal },
   );
+  const payload = parseRuntimePayloadOrFallback({
+    schema: listResponseSchema,
+    payload: rawPayload,
+    fallback: { response: [] },
+    feature: 'competitions.list',
+    endpoint: '/competitions',
+  });
 
-  return payload.response;
+  return payload.response as CompetitionsApiResponse<CompetitionsApiLeagueDto>['response'];
 }
 
 export async function searchLeaguesByName(
   query: string,
   signal?: AbortSignal,
 ): Promise<CompetitionsApiLeagueDto[]> {
-  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(
+  const rawPayload = await bffGet<unknown>(
     '/competitions/search',
     { q: query },
     { signal },
   );
+  const payload = parseRuntimePayloadOrFallback({
+    schema: listResponseSchema,
+    payload: rawPayload,
+    fallback: { response: [] },
+    feature: 'competitions.search',
+    endpoint: '/competitions/search',
+  });
 
-  return payload.response;
+  return payload.response as CompetitionsApiResponse<CompetitionsApiLeagueDto>['response'];
 }
 
 export async function fetchLeagueById(
   id: string,
   signal?: AbortSignal,
 ): Promise<CompetitionsApiLeagueDto | null> {
-  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiLeagueDto>>(
+  const rawPayload = await bffGet<unknown>(
     `/competitions/${encodeURIComponent(id)}`,
     undefined,
     { signal },
   );
+  const payload = parseRuntimePayloadOrFallback({
+    schema: listResponseSchema,
+    payload: rawPayload,
+    fallback: { response: [] },
+    feature: 'competitions.details',
+    endpoint: `/competitions/${id}`,
+  });
 
-  return payload.response[0] ?? null;
+  return (payload.response as CompetitionsApiResponse<CompetitionsApiLeagueDto>['response'])[0] ?? null;
 }
 
 export async function fetchLeagueStandings(
@@ -49,13 +79,20 @@ export async function fetchLeagueStandings(
   season: number,
   signal?: AbortSignal,
 ): Promise<CompetitionsApiStandingDto | null> {
-  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiStandingDto>>(
+  const rawPayload = await bffGet<unknown>(
     `/competitions/${encodeURIComponent(String(leagueId))}/standings`,
     { season },
     { signal },
   );
+  const payload = parseRuntimePayloadOrFallback({
+    schema: listResponseSchema,
+    payload: rawPayload,
+    fallback: { response: [] },
+    feature: 'competitions.standings',
+    endpoint: `/competitions/${leagueId}/standings`,
+  });
 
-  return payload.response[0] ?? null;
+  return (payload.response as CompetitionsApiResponse<CompetitionsApiStandingDto>['response'])[0] ?? null;
 }
 
 export async function fetchLeagueFixtures(
@@ -63,13 +100,20 @@ export async function fetchLeagueFixtures(
   season: number,
   signal?: AbortSignal,
 ): Promise<CompetitionsApiFixtureDto[]> {
-  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiFixtureDto>>(
+  const rawPayload = await bffGet<unknown>(
     `/competitions/${encodeURIComponent(String(leagueId))}/matches`,
     { season },
     { signal },
   );
+  const payload = parseRuntimePayloadOrFallback({
+    schema: listResponseSchema,
+    payload: rawPayload,
+    fallback: { response: [] },
+    feature: 'competitions.fixtures',
+    endpoint: `/competitions/${leagueId}/matches`,
+  });
 
-  return payload.response;
+  return payload.response as CompetitionsApiResponse<CompetitionsApiFixtureDto>['response'];
 }
 
 async function fetchLeaguePlayerStatsByType(
@@ -78,13 +122,20 @@ async function fetchLeaguePlayerStatsByType(
   type: 'topscorers' | 'topassists' | 'topyellowcards' | 'topredcards',
   signal?: AbortSignal,
 ): Promise<CompetitionsApiPlayerStatDto[]> {
-  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiPlayerStatDto>>(
+  const rawPayload = await bffGet<unknown>(
     `/competitions/${encodeURIComponent(String(leagueId))}/player-stats`,
     { season, type },
     { signal },
   );
+  const payload = parseRuntimePayloadOrFallback({
+    schema: listResponseSchema,
+    payload: rawPayload,
+    fallback: { response: [] },
+    feature: 'competitions.player_stats',
+    endpoint: `/competitions/${leagueId}/player-stats`,
+  });
 
-  return payload.response;
+  return payload.response as CompetitionsApiResponse<CompetitionsApiPlayerStatDto>['response'];
 }
 
 export async function fetchLeagueTopScorers(
@@ -124,11 +175,18 @@ export async function fetchLeagueTransfers(
   season?: number,
   signal?: AbortSignal,
 ): Promise<CompetitionsApiTransferDto[]> {
-  const payload = await bffGet<CompetitionsApiResponse<CompetitionsApiTransferDto>>(
+  const rawPayload = await bffGet<unknown>(
     `/competitions/${encodeURIComponent(String(leagueId))}/transfers`,
     { season },
     { signal },
   );
+  const payload = parseRuntimePayloadOrFallback({
+    schema: listResponseSchema,
+    payload: rawPayload,
+    fallback: { response: [] },
+    feature: 'competitions.transfers',
+    endpoint: `/competitions/${leagueId}/transfers`,
+  });
 
-  return payload.response;
+  return payload.response as CompetitionsApiResponse<CompetitionsApiTransferDto>['response'];
 }

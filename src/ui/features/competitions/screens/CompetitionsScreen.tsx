@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,37 +13,18 @@ import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import type { RootStackParamList } from '@ui/app/navigation/types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import { useCompetitions } from '@ui/features/competitions/hooks/useCompetitions';
-import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
 import { CompetitionCard } from '@ui/features/competitions/components/CompetitionCard';
 import type { Competition } from '@ui/features/competitions/types/competitions.types';
+import {
+  useCompetitionsScreenModel,
+  type CompetitionListItem,
+  type CompetitionSection,
+} from '@ui/features/competitions/hooks/useCompetitionsScreenModel';
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
-import { useOfflineUiState } from '@ui/shared/hooks';
 import type { ThemeColors } from '@ui/shared/theme/theme';
-
-type CompetitionListItem = {
-  key: string;
-  competition: Competition;
-};
-
-type CompetitionSectionType = 'followed' | 'suggested' | 'country';
-
-type CompetitionSection = {
-  key: string;
-  type: CompetitionSectionType;
-  title: string;
-  data: CompetitionListItem[];
-  countryName?: string;
-  flagUrl?: string | null;
-  isExpanded?: boolean;
-  showAllCompetitionsTitle?: boolean;
-};
 
 function createStyles(colors: ThemeColors, topInset: number) {
   return StyleSheet.create({
@@ -170,117 +151,26 @@ export function CompetitionsScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const screenModel = useCompetitionsScreenModel();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [expandedCountries, setExpandedCountries] = useState<Record<string, boolean>>({});
+  const renderFollowButton = useCallback(
+    (competitionId: string) => {
+      const isFollowing = screenModel.followedIdSet.has(competitionId);
 
-  const {
-    countries,
-    suggestedCompetitions,
-    searchResults,
-    searchLeagues,
-    isSearching,
-    isLoading: isCompetitionsLoading,
-    lastUpdatedAt,
-  } = useCompetitions();
-
-  const {
-    followedIds,
-    followedCompetitions,
-    toggleFollow,
-  } = useFollowedCompetitions();
-
-  const followedIdSet = useMemo(() => new Set(followedIds), [followedIds]);
-
-  const handleSearchChange = useCallback((text: string) => {
-    setSearchQuery(text);
-    searchLeagues(text);
-  }, [searchLeagues]);
-
-  const handleClearSearch = useCallback(() => {
-    handleSearchChange('');
-  }, [handleSearchChange]);
-
-  const handleOpenCompetition = useCallback((competition: Competition) => {
-    navigation.navigate('CompetitionDetails', {
-      competitionId: competition.id,
-      competition,
-    });
-  }, [navigation]);
-
-  const handleToggleCountry = useCallback((countryName: string) => {
-    setExpandedCountries(current => ({
-      ...current,
-      [countryName]: !current[countryName],
-    }));
-  }, []);
-
-  const renderFollowButton = useCallback((competitionId: string) => {
-    const isFollowing = followedIdSet.has(competitionId);
-
-    return (
-      <FollowToggleButton
-        isFollowing={isFollowing}
-        onPress={() => {
-          toggleFollow(competitionId).catch(() => undefined);
-        }}
-        followLabel={t('screens.competitions.follow')}
-        unfollowLabel={t('screens.competitions.unfollow')}
-        accessibilityLabel={t('screens.competitions.follow')}
-      />
-    );
-  }, [followedIdSet, t, toggleFollow]);
-
-  const competitionSections = useMemo<CompetitionSection[]>(() => {
-    const followedItems = followedCompetitions.map(competition => ({
-      key: `followed-${competition.id}`,
-      competition,
-    }));
-
-    const suggestedItems = suggestedCompetitions.map(competition => ({
-      key: `suggested-${competition.id}`,
-      competition,
-    }));
-
-    const countrySections = countries.map((country, index) => {
-      const isExpanded = Boolean(expandedCountries[country.name]);
-      const countryItems = isExpanded
-        ? country.competitions.map(competition => ({
-            key: `country-${country.name}-${competition.id}`,
-            competition,
-          }))
-        : [];
-
-      return {
-        key: `country-${country.name}`,
-        type: 'country' as const,
-        title: country.name,
-        countryName: country.name,
-        flagUrl: country.code ? `https://flagcdn.com/w40/${country.code.toLowerCase()}.png` : null,
-        data: countryItems,
-        isExpanded,
-        showAllCompetitionsTitle: index === 0,
-      };
-    });
-
-    return [
-      {
-        key: 'followed',
-        type: 'followed' as const,
-        title: t('screens.competitions.follows'),
-        data: followedItems,
-      },
-      {
-        key: 'suggested',
-        type: 'suggested' as const,
-        title: t('screens.competitions.suggested'),
-        data: suggestedItems,
-      },
-      ...countrySections,
-    ];
-  }, [countries, expandedCountries, followedCompetitions, suggestedCompetitions, t]);
+      return (
+        <FollowToggleButton
+          isFollowing={isFollowing}
+          onPress={() => {
+            screenModel.handleToggleFollow(competitionId);
+          }}
+          followLabel={t('screens.competitions.follow')}
+          unfollowLabel={t('screens.competitions.unfollow')}
+          accessibilityLabel={t('screens.competitions.follow')}
+        />
+      );
+    },
+    [screenModel, t],
+  );
 
   const sectionKeyExtractor = useCallback((item: CompetitionListItem) => item.key, []);
 
@@ -295,13 +185,13 @@ export function CompetitionsScreen() {
           <CompetitionCard
             name={competition.name}
             logoUrl={competition.logo}
-            isEditMode={isEditMode}
+            isEditMode={screenModel.isEditMode}
             onUnfollow={() => {
-              toggleFollow(competition.id).catch(() => undefined);
+              screenModel.handleToggleFollow(competition.id);
             }}
             onPress={() => {
-              if (!isEditMode) {
-                handleOpenCompetition(competition);
+              if (!screenModel.isEditMode) {
+                screenModel.handleOpenCompetition(competition);
               }
             }}
           />
@@ -314,12 +204,12 @@ export function CompetitionsScreen() {
           logoUrl={competition.logo}
           rightElement={renderFollowButton(competition.id)}
           onPress={() => {
-            handleOpenCompetition(competition);
+            screenModel.handleOpenCompetition(competition);
           }}
         />
       );
     },
-    [handleOpenCompetition, isEditMode, renderFollowButton, toggleFollow],
+    [renderFollowButton, screenModel],
   );
 
   const renderSearchItem = useCallback(
@@ -330,12 +220,12 @@ export function CompetitionsScreen() {
           logoUrl={item.logo}
           rightElement={renderFollowButton(item.id)}
           onPress={() => {
-            handleOpenCompetition(item);
+            screenModel.handleOpenCompetition(item);
           }}
         />
       );
     },
-    [handleOpenCompetition, renderFollowButton],
+    [renderFollowButton, screenModel],
   );
 
   const renderSectionHeader = useCallback(
@@ -353,7 +243,7 @@ export function CompetitionsScreen() {
 
             <Pressable
               onPress={() => {
-                handleToggleCountry(countryName);
+                screenModel.handleToggleCountry(countryName);
               }}
               style={styles.countryHeader}
             >
@@ -380,21 +270,21 @@ export function CompetitionsScreen() {
       return (
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
-          {section.type === 'followed' && followedCompetitions.length > 0 ? (
+          {section.type === 'followed' && screenModel.followedCompetitions.length > 0 ? (
             <Pressable
               onPress={() => {
-                setIsEditMode(current => !current);
+                screenModel.toggleEditMode();
               }}
             >
               <Text style={styles.editButtonText}>
-                {isEditMode ? t('actions.save') : t('screens.competitions.edit')}
+                {screenModel.isEditMode ? t('actions.save') : t('screens.competitions.edit')}
               </Text>
             </Pressable>
           ) : null}
         </View>
       );
     },
-    [colors.textMuted, followedCompetitions.length, handleToggleCountry, isEditMode, styles, t],
+    [colors.textMuted, screenModel, styles, t],
   );
 
   const renderSectionFooter = useCallback(
@@ -412,20 +302,7 @@ export function CompetitionsScreen() {
     [styles, t],
   );
 
-  const searchIsActive = searchQuery.trim().length > 0;
-  const hasCompetitionData =
-    countries.length > 0 || suggestedCompetitions.length > 0 || followedCompetitions.length > 0;
-  const hasVisibleData = searchIsActive ? searchResults.length > 0 : hasCompetitionData;
-  const offlineUi = useOfflineUiState({
-    hasData: hasVisibleData,
-    isLoading: isCompetitionsLoading || isSearching,
-    lastUpdatedAt,
-  });
-  const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
-    ? new Date(offlineUi.lastUpdatedAt).toISOString()
-    : null;
-
-  if (isCompetitionsLoading && countries.length === 0) {
+  if (screenModel.isCompetitionsLoading && !screenModel.hasCompetitionData) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -434,11 +311,11 @@ export function CompetitionsScreen() {
     );
   }
 
-  if (offlineUi.showOfflineNoCache) {
+  if (screenModel.offlineUi.showOfflineNoCache) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <View style={styles.stateWrap}>
-          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+          <ScreenStateView state="offline" lastUpdatedAt={screenModel.offlineLastUpdatedAt} />
         </View>
       </View>
     );
@@ -457,25 +334,25 @@ export function CompetitionsScreen() {
           style={styles.searchInput}
           placeholder={t('screens.competitions.searchPlaceholder')}
           placeholderTextColor={colors.textMuted}
-          value={searchQuery}
-          onChangeText={handleSearchChange}
+          value={screenModel.searchQuery}
+          onChangeText={screenModel.handleSearchChange}
         />
-        {searchQuery.length > 0 ? (
-          <Pressable onPress={handleClearSearch}>
+        {screenModel.searchQuery.length > 0 ? (
+          <Pressable onPress={screenModel.handleClearSearch}>
             <MaterialCommunityIcons name="close-circle" size={20} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
 
-      {offlineUi.showOfflineBanner ? (
+      {screenModel.offlineUi.showOfflineBanner ? (
         <View style={styles.stateWrap}>
-          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+          <ScreenStateView state="offline" lastUpdatedAt={screenModel.offlineLastUpdatedAt} />
         </View>
       ) : null}
 
-      {searchIsActive ? (
+      {screenModel.searchIsActive ? (
         <FlashList
-          data={searchResults}
+          data={screenModel.searchResults}
           keyExtractor={searchKeyExtractor}
           renderItem={renderSearchItem}
           // @ts-ignore FlashList runtime supports estimatedItemSize.
@@ -488,13 +365,15 @@ export function CompetitionsScreen() {
           }
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              {isSearching ? t('screens.competitions.loading') : t('follows.search.empty')}
+              {screenModel.isSearching
+                ? t('screens.competitions.loading')
+                : t('follows.search.empty')}
             </Text>
           }
         />
       ) : (
         <SectionList
-          sections={competitionSections}
+          sections={screenModel.competitionSections}
           keyExtractor={sectionKeyExtractor}
           renderItem={renderCompetitionItem}
           renderSectionHeader={renderSectionHeader}

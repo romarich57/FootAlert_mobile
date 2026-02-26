@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 
 import { PlayerHeader } from '@ui/features/players/components/PlayerHeader';
 import { PlayerTabs, PlayerTabType } from '@ui/features/players/components/PlayerTabs';
@@ -28,9 +29,12 @@ export function PlayerDetailsScreen() {
     const route = useRoute<PlayerDetailsScreenRouteProp>();
     const navigation = useNavigation<PlayerDetailsScreenNavigationProp>();
 
-    const { playerId } = route.params;
+    const safePlayerId = sanitizeNumericEntityId(route.params.playerId);
     const [activeTab, setActiveTab] = useState<PlayerTabType>('profil');
-    const screenModel = usePlayerDetailsScreenModel({ playerId, activeTab });
+    const screenModel = usePlayerDetailsScreenModel({
+      playerId: safePlayerId ?? '',
+      activeTab,
+    });
     const offlineUi = useOfflineUiState({
         hasData: screenModel.hasCachedData,
         isLoading:
@@ -51,8 +55,21 @@ export function PlayerDetailsScreen() {
         // TODO: Implement share logic.
     }, []);
     const handlePressMatch = useCallback((fixtureId: string) => {
-        navigation.navigate('MatchDetails', { matchId: fixtureId });
+        const safeFixtureId = sanitizeNumericEntityId(fixtureId);
+        if (!safeFixtureId) {
+            return;
+        }
+
+        navigation.navigate('MatchDetails', { matchId: safeFixtureId });
     }, [navigation]);
+
+    if (!safePlayerId) {
+        return (
+            <View style={[styles.center, { backgroundColor: colors.background }]}>
+                <Text style={{ color: colors.text }}>{t('playerDetails.states.loadError')}</Text>
+            </View>
+        );
+    }
 
     if (offlineUi.showOfflineNoCache) {
         return (

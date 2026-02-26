@@ -4,7 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { FlashList } from '@shopify/flash-list';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import {
+    DEFAULT_HIT_SLOP,
+    MIN_TOUCH_TARGET,
+    type ThemeColors,
+} from '@ui/shared/theme/theme';
 import { useCompetitionTransfers } from '../hooks/useCompetitionTransfers';
 import { TransferCard } from './TransferCard';
 import type { Transfer } from '../types/competitions.types';
@@ -69,6 +73,7 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
                     onPress={() => {
                         refetch();
                     }}
+                    hitSlop={DEFAULT_HIT_SLOP}
                 >
                     <Text style={styles.retryText}>{t('actions.retry')}</Text>
                 </Pressable>
@@ -95,6 +100,7 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
                                 key={filterKey}
                                 style={[styles.filterPill, isActive ? styles.filterPillActive : null]}
                                 onPress={() => setActiveFilter(filterKey)}
+                                hitSlop={DEFAULT_HIT_SLOP}
                             >
                                 <Text style={[styles.filterText, isActive ? styles.filterTextActive : null]}>
                                     {t(`competitionDetails.transfers.filters.${filterKey}`)}
@@ -107,6 +113,7 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
                 <Pressable
                     style={styles.sortPill}
                     onPress={() => setActiveSort(current => (current === 'latest' ? 'oldest' : 'latest'))}
+                    hitSlop={DEFAULT_HIT_SLOP}
                 >
                     <Text style={styles.sortText}>
                         {t(`competitionDetails.transfers.sort.${activeSort}`)}
@@ -181,7 +188,7 @@ function createStyles(colors: ThemeColors) {
             flex: 1,
         },
         filterPill: {
-            minHeight: 34,
+            minHeight: MIN_TOUCH_TARGET,
             borderRadius: 999,
             justifyContent: 'center',
             alignItems: 'center',
@@ -201,7 +208,7 @@ function createStyles(colors: ThemeColors) {
             color: colors.primary,
         },
         sortPill: {
-            minHeight: 34,
+            minHeight: MIN_TOUCH_TARGET,
             borderRadius: 999,
             borderWidth: 1,
             borderColor: colors.chipBorder,

@@ -18,9 +18,10 @@
 ## Couches mobile
 
 - `src/ui/*`: écrans, composants, hooks de présentation.
-- `src/data/endpoints/*`: contrats HTTP vers BFF.
+- `src/data/endpoints/*`: adaptation runtime mobile vers services partagés.
 - `src/data/mappers/*`: mapping API DTO -> modèles UI.
 - `src/ui/shared/query/*`: query keys/options globales.
+- `packages/app-core/*`: services de lecture et validation runtime partagés web/mobile/desktop.
 
 ## Couches BFF (`footalert-bff/`)
 
@@ -35,6 +36,9 @@
 - `PersistQueryClientProvider` + AsyncStorage persister.
 - Les données query persistées servent de fallback offline multi-feature.
 - Les caches ad hoc feature ont été supprimés au profit du cache React Query global.
+- `networkMode: 'offlineFirst'` est défini globalement pour les queries et mutations.
+- Stratégie `read-through cache`: lecture immédiate depuis cache persistant puis revalidation réseau à la reconnexion.
+- Stratégie mutation: en cas d'échec réseau, retry contrôlé; les écritures non critiques (télémétrie/push) sont tolérantes aux erreurs côté UI.
 
 ## Guardrails sécurité
 

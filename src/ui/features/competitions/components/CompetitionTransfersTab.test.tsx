@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react-native';
 
 import { CompetitionTransfersTab } from '@ui/features/competitions/components/CompetitionTransfersTab';
 import { useCompetitionTransfers } from '@ui/features/competitions/hooks/useCompetitionTransfers';
@@ -46,6 +46,7 @@ const baseTransfers: Transfer[] = [
 
 describe('CompetitionTransfersTab', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.clearAllMocks();
     mockedUseCompetitionTransfers.mockReturnValue({
       data: baseTransfers,
@@ -53,6 +54,14 @@ describe('CompetitionTransfersTab', () => {
       isError: false,
       refetch: jest.fn(),
     } as never);
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    cleanup();
+    jest.useRealTimers();
   });
 
   it('filters list by arrivals and departures', () => {

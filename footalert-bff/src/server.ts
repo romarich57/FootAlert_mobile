@@ -10,8 +10,10 @@ import { BffError } from './lib/errors.js';
 import { registerCompetitionsRoutes } from './routes/competitions.js';
 import { registerFollowsRoutes } from './routes/follows.js';
 import { registerMatchesRoutes } from './routes/matches.js';
+import { registerNotificationsRoutes } from './routes/notifications.js';
 import { registerPlayersRoutes } from './routes/players.js';
 import { registerTeamsRoutes } from './routes/teams.js';
+import { registerTelemetryRoutes } from './routes/telemetry.js';
 
 function isAllowedCorsOrigin(origin: string): boolean {
   return env.corsAllowedOrigins.includes(origin);
@@ -191,6 +193,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerTeamsRoutes(app);
   await registerPlayersRoutes(app);
   await registerFollowsRoutes(app);
+  await registerNotificationsRoutes(app);
+  await registerTelemetryRoutes(app);
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof BffError) {

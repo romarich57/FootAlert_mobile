@@ -1,0 +1,7 @@
+baseline_summary=perf-results/2026-02-26/audit-live/android/110715/audit-summary.txt
+target_summary=perf-results/2026-02-26/audit-postfix/android/113838/audit-summary.txt
+
+metric,baseline,target,delta
+cold_start_p50_ms,670,625,-45.00 (-6.72%)
+cold_start_p95_ms,775,685,-90.00 (-11.61%)
+janky_frames_percent,2.08,2.27,+0.19 (9.13%)

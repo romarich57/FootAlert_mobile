@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,8 +21,12 @@ import type {
   TrendTeamItem,
 } from '@ui/features/follows/types/follows.types';
 import { useOfflineUiState } from '@ui/shared/hooks';
-import type { ThemeColors } from '@ui/shared/theme/theme';
 import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
+import {
+  DEFAULT_HIT_SLOP,
+  MIN_TOUCH_TARGET,
+  type ThemeColors,
+} from '@ui/shared/theme/theme';
 
 type FollowsFeedItem =
   | {
@@ -81,6 +85,11 @@ function createStyles(colors: ThemeColors) {
       color: colors.primary,
       fontSize: 16,
       fontWeight: '600',
+    },
+    trendsActionButton: {
+      minHeight: MIN_TOUCH_TARGET,
+      justifyContent: 'center',
+      paddingHorizontal: 4,
     },
     infoText: {
       color: colors.textMuted,
@@ -178,26 +187,50 @@ export function FollowsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const model = useFollowsScreenModel();
-  const showLimitError = model.lastToggleError === 'limit_reached';
+  const {
+    selectedTab,
+    setSelectedTab,
+    searchQuery,
+    setSearchQuery,
+    isSearchVisible,
+    toggleSearchVisibility,
+    search,
+    followedTeamIds,
+    followedPlayerIds,
+    hideTrendsCurrentTab,
+    isSectionLoading,
+    lastToggleError,
+    teamCards,
+    playerCards,
+    handleToggleTeam,
+    handleTogglePlayer,
+    handleOpenPlayerDetails,
+    handleOpenTeamDetails,
+    updateHideTrends,
+    asTeamTrends,
+    asPlayerTrends,
+    lastUpdatedAt,
+  } = model;
+  const showLimitError = lastToggleError === 'limit_reached';
 
   const feedItems = useMemo(
     () =>
       buildFeedItems(
-        model.selectedTab,
-        model.hideTrendsCurrentTab,
-        model.asTeamTrends,
-        model.asPlayerTrends,
-        model.search.hasEnoughChars
+        selectedTab,
+        hideTrendsCurrentTab,
+        asTeamTrends,
+        asPlayerTrends,
+        search.hasEnoughChars
           ? t('follows.search.empty')
           : t('follows.states.noTrends'),
-        model.search,
+        search,
       ),
     [
-      model.asPlayerTrends,
-      model.asTeamTrends,
-      model.hideTrendsCurrentTab,
-      model.search,
-      model.selectedTab,
+      asPlayerTrends,
+      asTeamTrends,
+      hideTrendsCurrentTab,
+      search,
+      selectedTab,
       t,
     ],
   );
@@ -206,16 +239,18 @@ export function FollowsScreen() {
     () => feedItems.some(item => item.type !== 'empty'),
     [feedItems],
   );
+  const followedTeamIdsSet = useMemo(() => new Set(followedTeamIds), [followedTeamIds]);
+  const followedPlayerIdsSet = useMemo(() => new Set(followedPlayerIds), [followedPlayerIds]);
   const offlineUi = useOfflineUiState({
     hasData: hasFeedData,
-    isLoading: model.isSectionLoading || model.search.isLoading,
-    lastUpdatedAt: model.lastUpdatedAt,
+    isLoading: isSectionLoading || search.isLoading,
+    lastUpdatedAt,
   });
   const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
     ? new Date(offlineUi.lastUpdatedAt).toISOString()
     : null;
 
-  const renderItem: ListRenderItem<FollowsFeedItem> = ({ item }) => {
+  const renderItem = useCallback<ListRenderItem<FollowsFeedItem>>(({ item }) => {
     if (item.type === 'empty') {
       return <Text style={styles.infoText}>{item.message}</Text>;
     }
@@ -233,10 +268,10 @@ export function FollowsScreen() {
           title={trendItem.teamName}
           subtitle={subtitle}
           avatarUrl={trendItem.teamLogo}
-          onPressItem={() => model.handleOpenTeamDetails(trendItem.teamId)}
+          onPressItem={() => handleOpenTeamDetails(trendItem.teamId)}
           itemAccessibilityLabel={trendItem.teamName}
-          isFollowing={model.followedTeamIds.includes(trendItem.teamId)}
-          onToggleFollow={() => model.handleToggleTeam(trendItem.teamId)}
+          isFollowing={followedTeamIdsSet.has(trendItem.teamId)}
+          onToggleFollow={() => handleToggleTeam(trendItem.teamId)}
           followLabel={t('follows.actions.follow')}
           unfollowLabel={t('follows.actions.unfollow')}
           accessibilityLabel={`${t('follows.actions.follow')} ${trendItem.teamName}`}
@@ -250,27 +285,36 @@ export function FollowsScreen() {
         title={trendItem.playerName}
         subtitle={[localizePlayerPosition(trendItem.position, t), trendItem.teamName].filter(Boolean).join(' • ')}
         avatarUrl={trendItem.playerPhoto}
-        onPressItem={() => model.handleOpenPlayerDetails(trendItem.playerId)}
+        onPressItem={() => handleOpenPlayerDetails(trendItem.playerId)}
         itemAccessibilityLabel={trendItem.playerName}
-        isFollowing={model.followedPlayerIds.includes(trendItem.playerId)}
-        onToggleFollow={() => model.handleTogglePlayer(trendItem.playerId)}
+        isFollowing={followedPlayerIdsSet.has(trendItem.playerId)}
+        onToggleFollow={() => handleTogglePlayer(trendItem.playerId)}
         followLabel={t('follows.actions.follow')}
         unfollowLabel={t('follows.actions.unfollow')}
         accessibilityLabel={`${t('follows.actions.follow')} ${trendItem.playerName}`}
       />
     );
-  };
+  }, [
+    handleOpenPlayerDetails,
+    handleOpenTeamDetails,
+    handleTogglePlayer,
+    handleToggleTeam,
+    followedPlayerIdsSet,
+    followedTeamIdsSet,
+    styles.infoText,
+    t,
+  ]);
 
-  const listHeaderComponent = (
+  const listHeaderComponent = useMemo(() => (
     <>
       <FollowsHeader
         title={t('follows.title')}
-        isSearchVisible={model.isSearchVisible}
-        searchQuery={model.searchQuery}
-        onSearchQueryChange={model.setSearchQuery}
-        onPressSearchToggle={model.toggleSearchVisibility}
+        isSearchVisible={isSearchVisible}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onPressSearchToggle={toggleSearchVisibility}
         placeholder={
-          model.selectedTab === 'teams'
+          selectedTab === 'teams'
             ? t('follows.search.placeholderTeams')
             : t('follows.search.placeholderPlayers')
         }
@@ -278,28 +322,19 @@ export function FollowsScreen() {
 
       {/* Hide segmented control when searching for a cleaner look, or keep it?
           We'll keep it so users can switch tabs while searching. */}
-      {!model.search.hasEnoughChars && !model.isSearchVisible ? (
+      {!search.hasEnoughChars || isSearchVisible ? (
         <FollowsSegmentedControl
-          selectedTab={model.selectedTab}
-          onChangeTab={model.setSelectedTab}
+          selectedTab={selectedTab}
+          onChangeTab={setSelectedTab}
           teamsLabel={t('follows.tabs.teams')}
           playersLabel={t('follows.tabs.players')}
         />
       ) : null}
 
-      {model.isSearchVisible && (
-        <FollowsSegmentedControl
-          selectedTab={model.selectedTab}
-          onChangeTab={model.setSelectedTab}
-          teamsLabel={t('follows.tabs.teams')}
-          playersLabel={t('follows.tabs.players')}
-        />
-      )}
-
 
       {showLimitError ? (
         <Text style={styles.limitError}>
-          {model.selectedTab === 'teams'
+          {selectedTab === 'teams'
             ? t('follows.errors.maxTeams', { count: appEnv.followsMaxFollowedTeams })
             : t('follows.errors.maxPlayers', { count: appEnv.followsMaxFollowedPlayers })}
         </Text>
@@ -311,59 +346,58 @@ export function FollowsScreen() {
         </View>
       ) : null}
 
-      {model.search.hasEnoughChars ? null : (
-        <>
-          <FollowsFollowedSection
-            selectedTab={model.selectedTab}
-            teamCards={model.teamCards}
-            playerCards={model.playerCards}
-            isEditMode={false}
-            onPressAdd={() => {
-              // Now handled by typing in the search bar above
-            }}
-            onUnfollowTeam={model.handleToggleTeam}
-            onUnfollowPlayer={model.handleTogglePlayer}
-            onPressTeam={model.handleOpenTeamDetails}
-            onPressPlayer={model.handleOpenPlayerDetails}
-            labels={{
-              addToFavorites: t('follows.cards.addToFavorites'),
-              follow: t('follows.actions.follow'),
-              unfollow: t('follows.actions.unfollow'),
-              noNextMatch: t('follows.cards.noNextMatch'),
-              goals: t('follows.cards.goals'),
-              assists: t('follows.cards.assists'),
-            }}
-          />
-        </>
+      {search.hasEnoughChars ? null : (
+        <FollowsFollowedSection
+          selectedTab={selectedTab}
+          teamCards={teamCards}
+          playerCards={playerCards}
+          isEditMode={false}
+          onPressAdd={() => {
+            // Now handled by typing in the search bar above
+          }}
+          onUnfollowTeam={handleToggleTeam}
+          onUnfollowPlayer={handleTogglePlayer}
+          onPressTeam={handleOpenTeamDetails}
+          onPressPlayer={handleOpenPlayerDetails}
+          labels={{
+            addToFavorites: t('follows.cards.addToFavorites'),
+            follow: t('follows.actions.follow'),
+            unfollow: t('follows.actions.unfollow'),
+            noNextMatch: t('follows.cards.noNextMatch'),
+            goals: t('follows.cards.goals'),
+            assists: t('follows.cards.assists'),
+          }}
+        />
       )}
 
-      {model.isSectionLoading || model.search.isLoading ? (
+      {isSectionLoading || search.isLoading ? (
         <Text style={styles.infoText}>
-          {model.search.hasEnoughChars
+          {search.hasEnoughChars
             ? t('follows.search.loading')
             : t('follows.states.loading')}
         </Text>
       ) : null}
 
-      {!model.search.hasEnoughChars ? (
+      {!search.hasEnoughChars ? (
         <View style={styles.trendsSection}>
           <View style={styles.trendsHeader}>
             <Text style={styles.trendsTitle}>{t('follows.trends.title')}</Text>
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                model
-                  .updateHideTrends(model.selectedTab, !model.hideTrendsCurrentTab)
+                updateHideTrends(selectedTab, !hideTrendsCurrentTab)
                   .catch(() => undefined);
               }}
+              hitSlop={DEFAULT_HIT_SLOP}
+              style={styles.trendsActionButton}
               accessibilityLabel={
-                model.hideTrendsCurrentTab
+                hideTrendsCurrentTab
                   ? t('follows.trends.show')
                   : t('follows.trends.hide')
               }
             >
               <Text style={styles.trendsActionText}>
-                {model.hideTrendsCurrentTab
+                {hideTrendsCurrentTab
                   ? t('follows.trends.show')
                   : t('follows.trends.hide')}
               </Text>
@@ -372,7 +406,36 @@ export function FollowsScreen() {
         </View>
       ) : null}
     </>
-  );
+  ), [
+    handleOpenPlayerDetails,
+    handleOpenTeamDetails,
+    handleTogglePlayer,
+    handleToggleTeam,
+    hideTrendsCurrentTab,
+    isSearchVisible,
+    isSectionLoading,
+    offlineLastUpdatedAt,
+    offlineUi.showOfflineBanner,
+    playerCards,
+    search,
+    searchQuery,
+    selectedTab,
+    setSearchQuery,
+    setSelectedTab,
+    showLimitError,
+    teamCards,
+    toggleSearchVisibility,
+    updateHideTrends,
+    styles.limitError,
+    styles.offlineStateContainer,
+    styles.trendsActionButton,
+    styles.trendsActionText,
+    styles.trendsHeader,
+    styles.trendsSection,
+    styles.trendsTitle,
+    styles.infoText,
+    t,
+  ]);
 
   if (offlineUi.showOfflineNoCache) {
     return (

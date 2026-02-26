@@ -8,6 +8,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import { useTeamContext } from '@ui/features/teams/hooks/useTeamContext';
 import { useTeamMatches } from '@ui/features/teams/hooks/useTeamMatches';
 import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
@@ -30,7 +31,8 @@ export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
   const navigation = useNavigation<TeamDetailsNavigation>();
   const route = useRoute<TeamDetailsRoute>();
-  const { teamId } = route.params;
+  const safeTeamId = sanitizeNumericEntityId(route.params.teamId);
+  const teamId = safeTeamId ?? '';
 
   const [activeTab, setActiveTab] = useState<TeamDetailsTab>('overview');
   const [visitedTabs, setVisitedTabs] = useState<Record<TeamDetailsTab, boolean>>({
@@ -44,7 +46,7 @@ export function useTeamDetailsScreenModel() {
   });
 
   const { followedTeamIds, toggleTeamFollow } = useFollowsActions();
-  const isFollowed = followedTeamIds.includes(teamId);
+  const isFollowed = Boolean(safeTeamId) && followedTeamIds.includes(teamId);
 
   const {
     team,
@@ -146,7 +148,7 @@ export function useTeamDetailsScreenModel() {
 
   const trophiesQuery = useTeamTrophies({
     teamId,
-    enabled: Boolean(teamId),
+    enabled: Boolean(safeTeamId),
   });
 
   const hasTrophiesTab = useMemo(
@@ -222,36 +224,47 @@ export function useTeamDetailsScreenModel() {
 
   const handlePressMatch = useCallback(
     (matchId: string) => {
-      navigation.navigate('MatchDetails', { matchId });
+      const safeMatchId = sanitizeNumericEntityId(matchId);
+      if (!safeMatchId) {
+        return;
+      }
+
+      navigation.navigate('MatchDetails', { matchId: safeMatchId });
     },
     [navigation],
   );
 
   const handlePressTeam = useCallback(
     (nextTeamId: string) => {
-      if (!nextTeamId || nextTeamId === teamId) {
+      const safeNextTeamId = sanitizeNumericEntityId(nextTeamId);
+      if (!safeNextTeamId || safeNextTeamId === teamId) {
         return;
       }
 
-      navigation.push('TeamDetails', { teamId: nextTeamId });
+      navigation.push('TeamDetails', { teamId: safeNextTeamId });
     },
     [navigation, teamId],
   );
 
   const handlePressPlayer = useCallback(
     (playerId: string) => {
-      if (!playerId) {
+      const safePlayerId = sanitizeNumericEntityId(playerId);
+      if (!safePlayerId) {
         return;
       }
 
-      navigation.navigate('PlayerDetails', { playerId });
+      navigation.navigate('PlayerDetails', { playerId: safePlayerId });
     },
     [navigation],
   );
 
   const handleToggleFollow = useCallback(() => {
+    if (!safeTeamId) {
+      return;
+    }
+
     toggleTeamFollow(teamId).catch(() => undefined);
-  }, [teamId, toggleTeamFollow]);
+  }, [safeTeamId, teamId, toggleTeamFollow]);
 
   const tabs = useMemo(() => {
     const baseTabs: Array<{ key: TeamDetailsTab; label: string }> = [
@@ -327,6 +340,7 @@ export function useTeamDetailsScreenModel() {
   const hasCachedData = hasContextCachedData || activeTabDataUpdatedAt > 0;
 
   return {
+    isValidTeamId: Boolean(safeTeamId),
     teamId,
     team,
     activeTab,

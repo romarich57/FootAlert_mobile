@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -33,6 +34,16 @@ type TeamOverviewTabProps = {
 };
 
 type PlayerCategoryKey = 'ratings' | 'scorers' | 'assisters';
+type TeamOverviewListItemKey =
+  | 'next-match'
+  | 'recent-form'
+  | 'season-overview'
+  | 'mini-standing'
+  | 'standing-history'
+  | 'coach-performance'
+  | 'player-leaders'
+  | 'competitions'
+  | 'stadium-info';
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -1167,491 +1178,550 @@ export function TeamOverviewTab({
 
   const nextMatch = data?.nextMatch ?? null;
   const coachPerformance = data?.coachPerformance;
+  const overviewItems: TeamOverviewListItemKey[] = [
+    'next-match',
+    'recent-form',
+    'season-overview',
+    'mini-standing',
+    'standing-history',
+    'coach-performance',
+    'player-leaders',
+    'competitions',
+    'stadium-info',
+  ];
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('teamDetails.overview.nextMatch')}</Text>
+      <FlashList
+        data={overviewItems}
+        keyExtractor={item => item}
+        getItemType={() => 'team-overview-section'}
+        // @ts-ignore FlashList runtime supports estimatedItemSize.
+        estimatedItemSize={280}
+        renderItem={({ item }) => {
+          if (item === 'next-match') {
+            return (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('teamDetails.overview.nextMatch')}</Text>
 
-          {nextMatch ? (
-            <>
-              <View style={styles.nextMetaRow}>
-                <Text style={styles.nextMeta}>{toDisplayDate(nextMatch.date)}</Text>
-                <View style={styles.leaguePill}>
-                  <Text numberOfLines={1} style={styles.leaguePillText}>
-                    {toDisplayValue(nextMatch.leagueName)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.nextMatchRow}>
-                <Pressable
-                  onPress={() => {
-                    if (nextMatch.homeTeamId) {
-                      onPressTeam(nextMatch.homeTeamId);
-                    }
-                  }}
-                  style={styles.teamSide}
-                >
-                  <View style={styles.teamBadge}>
-                    {nextMatch.homeTeamLogo ? (
-                      <Image source={{ uri: nextMatch.homeTeamLogo }} style={styles.teamBadgeImage} />
-                    ) : null}
-                  </View>
-                  <Text numberOfLines={2} style={styles.teamName}>
-                    {toDisplayValue(nextMatch.homeTeamName)}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    if (nextMatch.fixtureId) {
-                      onPressMatch(nextMatch.fixtureId);
-                    }
-                  }}
-                  style={styles.kickoffWrap}
-                >
-                  <Text style={styles.kickoff}>{toDisplayHour(nextMatch.date)}</Text>
-                  <Text style={styles.kickoffLabel}>{t('teamDetails.overview.kickoff')}</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    if (nextMatch.awayTeamId) {
-                      onPressTeam(nextMatch.awayTeamId);
-                    }
-                  }}
-                  style={styles.teamSide}
-                >
-                  <View style={styles.teamBadge}>
-                    {nextMatch.awayTeamLogo ? (
-                      <Image source={{ uri: nextMatch.awayTeamLogo }} style={styles.teamBadgeImage} />
-                    ) : null}
-                  </View>
-                  <Text numberOfLines={2} style={styles.teamName}>
-                    {toDisplayValue(nextMatch.awayTeamName)}
-                  </Text>
-                </Pressable>
-              </View>
-            </>
-          ) : (
-            <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('teamDetails.overview.recentForm')}</Text>
-          <View style={styles.formRow}>
-            {(data?.recentForm ?? []).length > 0 ? (
-              (data?.recentForm ?? []).map(item => (
-                <View key={`form-${item.fixtureId}`} style={styles.formItem}>
-                  <View style={[styles.formBadge, resolveFormBadgeStyle(item.result, styles)]}>
-                    <Text style={styles.formBadgeText}>{item.score ?? item.result}</Text>
-                  </View>
-                  <View style={styles.formLogoWrap}>
-                    {item.opponentLogo ? (
-                      <Image source={{ uri: item.opponentLogo }} style={styles.formLogo} resizeMode="contain" />
-                    ) : (
-                      <Text style={styles.formLogoFallback}>{toShortInitials(item.opponentName)}</Text>
-                    )}
-                  </View>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>{t('teamDetails.overview.seasonStats')}</Text>
-            <Text style={styles.sectionSubtitle}>{t('teamDetails.overview.estimatedLineup')}</Text>
-          </View>
-
-          <View style={styles.statsGrid}>
-            {seasonStatCards.map(card => {
-              const variant = resolveStatValueVariant(card.key, card.value);
-              const valueVariantStyle =
-                variant === 'positive'
-                  ? styles.statValuePositive
-                  : variant === 'negative'
-                    ? styles.statValueNegative
-                    : styles.statValueNeutral;
-
-              return (
-                <View key={`season-stat-${card.key}`} style={styles.statCell}>
-                  <View style={styles.statLabelRow}>
-                    <MaterialCommunityIcons
-                      testID={`team-overview-season-stat-icon-${card.key}`}
-                      name={card.iconName}
-                      size={14}
-                      color={colors.textMuted}
-                      style={styles.statIcon}
-                    />
-                    <Text numberOfLines={1} style={styles.statLabel}>
-                      {card.label}
-                    </Text>
-                  </View>
-                  <Text style={[styles.statValue, valueVariantStyle]}>{toDisplayNumber(card.value)}</Text>
-                </View>
-              );
-            })}
-          </View>
-
-          <View style={styles.pitch}>
-            <View style={styles.lineupRow}>
-              {(data?.seasonLineup.attackers ?? []).map(player => (
-                <PlayerBubble key={`att-${player.playerId}`} player={player} styles={styles} />
-              ))}
-            </View>
-            <View style={styles.pitchHalfLine} />
-            <View style={styles.lineupRow}>
-              {(data?.seasonLineup.midfielders ?? []).map(player => (
-                <PlayerBubble key={`mid-${player.playerId}`} player={player} styles={styles} />
-              ))}
-            </View>
-            <View style={styles.lineupRow}>
-              {(data?.seasonLineup.defenders ?? []).map(player => (
-                <PlayerBubble key={`def-${player.playerId}`} player={player} styles={styles} />
-              ))}
-            </View>
-            <View style={styles.lineupRow}>
-              <PlayerBubble player={data?.seasonLineup.goalkeeper ?? null} styles={styles} />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>{t('teamDetails.overview.miniStanding')}</Text>
-            <View style={styles.miniStandingHeaderRight}>
-              {data?.miniStanding?.leagueLogo ? (
-                <Image source={{ uri: data.miniStanding.leagueLogo }} style={styles.miniStandingLeagueLogo} />
-              ) : null}
-              <Text numberOfLines={1} style={styles.miniStandingTitle}>
-                {toDisplayValue(data?.miniStanding?.leagueName)}
-              </Text>
-            </View>
-          </View>
-
-          {(data?.miniStanding?.rows.length ?? 0) > 0 ? (
-            <>
-              <View style={styles.tableHeader}>
-                <View style={styles.colRank}><Text style={styles.tableHeaderText}>#</Text></View>
-                <View style={styles.colTeam}><Text style={styles.tableHeaderText}>{t('teamDetails.labels.team')}</Text></View>
-                <View style={styles.colSmall}><Text style={styles.tableHeaderText}>J</Text></View>
-                <View style={styles.colSmall}><Text style={styles.tableHeaderText}>G</Text></View>
-                <View style={styles.colSmall}><Text style={styles.tableHeaderText}>N</Text></View>
-                <View style={styles.colSmall}><Text style={styles.tableHeaderText}>D</Text></View>
-                <View style={styles.colDiff}><Text style={styles.tableHeaderText}>{t('teamDetails.labels.goalDiff')}</Text></View>
-                <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.labels.points')}</Text></View>
-              </View>
-
-              {(data?.miniStanding?.rows ?? []).map(row => (
-                <View
-                  key={`mini-standing-${row.teamId ?? row.rank ?? 'unknown'}`}
-                  style={[styles.tableRow, row.isTargetTeam ? styles.tableRowTarget : null]}
-                >
-                  <View style={styles.colRank}>
-                    <Text style={row.isTargetTeam ? styles.tableCellTextBold : styles.tableCellText}>
-                      {toDisplayNumber(row.rank)}
-                    </Text>
-                  </View>
-                  <View style={styles.colTeam}>
-                    {row.teamLogo ? <Image source={{ uri: row.teamLogo }} style={styles.teamLogo} /> : null}
-                    <Text numberOfLines={1} style={styles.teamRowName}>
-                      {toDisplayValue(row.teamName)}
-                    </Text>
-                  </View>
-                  <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.played)}</Text></View>
-                  <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.all.win)}</Text></View>
-                  <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.all.draw)}</Text></View>
-                  <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.all.lose)}</Text></View>
-                  <View style={styles.colDiff}><Text style={styles.tableCellText}>{toDisplayNumber(row.goalDiff)}</Text></View>
-                  <View style={styles.colPoints}>
-                    <Text style={row.isTargetTeam ? styles.tableCellTextBold : styles.tableCellText}>
-                      {toDisplayNumber(row.points)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </>
-          ) : (
-            <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text numberOfLines={1} style={[styles.cardTitle, styles.historyTitle]}>
-              {t('teamDetails.overview.standingHistory')}
-            </Text>
-            {(historyLeague.logo || historyLeague.name) ? (
-              <View style={styles.historyHeaderRight}>
-                <View style={styles.historyLeagueBadge}>
-                  {historyLeague.logo ? (
-                    <Image source={{ uri: historyLeague.logo }} style={styles.historyLeagueLogo} />
-                  ) : null}
-                  <Text numberOfLines={1} style={styles.historyLeagueName}>
-                    {toDisplayValue(historyLeague.name)}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </View>
-          {(historyPoints.length > 0) ? (
-            <View style={styles.historyChart}>
-              <View
-                style={styles.historyGraphCanvas}
-                onLayout={event => {
-                  const width = event.nativeEvent.layout.width;
-                  if (Math.abs(width - historyChartWidth) > 1) {
-                    setHistoryChartWidth(width);
-                  }
-                }}
-              >
-                <View style={styles.historyColumns}>
-                  {historyPoints.map((point, index, array) => (
-                    <View
-                      key={`history-col-${point.season}`}
-                      style={[
-                        styles.historyColumn,
-                        index % 2 === 1 ? styles.historyColumnAlt : null,
-                        index === array.length - 1 ? styles.historyColumnCurrent : null,
-                        index === array.length - 1 ? styles.historyColumnLast : null,
-                      ]}
-                    />
-                  ))}
-                </View>
-
-                {historyVisualPoints.slice(1).map((point, index) => {
-                  const previous = historyVisualPoints[index];
-                  const horizontalWidth = Math.max(2, point.x - previous.x);
-                  const verticalTop = Math.min(previous.y, point.y);
-                  const verticalHeight = Math.max(2, Math.abs(point.y - previous.y));
-
-                  return (
-                    <View key={`history-connection-${point.season}`}>
-                      <View
-                        style={[
-                          styles.historyConnectionHorizontal,
-                          {
-                            left: previous.x,
-                            top: previous.y,
-                            width: horizontalWidth,
-                          },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.historyConnectionVertical,
-                          {
-                            left: point.x,
-                            top: verticalTop,
-                            height: verticalHeight,
-                          },
-                        ]}
-                      />
-                    </View>
-                  );
-                })}
-
-                {historyVisualPoints.map(point => {
-                  const rankColor = resolveHistoryRankColor(point.rank, point.isLatest);
-
-                  return (
-                    <View
-                      key={`history-point-${point.season}`}
-                      style={[
-                        styles.historyItem,
-                        {
-                          left: point.x - 18,
-                          top: point.y - 18,
-                          backgroundColor: rankColor.fill,
-                          borderColor: rankColor.border,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.historyItemText, { color: rankColor.text }]}>
-                        {toDisplayNumber(point.rank, '-')}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-
-              <View style={styles.historySeasonRow}>
-                {historyPoints.map((point, index, array) => (
-                  <View
-                    key={`history-season-${point.season}`}
-                    style={[
-                      styles.historySeasonItem,
-                      index === array.length - 1 ? styles.historySeasonItemActive : null,
-                    ]}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.82}
-                      style={[
-                        styles.historySeasonText,
-                        index === array.length - 1 ? styles.historySeasonTextActive : null,
-                      ]}
-                    >
-                      {toCompactSeasonLabel(point.season)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : (
-            <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('teamDetails.overview.coachPerformance')}</Text>
-
-          {coachPerformance?.coach ? (
-            <>
-              <View style={styles.coachHeader}>
-                <View style={styles.coachAvatarWrap}>
-                  {coachPerformance.coach.photo ? (
-                    <Image source={{ uri: coachPerformance.coach.photo }} style={styles.coachAvatar} />
-                  ) : null}
-                </View>
-                <View style={styles.coachInfoWrap}>
-                  <Text numberOfLines={1} style={styles.coachName}>
-                    {toDisplayValue(coachPerformance.coach.name)}
-                  </Text>
-                  <Text style={styles.coachMeta}>
-                    {toDisplayValue(coachPerformance.played)} {t('teamDetails.labels.played')}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.coachStatsRow}>
-                <View style={styles.coachStat}>
-                  <Text style={styles.coachStatLabel}>{t('teamDetails.overview.coachWinRate')}</Text>
-                  <Text style={styles.coachStatValue}>{toPercent(coachPerformance.winRate)}</Text>
-                </View>
-                <View style={styles.coachStat}>
-                  <Text style={styles.coachStatLabel}>{t('teamDetails.overview.coachPointsPerMatch')}</Text>
-                  <Text style={styles.coachStatValue}>{toDecimal(coachPerformance.pointsPerMatch, 2)}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.coachRecord}>
-                {`${toDisplayNumber(coachPerformance.wins)}G • ${toDisplayNumber(coachPerformance.draws)}N • ${toDisplayNumber(coachPerformance.losses)}D`}
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.stateText}>{t('teamDetails.overview.coachNoData')}</Text>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('teamDetails.overview.playerLeaders')}</Text>
-          <View style={styles.leadersGrid}>
-            {leaderSections.map(section => {
-              const mainPlayer = section.players[0] ?? null;
-              const restPlayers = section.players.slice(1, 3);
-
-              return (
-                <View key={section.key} style={styles.leaderCard}>
-                  <Text style={styles.leaderTitle}>{section.title}</Text>
-
-                  <View style={styles.leaderMainRow}>
-                    <View style={styles.leaderMainAvatarWrap}>
-                      {mainPlayer?.photo ? (
-                        <Image source={{ uri: mainPlayer.photo }} style={styles.leaderMainAvatar} />
-                      ) : (
-                        <Text style={styles.leaderAvatarFallback}>{toShortInitials(mainPlayer?.name)}</Text>
-                      )}
-                    </View>
-                    <View style={styles.leaderMainTextWrap}>
-                      <Text numberOfLines={2} style={styles.leaderMainName}>
-                        {toDisplayValue(mainPlayer?.name)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.leaderMainValue}>{categoryValue(mainPlayer, section.key)}</Text>
-
-                  {restPlayers.map(player => (
-                    <View key={`${section.key}-${player.playerId}`} style={styles.leaderItemRow}>
-                      <View style={styles.leaderItemLeft}>
-                        <View style={styles.leaderItemAvatarWrap}>
-                          {player.photo ? (
-                            <Image source={{ uri: player.photo }} style={styles.leaderItemAvatar} />
-                          ) : (
-                            <Text style={styles.leaderAvatarFallback}>{toShortInitials(player.name)}</Text>
-                          )}
-                        </View>
-                        <Text numberOfLines={1} style={styles.leaderItemName}>
-                          {toDisplayValue(player.name)}
+                {nextMatch ? (
+                  <>
+                    <View style={styles.nextMetaRow}>
+                      <Text style={styles.nextMeta}>{toDisplayDate(nextMatch.date)}</Text>
+                      <View style={styles.leaguePill}>
+                        <Text numberOfLines={1} style={styles.leaguePillText}>
+                          {toDisplayValue(nextMatch.leagueName)}
                         </Text>
                       </View>
-                      <Text style={styles.leaderItemValue}>{categoryValue(player, section.key)}</Text>
                     </View>
-                  ))}
-                </View>
-              );
-            })}
-          </View>
-        </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('teamDetails.overview.competitions')}</Text>
-          {(competitionsForSeason.length > 0) ? (
-            <View style={styles.competitionsList}>
-              {competitionsForSeason.map(item => (
-                <View key={`competition-${item.leagueId}-${item.season}`} style={styles.competitionRow}>
-                  {item.leagueLogo ? <Image source={{ uri: item.leagueLogo }} style={styles.competitionLogo} /> : null}
-                  <View style={styles.competitionTextWrap}>
-                    <Text numberOfLines={1} style={styles.competitionName}>
-                      {toDisplayValue(item.leagueName)}
-                    </Text>
-                    <Text style={styles.competitionSeason}>{toDisplaySeasonLabel(item.season)}</Text>
+                    <View style={styles.nextMatchRow}>
+                      <Pressable
+                        onPress={() => {
+                          if (nextMatch.homeTeamId) {
+                            onPressTeam(nextMatch.homeTeamId);
+                          }
+                        }}
+                        style={styles.teamSide}
+                      >
+                        <View style={styles.teamBadge}>
+                          {nextMatch.homeTeamLogo ? (
+                            <Image source={{ uri: nextMatch.homeTeamLogo }} style={styles.teamBadgeImage} />
+                          ) : null}
+                        </View>
+                        <Text numberOfLines={2} style={styles.teamName}>
+                          {toDisplayValue(nextMatch.homeTeamName)}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => {
+                          if (nextMatch.fixtureId) {
+                            onPressMatch(nextMatch.fixtureId);
+                          }
+                        }}
+                        style={styles.kickoffWrap}
+                      >
+                        <Text style={styles.kickoff}>{toDisplayHour(nextMatch.date)}</Text>
+                        <Text style={styles.kickoffLabel}>{t('teamDetails.overview.kickoff')}</Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => {
+                          if (nextMatch.awayTeamId) {
+                            onPressTeam(nextMatch.awayTeamId);
+                          }
+                        }}
+                        style={styles.teamSide}
+                      >
+                        <View style={styles.teamBadge}>
+                          {nextMatch.awayTeamLogo ? (
+                            <Image source={{ uri: nextMatch.awayTeamLogo }} style={styles.teamBadgeImage} />
+                          ) : null}
+                        </View>
+                        <Text numberOfLines={2} style={styles.teamName}>
+                          {toDisplayValue(nextMatch.awayTeamName)}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+                )}
+              </View>
+            );
+          }
+
+          if (item === 'recent-form') {
+            return (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('teamDetails.overview.recentForm')}</Text>
+                <View style={styles.formRow}>
+                  {(data?.recentForm ?? []).length > 0 ? (
+                    (data?.recentForm ?? []).map(formItem => (
+                      <View key={`form-${formItem.fixtureId}`} style={styles.formItem}>
+                        <View style={[styles.formBadge, resolveFormBadgeStyle(formItem.result, styles)]}>
+                          <Text style={styles.formBadgeText}>{formItem.score ?? formItem.result}</Text>
+                        </View>
+                        <View style={styles.formLogoWrap}>
+                          {formItem.opponentLogo ? (
+                            <Image source={{ uri: formItem.opponentLogo }} style={styles.formLogo} resizeMode="contain" />
+                          ) : (
+                            <Text style={styles.formLogoFallback}>{toShortInitials(formItem.opponentName)}</Text>
+                          )}
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+                  )}
+                </View>
+              </View>
+            );
+          }
+
+          if (item === 'season-overview') {
+            return (
+              <View style={styles.card}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.cardTitle}>{t('teamDetails.overview.seasonStats')}</Text>
+                  <Text style={styles.sectionSubtitle}>{t('teamDetails.overview.estimatedLineup')}</Text>
+                </View>
+
+                <View style={styles.statsGrid}>
+                  {seasonStatCards.map(card => {
+                    const variant = resolveStatValueVariant(card.key, card.value);
+                    const valueVariantStyle =
+                      variant === 'positive'
+                        ? styles.statValuePositive
+                        : variant === 'negative'
+                          ? styles.statValueNegative
+                          : styles.statValueNeutral;
+
+                    return (
+                      <View key={`season-stat-${card.key}`} style={styles.statCell}>
+                        <View style={styles.statLabelRow}>
+                          <MaterialCommunityIcons
+                            testID={`team-overview-season-stat-icon-${card.key}`}
+                            name={card.iconName}
+                            size={14}
+                            color={colors.textMuted}
+                            style={styles.statIcon}
+                          />
+                          <Text numberOfLines={1} style={styles.statLabel}>
+                            {card.label}
+                          </Text>
+                        </View>
+                        <Text style={[styles.statValue, valueVariantStyle]}>{toDisplayNumber(card.value)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.pitch}>
+                  <View style={styles.lineupRow}>
+                    {(data?.seasonLineup.attackers ?? []).map(player => (
+                      <PlayerBubble key={`att-${player.playerId}`} player={player} styles={styles} />
+                    ))}
+                  </View>
+                  <View style={styles.pitchHalfLine} />
+                  <View style={styles.lineupRow}>
+                    {(data?.seasonLineup.midfielders ?? []).map(player => (
+                      <PlayerBubble key={`mid-${player.playerId}`} player={player} styles={styles} />
+                    ))}
+                  </View>
+                  <View style={styles.lineupRow}>
+                    {(data?.seasonLineup.defenders ?? []).map(player => (
+                      <PlayerBubble key={`def-${player.playerId}`} player={player} styles={styles} />
+                    ))}
+                  </View>
+                  <View style={styles.lineupRow}>
+                    <PlayerBubble player={data?.seasonLineup.goalkeeper ?? null} styles={styles} />
                   </View>
                 </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
-          )}
-        </View>
+              </View>
+            );
+          }
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('teamDetails.overview.stadiumInfo')}</Text>
+          if (item === 'mini-standing') {
+            return (
+              <View style={styles.card}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.cardTitle}>{t('teamDetails.overview.miniStanding')}</Text>
+                  <View style={styles.miniStandingHeaderRight}>
+                    {data?.miniStanding?.leagueLogo ? (
+                      <Image source={{ uri: data.miniStanding.leagueLogo }} style={styles.miniStandingLeagueLogo} />
+                    ) : null}
+                    <Text numberOfLines={1} style={styles.miniStandingTitle}>
+                      {toDisplayValue(data?.miniStanding?.leagueName)}
+                    </Text>
+                  </View>
+                </View>
 
-          <View style={styles.stadiumHero}>
-            {team.venueImage ? <Image source={{ uri: team.venueImage }} style={styles.stadiumHeroImage} /> : null}
-            <View style={styles.stadiumHeroOverlay} />
-            <View style={styles.stadiumHeroContent}>
-              <Text style={styles.stadiumHeroName}>{toDisplayValue(team.venueName)}</Text>
-              <Text style={styles.stadiumHeroMeta}>
-                {`${toDisplayValue(team.venueCity)}${team.country ? `, ${team.country}` : ''}`}
-              </Text>
-            </View>
-          </View>
+                {(data?.miniStanding?.rows.length ?? 0) > 0 ? (
+                  <>
+                    <View style={styles.tableHeader}>
+                      <View style={styles.colRank}><Text style={styles.tableHeaderText}>#</Text></View>
+                      <View style={styles.colTeam}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.team')}</Text></View>
+                      <View style={styles.colSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.played')}</Text></View>
+                      <View style={styles.colSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.win')}</Text></View>
+                      <View style={styles.colSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.draw')}</Text></View>
+                      <View style={styles.colSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.loss')}</Text></View>
+                      <View style={styles.colDiff}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
+                      <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
+                    </View>
 
-          <View style={styles.splitRow}>
-            <Text style={styles.splitLabel}>🏟️ {t('teamDetails.labels.capacity')}</Text>
-            <Text style={styles.splitValue}>{toDisplayNumber(team.venueCapacity)}</Text>
-          </View>
-          <View style={styles.splitRow}>
-            <Text style={styles.splitLabel}>📅 {t('teamDetails.labels.founded')}</Text>
-            <Text style={styles.splitValue}>{toDisplayNumber(team.founded)}</Text>
-          </View>
-          <View style={styles.splitRow}>
-            <Text style={styles.splitLabel}>🌱 {t('teamDetails.labels.surface')}</Text>
-            <Text style={styles.splitValue}>{t('teamDetails.overview.surfaceUnknown')}</Text>
-          </View>
-        </View>
-      </ScrollView>
+                    {(data?.miniStanding?.rows ?? []).map(row => (
+                      <View
+                        key={`mini-standing-${row.teamId ?? row.rank ?? 'unknown'}`}
+                        style={[styles.tableRow, row.isTargetTeam ? styles.tableRowTarget : null]}
+                      >
+                        <View style={styles.colRank}>
+                          <Text style={row.isTargetTeam ? styles.tableCellTextBold : styles.tableCellText}>
+                            {toDisplayNumber(row.rank)}
+                          </Text>
+                        </View>
+                        <View style={styles.colTeam}>
+                          {row.teamLogo ? <Image source={{ uri: row.teamLogo }} style={styles.teamLogo} /> : null}
+                          <Text numberOfLines={1} style={styles.teamRowName}>
+                            {toDisplayValue(row.teamName)}
+                          </Text>
+                        </View>
+                        <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.played)}</Text></View>
+                        <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.all.win)}</Text></View>
+                        <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.all.draw)}</Text></View>
+                        <View style={styles.colSmall}><Text style={styles.tableCellText}>{toDisplayNumber(row.all.lose)}</Text></View>
+                        <View style={styles.colDiff}><Text style={styles.tableCellText}>{toDisplayNumber(row.goalDiff)}</Text></View>
+                        <View style={styles.colPoints}>
+                          <Text style={row.isTargetTeam ? styles.tableCellTextBold : styles.tableCellText}>
+                            {toDisplayNumber(row.points)}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                ) : (
+                  <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+                )}
+              </View>
+            );
+          }
+
+          if (item === 'standing-history') {
+            return (
+              <View style={styles.card}>
+                <View style={styles.sectionHeader}>
+                  <Text numberOfLines={1} style={[styles.cardTitle, styles.historyTitle]}>
+                    {t('teamDetails.overview.standingHistory')}
+                  </Text>
+                  {(historyLeague.logo || historyLeague.name) ? (
+                    <View style={styles.historyHeaderRight}>
+                      <View style={styles.historyLeagueBadge}>
+                        {historyLeague.logo ? (
+                          <Image source={{ uri: historyLeague.logo }} style={styles.historyLeagueLogo} />
+                        ) : null}
+                        <Text numberOfLines={1} style={styles.historyLeagueName}>
+                          {toDisplayValue(historyLeague.name)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+                {(historyPoints.length > 0) ? (
+                  <View style={styles.historyChart}>
+                    <View
+                      style={styles.historyGraphCanvas}
+                      onLayout={event => {
+                        const width = event.nativeEvent.layout.width;
+                        if (Math.abs(width - historyChartWidth) > 1) {
+                          setHistoryChartWidth(width);
+                        }
+                      }}
+                    >
+                      <View style={styles.historyColumns}>
+                        {historyPoints.map((point, index, array) => (
+                          <View
+                            key={`history-col-${point.season}`}
+                            style={[
+                              styles.historyColumn,
+                              index % 2 === 1 ? styles.historyColumnAlt : null,
+                              index === array.length - 1 ? styles.historyColumnCurrent : null,
+                              index === array.length - 1 ? styles.historyColumnLast : null,
+                            ]}
+                          />
+                        ))}
+                      </View>
+
+                      {historyVisualPoints.slice(1).map((point, index) => {
+                        const previous = historyVisualPoints[index];
+                        const horizontalWidth = Math.max(2, point.x - previous.x);
+                        const verticalTop = Math.min(previous.y, point.y);
+                        const verticalHeight = Math.max(2, Math.abs(point.y - previous.y));
+
+                        return (
+                          <View key={`history-connection-${point.season}`}>
+                            <View
+                              style={[
+                                styles.historyConnectionHorizontal,
+                                {
+                                  left: previous.x,
+                                  top: previous.y,
+                                  width: horizontalWidth,
+                                },
+                              ]}
+                            />
+                            <View
+                              style={[
+                                styles.historyConnectionVertical,
+                                {
+                                  left: point.x,
+                                  top: verticalTop,
+                                  height: verticalHeight,
+                                },
+                              ]}
+                            />
+                          </View>
+                        );
+                      })}
+
+                      {historyVisualPoints.map(point => {
+                        const rankColor = resolveHistoryRankColor(point.rank, point.isLatest);
+
+                        return (
+                          <View
+                            key={`history-point-${point.season}`}
+                            style={[
+                              styles.historyItem,
+                              {
+                                left: point.x - 18,
+                                top: point.y - 18,
+                                backgroundColor: rankColor.fill,
+                                borderColor: rankColor.border,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.historyItemText, { color: rankColor.text }]}>
+                              {toDisplayNumber(point.rank, '-')}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <View style={styles.historySeasonRow}>
+                      {historyPoints.map((point, index, array) => (
+                        <View
+                          key={`history-season-${point.season}`}
+                          style={[
+                            styles.historySeasonItem,
+                            index === array.length - 1 ? styles.historySeasonItemActive : null,
+                          ]}
+                        >
+                          <Text
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.82}
+                            style={[
+                              styles.historySeasonText,
+                              index === array.length - 1 ? styles.historySeasonTextActive : null,
+                            ]}
+                          >
+                            {toCompactSeasonLabel(point.season)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+                )}
+              </View>
+            );
+          }
+
+          if (item === 'coach-performance') {
+            return (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('teamDetails.overview.coachPerformance')}</Text>
+
+                {coachPerformance?.coach ? (
+                  <>
+                    <View style={styles.coachHeader}>
+                      <View style={styles.coachAvatarWrap}>
+                        {coachPerformance.coach.photo ? (
+                          <Image source={{ uri: coachPerformance.coach.photo }} style={styles.coachAvatar} />
+                        ) : null}
+                      </View>
+                      <View style={styles.coachInfoWrap}>
+                        <Text numberOfLines={1} style={styles.coachName}>
+                          {toDisplayValue(coachPerformance.coach.name)}
+                        </Text>
+                        <Text style={styles.coachMeta}>
+                          {toDisplayValue(coachPerformance.played)} {t('teamDetails.labels.played')}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.coachStatsRow}>
+                      <View style={styles.coachStat}>
+                        <Text style={styles.coachStatLabel}>{t('teamDetails.overview.coachWinRate')}</Text>
+                        <Text style={styles.coachStatValue}>{toPercent(coachPerformance.winRate)}</Text>
+                      </View>
+                      <View style={styles.coachStat}>
+                        <Text style={styles.coachStatLabel}>{t('teamDetails.overview.coachPointsPerMatch')}</Text>
+                        <Text style={styles.coachStatValue}>{toDecimal(coachPerformance.pointsPerMatch, 2)}</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.coachRecord}>
+                      {`${toDisplayNumber(coachPerformance.wins)}G • ${toDisplayNumber(coachPerformance.draws)}N • ${toDisplayNumber(coachPerformance.losses)}D`}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.stateText}>{t('teamDetails.overview.coachNoData')}</Text>
+                )}
+              </View>
+            );
+          }
+
+          if (item === 'player-leaders') {
+            return (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('teamDetails.overview.playerLeaders')}</Text>
+                <View style={styles.leadersGrid}>
+                  {leaderSections.map(section => {
+                    const mainPlayer = section.players[0] ?? null;
+                    const restPlayers = section.players.slice(1, 3);
+
+                    return (
+                      <View key={section.key} style={styles.leaderCard}>
+                        <Text style={styles.leaderTitle}>{section.title}</Text>
+
+                        <View style={styles.leaderMainRow}>
+                          <View style={styles.leaderMainAvatarWrap}>
+                            {mainPlayer?.photo ? (
+                              <Image source={{ uri: mainPlayer.photo }} style={styles.leaderMainAvatar} />
+                            ) : (
+                              <Text style={styles.leaderAvatarFallback}>{toShortInitials(mainPlayer?.name)}</Text>
+                            )}
+                          </View>
+                          <View style={styles.leaderMainTextWrap}>
+                            <Text numberOfLines={2} style={styles.leaderMainName}>
+                              {toDisplayValue(mainPlayer?.name)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={styles.leaderMainValue}>{categoryValue(mainPlayer, section.key)}</Text>
+
+                        {restPlayers.map(player => (
+                          <View key={`${section.key}-${player.playerId}`} style={styles.leaderItemRow}>
+                            <View style={styles.leaderItemLeft}>
+                              <View style={styles.leaderItemAvatarWrap}>
+                                {player.photo ? (
+                                  <Image source={{ uri: player.photo }} style={styles.leaderItemAvatar} />
+                                ) : (
+                                  <Text style={styles.leaderAvatarFallback}>{toShortInitials(player.name)}</Text>
+                                )}
+                              </View>
+                              <Text numberOfLines={1} style={styles.leaderItemName}>
+                                {toDisplayValue(player.name)}
+                              </Text>
+                            </View>
+                            <Text style={styles.leaderItemValue}>{categoryValue(player, section.key)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          }
+
+          if (item === 'competitions') {
+            return (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('teamDetails.overview.competitions')}</Text>
+                {(competitionsForSeason.length > 0) ? (
+                  <View style={styles.competitionsList}>
+                    {competitionsForSeason.map(competitionItem => (
+                      <View key={`competition-${competitionItem.leagueId}-${competitionItem.season}`} style={styles.competitionRow}>
+                        {competitionItem.leagueLogo ? <Image source={{ uri: competitionItem.leagueLogo }} style={styles.competitionLogo} /> : null}
+                        <View style={styles.competitionTextWrap}>
+                          <Text numberOfLines={1} style={styles.competitionName}>
+                            {toDisplayValue(competitionItem.leagueName)}
+                          </Text>
+                          <Text style={styles.competitionSeason}>{toDisplaySeasonLabel(competitionItem.season)}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+                )}
+              </View>
+            );
+          }
+
+          if (item === 'stadium-info') {
+            return (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('teamDetails.overview.stadiumInfo')}</Text>
+
+                <View style={styles.stadiumHero}>
+                  {team.venueImage ? <Image source={{ uri: team.venueImage }} style={styles.stadiumHeroImage} /> : null}
+                  <View style={styles.stadiumHeroOverlay} />
+                  <View style={styles.stadiumHeroContent}>
+                    <Text style={styles.stadiumHeroName}>{toDisplayValue(team.venueName)}</Text>
+                    <Text style={styles.stadiumHeroMeta}>
+                      {`${toDisplayValue(team.venueCity)}${team.country ? `, ${team.country}` : ''}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.splitRow}>
+                  <Text style={styles.splitLabel}>🏟️ {t('teamDetails.labels.capacity')}</Text>
+                  <Text style={styles.splitValue}>{toDisplayNumber(team.venueCapacity)}</Text>
+                </View>
+                <View style={styles.splitRow}>
+                  <Text style={styles.splitLabel}>📅 {t('teamDetails.labels.founded')}</Text>
+                  <Text style={styles.splitValue}>{toDisplayNumber(team.founded)}</Text>
+                </View>
+                <View style={styles.splitRow}>
+                  <Text style={styles.splitLabel}>🌱 {t('teamDetails.labels.surface')}</Text>
+                  <Text style={styles.splitValue}>{t('teamDetails.overview.surfaceUnknown')}</Text>
+                </View>
+              </View>
+            );
+          }
+
+          return null;
+        }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+      />
     </View>
   );
 }

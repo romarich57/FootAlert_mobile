@@ -261,6 +261,8 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
 
     // Auto-scroll to current/next match
     useEffect(() => {
+        let autoScrollTimeout: ReturnType<typeof setTimeout> | null = null;
+
         if (!hasAutoScrolled && listData.length > 0 && flashListRef.current) {
             const firstUnfinishedIndex = listData.findIndex((item) => {
                 if (item.type !== 'fixture') return false;
@@ -270,7 +272,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
 
             if (firstUnfinishedIndex !== -1) {
                 // Delay scroll slightly to allow layout
-                setTimeout(() => {
+                autoScrollTimeout = setTimeout(() => {
                     flashListRef.current?.scrollToIndex({ index: firstUnfinishedIndex, animated: true, viewPosition: 0 });
                     setHasAutoScrolled(true);
                 }, 500);
@@ -278,6 +280,12 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
                 setHasAutoScrolled(true); // if all are finished, nothing to scroll to
             }
         }
+
+        return () => {
+            if (autoScrollTimeout !== null) {
+                clearTimeout(autoScrollTimeout);
+            }
+        };
     }, [listData, hasAutoScrolled]);
 
     const keyExtractor = useCallback((item: ListItem) => item.key, []);

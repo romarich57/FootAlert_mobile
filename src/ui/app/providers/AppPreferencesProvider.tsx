@@ -5,6 +5,9 @@ import {
   loadAppPreferences,
   updateAppPreferences,
 } from '@data/storage/appPreferencesStorage';
+import { syncPushTokenRegistration } from '@data/notifications/pushTokenLifecycle';
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
+import { DEFAULT_LANGUAGE, resolveDeviceLanguage } from '@/shared/i18n/language';
 import i18n from '@ui/shared/i18n';
 import type {
   AppLanguage,
@@ -29,7 +32,7 @@ type AppPreferencesProviderProps = PropsWithChildren<{
 
 const FALLBACK_PREFERENCES: AppPreferences = {
   theme: 'system',
-  language: 'fr',
+  language: resolveDeviceLanguage(DEFAULT_LANGUAGE),
   currencyCode: 'EUR',
   measurementSystem: 'metric',
   notificationsEnabled: false,
@@ -83,6 +86,40 @@ export function AppPreferencesProvider({
 
     i18n.changeLanguage(preferences.language).catch(() => undefined);
   }, [isHydrated, preferences.language]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    getMobileTelemetry().setUserContext({
+      language: preferences.language,
+      measurementSystem: preferences.measurementSystem,
+      notificationsEnabled: preferences.notificationsEnabled,
+      currencyCode: preferences.currencyCode,
+    });
+  }, [
+    isHydrated,
+    preferences.currencyCode,
+    preferences.language,
+    preferences.measurementSystem,
+    preferences.notificationsEnabled,
+  ]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    syncPushTokenRegistration({
+      notificationsEnabled: preferences.notificationsEnabled,
+      locale: preferences.language,
+    }).catch(error => {
+      getMobileTelemetry().trackError(error, {
+        feature: 'notifications.sync',
+      });
+    });
+  }, [isHydrated, preferences.language, preferences.notificationsEnabled]);
 
   const applyPreferenceUpdate = useCallback(
     async (partial: Partial<Omit<AppPreferences, 'updatedAt'>>) => {

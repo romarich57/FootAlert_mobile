@@ -75,11 +75,21 @@ export const queryKeys = {
     ) => ['competition_player_stats', leagueId, season, statType] as const,
     teamStats: (leagueId: number | undefined, season: number | undefined) =>
       ['competition_team_stats', leagueId, season] as const,
+    teamAdvancedStats: (
+      leagueId: number | undefined,
+      season: number | undefined,
+      teamId: number | undefined,
+    ) => ['competition_team_advanced_stats', leagueId, season, teamId] as const,
+    teamAdvancedStatsBatch: (
+      leagueId: number | undefined,
+      season: number | undefined,
+      teamIds: number[],
+      concurrency: number,
+    ) => ['competition_team_advanced_stats_batch', leagueId, season, concurrency, ...teamIds] as const,
     totw: (
       leagueId: number | undefined,
       season: number | undefined,
-      round: string | undefined,
-    ) => ['competition_totw', leagueId, season, round] as const,
+    ) => ['competition_totw', leagueId, season] as const,
   },
   follows: {
     followedTeamIds: () => ['follows', 'followed-team-ids'] as const,

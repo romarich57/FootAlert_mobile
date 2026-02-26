@@ -1,0 +1,11 @@
+{
+  "name": "@footalert/api-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "node ./scripts/lint-contract.mjs",
+    "generate": "node ./scripts/generate-types.mjs",
+    "check": "npm run lint && npm run generate && node ./scripts/ensure-clean-generated.mjs"
+  }
+}

@@ -3,6 +3,8 @@ name: Mobile Quality
 on:
   push:
   pull_request:
+  schedule:
+    - cron: '0 3 * * *'
 
 jobs:
   quality:
@@ -24,11 +26,172 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check index key usage
+        run: npm run check:keys
+
+      - name: API contract check
+        run: npm run contract:check
+
       - name: Typecheck
         run: npm run typecheck
 
       - name: Tests
-        run: npm run test -- --runInBand --forceExit
+        run: npm run test -- --runInBand --detectOpenHandles --openHandlesTimeout=1000 --forceExit
 
       - name: ASO metadata validation
         run: npm run aso:validate
+
+  android-build:
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Android debug and release
+        run: ./gradlew :app:assembleDebug :app:assembleRelease
+        working-directory: android
+
+      - name: Upload Android build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apks
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+  ios-build:
+    runs-on: macos-14
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+        working-directory: ios
+
+      - name: Build iOS debug (simulator)
+        run: |
+          xcodebuild \
+            -workspace ios/Mobile_Foot.xcworkspace \
+            -scheme Mobile_Foot \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload iOS build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-debug-simulator
+          path: ios/build/Build/Products/Debug-iphonesimulator
+          if-no-files-found: error
+
+  android-perf-budget:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enable KVM for Android emulator
+        run: |
+          sudo tee /etc/udev/rules.d/99-kvm4all.rules <<'EOF'
+          KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
+          EOF
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Android perf audit and SLO on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb devices -l
+            npm run perf:android:audit
+            npm run perf:android:audit:slo
+
+      - name: Compare Android perf against baseline
+        run: |
+          latest_summary="$(find perf-results -type f -name 'audit-summary.txt' | sort | tail -n 1)"
+          if [[ -z "$latest_summary" ]]; then
+            echo "No audit summary produced; failing perf comparison"
+            exit 1
+          fi
+          baseline_summary="perf-results/baseline/audit-summary.txt"
+          if [[ ! -f "$baseline_summary" ]]; then
+            echo "Baseline summary missing at $baseline_summary"
+            exit 1
+          fi
+          npm run perf:android:compare-baseline -- "$latest_summary" "$baseline_summary"
+
+      - name: Resolve perf artifact directory
+        id: perf_dir
+        run: |
+          summary_file="$(find perf-results -type f -name 'audit-summary.txt' | sort | tail -n 1)"
+          if [[ -z "$summary_file" ]]; then
+            echo "No perf summary found to upload"
+            exit 1
+          fi
+          echo "run_dir=$(dirname "$summary_file")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Android perf artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-perf-audit
+          path: ${{ steps.perf_dir.outputs.run_dir }}
+          if-no-files-found: error

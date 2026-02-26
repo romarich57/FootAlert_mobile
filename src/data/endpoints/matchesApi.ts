@@ -1,8 +1,13 @@
-import { bffGet } from '@data/endpoints/bffClient';
+import { createMatchesReadService } from '@app-core/services/matchesService';
+import { mobileReadHttpAdapter, mobileReadTelemetryAdapter } from '@data/endpoints/sharedReadServiceAdapters';
 import type {
   ApiFootballFixtureDto,
-  ApiFootballResponse,
 } from '@ui/features/matches/types/matches.types';
+
+const matchesReadService = createMatchesReadService({
+  http: mobileReadHttpAdapter,
+  telemetry: mobileReadTelemetryAdapter,
+});
 
 type FetchFixturesByDateParams = {
   date: string;
@@ -15,16 +20,11 @@ export async function fetchFixturesByDate({
   timezone,
   signal,
 }: FetchFixturesByDateParams): Promise<ApiFootballFixtureDto[]> {
-  const payload = await bffGet<ApiFootballResponse<ApiFootballFixtureDto>>(
-    '/matches',
-    {
-      date,
-      timezone,
-    },
-    { signal },
-  );
-
-  return payload.response;
+  return matchesReadService.fetchFixturesByDate<ApiFootballFixtureDto>({
+    date,
+    timezone,
+    signal,
+  });
 }
 
 type FetchFixtureByIdParams = {
@@ -38,13 +38,9 @@ export async function fetchFixtureById({
   timezone,
   signal,
 }: FetchFixtureByIdParams): Promise<ApiFootballFixtureDto | null> {
-  const payload = await bffGet<ApiFootballResponse<ApiFootballFixtureDto>>(
-    `/matches/${encodeURIComponent(fixtureId)}`,
-    {
-      timezone,
-    },
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return matchesReadService.fetchFixtureById<ApiFootballFixtureDto>({
+    fixtureId,
+    timezone,
+    signal,
+  });
 }

@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
@@ -150,18 +151,14 @@ export function useFollowsScreenModel() {
 
   const handleOpenPlayerDetails = useCallback(
     (playerId: string) => {
-      navigation.navigate('PlayerDetails', { playerId });
+      safeNavigateEntity(navigation, 'PlayerDetails', playerId);
     },
     [navigation],
   );
 
   const handleOpenTeamDetails = useCallback(
     (nextTeamId: string) => {
-      if (!nextTeamId) {
-        return;
-      }
-
-      navigation.navigate('TeamDetails', { teamId: nextTeamId });
+      safeNavigateEntity(navigation, 'TeamDetails', nextTeamId);
     },
     [navigation],
   );

@@ -1,0 +1,5 @@
+count=2
+min_ms=670
+p50_ms=670
+p95_ms=775
+max_ms=775

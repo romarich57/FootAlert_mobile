@@ -21,9 +21,15 @@ import {
 
 type QueryProviderProps = PropsWithChildren<{
   enablePersistence?: boolean;
+  queryOptionsOverrides?: Partial<typeof defaultQueryOptions>;
 }>;
 
 let hasRegisteredOnlineManager = false;
+
+function isJestRuntime(): boolean {
+  const runtimeProcess = (globalThis as { process?: { env?: { JEST_WORKER_ID?: string } } }).process;
+  return Boolean(runtimeProcess?.env?.JEST_WORKER_ID);
+}
 
 function registerOnlineManagerIfNeeded(): void {
   if (hasRegisteredOnlineManager) {
@@ -49,12 +55,26 @@ function registerOnlineManagerIfNeeded(): void {
 export function QueryProvider({
   children,
   enablePersistence = true,
+  queryOptionsOverrides,
 }: QueryProviderProps) {
+  const mergedQueryOptions = useMemo(
+    () => ({
+      ...defaultQueryOptions,
+      ...(isJestRuntime() ? { gcTime: Infinity } : {}),
+      ...queryOptionsOverrides,
+    }),
+    [queryOptionsOverrides],
+  );
+
   const [client] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: defaultQueryOptions,
+          queries: mergedQueryOptions,
+          mutations: {
+            networkMode: 'offlineFirst',
+            retry: 1,
+          },
         },
       }),
   );

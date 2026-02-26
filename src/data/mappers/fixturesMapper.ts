@@ -59,10 +59,6 @@ export function formatStatusLabel(
     return 'FT';
   }
 
-  if (shortStatus === 'NS') {
-    return 'A venir';
-  }
-
   return shortStatus;
 }
 
@@ -77,7 +73,7 @@ export function mapFixtureToMatchItem(dto: ApiFootballFixtureDto): MatchItem {
     competitionCountry: dto.league.country,
     startDate: dto.fixture.date,
     minute: dto.fixture.status.elapsed,
-    venue: dto.fixture.venue.name ?? 'Stadium',
+    venue: dto.fixture.venue.name ?? '',
     status,
     statusLabel: formatStatusLabel(status, dto.fixture.status.elapsed, dto.fixture.status.short),
     homeTeamId: String(dto.teams.home.id),

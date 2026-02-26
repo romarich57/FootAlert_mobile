@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHmac, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import type { FastifyInstance } from 'fastify';
 
@@ -19,6 +20,8 @@ const BASE_ENV: Record<string, string> = {
   CACHE_MAX_ENTRIES: '1000',
   CACHE_CLEANUP_INTERVAL_MS: '60000',
   BFF_EXPOSE_ERROR_DETAILS: 'false',
+  MOBILE_REQUEST_SIGNING_KEY: 'test-mobile-signing-key',
+  MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS: '300000',
   NODE_ENV: 'test',
 };
 
@@ -43,6 +46,63 @@ function installFetchMock(handler: (call: FetchCall) => Promise<Response>): Fetc
   }) as typeof fetch;
 
   return calls;
+}
+
+function normalizePrimitive(value: unknown): unknown {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value === null
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(item => stableStringify(item)).join(',')}]`;
+  }
+
+  if (value && typeof value === 'object') {
+    const objectValue = value as Record<string, unknown>;
+    const keys = Object.keys(objectValue).sort();
+    const serializedEntries = keys.map(
+      key => `${JSON.stringify(key)}:${stableStringify(objectValue[key])}`,
+    );
+    return `{${serializedEntries.join(',')}}`;
+  }
+
+  return JSON.stringify(normalizePrimitive(value));
+}
+
+function buildSignedMobileHeaders(options: {
+  method: 'POST' | 'DELETE';
+  url: string;
+  body?: unknown;
+  timestamp?: string;
+  nonce?: string;
+}): Record<string, string> {
+  const timestamp = options.timestamp ?? Date.now().toString();
+  const nonce = options.nonce ?? randomUUID();
+  const signingPayload = [
+    options.method,
+    options.url,
+    timestamp,
+    nonce,
+    stableStringify(options.body ?? null),
+  ].join('\n');
+  const signature = createHmac('sha256', BASE_ENV.MOBILE_REQUEST_SIGNING_KEY)
+    .update(signingPayload)
+    .digest('hex');
+
+  return {
+    'x-mobile-request-timestamp': timestamp,
+    'x-mobile-request-nonce': nonce,
+    'x-mobile-request-signature': signature,
+  };
 }
 
 function applyEnv(overrides: Record<string, string | undefined>): Record<string, string | undefined> {
@@ -82,6 +142,12 @@ async function buildApp(
   overrides: Record<string, string | undefined> = {},
 ): Promise<FastifyInstance> {
   const previousValues = applyEnv(overrides);
+  const { resetPushTokenStoreForTests } = await import('../src/routes/notifications.ts');
+  const { resetMobileRequestNonceStoreForTests } = await import(
+    '../src/lib/mobileRequestAuth.ts'
+  );
+  resetPushTokenStoreForTests();
+  resetMobileRequestNonceStoreForTests();
   const { buildServer } = await import(`../src/server.ts?case=${Math.random().toString(36).slice(2)}`);
   const app = await buildServer();
 
@@ -947,37 +1013,47 @@ test('GET /v1/players/:id/career returns aggregated seasons and teams', async t 
       return jsonResponse({ response: [2024, 2023] });
     }
 
-    if (url.includes('/players?id=278&season=2024')) {
-      return jsonResponse({
-        response: [
-          {
-            statistics: [
-              {
-                team: { id: 33, name: 'Team A', logo: 'https://logo-a' },
-                league: { season: 2024 },
-                games: { appearences: 20, rating: '7.2' },
-                goals: { total: 9, assists: 3 },
-              },
-            ],
-          },
-        ],
-      });
-    }
+    if (url.includes('/players?id=278&season=')) {
+      const season = Number(new URL(url).searchParams.get('season'));
 
-    return jsonResponse({
-      response: [
-        {
-          statistics: [
+      if (season === 2024) {
+        return jsonResponse({
+          response: [
             {
-              team: { id: 33, name: 'Team A', logo: 'https://logo-a' },
-              league: { season: 2023 },
-              games: { appearences: 18, rating: '7.0' },
-              goals: { total: 7, assists: 4 },
+              statistics: [
+                {
+                  team: { id: 33, name: 'Team A', logo: 'https://logo-a' },
+                  league: { season: 2024 },
+                  games: { appearences: 20, rating: '7.2' },
+                  goals: { total: 9, assists: 3 },
+                },
+              ],
             },
           ],
-        },
-      ],
-    });
+        });
+      }
+
+      if (season === 2023) {
+        return jsonResponse({
+          response: [
+            {
+              statistics: [
+                {
+                  team: { id: 33, name: 'Team A', logo: 'https://logo-a' },
+                  league: { season: 2023 },
+                  games: { appearences: 18, rating: '7.0' },
+                  goals: { total: 7, assists: 4 },
+                },
+              ],
+            },
+          ],
+        });
+      }
+
+      return jsonResponse({ response: [] });
+    }
+
+    return jsonResponse({ response: [] });
   });
 
   const app = await buildApp(t);
@@ -998,7 +1074,17 @@ test('GET /v1/players/:id/career returns aggregated seasons and teams', async t 
   });
   assert.equal(payload.response.teams.length, 1);
   assert.equal(payload.response.teams[0].matches, 38);
-  assert.equal(calls.length, 3);
+
+  const detailCalls = calls
+    .map(call => String(call.input))
+    .filter(url => url.includes('/players?id=278&season='));
+  const requestedSeasons = detailCalls.map(url => Number(new URL(url).searchParams.get('season')));
+
+  assert.equal(detailCalls.length, 20);
+  assert.equal(Math.min(...requestedSeasons), 2005);
+  assert.equal(requestedSeasons.includes(2024), true);
+  assert.equal(requestedSeasons.includes(2005), true);
+  assert.equal(calls.length, 21);
 });
 
 test('GET /v1/players/:id/matches returns aggregated player match performances', async t => {
@@ -1074,4 +1160,294 @@ test('GET /v1/players/:id/matches returns aggregated player match performances',
   assert.equal(payload.response[1].fixtureId, '9002');
   assert.equal(payload.response[1].playerStats.minutes, null);
   assert.equal(calls.length, 3);
+});
+
+test('POST /v1/notifications/tokens stores a push token payload', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const payload = {
+    token: 'token-1',
+    deviceId: 'device-abc',
+    platform: 'ios',
+    provider: 'apns',
+    appVersion: '1.0.0',
+    locale: 'fr',
+    timezone: 'Europe/Paris',
+  } as const;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/notifications/tokens',
+    headers: buildSignedMobileHeaders({
+      method: 'POST',
+      url: '/v1/notifications/tokens',
+      body: payload,
+    }),
+    payload,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    status: 'registered',
+    token: 'token-1',
+  });
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/notifications/tokens rejects invalid payload', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const payload = {
+    token: 'token-1',
+    deviceId: 'device-abc',
+    platform: 'ios',
+    provider: 'apns',
+    appVersion: '1.0.0',
+    locale: 'de',
+    timezone: 'Europe/Paris',
+  } as const;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/notifications/tokens',
+    headers: buildSignedMobileHeaders({
+      method: 'POST',
+      url: '/v1/notifications/tokens',
+      body: payload,
+    }),
+    payload,
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, 'VALIDATION_ERROR');
+  assert.equal(calls.length, 0);
+});
+
+test('DELETE /v1/notifications/tokens/:token revokes token', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const registrationPayload = {
+    token: 'token-delete',
+    deviceId: 'device-1',
+    platform: 'android',
+    provider: 'fcm',
+    appVersion: '1.0.0',
+    locale: 'en',
+    timezone: 'America/New_York',
+  } as const;
+
+  await app.inject({
+    method: 'POST',
+    url: '/v1/notifications/tokens',
+    headers: buildSignedMobileHeaders({
+      method: 'POST',
+      url: '/v1/notifications/tokens',
+      body: registrationPayload,
+    }),
+    payload: registrationPayload,
+  });
+
+  const deleteResponse = await app.inject({
+    method: 'DELETE',
+    url: '/v1/notifications/tokens/token-delete',
+    headers: buildSignedMobileHeaders({
+      method: 'DELETE',
+      url: '/v1/notifications/tokens/token-delete',
+    }),
+  });
+
+  assert.equal(deleteResponse.statusCode, 204);
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/telemetry/events accepts structured mobile events', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const payload = {
+    name: 'navigation.route_change',
+    attributes: {
+      from: 'Matches',
+      to: 'TeamDetails',
+    },
+    userContext: {
+      language: 'fr',
+    },
+    timestamp: '2026-02-25T10:00:00.000Z',
+  } as const;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/events',
+    headers: buildSignedMobileHeaders({
+      method: 'POST',
+      url: '/v1/telemetry/events',
+      body: payload,
+    }),
+    payload,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    status: 'accepted',
+    type: 'event',
+  });
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/telemetry/events/batch accepts structured mobile event arrays', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const payload = [
+    {
+      name: 'navigation.route_change',
+      attributes: {
+        from: 'Matches',
+        to: 'TeamDetails',
+      },
+      userContext: {
+        language: 'fr',
+      },
+      timestamp: '2026-02-25T10:00:00.000Z',
+    },
+    {
+      name: 'navigation.route_change',
+      attributes: {
+        from: 'TeamDetails',
+        to: 'More',
+      },
+      userContext: {
+        language: 'fr',
+      },
+      timestamp: '2026-02-25T10:00:01.000Z',
+    },
+  ] as const;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/events/batch',
+    headers: buildSignedMobileHeaders({
+      method: 'POST',
+      url: '/v1/telemetry/events/batch',
+      body: payload,
+    }),
+    payload,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    status: 'accepted',
+    type: 'event_batch',
+    count: 2,
+  });
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/telemetry/errors rejects malformed payloads', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const payload = {
+    name: '',
+    message: '',
+  } as const;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/errors',
+    headers: buildSignedMobileHeaders({
+      method: 'POST',
+      url: '/v1/telemetry/errors',
+      body: payload,
+    }),
+    payload,
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, 'VALIDATION_ERROR');
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/telemetry/errors/batch rejects malformed payload arrays', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const payload = [
+    {
+      name: '',
+      message: '',
+    },
+  ] as const;
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/errors/batch',
+    headers: buildSignedMobileHeaders({
+      method: 'POST',
+      url: '/v1/telemetry/errors/batch',
+      body: payload,
+    }),
+    payload,
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, 'VALIDATION_ERROR');
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/notifications/tokens rejects unsigned technical requests', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/notifications/tokens',
+    payload: {
+      token: 'token-1',
+      deviceId: 'device-abc',
+      platform: 'ios',
+      provider: 'apns',
+      appVersion: '1.0.0',
+      locale: 'fr',
+      timezone: 'Europe/Paris',
+    },
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.json().error, 'MOBILE_REQUEST_SIGNATURE_MISSING');
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/telemetry/events rejects replayed nonce', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const payload = {
+    name: 'navigation.route_change',
+    attributes: {
+      from: 'Matches',
+      to: 'More',
+    },
+  };
+  const headers = buildSignedMobileHeaders({
+    method: 'POST',
+    url: '/v1/telemetry/events',
+    body: payload,
+    timestamp: Date.now().toString(),
+    nonce: 'replay-nonce-1',
+  });
+
+  const firstResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/events',
+    headers,
+    payload,
+  });
+  const secondResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/events',
+    headers,
+    payload,
+  });
+
+  assert.equal(firstResponse.statusCode, 200);
+  assert.equal(secondResponse.statusCode, 403);
+  assert.equal(secondResponse.json().error, 'MOBILE_REQUEST_REPLAY_DETECTED');
+  assert.equal(calls.length, 0);
 });

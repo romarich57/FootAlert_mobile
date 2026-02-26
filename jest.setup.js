@@ -20,25 +20,73 @@ jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 
 jest.mock('@shopify/flash-list', () => {
   const React = require('react');
-  const { FlatList } = require('react-native');
+  const { View } = require('react-native');
 
-  const FlashList = React.forwardRef((props, ref) => <FlatList ref={ref} {...props} />);
+  function renderOptionalComponent(component) {
+    if (!component) {
+      return null;
+    }
+
+    if (typeof component === 'function') {
+      return React.createElement(component);
+    }
+
+    return component;
+  }
+
+  const FlashList = React.forwardRef((props, ref) => {
+    const {
+      data = [],
+      renderItem,
+      keyExtractor,
+      ListEmptyComponent,
+      ListHeaderComponent,
+      ListFooterComponent,
+      style,
+      testID,
+    } = props;
+
+    return (
+      <View ref={ref} style={style} testID={testID}>
+        {renderOptionalComponent(ListHeaderComponent)}
+        {data.length === 0
+          ? renderOptionalComponent(ListEmptyComponent)
+          : data.map((item, index) => {
+              const key = keyExtractor ? keyExtractor(item, index) : String(index);
+              return (
+                <React.Fragment key={key}>
+                  {renderItem({
+                    item,
+                    index,
+                    separators: {
+                      highlight: () => undefined,
+                      unhighlight: () => undefined,
+                      updateProps: () => undefined,
+                    },
+                  })}
+                </React.Fragment>
+              );
+            })}
+        {renderOptionalComponent(ListFooterComponent)}
+      </View>
+    );
+  });
   FlashList.displayName = 'FlashList';
 
   return { FlashList };
 });
 
 jest.mock('react-native-localize', () => ({
-  getLocales: () => [
+  getLocales: jest.fn(() => [
     {
       languageCode: 'en',
       languageTag: 'en-US',
       countryCode: 'US',
       isRTL: false,
     },
-  ],
-  getCountry: () => 'US',
-  getCurrencies: () => ['USD'],
+  ]),
+  getCountry: jest.fn(() => 'US'),
+  getCurrencies: jest.fn(() => ['USD']),
 }));
 
 jest.mock('react-native-device-info', () => ({

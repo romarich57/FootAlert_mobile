@@ -1,11 +1,17 @@
 declare module 'react-native-config' {
   export interface NativeConfig {
+    APP_ENV?: string;
     MOBILE_API_BASE_URL?: string;
+    WEB_API_BASE_URL?: string;
+    DESKTOP_API_BASE_URL?: string;
+    WEB_APP_ORIGIN?: string;
     MOBILE_PRIVACY_POLICY_URL?: string;
     MOBILE_SUPPORT_URL?: string;
     MOBILE_FOLLOW_US_URL?: string;
     MOBILE_APP_STORE_URL?: string;
     MOBILE_PLAY_STORE_URL?: string;
+    MOBILE_PUSH_TOKEN?: string;
+    MOBILE_REQUEST_SIGNING_KEY?: string;
     MATCHES_QUERY_STALE_TIME_MS?: string;
     MATCHES_LIVE_REFRESH_INTERVAL_MS?: string;
     MATCHES_SLOW_REFRESH_INTERVAL_MS?: string;

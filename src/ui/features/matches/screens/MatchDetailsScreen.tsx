@@ -22,6 +22,7 @@ import {
   formatStatusLabel,
 } from '@data/mappers/fixturesMapper';
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { IconActionButton } from '@ui/shared/components';
 import { queryKeys } from '@ui/shared/query/queryKeys';
@@ -142,7 +143,7 @@ export function MatchDetailsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<MatchDetailsNavigation>();
   const route = useRoute<MatchDetailsRoute>();
-  const { matchId } = route.params;
+  const safeMatchId = sanitizeNumericEntityId(route.params.matchId);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
@@ -150,14 +151,22 @@ export function MatchDetailsScreen() {
   );
 
   const fixtureQuery = useQuery({
-    queryKey: queryKeys.matchDetails(matchId, timezone),
+    queryKey: queryKeys.matchDetails(safeMatchId ?? 'invalid', timezone),
     queryFn: ({ signal }) =>
-      fetchFixtureById({ fixtureId: matchId, timezone, signal }),
-    enabled: !!matchId,
+      fetchFixtureById({ fixtureId: safeMatchId ?? '', timezone, signal }),
+    enabled: Boolean(safeMatchId),
     ...featureQueryOptions.matches.details,
   });
 
   const fixture = fixtureQuery.data;
+
+  if (!safeMatchId) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>{t('matchDetails.states.error')}</Text>
+      </View>
+    );
+  }
 
   if (fixtureQuery.isLoading) {
     return (
@@ -180,11 +189,14 @@ export function MatchDetailsScreen() {
   }
 
   const matchStatus = classifyFixtureStatus(fixture.fixture.status.short);
-  const statusLabel = formatStatusLabel(
-    matchStatus,
-    fixture.fixture.status.elapsed,
-    fixture.fixture.status.short,
-  );
+  const statusLabel =
+    matchStatus === 'upcoming'
+      ? t('matches.status.upcoming')
+      : formatStatusLabel(
+          matchStatus,
+          fixture.fixture.status.elapsed,
+          fixture.fixture.status.short,
+        );
 
   return (
     <View style={styles.container}>

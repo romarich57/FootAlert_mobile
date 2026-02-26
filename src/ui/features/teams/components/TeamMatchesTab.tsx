@@ -12,7 +12,7 @@ import {
   toDisplayScore,
   toDisplayValue,
 } from '@ui/features/teams/utils/teamDisplay';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import { DEFAULT_HIT_SLOP, MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type VenueFilter = 'all' | 'home' | 'away';
 
@@ -73,7 +73,7 @@ function createStyles(colors: ThemeColors) {
       marginBottom: 4,
     },
     chip: {
-      minHeight: 40,
+      minHeight: MIN_TOUCH_TARGET,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: colors.chipBorder,
@@ -141,6 +141,7 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
+      minHeight: MIN_TOUCH_TARGET,
       gap: 8,
     },
     teamSideRight: {
@@ -269,7 +270,11 @@ const TeamMatchRow = memo(function TeamMatchRow({
     : toDisplayScore(match.homeGoals, match.awayGoals);
 
   return (
-    <Pressable style={styles.matchCard} onPress={() => onPressMatch(match.fixtureId)}>
+    <Pressable
+      style={styles.matchCard}
+      onPress={() => onPressMatch(match.fixtureId)}
+      hitSlop={DEFAULT_HIT_SLOP}
+    >
       <View style={styles.metaRow}>
         <View style={styles.metaLeft}>
           <Text style={styles.metaText}>{toDisplayDate(match.date)}</Text>
@@ -295,6 +300,7 @@ const TeamMatchRow = memo(function TeamMatchRow({
             }
           }}
           style={styles.teamSide}
+          hitSlop={DEFAULT_HIT_SLOP}
         >
           <View style={styles.teamLogoContainer}>
             {match.homeTeamLogo ? (
@@ -324,6 +330,7 @@ const TeamMatchRow = memo(function TeamMatchRow({
             }
           }}
           style={[styles.teamSide, styles.teamSideRight]}
+          hitSlop={DEFAULT_HIT_SLOP}
         >
           <View style={styles.teamLogoContainer}>
             {match.awayTeamLogo ? (
@@ -394,6 +401,7 @@ export function TeamMatchesTab({
               key={filter}
               onPress={() => setVenueFilter(filter)}
               style={[styles.chip, isActive ? styles.chipActive : null]}
+              hitSlop={DEFAULT_HIT_SLOP}
             >
               <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>{label}</Text>
             </Pressable>
@@ -410,7 +418,7 @@ export function TeamMatchesTab({
       {isError ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
-          <Pressable onPress={onRetry}>
+          <Pressable onPress={onRetry} hitSlop={DEFAULT_HIT_SLOP}>
             <Text style={styles.retryText}>{t('actions.retry')}</Text>
           </Pressable>
         </View>

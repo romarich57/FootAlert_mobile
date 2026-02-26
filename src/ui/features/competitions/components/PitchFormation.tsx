@@ -1,143 +1,181 @@
 import { useMemo } from 'react';
 import { View, StyleSheet, Text, Image } from 'react-native';
+
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
-import type { TotwPlayer } from '../hooks/useCompetitionTotw';
+import type { CompetitionTotwPlayer } from '../types/competitions.types';
 
 type PitchFormationProps = {
-    players: TotwPlayer[];
+    players: CompetitionTotwPlayer[];
 };
 
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
         container: {
             width: '100%',
-            aspectRatio: 0.65, // Standard football pitch ratio
-            backgroundColor: '#1E4620', // Classic dark green pitch
-            borderRadius: 12,
-            borderWidth: 2,
-            borderColor: colors.surfaceElevated,
+            aspectRatio: 0.63,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: '#193726',
             overflow: 'hidden',
             position: 'relative',
         },
-        pitchLines: {
+        pitchOverlay: {
             ...StyleSheet.absoluteFillObject,
         },
-        centerCircle: {
+        stripe: {
             position: 'absolute',
-            top: '50%',
-            left: '50%',
-            width: 80,
-            height: 80,
-            marginTop: -40,
-            marginLeft: -40,
-            borderRadius: 40,
-            borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.4)',
+            left: 0,
+            right: 0,
+            height: '10%',
+            backgroundColor: 'rgba(255,255,255,0.03)',
         },
         centerLine: {
             position: 'absolute',
-            top: '50%',
             left: 0,
             right: 0,
+            top: '50%',
             height: 1.5,
-            backgroundColor: 'rgba(255,255,255,0.4)',
+            backgroundColor: 'rgba(255,255,255,0.18)',
         },
-        penaltyAreaTop: {
+        centerCircle: {
+            position: 'absolute',
+            width: 96,
+            height: 96,
+            borderRadius: 48,
+            borderWidth: 1.5,
+            borderColor: 'rgba(255,255,255,0.18)',
+            top: '50%',
+            left: '50%',
+            marginTop: -48,
+            marginLeft: -48,
+        },
+        penaltyTop: {
             position: 'absolute',
             top: 0,
-            left: '25%',
-            right: '25%',
-            height: '15%',
+            left: '26%',
+            right: '26%',
+            height: '18%',
             borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.4)',
             borderTopWidth: 0,
+            borderColor: 'rgba(255,255,255,0.18)',
         },
-        penaltyAreaBottom: {
+        penaltyBottom: {
             position: 'absolute',
             bottom: 0,
-            left: '25%',
-            right: '25%',
-            height: '15%',
+            left: '26%',
+            right: '26%',
+            height: '18%',
             borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.4)',
             borderBottomWidth: 0,
+            borderColor: 'rgba(255,255,255,0.18)',
         },
-        goalAreaTop: {
+        playerNode: {
             position: 'absolute',
-            top: 0,
-            left: '38%',
-            right: '38%',
-            height: '6%',
-            borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.4)',
-            borderTopWidth: 0,
+            width: 86,
+            alignItems: 'center',
+            gap: 3,
         },
-        goalAreaBottom: {
-            position: 'absolute',
-            bottom: 0,
-            left: '38%',
-            right: '38%',
-            height: '6%',
-            borderWidth: 1.5,
-            borderColor: 'rgba(255,255,255,0.4)',
-            borderBottomWidth: 0,
-        },
-        playerDotNode: {
-            position: 'absolute',
+        avatarWrap: {
+            width: 46,
+            height: 46,
+            borderRadius: 23,
+            borderWidth: 2,
+            borderColor: 'rgba(255,255,255,0.26)',
+            backgroundColor: 'rgba(12,19,16,0.9)',
+            overflow: 'hidden',
             alignItems: 'center',
             justifyContent: 'center',
-            width: 44, // 40 base + 4 padding
-            // We center it around the gridX, gridY coordinates
-            marginLeft: -22,
-            marginTop: -30,
         },
-        playerAvatarContainer: {
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: colors.surface,
-            borderWidth: 1.5,
-            borderColor: colors.primary,
-            overflow: 'hidden',
-            marginBottom: 2,
-        },
-        playerAvatar: {
+        avatar: {
             width: '100%',
             height: '100%',
         },
-        playerNameWrapper: {
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            paddingHorizontal: 4,
-            paddingVertical: 1,
-            borderRadius: 4,
+        avatarFallback: {
+            color: '#FFFFFF',
+            fontSize: 13,
+            fontWeight: '900',
         },
-        playerName: {
-            color: '#fff',
-            fontSize: 9,
-            fontWeight: '600',
+        teamLogoWrap: {
+            position: 'absolute',
+            right: -2,
+            bottom: -1,
+            width: 16,
+            height: 16,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: '#0b1510',
+            backgroundColor: '#ffffff',
+            overflow: 'hidden',
+            alignItems: 'center',
+            justifyContent: 'center',
         },
-        playerRatingBadge: {
+        teamLogo: {
+            width: '100%',
+            height: '100%',
+        },
+        ratingBadge: {
             position: 'absolute',
             top: -6,
-            right: 0,
-            backgroundColor: colors.primary,
-            paddingHorizontal: 4,
+            right: -6,
+            borderRadius: 10,
+            minWidth: 35,
+            paddingHorizontal: 6,
             paddingVertical: 1,
-            borderRadius: 4,
+            alignItems: 'center',
             borderWidth: 1,
-            borderColor: '#000',
+            borderColor: '#0f1611',
         },
-        playerRatingText: {
-            color: '#000',
-            fontSize: 9,
-            fontWeight: '800',
-        }
+        ratingText: {
+            color: '#07120C',
+            fontSize: 11,
+            fontWeight: '900',
+        },
+        nameChip: {
+            maxWidth: 82,
+            borderRadius: 8,
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+            backgroundColor: 'rgba(10,13,12,0.58)',
+        },
+        nameText: {
+            color: '#FFFFFF',
+            fontSize: 12,
+            fontWeight: '700',
+            textAlign: 'center',
+        },
     });
 }
 
-function displayValue(value: string | null | undefined): string {
-    return value && value.trim().length > 0 ? value : '';
+function resolveRatingBackground(rating: number): string {
+    if (rating >= 8.5) {
+        return '#24E087';
+    }
+    if (rating >= 7.5) {
+        return '#6BEAAB';
+    }
+    return '#D2D6D4';
+}
+
+function shortPlayerName(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '';
+    }
+    const parts = trimmed.split(/\s+/);
+    return parts[parts.length - 1] ?? trimmed;
+}
+
+function toInitials(value: string): string {
+    const tokens = value.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) {
+        return '?';
+    }
+    const first = tokens[0]?.[0] ?? '';
+    const second = tokens[1]?.[0] ?? '';
+    const initials = `${first}${second}`.trim().toUpperCase();
+    return initials || tokens[0].slice(0, 2).toUpperCase();
 }
 
 export function PitchFormation({ players }: PitchFormationProps) {
@@ -146,40 +184,52 @@ export function PitchFormation({ players }: PitchFormationProps) {
 
     return (
         <View style={styles.container}>
-            {/* Pitch Markings */}
-            <View style={styles.pitchLines}>
-                <View style={styles.centerCircle} />
+            <View style={styles.pitchOverlay}>
+                {[0, 20, 40, 60, 80].map(top => (
+                    <View key={`stripe-${top}`} style={[styles.stripe, { top: `${top}%` }]} />
+                ))}
                 <View style={styles.centerLine} />
-                <View style={styles.penaltyAreaTop} />
-                <View style={styles.penaltyAreaBottom} />
-                <View style={styles.goalAreaTop} />
-                <View style={styles.goalAreaBottom} />
+                <View style={styles.centerCircle} />
+                <View style={styles.penaltyTop} />
+                <View style={styles.penaltyBottom} />
             </View>
 
-            {/* Players */}
-            {players.map((player) => (
+            {players.map(player => (
                 <View
-                    key={player.id}
+                    key={player.playerId}
+                    testID="competition-totw-player-node"
                     style={[
-                        styles.playerDotNode,
+                        styles.playerNode,
                         {
-                            left: `${player.gridX * 100}%`,
-                            top: `${player.gridY * 100}%`
-                        }
+                            left: `${player.gridX}%`,
+                            top: `${player.gridY}%`,
+                            transform: [{ translateX: -43 }, { translateY: -34 }],
+                        },
                     ]}
                 >
-                    <View style={styles.playerAvatarContainer}>
-                        <Image
-                            source={{ uri: player.photo ?? undefined }}
-                            style={styles.playerAvatar}
-                        />
+                    <View style={styles.avatarWrap}>
+                        {player.playerPhoto ? (
+                            <Image source={{ uri: player.playerPhoto }} style={styles.avatar} />
+                        ) : (
+                            <Text style={styles.avatarFallback}>{toInitials(player.playerName)}</Text>
+                        )}
+                        {player.teamLogo ? (
+                            <View testID="competition-totw-team-logo" style={styles.teamLogoWrap}>
+                                <Image source={{ uri: player.teamLogo }} style={styles.teamLogo} />
+                            </View>
+                        ) : null}
                     </View>
-                    <View style={styles.playerRatingBadge}>
-                        <Text style={styles.playerRatingText}>{player.rating}</Text>
+
+                    <View
+                        testID="competition-totw-rating-badge"
+                        style={[styles.ratingBadge, { backgroundColor: resolveRatingBackground(player.rating) }]}
+                    >
+                        <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
                     </View>
-                    <View style={styles.playerNameWrapper}>
-                        <Text style={styles.playerName} numberOfLines={1}>
-                            {displayValue(player.name).split(' ').pop()} {/* Show last name */}
+
+                    <View style={styles.nameChip}>
+                        <Text numberOfLines={1} style={styles.nameText}>
+                            {shortPlayerName(player.playerName)}
                         </Text>
                     </View>
                 </View>

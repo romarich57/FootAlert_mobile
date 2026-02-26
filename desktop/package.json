@@ -1,0 +1,17 @@
+{
+  "name": "footalert-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:web": "npm --prefix ../web run build",
+    "validate": "node ./scripts/validate-tauri.mjs",
+    "build": "npm run build:web && npm run validate"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6",
+    "typescript": "^5.8.3",
+    "yaml": "^2.8.1"
+  }
+}

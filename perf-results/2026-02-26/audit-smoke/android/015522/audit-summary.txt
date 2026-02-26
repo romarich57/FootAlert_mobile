@@ -1,0 +1,19 @@
+label=audit-smoke
+runs=2
+app_id=com.footalert.app
+activity=.MainActivity
+cold_start_run_dir=perf-results/2026-02-26/audit-smoke/android/015517
+runtime_run_dir=perf-results/2026-02-26/audit-smoke/android/015522
+
+[cold-start-summary]
+count=2
+min_ms=752
+p50_ms=752
+p95_ms=943
+max_ms=943
+
+[runtime-summary]
+app_id=com.footalert.app
+Total frames rendered: 1
+Janky frames: 1 (100.00%)
+           TOTAL PSS:    86523            TOTAL RSS:   176704       TOTAL SWAP PSS:      305

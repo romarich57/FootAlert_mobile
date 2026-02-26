@@ -1,0 +1,4 @@
+app_id=com.footalert.app
+Total frames rendered: 1
+Janky frames: 1 (100.00%)
+           TOTAL PSS:    87202            TOTAL RSS:   176624       TOTAL SWAP PSS:      315

@@ -6,6 +6,7 @@ type UseMatchesRefreshParams = {
   enabled: boolean;
   hasLiveMatches: boolean;
   isSlowNetwork: boolean;
+  networkLiteMode?: boolean;
   refetch: () => Promise<{ isError?: boolean } | unknown>;
 };
 
@@ -13,22 +14,33 @@ export function useMatchesRefresh({
   enabled,
   hasLiveMatches,
   isSlowNetwork,
+  networkLiteMode = false,
   refetch,
 }: UseMatchesRefreshParams): void {
   const liveRefreshIntervalMs = appEnv.matchesLiveRefreshIntervalMs;
   const slowRefreshIntervalMs = appEnv.matchesSlowRefreshIntervalMs;
   const maxRefreshBackoffMs = appEnv.matchesMaxRefreshBackoffMs;
-
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshDelayRef = useRef<number>(
-    isSlowNetwork ? slowRefreshIntervalMs : liveRefreshIntervalMs,
+  const networkLiteRefreshIntervalMs = Math.max(
+    slowRefreshIntervalMs,
+    liveRefreshIntervalMs * 3,
   );
 
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshDelayRef = useRef<number>(liveRefreshIntervalMs);
+
   useEffect(() => {
-    refreshDelayRef.current = isSlowNetwork
-      ? slowRefreshIntervalMs
-      : liveRefreshIntervalMs;
-  }, [isSlowNetwork, liveRefreshIntervalMs, slowRefreshIntervalMs]);
+    refreshDelayRef.current = networkLiteMode
+      ? networkLiteRefreshIntervalMs
+      : isSlowNetwork
+        ? slowRefreshIntervalMs
+        : liveRefreshIntervalMs;
+  }, [
+    isSlowNetwork,
+    liveRefreshIntervalMs,
+    networkLiteMode,
+    networkLiteRefreshIntervalMs,
+    slowRefreshIntervalMs,
+  ]);
 
   useEffect(() => {
     if (!enabled || !hasLiveMatches) {
@@ -55,9 +67,11 @@ export function useMatchesRefresh({
               maxRefreshBackoffMs,
             );
           } else {
-            refreshDelayRef.current = isSlowNetwork
-              ? slowRefreshIntervalMs
-              : liveRefreshIntervalMs;
+            refreshDelayRef.current = networkLiteMode
+              ? networkLiteRefreshIntervalMs
+              : isSlowNetwork
+                ? slowRefreshIntervalMs
+                : liveRefreshIntervalMs;
           }
         } catch {
           refreshDelayRef.current = Math.min(
@@ -86,6 +100,8 @@ export function useMatchesRefresh({
     isSlowNetwork,
     liveRefreshIntervalMs,
     maxRefreshBackoffMs,
+    networkLiteMode,
+    networkLiteRefreshIntervalMs,
     refetch,
     slowRefreshIntervalMs,
   ]);

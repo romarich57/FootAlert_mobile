@@ -27,7 +27,12 @@ function AppTestProviders({ children }: PropsWithChildren) {
     <SafeAreaProvider initialMetrics={TEST_INITIAL_METRICS}>
       <AppPreferencesProvider testHydratedPreferences={TEST_HYDRATED_PREFERENCES}>
         <AppThemeProvider>
-          <QueryProvider enablePersistence={false}>{children}</QueryProvider>
+          <QueryProvider
+            enablePersistence={false}
+            queryOptionsOverrides={{ gcTime: Infinity }}
+          >
+            {children}
+          </QueryProvider>
         </AppThemeProvider>
       </AppPreferencesProvider>
     </SafeAreaProvider>

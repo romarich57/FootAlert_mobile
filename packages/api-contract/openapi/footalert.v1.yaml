@@ -1,0 +1,937 @@
+openapi: 3.1.0
+info:
+  title: FootAlert BFF API
+  version: 1.0.0
+  description: |
+    Public contract consumed by FootAlert clients (mobile, web, desktop).
+    This spec intentionally uses broad payload schemas because upstream API-Football
+    structures can evolve, while preserving endpoint/query/path contracts.
+servers:
+  - url: http://localhost:3001
+    description: Local BFF server
+  - url: https://staging-api.footalert.example.com
+    description: Staging BFF server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /v1/matches:
+    get:
+      summary: List fixtures by date
+      operationId: getMatchesByDate
+      parameters:
+        - $ref: '#/components/parameters/DateQuery'
+        - $ref: '#/components/parameters/TimezoneQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/matches/{id}:
+    get:
+      summary: Get fixture details by id
+      operationId: getMatchById
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/TimezoneQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '404':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/competitions:
+    get:
+      summary: List competitions
+      operationId: getCompetitions
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/competitions/search:
+    get:
+      summary: Search competitions by query
+      operationId: searchCompetitions
+      parameters:
+        - $ref: '#/components/parameters/QQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/competitions/{id}:
+    get:
+      summary: Get competition details by id
+      operationId: getCompetitionById
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/competitions/{id}/standings:
+    get:
+      summary: Get competition standings
+      operationId: getCompetitionStandings
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/competitions/{id}/matches:
+    get:
+      summary: Get competition matches
+      operationId: getCompetitionMatches
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/competitions/{id}/player-stats:
+    get:
+      summary: Get competition player stats by type
+      operationId: getCompetitionPlayerStats
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/SeasonQuery'
+        - $ref: '#/components/parameters/PlayerStatsTypeQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/competitions/{id}/transfers:
+    get:
+      summary: Get competition transfers
+      operationId: getCompetitionTransfers
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/OptionalSeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/teams/standings:
+    get:
+      summary: Get league standings for teams endpoint
+      operationId: getTeamsStandings
+      parameters:
+        - $ref: '#/components/parameters/LeagueIdQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/teams/{id}:
+    get:
+      summary: Get team details
+      operationId: getTeamById
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/teams/{id}/leagues:
+    get:
+      summary: Get leagues for a team
+      operationId: getTeamLeagues
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/teams/{id}/fixtures:
+    get:
+      summary: Get team fixtures
+      operationId: getTeamFixtures
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/OptionalSeasonQuery'
+        - $ref: '#/components/parameters/OptionalLeagueIdQuery'
+        - $ref: '#/components/parameters/OptionalTimezoneQuery'
+        - $ref: '#/components/parameters/OptionalNextQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/teams/{id}/next-fixture:
+    get:
+      summary: Get next fixture for team
+      operationId: getTeamNextFixture
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/TimezoneQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/teams/{id}/advanced-stats:
+    get:
+      summary: Get advanced team stats
+      operationId: getTeamAdvancedStats
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/LeagueIdQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/OptionalEnvelopeResponse'
+
+  /v1/teams/{id}/stats:
+    get:
+      summary: Get team statistics
+      operationId: getTeamStats
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/LeagueIdQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/OptionalEnvelopeResponse'
+
+  /v1/teams/{id}/players:
+    get:
+      summary: Get team players (paged)
+      operationId: getTeamPlayers
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/LeagueIdQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+        - $ref: '#/components/parameters/OptionalPageQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/PagedEnvelopeResponse'
+
+  /v1/teams/{id}/squad:
+    get:
+      summary: Get team squad
+      operationId: getTeamSquad
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/teams/{id}/transfers:
+    get:
+      summary: Get team transfers
+      operationId: getTeamTransfers
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/teams/{id}/trophies:
+    get:
+      summary: Get team trophies
+      operationId: getTeamTrophies
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/players/{id}:
+    get:
+      summary: Get player details for a season
+      operationId: getPlayerDetails
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/players/{id}/seasons:
+    get:
+      summary: Get player seasons
+      operationId: getPlayerSeasons
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/players/{id}/trophies:
+    get:
+      summary: Get player trophies
+      operationId: getPlayerTrophies
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/players/{id}/career:
+    get:
+      summary: Get player career aggregates
+      operationId: getPlayerCareer
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/CareerAggregateResponse'
+
+  /v1/players/team/{teamId}/fixtures:
+    get:
+      summary: Get fixtures for a team (players context)
+      operationId: getPlayerTeamFixtures
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - $ref: '#/components/parameters/SeasonQuery'
+        - $ref: '#/components/parameters/OptionalLastQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/players/fixtures/{fixtureId}/team/{teamId}/stats:
+    get:
+      summary: Get fixture player stats for a team
+      operationId: getFixturePlayerStats
+      parameters:
+        - $ref: '#/components/parameters/FixtureIdPath'
+        - $ref: '#/components/parameters/TeamIdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/players/{id}/matches:
+    get:
+      summary: Get aggregated player matches
+      operationId: getPlayerMatches
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/TeamIdQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+        - $ref: '#/components/parameters/OptionalLastQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/follows/search/teams:
+    get:
+      summary: Search teams for follows feature
+      operationId: searchFollowTeams
+      parameters:
+        - $ref: '#/components/parameters/QQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/follows/search/players:
+    get:
+      summary: Search players for follows feature
+      operationId: searchFollowPlayers
+      parameters:
+        - $ref: '#/components/parameters/QQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/follows/teams/{teamId}:
+    get:
+      summary: Get followed team details
+      operationId: getFollowTeam
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/follows/teams/{teamId}/next-fixture:
+    get:
+      summary: Get next fixture for followed team
+      operationId: getFollowTeamNextFixture
+      parameters:
+        - $ref: '#/components/parameters/TeamIdPath'
+        - $ref: '#/components/parameters/TimezoneQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/follows/players/{playerId}/season/{season}:
+    get:
+      summary: Get followed player stats by season
+      operationId: getFollowPlayerSeason
+      parameters:
+        - $ref: '#/components/parameters/PlayerIdPath'
+        - $ref: '#/components/parameters/SeasonPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/follows/trends/teams:
+    get:
+      summary: Get trending teams
+      operationId: getFollowTeamsTrends
+      parameters:
+        - $ref: '#/components/parameters/LeagueIdsQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/follows/trends/players:
+    get:
+      summary: Get trending players
+      operationId: getFollowPlayersTrends
+      parameters:
+        - $ref: '#/components/parameters/LeagueIdsQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+
+  /v1/notifications/tokens:
+    post:
+      summary: Register push token (signed request)
+      operationId: registerPushToken
+      security:
+        - MobileRequestTimestamp: []
+          MobileRequestNonce: []
+          MobileRequestSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushTokenPayload'
+      responses:
+        '200':
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, token]
+                properties:
+                  status:
+                    type: string
+                    enum: [registered]
+                  token:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/notifications/tokens/{token}:
+    delete:
+      summary: Revoke push token (signed request)
+      operationId: revokePushToken
+      security:
+        - MobileRequestTimestamp: []
+          MobileRequestNonce: []
+          MobileRequestSignature: []
+      parameters:
+        - $ref: '#/components/parameters/TokenPath'
+      responses:
+        '204':
+          description: Token revoked
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/telemetry/events:
+    post:
+      summary: Push telemetry event (signed request)
+      operationId: sendTelemetryEvent
+      security:
+        - MobileRequestTimestamp: []
+          MobileRequestNonce: []
+          MobileRequestSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryEventPayload'
+      responses:
+        '200':
+          $ref: '#/components/responses/AcceptedTelemetryResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/telemetry/errors:
+    post:
+      summary: Push telemetry error (signed request)
+      operationId: sendTelemetryError
+      security:
+        - MobileRequestTimestamp: []
+          MobileRequestNonce: []
+          MobileRequestSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryErrorPayload'
+      responses:
+        '200':
+          $ref: '#/components/responses/AcceptedTelemetryResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+
+  /v1/telemetry/breadcrumbs:
+    post:
+      summary: Push telemetry breadcrumb (signed request)
+      operationId: sendTelemetryBreadcrumb
+      security:
+        - MobileRequestTimestamp: []
+          MobileRequestNonce: []
+          MobileRequestSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryBreadcrumbPayload'
+      responses:
+        '200':
+          $ref: '#/components/responses/AcceptedTelemetryResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+
+components:
+  securitySchemes:
+    MobileRequestTimestamp:
+      type: apiKey
+      in: header
+      name: x-mobile-request-timestamp
+    MobileRequestNonce:
+      type: apiKey
+      in: header
+      name: x-mobile-request-nonce
+    MobileRequestSignature:
+      type: apiKey
+      in: header
+      name: x-mobile-request-signature
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[1-9]\\d*$'
+    TeamIdPath:
+      name: teamId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[1-9]\\d*$'
+    PlayerIdPath:
+      name: playerId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[1-9]\\d*$'
+    FixtureIdPath:
+      name: fixtureId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[1-9]\\d*$'
+    TokenPath:
+      name: token
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    DateQuery:
+      name: date
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+    QQuery:
+      name: q
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    TimezoneQuery:
+      name: timezone
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    OptionalTimezoneQuery:
+      name: timezone
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+    LeagueIdQuery:
+      name: leagueId
+      in: query
+      required: true
+      schema:
+        type: string
+        pattern: '^[1-9]\\d*$'
+    OptionalLeagueIdQuery:
+      name: leagueId
+      in: query
+      required: false
+      schema:
+        type: string
+        pattern: '^[1-9]\\d*$'
+    TeamIdQuery:
+      name: teamId
+      in: query
+      required: true
+      schema:
+        type: string
+        pattern: '^[1-9]\\d*$'
+    SeasonQuery:
+      name: season
+      in: query
+      required: true
+      schema:
+        type: integer
+        minimum: 2000
+        maximum: 2100
+    OptionalSeasonQuery:
+      name: season
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 2000
+        maximum: 2100
+    SeasonPath:
+      name: season
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 2000
+        maximum: 2100
+    OptionalPageQuery:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+    OptionalNextQuery:
+      name: next
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10
+    OptionalLastQuery:
+      name: last
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+    LeagueIdsQuery:
+      name: leagueIds
+      in: query
+      required: true
+      schema:
+        type: string
+        description: Comma-separated league ids
+        pattern: '^[0-9]+(,[0-9]+)*$'
+    PlayerStatsTypeQuery:
+      name: type
+      in: query
+      required: true
+      schema:
+        type: string
+        enum: [topscorers, topassists, topyellowcards, topredcards]
+
+  responses:
+    ListEnvelopeResponse:
+      description: API response envelope with list payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ListEnvelope'
+    PagedEnvelopeResponse:
+      description: API response envelope with list + paging
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PagedEnvelope'
+    OptionalEnvelopeResponse:
+      description: API response envelope with optional payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OptionalEnvelope'
+    CareerAggregateResponse:
+      description: Player career aggregate payload
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [response]
+            properties:
+              response:
+                type: object
+                properties:
+                  seasons:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FlexibleObject'
+                  teams:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FlexibleObject'
+    AcceptedTelemetryResponse:
+      description: Telemetry payload accepted
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status, type]
+            properties:
+              status:
+                type: string
+                enum: [accepted]
+              type:
+                type: string
+                enum: [event, error, breadcrumb]
+    ProblemResponse:
+      description: Error payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    FlexibleObject:
+      type: object
+      additionalProperties: true
+    ListEnvelope:
+      type: object
+      required: [response]
+      properties:
+        response:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlexibleObject'
+    PagedEnvelope:
+      type: object
+      required: [response]
+      properties:
+        response:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlexibleObject'
+        paging:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: 'null'
+    OptionalEnvelope:
+      type: object
+      properties:
+        response:
+          oneOf:
+            - $ref: '#/components/schemas/FlexibleObject'
+            - type: array
+              items:
+                $ref: '#/components/schemas/FlexibleObject'
+            - type: number
+            - type: string
+            - type: boolean
+            - type: 'null'
+    ProblemResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+            - type: 'null'
+    PushTokenPayload:
+      type: object
+      additionalProperties: false
+      required:
+        [token, deviceId, platform, provider, appVersion, locale, timezone]
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 512
+        deviceId:
+          type: string
+          minLength: 1
+          maxLength: 256
+        platform:
+          type: string
+          enum: [ios, android]
+        provider:
+          type: string
+          enum: [apns, fcm]
+        appVersion:
+          type: string
+          minLength: 1
+          maxLength: 64
+        locale:
+          type: string
+          enum: [fr, en]
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 128
+    TelemetryScalar:
+      oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        - type: 'null'
+    TelemetryAttributes:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/TelemetryScalar'
+    TelemetryEventPayload:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        attributes:
+          $ref: '#/components/schemas/TelemetryAttributes'
+        userContext:
+          $ref: '#/components/schemas/TelemetryAttributes'
+        timestamp:
+          type: string
+          format: date-time
+    TelemetryErrorContext:
+      type: object
+      additionalProperties: false
+      properties:
+        feature:
+          type: string
+          maxLength: 120
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        url:
+          type: string
+          maxLength: 2048
+        method:
+          type: string
+          maxLength: 16
+        details:
+          $ref: '#/components/schemas/TelemetryAttributes'
+    TelemetryErrorPayload:
+      type: object
+      additionalProperties: false
+      required: [name, message]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 240
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        stack:
+          type: string
+          maxLength: 20000
+        context:
+          $ref: '#/components/schemas/TelemetryErrorContext'
+        userContext:
+          $ref: '#/components/schemas/TelemetryAttributes'
+        timestamp:
+          type: string
+          format: date-time
+    TelemetryBreadcrumbPayload:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        attributes:
+          $ref: '#/components/schemas/TelemetryAttributes'
+        userContext:
+          $ref: '#/components/schemas/TelemetryAttributes'
+        timestamp:
+          type: string
+          format: date-time
