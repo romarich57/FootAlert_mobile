@@ -150,6 +150,16 @@ type TeamCoachDto = {
   }>;
 };
 
+function normalizeStandingsPayload(
+  payload: ApiFootballUnknownListResponse | null | undefined,
+): ApiFootballUnknownListResponse {
+  if (!payload || !Array.isArray(payload.response)) {
+    return { response: [] };
+  }
+
+  return payload;
+}
+
 function buildFixtureQuery(teamId: string, query: z.infer<typeof teamFixturesQuerySchema>): string {
   const searchParams = new URLSearchParams({ team: teamId });
 
@@ -601,11 +611,8 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
         const data = await apiFootballGet<ApiFootballUnknownListResponse>(
           `/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`,
         );
-        // Do not cache empty responses aggressively if it might be a rate limit or error
-        if (!data || !data.response || data.response.length === 0) {
-          throw new Error('No standings data returned from API');
-        }
-        return data;
+
+        return normalizeStandingsPayload(data);
       });
     },
   );
@@ -673,11 +680,8 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
         const data = await apiFootballGet<ApiFootballUnknownListResponse>(
           `/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`,
         );
-        // Do not cache empty responses aggressively if it might be a rate limit or error
-        if (!data || !data.response || data.response.length === 0) {
-          throw new Error('No standings data returned from API');
-        }
-        return data;
+
+        return normalizeStandingsPayload(data);
       });
     },
   );

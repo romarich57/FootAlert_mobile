@@ -84,6 +84,7 @@ function buildCatalog(language: AppLanguage): CurrencyCatalogItem[] {
 }
 
 const catalogCache = new Map<AppLanguage, CurrencyCatalogItem[]>();
+const symbolCache = new Map<string, string>();
 
 function getOrCreateCatalog(language: string): CurrencyCatalogItem[] {
   const normalizedLanguage = normalizeLanguage(language);
@@ -99,6 +100,20 @@ function getOrCreateCatalog(language: string): CurrencyCatalogItem[] {
 
 export function getCurrencyCatalog(language: string): CurrencyCatalogItem[] {
   return getOrCreateCatalog(language);
+}
+
+export function getCurrencySymbol(code: string, language: string): string {
+  const normalizedLanguage = normalizeLanguage(language);
+  const normalizedCode = resolveSafeCurrencyCode(code);
+  const cacheKey = `${normalizedLanguage}:${normalizedCode}`;
+  const cached = symbolCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const symbol = resolveCurrencySymbol(normalizedCode, localeFromLanguage(normalizedLanguage));
+  symbolCache.set(cacheKey, symbol);
+  return symbol;
 }
 
 export function getCurrencyByCode(
@@ -122,4 +137,3 @@ export function resolveSafeCurrencyCode(code: string | null | undefined): string
 
   return CurrencyCodes.code(normalizedCode) ? normalizedCode : FALLBACK_CURRENCY;
 }
-

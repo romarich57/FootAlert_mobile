@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { appEnv } from '@data/config/env';
 import { getAppVersionLabel } from '@data/config/appMeta';
 import {
-  getCurrencyByCode,
+  getCurrencySymbol,
   getCurrencyCatalog,
   resolveSafeCurrencyCode,
 } from '@data/config/currencyCatalog';
@@ -24,8 +24,13 @@ import type {
   ThemeOption,
 } from '@ui/features/more/types/more.types';
 
-export function useMoreSettings() {
+type UseMoreSettingsOptions = {
+  loadCurrencyCatalog?: boolean;
+};
+
+export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
   const { t } = useTranslation();
+  const shouldLoadCurrencyCatalog = options.loadCurrencyCatalog === true;
   const {
     preferences,
     isHydrated,
@@ -38,17 +43,26 @@ export function useMoreSettings() {
 
   const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const normalizedCurrencyCode = useMemo(
+    () => resolveSafeCurrencyCode(preferences.currencyCode),
+    [preferences.currencyCode],
+  );
 
   const appVersion = useMemo(() => getAppVersionLabel(), []);
 
   const currencyCatalog = useMemo(
-    () => getCurrencyCatalog(preferences.language),
-    [preferences.language],
+    () => (shouldLoadCurrencyCatalog ? getCurrencyCatalog(preferences.language) : []),
+    [preferences.language, shouldLoadCurrencyCatalog],
   );
 
   const currentCurrency = useMemo(
-    () => getCurrencyByCode(preferences.currencyCode, preferences.language),
-    [preferences.currencyCode, preferences.language],
+    () => ({
+      code: normalizedCurrencyCode,
+      name: normalizedCurrencyCode,
+      symbol: getCurrencySymbol(normalizedCurrencyCode, preferences.language),
+      fractionDigits: 2,
+    }),
+    [normalizedCurrencyCode, preferences.language],
   );
 
   const themeOptions = useMemo<ThemeOption[]>(

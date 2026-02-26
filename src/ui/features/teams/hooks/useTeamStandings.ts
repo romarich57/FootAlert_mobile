@@ -17,23 +17,44 @@ const EMPTY_TEAM_STANDINGS: TeamStandingsData = {
   groups: [],
 };
 
+type FetchTeamStandingsDataParams = {
+  teamId: string;
+  leagueId: string | null;
+  season: number | null;
+  signal?: AbortSignal;
+};
+
+export async function fetchTeamStandingsData({
+  teamId,
+  leagueId,
+  season,
+  signal,
+}: FetchTeamStandingsDataParams): Promise<TeamStandingsData> {
+  if (!teamId || !leagueId || typeof season !== 'number') {
+    return EMPTY_TEAM_STANDINGS;
+  }
+
+  const payload = await fetchLeagueStandings(leagueId, season, signal);
+  return mapStandingsToTeamData(payload, teamId);
+}
+
 export function useTeamStandings({
   teamId,
   leagueId,
   season,
   enabled = true,
 }: UseTeamStandingsParams) {
-  return useQuery({
+  return useQuery<TeamStandingsData>({
     queryKey: queryKeys.teams.standings(teamId, leagueId, season),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
+    placeholderData: previousData => previousData,
     ...featureQueryOptions.teams.standings,
-    queryFn: async ({ signal }): Promise<TeamStandingsData> => {
-      if (!teamId || !leagueId || typeof season !== 'number') {
-        return EMPTY_TEAM_STANDINGS;
-      }
-
-      const payload = await fetchLeagueStandings(leagueId, season, signal);
-      return mapStandingsToTeamData(payload, teamId);
-    },
+    queryFn: ({ signal }) =>
+      fetchTeamStandingsData({
+        teamId,
+        leagueId,
+        season,
+        signal,
+      }),
   });
 }

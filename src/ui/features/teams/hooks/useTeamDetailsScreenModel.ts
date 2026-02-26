@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useNavigation,
   useRoute,
@@ -13,12 +14,17 @@ import { useTeamContext } from '@ui/features/teams/hooks/useTeamContext';
 import { useTeamMatches } from '@ui/features/teams/hooks/useTeamMatches';
 import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
-import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
-import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
+import {
+  fetchTeamStandingsData,
+  useTeamStandings,
+} from '@ui/features/teams/hooks/useTeamStandings';
+import { fetchTeamStatsData, useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
 import { useTeamTrophies } from '@ui/features/teams/hooks/useTeamTrophies';
 import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
@@ -29,6 +35,7 @@ function isLeagueCompetition(type: string | null | undefined): boolean {
 
 export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const navigation = useNavigation<TeamDetailsNavigation>();
   const route = useRoute<TeamDetailsRoute>();
   const safeTeamId = sanitizeNumericEntityId(route.params.teamId);
@@ -157,6 +164,77 @@ export function useTeamDetailsScreenModel() {
   );
 
   useEffect(() => {
+    if (!teamId || !selectedLeagueId || typeof selectedSeason !== 'number') {
+      return;
+    }
+
+    if (isContextLoading || isContextError) {
+      return;
+    }
+
+    const shouldPrefetchStandings = !visitedTabs.standings;
+    const shouldPrefetchStats = !visitedTabs.stats;
+    if (!shouldPrefetchStandings && !shouldPrefetchStats) {
+      return;
+    }
+
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+
+    if (shouldPrefetchStandings) {
+      timers.push(
+        setTimeout(() => {
+          queryClient
+            .prefetchQuery({
+              queryKey: queryKeys.teams.standings(teamId, selectedLeagueId, selectedSeason),
+              ...featureQueryOptions.teams.standings,
+              queryFn: ({ signal }) =>
+                fetchTeamStandingsData({
+                  teamId,
+                  leagueId: selectedLeagueId,
+                  season: selectedSeason,
+                  signal,
+                }),
+            })
+            .catch(() => undefined);
+        }, 150),
+      );
+    }
+
+    if (shouldPrefetchStats) {
+      timers.push(
+        setTimeout(() => {
+          queryClient
+            .prefetchQuery({
+              queryKey: queryKeys.teams.stats(teamId, selectedLeagueId, selectedSeason),
+              ...featureQueryOptions.teams.stats,
+              queryFn: ({ signal }) =>
+                fetchTeamStatsData({
+                  teamId,
+                  leagueId: selectedLeagueId,
+                  season: selectedSeason,
+                  signal,
+                }),
+            })
+            .catch(() => undefined);
+        }, 550),
+      );
+    }
+
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, [
+    isContextError,
+    isContextLoading,
+    queryClient,
+    selectedLeagueId,
+    selectedSeason,
+    teamId,
+    visitedTabs.standings,
+    visitedTabs.stats,
+  ]);
+
+  useEffect(() => {
     if (activeTab !== 'standings') {
       return;
     }
@@ -165,7 +243,7 @@ export function useTeamDetailsScreenModel() {
       return;
     }
 
-    if (standingsQuery.isLoading || standingsQuery.isError) {
+    if (standingsQuery.isLoading) {
       return;
     }
 
@@ -184,9 +262,12 @@ export function useTeamDetailsScreenModel() {
       return;
     }
 
-    const fallbackSeason = selectedCompetition.seasons
-      .slice(currentSeasonIndex + 1)
-      .find(season => season !== selectedSeason);
+    const fallbackCandidates = [
+      ...selectedCompetition.seasons.slice(currentSeasonIndex + 1),
+      ...selectedCompetition.seasons.slice(0, currentSeasonIndex).reverse(),
+    ];
+
+    const fallbackSeason = fallbackCandidates.find(season => season !== selectedSeason);
 
     if (typeof fallbackSeason === 'number') {
       setSeason(fallbackSeason);

@@ -422,6 +422,9 @@ export function TeamStandingsTab({
     () => buildFeedItems(data, subFilter, defaultGroupTitle),
     [data, subFilter, defaultGroupTitle],
   );
+  const hasRows = feedItems.length > 0;
+  const shouldShowLoadingState = isLoading && !hasRows;
+  const shouldShowErrorState = isError && !hasRows;
   const keyExtractor = useCallback((item: StandingFeedItem) => item.key, []);
 
   const renderTableHeader = useCallback(() => (
@@ -506,13 +509,13 @@ export function TeamStandingsTab({
 
   return (
     <View style={styles.container}>
-      {isLoading ? (
+      {shouldShowLoadingState ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.loading')}</Text>
         </View>
       ) : null}
 
-      {isError ? (
+      {shouldShowErrorState ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
           <Pressable onPress={onRetry}>
@@ -521,7 +524,7 @@ export function TeamStandingsTab({
         </View>
       ) : null}
 
-      {!isLoading && !isError ? (
+      {!shouldShowLoadingState && !shouldShowErrorState ? (
         <FlashList
           data={feedItems}
           renderItem={renderItem}

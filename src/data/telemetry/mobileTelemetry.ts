@@ -84,7 +84,7 @@ export function createNoopMobileTelemetry(): MobileTelemetry {
 function createConsoleMobileTelemetry(): MobileTelemetry {
   const userContext: TelemetryAttributes = {};
 
-  const shouldLogAsWarning = (
+  const shouldSuppressExpectedErrorLog = (
     error: unknown,
     context?: TelemetryErrorContext,
   ): boolean => {
@@ -104,6 +104,14 @@ function createConsoleMobileTelemetry(): MobileTelemetry {
     return false;
   };
 
+  const shouldLogNetworkErrorAsWarning = (context?: TelemetryErrorContext): boolean => {
+    return (
+      context?.feature === 'network' &&
+      typeof context.status === 'number' &&
+      context.status >= 500
+    );
+  };
+
   return {
     trackEvent: (eventName, attributes) => {
       console.info('[telemetry:event]', eventName, {
@@ -118,8 +126,12 @@ function createConsoleMobileTelemetry(): MobileTelemetry {
         userContext,
       };
 
-      if (shouldLogAsWarning(error, context)) {
-        console.warn('[telemetry:warn]', payload);
+      if (shouldSuppressExpectedErrorLog(error, context)) {
+        return;
+      }
+
+      if (shouldLogNetworkErrorAsWarning(context)) {
+        console.warn('[telemetry:warning]', payload);
         return;
       }
 

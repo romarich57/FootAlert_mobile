@@ -50,7 +50,7 @@ describe('mobileTelemetry', () => {
     ).not.toThrow();
   });
 
-  it('logs expected network 429 errors as warnings in dev telemetry', () => {
+  it('suppresses expected network 429 errors in dev telemetry', () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const globalWithDev = globalThis as typeof globalThis & { __DEV__?: boolean };
@@ -66,15 +66,30 @@ describe('mobileTelemetry', () => {
         url: 'https://footalert.romdev.cloud/v1/teams/42/advanced-stats',
       });
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        '[telemetry:warn]',
-        expect.objectContaining({
-          context: expect.objectContaining({
-            status: 429,
-            feature: 'network',
-          }),
-        }),
-      );
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      globalWithDev.__DEV__ = previousDevValue;
+    }
+  });
+
+  it('logs recoverable network 5xx errors as warnings in dev telemetry', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const globalWithDev = globalThis as typeof globalThis & { __DEV__?: boolean };
+    const previousDevValue = globalWithDev.__DEV__;
+    globalWithDev.__DEV__ = true;
+
+    try {
+      const telemetry = createDefaultMobileTelemetry();
+      telemetry.trackError(new Error('HTTP 500'), {
+        feature: 'network',
+        method: 'GET',
+        status: 500,
+        url: 'https://footalert.romdev.cloud/v1/teams/standings?leagueId=39&season=2022',
+      });
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(errorSpy).not.toHaveBeenCalled();
     } finally {
       globalWithDev.__DEV__ = previousDevValue;

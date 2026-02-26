@@ -93,6 +93,7 @@ function TabsNavigator() {
         component={MoreScreen}
         options={{
           title: t('tabs.more'),
+          lazy: false,
         }}
       />
     </Tabs.Navigator>

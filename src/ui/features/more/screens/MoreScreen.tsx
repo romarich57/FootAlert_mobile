@@ -128,7 +128,9 @@ export function MoreScreen() {
     openFollowUs,
     openRateApp,
     openSystemNotificationSettings,
-  } = useMoreSettings();
+  } = useMoreSettings({
+    loadCurrencyCatalog: openedModal === 'currency',
+  });
 
   const localizedThemeOptions = useMemo(
     () =>

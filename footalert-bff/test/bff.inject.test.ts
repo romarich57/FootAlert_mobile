@@ -765,6 +765,34 @@ test('GET /v1/teams/standings validates required params and returns 400', async 
   assert.equal(calls.length, 0);
 });
 
+test('GET /v1/teams/standings returns empty payload when upstream has no rows', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/standings?leagueId=39&season=2022',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { response: [] });
+  assert.equal(calls.length, 1);
+});
+
+test('GET /v1/teams/:id/standings returns empty payload when upstream has no rows', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/33/standings?leagueId=39&season=2022',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { response: [] });
+  assert.equal(calls.length, 1);
+});
+
 test('GET /v1/follows/trends/teams rejects more than 10 leagues', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
   const app = await buildApp(t);

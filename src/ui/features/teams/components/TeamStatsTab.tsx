@@ -576,12 +576,19 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     (data?.topPlayersByCategory?.assisters.length ?? 0) > 0;
 
   const comparisonMetrics = data?.comparisonMetrics ?? [];
+  const hasContentData =
+    pointsCardVisible ||
+    goalsCardVisible ||
+    playersCardVisible ||
+    comparisonMetrics.length > 0;
+  const shouldShowLoadingState = isLoading && !hasContentData;
+  const shouldShowErrorState = isError && !hasContentData;
   const localizePosition = (value: string | null | undefined) =>
     localizePlayerPosition(value, t);
 
   const contentItems: TeamStatsContentItem[] = [];
 
-  if (isLoading) {
+  if (shouldShowLoadingState) {
     contentItems.push({
       key: 'loading-state',
       content: (
@@ -592,7 +599,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     });
   }
 
-  if (isError) {
+  if (shouldShowErrorState) {
     contentItems.push({
       key: 'error-state',
       content: (
@@ -606,7 +613,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     });
   }
 
-  if (!isLoading && !isError && pointsCardVisible) {
+  if (!shouldShowLoadingState && !shouldShowErrorState && pointsCardVisible) {
     contentItems.push({
       key: 'points-card',
       content: (
@@ -665,7 +672,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     });
   }
 
-  if (!isLoading && !isError && goalsCardVisible) {
+  if (!shouldShowLoadingState && !shouldShowErrorState && goalsCardVisible) {
     contentItems.push({
       key: 'goals-card',
       content: (
@@ -713,7 +720,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     });
   }
 
-  if (!isLoading && !isError && playersCardVisible) {
+  if (!shouldShowLoadingState && !shouldShowErrorState && playersCardVisible) {
     contentItems.push({
       key: 'top-players',
       content: (
@@ -755,7 +762,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     });
   }
 
-  if (!isLoading && !isError && comparisonMetrics.length > 0) {
+  if (!shouldShowLoadingState && !shouldShowErrorState && comparisonMetrics.length > 0) {
     contentItems.push({
       key: 'comparison-metrics',
       content: (
@@ -811,8 +818,8 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
   }
 
   if (
-    !isLoading &&
-    !isError &&
+    !shouldShowLoadingState &&
+    !shouldShowErrorState &&
     !pointsCardVisible &&
     !goalsCardVisible &&
     !playersCardVisible &&
