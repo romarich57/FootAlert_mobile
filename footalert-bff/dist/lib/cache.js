@@ -1,12 +1,25 @@
 import { createHash } from 'node:crypto';
+import { Redis as IORedis } from 'ioredis';
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
 const DEFAULT_MAX_CACHE_KEY_LENGTH = 120;
+const DEFAULT_CACHE_BACKEND = 'memory';
+const DEFAULT_REDIS_PREFIX = 'footalert:bff:';
 function toPositiveInt(value, fallback) {
     if (!Number.isFinite(value) || value <= 0) {
         return fallback;
     }
     return Math.floor(value);
+}
+function normalizeBackend(rawValue) {
+    return rawValue === 'redis' ? 'redis' : 'memory';
+}
+function normalizeRedisPrefix(rawValue) {
+    const normalized = rawValue?.trim();
+    if (!normalized) {
+        return DEFAULT_REDIS_PREFIX;
+    }
+    return normalized;
 }
 function hashCacheKey(rawKey) {
     if (rawKey.length <= DEFAULT_MAX_CACHE_KEY_LENGTH) {
@@ -16,7 +29,6 @@ function hashCacheKey(rawKey) {
 }
 export class MemoryCache {
     store = new Map();
-    inFlight = new Map();
     maxEntries;
     cleanupIntervalMs;
     cleanupTimer = null;
@@ -59,16 +71,6 @@ export class MemoryCache {
         });
         this.evictIfNeeded();
     }
-    getInFlight(key) {
-        const pending = this.inFlight.get(hashCacheKey(key));
-        return pending ? pending : null;
-    }
-    setInFlight(key, promise) {
-        this.inFlight.set(hashCacheKey(key), promise);
-    }
-    clearInFlight(key) {
-        this.inFlight.delete(hashCacheKey(key));
-    }
     sweepExpiredEntries(now = Date.now()) {
         for (const [key, entry] of this.store.entries()) {
             if (now > entry.expiresAt) {
@@ -78,7 +80,6 @@ export class MemoryCache {
     }
     clear() {
         this.store.clear();
-        this.inFlight.clear();
     }
     resetForTests() {
         this.clear();
@@ -108,30 +109,172 @@ export class MemoryCache {
         this.cleanupTimer.unref?.();
     }
 }
-export const cache = new MemoryCache();
+const memoryCache = new MemoryCache();
+const inFlight = new Map();
+let cacheBackend = DEFAULT_CACHE_BACKEND;
+let redisUrl = null;
+let redisPrefix = DEFAULT_REDIS_PREFIX;
+let redisClient = null;
+let redisReady = false;
+let hasLoggedRedisFallback = false;
+function logRedisFallback(error) {
+    if (hasLoggedRedisFallback) {
+        return;
+    }
+    hasLoggedRedisFallback = true;
+    if (error) {
+        console.warn('[bff][cache] Redis unavailable, falling back to in-memory cache.', error);
+        return;
+    }
+    console.warn('[bff][cache] Redis unavailable, falling back to in-memory cache.');
+}
+function buildRedisCacheKey(rawKey) {
+    return `${redisPrefix}${hashCacheKey(rawKey)}`;
+}
+function teardownRedisClient() {
+    if (redisClient) {
+        redisClient.removeAllListeners();
+        redisClient.disconnect();
+    }
+    redisClient = null;
+    redisReady = false;
+}
+function ensureRedisClient() {
+    if (cacheBackend !== 'redis' || !redisUrl || redisClient) {
+        if (cacheBackend === 'redis' && !redisUrl) {
+            logRedisFallback();
+        }
+        return;
+    }
+    try {
+        const client = new IORedis(redisUrl, {
+            maxRetriesPerRequest: 1,
+            enableOfflineQueue: false,
+        });
+        client.on('ready', () => {
+            redisReady = true;
+            hasLoggedRedisFallback = false;
+        });
+        client.on('error', (error) => {
+            redisReady = false;
+            logRedisFallback(error);
+        });
+        client.on('end', () => {
+            redisReady = false;
+        });
+        redisClient = client;
+    }
+    catch (error) {
+        redisReady = false;
+        logRedisFallback(error);
+        redisClient = null;
+    }
+}
+async function getFromRedis(key) {
+    if (!redisClient || !redisReady) {
+        return null;
+    }
+    try {
+        const payload = await redisClient.get(buildRedisCacheKey(key));
+        if (!payload) {
+            return null;
+        }
+        return JSON.parse(payload);
+    }
+    catch (error) {
+        redisReady = false;
+        logRedisFallback(error);
+        return null;
+    }
+}
+async function setToRedis(key, value, ttlMs) {
+    if (!redisClient || !redisReady) {
+        return;
+    }
+    try {
+        await redisClient.set(buildRedisCacheKey(key), JSON.stringify(value), 'PX', Math.max(1, Math.floor(ttlMs)));
+    }
+    catch (error) {
+        redisReady = false;
+        logRedisFallback(error);
+    }
+}
+async function getCachedValue(key) {
+    if (cacheBackend === 'redis') {
+        const redisValue = await getFromRedis(key);
+        if (redisValue !== null) {
+            return redisValue;
+        }
+    }
+    return memoryCache.get(key);
+}
+async function setCachedValue(key, value, ttlMs) {
+    memoryCache.set(key, value, ttlMs);
+    if (cacheBackend === 'redis') {
+        await setToRedis(key, value, ttlMs);
+    }
+}
+function getInFlight(key) {
+    const pending = inFlight.get(hashCacheKey(key));
+    return pending ? pending : null;
+}
+function setInFlight(key, promise) {
+    inFlight.set(hashCacheKey(key), promise);
+}
+function clearInFlight(key) {
+    inFlight.delete(hashCacheKey(key));
+}
 export function configureCache(config) {
-    cache.configure(config);
+    memoryCache.configure(config);
+    const nextBackend = typeof config.backend === 'string'
+        ? normalizeBackend(config.backend)
+        : cacheBackend;
+    const nextRedisUrl = typeof config.redisUrl === 'string'
+        ? config.redisUrl.trim() || null
+        : config.redisUrl === null
+            ? null
+            : redisUrl;
+    const nextRedisPrefix = typeof config.redisPrefix === 'string'
+        ? normalizeRedisPrefix(config.redisPrefix)
+        : redisPrefix;
+    const shouldReconnectRedis = nextBackend !== cacheBackend ||
+        nextRedisUrl !== redisUrl ||
+        nextRedisPrefix !== redisPrefix;
+    cacheBackend = nextBackend;
+    redisUrl = nextRedisUrl;
+    redisPrefix = nextRedisPrefix;
+    if (shouldReconnectRedis) {
+        teardownRedisClient();
+        hasLoggedRedisFallback = false;
+    }
+    ensureRedisClient();
 }
 export async function withCache(key, ttlMs, producer) {
-    const cached = cache.get(key);
+    const cached = await getCachedValue(key);
     if (cached !== null) {
         return cached;
     }
-    const existingPromise = cache.getInFlight(key);
+    const existingPromise = getInFlight(key);
     if (existingPromise) {
         return existingPromise;
     }
     const pendingPromise = producer()
-        .then(value => {
-        cache.set(key, value, ttlMs);
+        .then(async (value) => {
+        await setCachedValue(key, value, ttlMs);
         return value;
     })
         .finally(() => {
-        cache.clearInFlight(key);
+        clearInFlight(key);
     });
-    cache.setInFlight(key, pendingPromise);
+    setInFlight(key, pendingPromise);
     return pendingPromise;
 }
 export function resetCacheForTests() {
-    cache.resetForTests();
+    memoryCache.resetForTests();
+    inFlight.clear();
+    cacheBackend = DEFAULT_CACHE_BACKEND;
+    redisUrl = null;
+    redisPrefix = DEFAULT_REDIS_PREFIX;
+    hasLoggedRedisFallback = false;
+    teardownRedisClient();
 }

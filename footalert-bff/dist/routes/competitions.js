@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiFootballGet } from '../lib/apiFootballClient.js';
 import { withCache } from '../lib/cache.js';
+import { mapWithConcurrency } from '../lib/concurrency/mapWithConcurrency.js';
 import { numericStringSchema, seasonSchema } from '../lib/schemas.js';
 import { parseOrThrow } from '../lib/validation.js';
 const competitionIdParamsSchema = z
@@ -24,6 +25,80 @@ const playerStatsQuerySchema = z
     type: z.enum(['topscorers', 'topassists', 'topyellowcards', 'topredcards']),
 })
     .strict();
+const COMPETITION_TRANSFERS_MAX_CONCURRENCY = 3;
+function toFiniteNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+function toText(value, fallback = '') {
+    if (typeof value !== 'string') {
+        return fallback;
+    }
+    const normalized = value.trim().replace(/\s+/g, ' ');
+    return normalized || fallback;
+}
+function toTransferTimestamp(value) {
+    if (!value) {
+        return Number.MIN_SAFE_INTEGER;
+    }
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : Number.MIN_SAFE_INTEGER;
+}
+function isDateInSeason(dateIso, season) {
+    if (!dateIso) {
+        return false;
+    }
+    const parsed = new Date(dateIso);
+    if (Number.isNaN(parsed.getTime())) {
+        return false;
+    }
+    const seasonStart = new Date(Date.UTC(season, 6, 1, 0, 0, 0));
+    const seasonEnd = new Date(Date.UTC(season + 1, 5, 30, 23, 59, 59));
+    return parsed >= seasonStart && parsed <= seasonEnd;
+}
+function mapTransferTeamPayload(team) {
+    const raw = (team ?? {});
+    return {
+        id: toFiniteNumber(raw.id) ?? 0,
+        name: toText(raw.name, ''),
+        logo: toText(raw.logo, ''),
+    };
+}
+function normalizeTransferKeyText(value) {
+    return value
+        .trim()
+        .replace(/\s+/g, ' ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+}
+function buildTransferKey(params) {
+    const teamOutPart = params.teamOutId > 0
+        ? `id:${params.teamOutId}`
+        : `name:${normalizeTransferKeyText(params.teamOutName)}`;
+    const teamInPart = params.teamInId > 0
+        ? `id:${params.teamInId}`
+        : `name:${normalizeTransferKeyText(params.teamInName)}`;
+    return [
+        params.playerId,
+        normalizeTransferKeyText(params.playerName),
+        normalizeTransferKeyText(params.transferType),
+        teamOutPart,
+        teamInPart,
+        params.teamInInLeague ? '1' : '0',
+        params.teamOutInLeague ? '1' : '0',
+    ].join('|');
+}
+function normalizeTransferDate(value) {
+    const explicitDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    if (explicitDate) {
+        return explicitDate;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+    return parsed.toISOString().slice(0, 10);
+}
 function buildPlayerStatsPath(type, leagueId, season) {
     return `/players/${type}?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`;
 }
@@ -79,67 +154,125 @@ export async function registerCompetitionsRoutes(app) {
     app.get('/v1/competitions/:id/transfers', async (request) => {
         const params = parseOrThrow(competitionIdParamsSchema, request.params);
         const query = parseOrThrow(z.object({ season: seasonSchema.optional() }).strict(), request.query);
-        const cacheKey = `competition:transfers:${request.url}`;
+        const cacheKey = `competition:transfers:v2:${request.url}`;
+        const selectedSeason = query.season ?? new Date().getFullYear();
         // Cache for 1 hour to heavily preserve API quotas since it does many requests
         return withCache(cacheKey, 3_600_000, async () => {
             // 1. Fetch teams for the league
-            const teamsResponse = (await apiFootballGet(`/teams?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(query.season ?? new Date().getFullYear()))}`));
-            const teams = teamsResponse?.response || [];
+            const teamsResponse = await apiFootballGet(`/teams?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(selectedSeason))}`);
+            const teams = teamsResponse.response ?? [];
             if (teams.length === 0) {
                 return { response: [] };
             }
-            // 2. Fetch transfers for each team concurrently (using Promise.allSettled to avoid failing the whole request if one team fails)
-            const transfersPromises = teams.map((teamData) => {
-                const teamId = teamData.team.id;
-                // The /transfers endpoint by team returns all transfers for the player if they have one transfer involving this team
-                return apiFootballGet(`/transfers?team=${teamId}`);
-            });
-            const transfersResponses = await Promise.allSettled(transfersPromises);
-            // 3. Aggregate and deduplicate transfers
-            const allTransfers = new Map();
-            for (const result of transfersResponses) {
-                if (result.status === 'fulfilled' && result.value.response) {
-                    const teamTransfers = result.value.response;
-                    for (const playerTransfer of teamTransfers) {
-                        // Uniquely identify a player's transfer block by player ID
-                        if (!allTransfers.has(String(playerTransfer.player.id))) {
-                            allTransfers.set(String(playerTransfer.player.id), playerTransfer);
-                        }
-                        else {
-                            // If player already exists, we might need to merge their transfers array if new ones exist
-                            // But usually the API returns the complete transfer history for that player anyway,
-                            // so the first one we get is sufficient.
-                        }
-                    }
+            const leagueTeamIds = new Set();
+            teams.forEach(teamData => {
+                const teamId = toFiniteNumber(teamData?.team?.id);
+                if (teamId !== null) {
+                    leagueTeamIds.add(teamId);
                 }
-            }
-            // 4. Flatten the specific transfers that involve teams from this league (Optional, but good for filtering to current season)
-            // Since the API returns ALL transfers for a player, we should ideally filter the inner `transfers` array
-            // to only those happening recently or involving the league's teams.
-            // However, to match the app's needs (showing recent transfers), we can just return all unique player transfer blocks
-            // and let the frontend flatten & filter by date, or we can flatten and sort by date here.
-            // Let's flatten to a structure where each item is { player, update, transfer }
-            const flattenedTransfers = [];
-            const oneYearAgo = new Date();
-            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-            for (const playerTransfer of allTransfers.values()) {
-                const { player, update, transfers } = playerTransfer;
-                for (const transfer of transfers) {
-                    const transferDate = new Date(transfer.date);
-                    // We can optionally filter out very old transfers to reduce payload size
-                    if (transferDate >= oneYearAgo) {
-                        flattenedTransfers.push({
-                            player,
-                            update,
-                            transfers: [transfer] // Keep nested structure for compatibility
+            });
+            const transfersResponses = await mapWithConcurrency(teams, COMPETITION_TRANSFERS_MAX_CONCURRENCY, async (teamData) => {
+                const teamId = toFiniteNumber(teamData?.team?.id);
+                if (teamId === null) {
+                    return { response: [] };
+                }
+                try {
+                    return await apiFootballGet(`/transfers?team=${teamId}`);
+                }
+                catch {
+                    // Ignore one failing team call and keep the rest of the league transfers.
+                    return { response: [] };
+                }
+            });
+            const flattenedTransfersMap = new Map();
+            for (const teamTransfersResponse of transfersResponses) {
+                const playerTransfers = Array.isArray(teamTransfersResponse?.response)
+                    ? teamTransfersResponse.response
+                    : [];
+                for (const playerTransfer of playerTransfers) {
+                    const transferBlock = (playerTransfer ?? {});
+                    const player = (transferBlock.player ?? {});
+                    const playerId = toFiniteNumber(player.id);
+                    const playerName = toText(player.name, '');
+                    if (playerId === null) {
+                        continue;
+                    }
+                    if (!playerName) {
+                        continue;
+                    }
+                    const transferItems = Array.isArray(transferBlock.transfers)
+                        ? transferBlock.transfers
+                        : [];
+                    for (const transferItem of transferItems) {
+                        const transfer = (transferItem ?? {});
+                        const transferDateRaw = toText(transfer.date);
+                        const transferDate = transferDateRaw ? normalizeTransferDate(transferDateRaw) : null;
+                        if (!transferDate || !isDateInSeason(transferDate, selectedSeason)) {
+                            continue;
+                        }
+                        const transferType = toText(transfer.type);
+                        if (!transferType) {
+                            continue;
+                        }
+                        const transferTeams = (transfer.teams ?? {});
+                        const teamInPayload = mapTransferTeamPayload(transferTeams.in);
+                        const teamOutPayload = mapTransferTeamPayload(transferTeams.out);
+                        if (teamInPayload.id <= 0 ||
+                            teamOutPayload.id <= 0 ||
+                            !teamInPayload.name ||
+                            !teamOutPayload.name) {
+                            continue;
+                        }
+                        const teamInInLeague = teamInPayload.id > 0 && leagueTeamIds.has(teamInPayload.id);
+                        const teamOutInLeague = teamOutPayload.id > 0 && leagueTeamIds.has(teamOutPayload.id);
+                        if (!teamInInLeague && !teamOutInLeague) {
+                            continue;
+                        }
+                        const transferKey = buildTransferKey({
+                            playerId,
+                            playerName,
+                            transferType,
+                            teamInId: teamInPayload.id,
+                            teamInName: teamInPayload.name,
+                            teamOutId: teamOutPayload.id,
+                            teamOutName: teamOutPayload.name,
+                            teamInInLeague,
+                            teamOutInLeague,
+                        });
+                        const existingTransfer = flattenedTransfersMap.get(transferKey);
+                        if (existingTransfer) {
+                            const existingDate = existingTransfer.transfers?.[0]?.date ?? null;
+                            if (toTransferTimestamp(existingDate) >= toTransferTimestamp(transferDate)) {
+                                continue;
+                            }
+                        }
+                        flattenedTransfersMap.set(transferKey, {
+                            player: {
+                                id: playerId,
+                                name: playerName,
+                            },
+                            update: toText(transferBlock.update),
+                            transfers: [
+                                {
+                                    date: transferDate,
+                                    type: transferType,
+                                    teams: {
+                                        in: teamInPayload,
+                                        out: teamOutPayload,
+                                    },
+                                },
+                            ],
+                            context: {
+                                teamInInLeague,
+                                teamOutInLeague,
+                            },
                         });
                     }
                 }
             }
-            // Sort by date descending
-            flattenedTransfers.sort((a, b) => {
-                const dateA = new Date(a.transfers[0].date).getTime();
-                const dateB = new Date(b.transfers[0].date).getTime();
+            const flattenedTransfers = Array.from(flattenedTransfersMap.values()).sort((a, b) => {
+                const dateA = toTransferTimestamp(a.transfers?.[0]?.date ?? null);
+                const dateB = toTransferTimestamp(b.transfers?.[0]?.date ?? null);
                 return dateB - dateA;
             });
             return { response: flattenedTransfers };

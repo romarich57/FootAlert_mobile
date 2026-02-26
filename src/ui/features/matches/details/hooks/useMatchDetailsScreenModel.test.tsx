@@ -46,6 +46,7 @@ const mockedUsePowerState = jest.mocked(usePowerState);
 const mockedUseMatchesRefresh = jest.mocked(useMatchesRefresh);
 
 let fixtureStatusShort = 'NS';
+let fixtureStatusLong = 'Not started';
 let fixtureElapsed: number | null = null;
 
 function buildFixture() {
@@ -55,7 +56,7 @@ function buildFixture() {
       date: '2026-02-26T20:00:00.000Z',
       status: {
         short: fixtureStatusShort,
-        long: 'Status',
+        long: fixtureStatusLong,
         elapsed: fixtureElapsed,
       },
       venue: {
@@ -93,6 +94,7 @@ describe('useMatchDetailsScreenModel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     fixtureStatusShort = 'NS';
+    fixtureStatusLong = 'Not started';
     fixtureElapsed = null;
 
     mockedUseNavigation.mockReturnValue({
@@ -186,6 +188,7 @@ describe('useMatchDetailsScreenModel', () => {
 
   it('switches to live lifecycle and summary tab label during match', () => {
     fixtureStatusShort = '2H';
+    fixtureStatusLong = 'Second Half';
     fixtureElapsed = 67;
 
     const { result } = renderHook(() => useMatchDetailsScreenModel());
@@ -205,5 +208,23 @@ describe('useMatchDetailsScreenModel', () => {
         hasLiveMatches: true,
       }),
     );
+  });
+
+  it('classifies unknown short status as finished when long status indicates match finished', () => {
+    fixtureStatusShort = 'UNK';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.lifecycleState).toBe('finished');
+    expect(result.current.tabs.map(tab => tab.key)).toEqual([
+      'primary',
+      'timeline',
+      'lineups',
+      'standings',
+      'stats',
+      'h2h',
+    ]);
   });
 });

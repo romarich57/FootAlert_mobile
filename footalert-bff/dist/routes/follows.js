@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiFootballGet } from '../lib/apiFootballClient.js';
 import { withCache } from '../lib/cache.js';
+import { mapWithConcurrency } from '../lib/concurrency/mapWithConcurrency.js';
 import { commaSeparatedNumericIdsSchema, numericStringSchema, seasonSchema, timezoneSchema, } from '../lib/schemas.js';
 import { parseOrThrow } from '../lib/validation.js';
 const TRENDS_MAX_LEAGUE_IDS = 10;
@@ -35,23 +36,6 @@ const trendsQuerySchema = z
     season: seasonSchema,
 })
     .strict();
-async function mapWithConcurrency(items, concurrency, worker) {
-    const boundedConcurrency = Math.max(1, Math.min(concurrency, items.length));
-    const results = new Array(items.length);
-    let nextIndex = 0;
-    const consume = async () => {
-        while (true) {
-            const currentIndex = nextIndex;
-            nextIndex += 1;
-            if (currentIndex >= items.length) {
-                return;
-            }
-            results[currentIndex] = await worker(items[currentIndex]);
-        }
-    };
-    await Promise.all(Array.from({ length: boundedConcurrency }, () => consume()));
-    return results;
-}
 export async function registerFollowsRoutes(app) {
     app.get('/v1/follows/search/teams', async (request) => {
         const query = parseOrThrow(searchQuerySchema, request.query);
@@ -61,7 +45,7 @@ export async function registerFollowsRoutes(app) {
         const query = parseOrThrow(searchPlayersQuerySchema, request.query);
         return withCache(`follows:search:players-profiles:${request.url}`, 60_000, async () => {
             const result = await apiFootballGet(`/players/profiles?search=${encodeURIComponent(query.q)}`);
-            const mapped = (result.response || []).map((item) => ({
+            const mapped = (result.response ?? []).map(item => ({
                 player: {
                     id: item.player?.id,
                     name: item.player?.name,

@@ -6,9 +6,34 @@ import type {
 } from '@ui/features/matches/types/matches.types';
 import { TOP_COMPETITION_IDS } from '@/shared/constants';
 
-const LIVE_STATUSES = new Set(['1H', '2H', 'ET', 'BT', 'P', 'INT', 'LIVE']);
+const LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'BT', 'P', 'INT', 'SUSP', 'LIVE']);
 const UPCOMING_STATUSES = new Set(['TBD', 'NS']);
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO']);
+const LONG_STATUS_FINISHED_HINTS = [
+  'finished',
+  'after penalties',
+  'penalties',
+  'fulltime',
+  'full time',
+  'awarded',
+  'walkover',
+  'abandoned',
+  'cancelled',
+  'postponed',
+];
+const LONG_STATUS_LIVE_HINTS = [
+  'in play',
+  'live',
+  '1st half',
+  '2nd half',
+  'half time',
+  'extra time',
+  'penalty shootout',
+  'suspended',
+  'interrupted',
+  'break',
+];
+const LONG_STATUS_UPCOMING_HINTS = ['not started', 'to be defined'];
 const TOP_COMPETITION_IDS_SET = new Set<string>(TOP_COMPETITION_IDS);
 const TOP_COMPETITION_NAME_HINTS = [
   'champions league',
@@ -21,17 +46,46 @@ const TOP_COMPETITION_NAME_HINTS = [
   'la liga',
 ];
 
-function normalizeStatus(shortStatus: string): MatchStatus {
-  if (LIVE_STATUSES.has(shortStatus)) {
+function includesAny(haystack: string, needles: string[]): boolean {
+  return needles.some(needle => haystack.includes(needle));
+}
+
+function normalizeStatus(
+  shortStatus: string,
+  longStatus?: string | null,
+  elapsedMinute?: number | null,
+): MatchStatus {
+  const normalizedShortStatus = shortStatus.trim().toUpperCase();
+  const normalizedLongStatus = (longStatus ?? '').trim().toLowerCase();
+
+  if (LIVE_STATUSES.has(normalizedShortStatus)) {
     return 'live';
   }
 
-  if (UPCOMING_STATUSES.has(shortStatus)) {
+  if (UPCOMING_STATUSES.has(normalizedShortStatus)) {
     return 'upcoming';
   }
 
-  if (FINISHED_STATUSES.has(shortStatus)) {
+  if (FINISHED_STATUSES.has(normalizedShortStatus)) {
     return 'finished';
+  }
+
+  if (normalizedLongStatus.length > 0) {
+    if (includesAny(normalizedLongStatus, LONG_STATUS_FINISHED_HINTS)) {
+      return 'finished';
+    }
+
+    if (includesAny(normalizedLongStatus, LONG_STATUS_LIVE_HINTS)) {
+      return 'live';
+    }
+
+    if (includesAny(normalizedLongStatus, LONG_STATUS_UPCOMING_HINTS)) {
+      return 'upcoming';
+    }
+  }
+
+  if (typeof elapsedMinute === 'number' && Number.isFinite(elapsedMinute) && elapsedMinute > 0) {
+    return 'live';
   }
 
   return 'upcoming';
@@ -63,7 +117,11 @@ export function formatStatusLabel(
 }
 
 export function mapFixtureToMatchItem(dto: ApiFootballFixtureDto): MatchItem {
-  const status = normalizeStatus(dto.fixture.status.short);
+  const status = normalizeStatus(
+    dto.fixture.status.short,
+    dto.fixture.status.long,
+    dto.fixture.status.elapsed,
+  );
 
   return {
     fixtureId: String(dto.fixture.id),
@@ -194,10 +252,18 @@ export function hasLiveMatches(sections: CompetitionSection[]): boolean {
   return sections.some(section => section.matches.some(match => match.status === 'live'));
 }
 
-export function isFixtureLive(shortStatus: string): boolean {
-  return normalizeStatus(shortStatus) === 'live';
+export function isFixtureLive(
+  shortStatus: string,
+  longStatus?: string | null,
+  elapsedMinute?: number | null,
+): boolean {
+  return normalizeStatus(shortStatus, longStatus, elapsedMinute) === 'live';
 }
 
-export function classifyFixtureStatus(shortStatus: string): MatchStatus {
-  return normalizeStatus(shortStatus);
+export function classifyFixtureStatus(
+  shortStatus: string,
+  longStatus?: string | null,
+  elapsedMinute?: number | null,
+): MatchStatus {
+  return normalizeStatus(shortStatus, longStatus, elapsedMinute);
 }

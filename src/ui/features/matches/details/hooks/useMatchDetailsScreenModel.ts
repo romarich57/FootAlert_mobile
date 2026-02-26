@@ -69,7 +69,11 @@ function toLifecycleState(fixture: ApiFootballFixtureDto | null): MatchLifecycle
     return 'pre_match';
   }
 
-  const normalized = classifyFixtureStatus(fixture.fixture.status.short);
+  const normalized = classifyFixtureStatus(
+    fixture.fixture.status.short,
+    fixture.fixture.status.long,
+    fixture.fixture.status.elapsed,
+  );
   if (normalized === 'live') {
     return 'live';
   }
@@ -384,7 +388,11 @@ export function useMatchDetailsScreenModel() {
       return '';
     }
 
-    const normalizedStatus = classifyFixtureStatus(fixture.fixture.status.short);
+    const normalizedStatus = classifyFixtureStatus(
+      fixture.fixture.status.short,
+      fixture.fixture.status.long,
+      fixture.fixture.status.elapsed,
+    );
     if (normalizedStatus === 'upcoming') {
       return t('matches.status.upcoming');
     }

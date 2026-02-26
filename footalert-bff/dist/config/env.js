@@ -8,7 +8,10 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_TRUST_PROXY_HOPS = 0;
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
+const DEFAULT_CACHE_BACKEND = 'memory';
+const DEFAULT_REDIS_CACHE_PREFIX = 'footalert:bff:';
 const DEFAULT_BFF_EXPOSE_ERROR_DETAILS = false;
+const DEFAULT_MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS = 5 * 60_000;
 function normalizeUrl(value) {
     return value.replace(/\/+$/, '');
 }
@@ -29,6 +32,10 @@ function readApiFootballKey() {
     }
     return apiFootballKey;
 }
+function readOptionalSigningKey(rawValue) {
+    const signingKey = rawValue?.trim();
+    return signingKey ? signingKey : null;
+}
 function readBoolean(rawValue, fallback) {
     if (!rawValue) {
         return fallback;
@@ -42,6 +49,24 @@ function readBoolean(rawValue, fallback) {
     }
     return fallback;
 }
+function readCacheBackend(rawValue) {
+    const normalized = rawValue?.trim().toLowerCase();
+    if (normalized === 'redis') {
+        return 'redis';
+    }
+    return 'memory';
+}
+function readOptionalValue(rawValue) {
+    const value = rawValue?.trim();
+    return value ? value : null;
+}
+function readRedisCachePrefix(rawValue) {
+    const prefix = rawValue?.trim();
+    if (!prefix) {
+        return DEFAULT_REDIS_CACHE_PREFIX;
+    }
+    return prefix;
+}
 function readCsvList(rawValue) {
     if (!rawValue) {
         return [];
@@ -50,6 +75,26 @@ function readCsvList(rawValue) {
         .split(',')
         .map(value => value.trim())
         .filter(Boolean);
+}
+function readOptionalOrigin(rawValue) {
+    const trimmed = rawValue?.trim();
+    if (!trimmed) {
+        return null;
+    }
+    try {
+        const parsed = new URL(trimmed);
+        return parsed.origin;
+    }
+    catch {
+        throw new Error(`Invalid WEB_APP_ORIGIN value: "${trimmed}"`);
+    }
+}
+function buildCorsAllowedOrigins(rawOrigins, webAppOrigin) {
+    const normalizedOrigins = new Set(readCsvList(rawOrigins));
+    if (webAppOrigin) {
+        normalizedOrigins.add(webAppOrigin);
+    }
+    return [...normalizedOrigins];
 }
 function isProxyLikeEnvironment(trustProxyHops) {
     const runtimeEnv = process.env.APP_ENV?.trim().toLowerCase() || process.env.NODE_ENV?.trim().toLowerCase();
@@ -68,11 +113,18 @@ export const env = {
     rateLimitMax: readPositiveInt(process.env.RATE_LIMIT_MAX, DEFAULT_RATE_LIMIT_MAX),
     rateLimitWindowMs: readPositiveInt(process.env.RATE_LIMIT_WINDOW_MS, DEFAULT_RATE_LIMIT_WINDOW_MS),
     trustProxyHops: readPositiveInt(process.env.TRUST_PROXY_HOPS, DEFAULT_TRUST_PROXY_HOPS),
-    corsAllowedOrigins: readCsvList(process.env.CORS_ALLOWED_ORIGINS),
+    webAppOrigin: readOptionalOrigin(process.env.WEB_APP_ORIGIN),
+    corsAllowedOrigins: [],
     cacheMaxEntries: readPositiveInt(process.env.CACHE_MAX_ENTRIES, DEFAULT_CACHE_MAX_ENTRIES),
     cacheCleanupIntervalMs: readPositiveInt(process.env.CACHE_CLEANUP_INTERVAL_MS, DEFAULT_CACHE_CLEANUP_INTERVAL_MS),
+    cacheBackend: readCacheBackend(process.env.CACHE_BACKEND || DEFAULT_CACHE_BACKEND),
+    redisUrl: readOptionalValue(process.env.REDIS_URL),
+    redisCachePrefix: readRedisCachePrefix(process.env.REDIS_CACHE_PREFIX),
     bffExposeErrorDetails: readBoolean(process.env.BFF_EXPOSE_ERROR_DETAILS, DEFAULT_BFF_EXPOSE_ERROR_DETAILS),
+    mobileRequestSigningKey: readOptionalSigningKey(process.env.MOBILE_REQUEST_SIGNING_KEY),
+    mobileRequestSignatureMaxSkewMs: readPositiveInt(process.env.MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS, DEFAULT_MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS),
 };
+env.corsAllowedOrigins = buildCorsAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS, env.webAppOrigin);
 env.trustProxyHops = Math.max(env.trustProxyHops, 0);
 if (isProxyLikeEnvironment(env.trustProxyHops) && env.corsAllowedOrigins.length === 0) {
     throw new Error('Missing CORS_ALLOWED_ORIGINS in proxy/staging/production mode.');
