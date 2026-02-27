@@ -193,7 +193,7 @@ function filterFixtureStatisticsByPeriod(payload: unknown, period: MatchStatisti
             type: statType,
           };
         })
-        .filter((stat): stat is Record<string, unknown> => stat !== null);
+        .filter((stat): stat is NonNullable<typeof stat> => stat !== null);
 
       if (filteredStatistics.length === 0) {
         return null;
@@ -204,7 +204,7 @@ function filterFixtureStatisticsByPeriod(payload: unknown, period: MatchStatisti
         statistics: filteredStatistics,
       };
     })
-    .filter((entry): entry is Record<string, unknown> => entry !== null);
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
   return {
     ...payloadRecord,
