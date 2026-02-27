@@ -46,6 +46,15 @@ export const fr = {
     status: {
       upcoming: 'À venir',
     },
+    rounds: {
+      regularSeason: 'Saison Régulière',
+      groupStage: 'Phase de Groupes',
+      semiFinals: 'Demi-finales',
+      final: 'Finale',
+      roundOf16: 'Huitièmes',
+      quarterFinals: 'Quarts de finale',
+      thirdPlace: '3ème place',
+    },
     broadcast: {
       available: 'Diffusion disponible',
       unknown: 'Diffusion non confirmée',
@@ -93,7 +102,7 @@ export const fr = {
       lineups: 'Compositions',
       standings: 'Classement',
       stats: 'Statistiques',
-      h2h: 'Face à face',
+      faceOff: 'Face à face',
     },
     labels: {
       status: 'Statut',
@@ -151,6 +160,19 @@ export const fr = {
       substitutes: 'Remplaçants',
       reserves: 'Réservistes',
       absences: 'Blessés / Suspendus',
+      absencesDetailedTitle: 'Joueurs absents, blessés ou suspendus',
+      legend: {
+        savedPenalties: 'Penalties arrêtés',
+        assist: 'Passe décisive',
+        goal: 'But',
+        ownGoal: 'But contre son camp',
+        missedPenalty: 'Pénalty manqué',
+        yellowCard: 'Carton jaune',
+        redCard: 'Carton rouge',
+        secondYellow: 'Deuxième jaune',
+        injured: 'Blessé',
+        nationalTeam: 'Sélection nationale',
+      },
     },
     stats: {
       period: {
@@ -161,12 +183,14 @@ export const fr = {
       shotMapTitle: 'Shot map',
       shotMapPlaceholder: 'Shot map non disponible pour ce match.',
     },
-    h2h: {
-      draws: 'Nuls',
+    faceOff: {
+      title: 'Face à face',
       allCompetitions: 'Toutes compétitions',
-      filtersTitle: 'Filtres de compétition',
-      historyTitle: 'Historique des confrontations',
-      comparisonTitle: 'Comparaison des équipes',
+      homeWins: 'Victoires',
+      draws: 'Nuls',
+      awayWins: 'Victoires',
+      noData: 'Aucun match face à face disponible.',
+      matchesTitle: 'Derniers matchs',
     },
   },
   follows: {
@@ -246,8 +270,8 @@ export const fr = {
       miniStanding: 'Classement',
       standingHistory: 'Historique des classements',
       coachPerformance: 'Pourcentage de victoires de l’entraîneur',
-      coachWinRate: 'Win rate',
-      coachPointsPerMatch: 'Points / match',
+      coachWinRate: 'Taux de victoire',
+      coachPointsPerMatch: 'Pts / match',
       coachNoData: 'Aucun entraîneur disponible.',
       playerLeaders: 'Meilleures stats joueurs',
       competitions: 'Compétitions',

@@ -5,6 +5,7 @@ import {
   loadAppPreferences,
   updateAppPreferences,
 } from '@data/storage/appPreferencesStorage';
+import { isNetworkRequestFailedError } from '@data/api/http/client';
 import { syncPushTokenRegistration } from '@data/notifications/pushTokenLifecycle';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { DEFAULT_LANGUAGE, resolveDeviceLanguage } from '@/shared/i18n/language';
@@ -115,6 +116,13 @@ export function AppPreferencesProvider({
       notificationsEnabled: preferences.notificationsEnabled,
       locale: preferences.language,
     }).catch(error => {
+      if (isNetworkRequestFailedError(error)) {
+        getMobileTelemetry().addBreadcrumb('notifications.sync.deferred', {
+          reason: 'network_unavailable',
+        });
+        return;
+      }
+
       getMobileTelemetry().trackError(error, {
         feature: 'notifications.sync',
       });

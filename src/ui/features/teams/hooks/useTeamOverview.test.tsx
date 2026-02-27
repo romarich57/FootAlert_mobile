@@ -91,6 +91,7 @@ function createStandingRow(rank: number, teamId: string, isTargetTeam: boolean):
     points: 60 - rank,
     isTargetTeam,
     form: null,
+    update: null,
     all: {
       played: 25,
       win: 18,

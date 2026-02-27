@@ -33,11 +33,10 @@ Le script vérifie:
 
 ## Images optimisées
 
-`AppImage` (`src/ui/shared/media/AppImage.tsx`) encapsule `react-native-fast-image` avec:
+`AppImage` (`src/ui/shared/media/AppImage.tsx`) standardise le rendu via `react-native` `Image` avec:
 
-- cache par défaut `immutable`,
-- mapping `resizeMode`,
-- fallback automatique vers `react-native` `Image` en cas d'erreur ou source non supportée.
+- API unifiée (`source`, `resizeMode`, `cachePolicy`),
+- compatibilité React Native 0.84 / React 19 sans dépendance native tierce.
 
 ## Prefetch navigation
 

@@ -29,6 +29,14 @@ describe('useMatchesQuery retry strategy', () => {
     expect(shouldRetry).toBe(true);
   });
 
+  it('does not retry transport-level network failures', () => {
+    const shouldRetry = shouldRetryMatchesQuery(
+      0,
+      new TypeError('Network request failed'),
+    );
+    expect(shouldRetry).toBe(false);
+  });
+
   it('uses a 60s stale time budget', () => {
     expect(MATCHES_QUERY_STALE_TIME_MS).toBe(60_000);
   });

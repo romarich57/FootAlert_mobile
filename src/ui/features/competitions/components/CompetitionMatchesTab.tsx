@@ -7,6 +7,7 @@ import type { Fixture } from '../types/competitions.types';
 import { useCompetitionFixtures } from '../hooks/useCompetitionFixtures';
 import { MatchesFilterBottomSheet, MatchesFilterState } from './MatchesFilterBottomSheet';
 import { createCompetitionMatchesTabStyles } from './CompetitionMatchesTab.styles';
+import { formatMatchRound } from '@ui/shared/utils/formatMatchRound';
 
 type CompetitionMatchesTabProps = {
     competitionId: number;
@@ -115,7 +116,8 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
         const roundOccurrences = new Map<string, number>();
 
         processedFixtures.forEach(fixture => {
-            const roundName = typeof fixture.round === 'string' ? fixture.round.trim() : '';
+            const roundNameRaw = typeof fixture.round === 'string' ? fixture.round.trim() : '';
+            const roundName = formatMatchRound(roundNameRaw, t);
             if (roundName && roundName !== currentRound) {
                 const occurrence = (roundOccurrences.get(roundName) ?? 0) + 1;
                 roundOccurrences.set(roundName, occurrence);
@@ -133,7 +135,7 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
             });
         });
         return items;
-    }, [processedFixtures]);
+    }, [processedFixtures, t]);
 
     // Auto-scroll to current/next match
     useEffect(() => {

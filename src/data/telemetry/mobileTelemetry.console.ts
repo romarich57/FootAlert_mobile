@@ -7,6 +7,18 @@ import type {
 export function createConsoleMobileTelemetry(): MobileTelemetry {
   const userContext: TelemetryAttributes = {};
 
+  const isNetworkTransportFailure = (error: unknown): boolean => {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const message = error.message.trim().toLowerCase();
+    return (
+      message.includes('network request failed') ||
+      message.includes('failed to fetch')
+    );
+  };
+
   const shouldSuppressExpectedErrorLog = (
     error: unknown,
     context?: TelemetryErrorContext,
@@ -21,6 +33,10 @@ export function createConsoleMobileTelemetry(): MobileTelemetry {
     }
 
     if (error instanceof Error && error.name === 'AbortError') {
+      return true;
+    }
+
+    if (context?.feature === 'network' && isNetworkTransportFailure(error)) {
       return true;
     }
 

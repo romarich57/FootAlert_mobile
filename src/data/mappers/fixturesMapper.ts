@@ -2,6 +2,8 @@ import type {
   ApiFootballFixtureDto,
   CompetitionSection,
   MatchItem,
+  MatchLineupPlayer,
+  MatchLineupTeam,
   MatchStatus,
 } from '@ui/features/matches/types/matches.types';
 import { TOP_COMPETITION_IDS } from '@/shared/constants';
@@ -266,4 +268,83 @@ export function classifyFixtureStatus(
   elapsedMinute?: number | null,
 ): MatchStatus {
   return normalizeStatus(shortStatus, longStatus, elapsedMinute);
+}
+
+// --- LINEUPS MAPPERS ---
+
+type RawRecord = Record<string, unknown>;
+
+function toRecord(value: unknown): RawRecord | null {
+  if (!value || typeof value !== 'object') return null;
+  return value as RawRecord;
+}
+
+function toArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function toText(value: unknown): string;
+function toText<T extends string | null>(value: unknown, fallback: T): T;
+function toText(value: unknown, fallback: string | null = ''): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return fallback;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function mapLineupPlayer(
+  rawRecord: unknown,
+  fallbackTeamId: string,
+  fallbackIndex: number,
+): MatchLineupPlayer {
+  const wrapper = toRecord(rawRecord);
+  const player = toRecord(wrapper?.player);
+  const playerId = toText(player?.id);
+  const playerName = toText(player?.name, 'Joueur Inconnu');
+  const fallbackNameSlug = playerName.toLowerCase().replace(/\s+/g, '-');
+
+  return {
+    id: playerId || `${fallbackTeamId}-${fallbackNameSlug}-${fallbackIndex}`,
+    name: playerName,
+    photo: toText(player?.photo, null),
+    number: typeof player?.number === 'number' ? player.number : null,
+    position: toText(player?.pos, null),
+    grid: toText(player?.grid, null),
+    isCaptain: null,
+    // Performance stats will be merged later in the details screen model
+    rating: null,
+    goals: null,
+    assists: null,
+    yellowCards: null,
+    redCards: null,
+    inMinute: null,
+    outMinute: null,
+    penaltyScored: null,
+    penaltyMissed: null,
+    statusTag: null,
+  };
+}
+
+export function mapMatchLineupTeam(rawLineup: unknown): Omit<MatchLineupTeam, 'absences'> | null {
+  const lineup = toRecord(rawLineup);
+  if (!lineup) return null;
+
+  const team = toRecord(lineup.team);
+  const coach = toRecord(lineup.coach);
+  const teamId = toText(team?.id);
+
+  if (!teamId) return null;
+
+  return {
+    teamId,
+    teamName: toText(team?.name, 'Équipe'),
+    teamLogo: toText(team?.logo, null),
+    formation: toText(lineup.formation, null),
+    coach: toText(coach?.name, null),
+    coachPhoto: toText(coach?.photo, null),
+    startingXI: toArray(lineup.startXI).map((player, index) => mapLineupPlayer(player, teamId, index)),
+    substitutes: toArray(lineup.substitutes).map((player, index) =>
+      mapLineupPlayer(player, teamId, index),
+    ),
+    reserves: [],
+  };
 }

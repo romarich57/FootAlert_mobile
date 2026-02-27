@@ -90,27 +90,6 @@ export async function fetchFixtureLineups({
   });
 }
 
-type FetchFixtureHeadToHeadParams = {
-  fixtureId: string;
-  timezone?: string;
-  last?: number;
-  signal?: AbortSignal;
-};
-
-export async function fetchFixtureHeadToHead({
-  fixtureId,
-  timezone,
-  last,
-  signal,
-}: FetchFixtureHeadToHeadParams): Promise<unknown[]> {
-  return matchesReadService.fetchFixtureHeadToHead<unknown>({
-    fixtureId,
-    timezone,
-    last,
-    signal,
-  });
-}
-
 type FetchFixturePredictionsParams = {
   fixtureId: string;
   signal?: AbortSignal;
@@ -157,6 +136,27 @@ export async function fetchFixtureAbsences({
 }: FetchFixtureAbsencesParams): Promise<unknown[]> {
   return matchesReadService.fetchFixtureAbsences<unknown>({
     fixtureId,
+    timezone,
+    signal,
+  });
+}
+
+type FetchFixtureHeadToHeadParams = {
+  fixtureId: string;
+  last?: number;
+  timezone?: string;
+  signal?: AbortSignal;
+};
+
+export async function fetchFixtureHeadToHead({
+  fixtureId,
+  last,
+  timezone,
+  signal,
+}: FetchFixtureHeadToHeadParams): Promise<unknown[]> {
+  return matchesReadService.fetchFixtureHeadToHead<unknown>({
+    fixtureId,
+    last,
     timezone,
     signal,
   });

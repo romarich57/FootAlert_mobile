@@ -8,7 +8,7 @@ import {
   mapFixturesToSections,
 } from '@data/mappers/fixturesMapper';
 import type { MatchesQueryResult } from '@ui/features/matches/types/matches.types';
-import { ApiError } from '@data/api/http/client';
+import { ApiError, isNetworkRequestFailedError } from '@data/api/http/client';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type UseMatchesQueryParams = {
@@ -34,6 +34,10 @@ export function shouldRetryMatchesQuery(
   error: unknown,
 ): boolean {
   if (failureCount >= 2) {
+    return false;
+  }
+
+  if (isNetworkRequestFailedError(error)) {
     return false;
   }
 
@@ -93,6 +97,13 @@ export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQu
     if (query.error instanceof ApiError) {
       console.warn(
         `[FootAlert][matches] ${query.error.message} on ${requestUrl} | status=${query.error.status} payload=${query.error.payload}`,
+      );
+      return;
+    }
+
+    if (isNetworkRequestFailedError(query.error)) {
+      console.warn(
+        `[FootAlert][matches] network unavailable or request timed out on ${requestUrl}`,
       );
       return;
     }

@@ -135,33 +135,6 @@ export function createMatchesReadService({ http, telemetry }: MatchesServiceDepe
       return (payload as ListEnvelope<T>).response;
     },
 
-    async fetchFixtureHeadToHead<T = unknown>(params: {
-      fixtureId: string;
-      timezone?: string;
-      last?: number;
-      signal?: AbortSignal;
-    }): Promise<T[]> {
-      const rawPayload = await http.get<unknown>(
-        `/matches/${encodeURIComponent(params.fixtureId)}/head-to-head`,
-        {
-          timezone: params.timezone,
-          last: params.last,
-        },
-        { signal: params.signal },
-      );
-
-      const payload = parseRuntimePayloadOrFallback({
-        schema: listResponseSchema,
-        payload: rawPayload,
-        fallback: { response: [] },
-        telemetry,
-        feature: 'matches.fixture_h2h',
-        endpoint: `/matches/${params.fixtureId}/head-to-head`,
-      });
-
-      return (payload as ListEnvelope<T>).response;
-    },
-
     async fetchFixturePredictions<T = unknown>(params: {
       fixtureId: string;
       signal?: AbortSignal;
@@ -227,6 +200,39 @@ export function createMatchesReadService({ http, telemetry }: MatchesServiceDepe
         telemetry,
         feature: 'matches.fixture_absences',
         endpoint: `/matches/${params.fixtureId}/absences`,
+      });
+
+      return (payload as ListEnvelope<T>).response;
+    },
+
+    async fetchFixtureHeadToHead<T = unknown>(params: {
+      fixtureId: string;
+      last?: number;
+      timezone?: string;
+      signal?: AbortSignal;
+    }): Promise<T[]> {
+      // Construction conditionnelle des query params pour éviter les clés undefined
+      const queryParams: Record<string, string | undefined> = {};
+      if (typeof params.last === 'number') {
+        queryParams.last = String(params.last);
+      }
+      if (params.timezone) {
+        queryParams.timezone = params.timezone;
+      }
+
+      const rawPayload = await http.get<unknown>(
+        `/matches/${encodeURIComponent(params.fixtureId)}/head-to-head`,
+        Object.keys(queryParams).length > 0 ? queryParams : undefined,
+        { signal: params.signal },
+      );
+
+      const payload = parseRuntimePayloadOrFallback({
+        schema: listResponseSchema,
+        payload: rawPayload,
+        fallback: { response: [] },
+        telemetry,
+        feature: 'matches.fixture_head_to_head',
+        endpoint: `/matches/${params.fixtureId}/head-to-head`,
       });
 
       return (payload as ListEnvelope<T>).response;

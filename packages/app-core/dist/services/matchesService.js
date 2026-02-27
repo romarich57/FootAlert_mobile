@@ -72,21 +72,6 @@ export function createMatchesReadService({ http, telemetry }) {
             });
             return payload.response;
         },
-        async fetchFixtureHeadToHead(params) {
-            const rawPayload = await http.get(`/matches/${encodeURIComponent(params.fixtureId)}/head-to-head`, {
-                timezone: params.timezone,
-                last: params.last,
-            }, { signal: params.signal });
-            const payload = parseRuntimePayloadOrFallback({
-                schema: listResponseSchema,
-                payload: rawPayload,
-                fallback: { response: [] },
-                telemetry,
-                feature: 'matches.fixture_h2h',
-                endpoint: `/matches/${params.fixtureId}/head-to-head`,
-            });
-            return payload.response;
-        },
         async fetchFixturePredictions(params) {
             const rawPayload = await http.get(`/matches/${encodeURIComponent(params.fixtureId)}/predictions`, undefined, { signal: params.signal });
             const payload = parseRuntimePayloadOrFallback({
@@ -122,6 +107,26 @@ export function createMatchesReadService({ http, telemetry }) {
                 telemetry,
                 feature: 'matches.fixture_absences',
                 endpoint: `/matches/${params.fixtureId}/absences`,
+            });
+            return payload.response;
+        },
+        async fetchFixtureHeadToHead(params) {
+            // Construction conditionnelle des query params pour éviter les clés undefined
+            const queryParams = {};
+            if (typeof params.last === 'number') {
+                queryParams.last = String(params.last);
+            }
+            if (params.timezone) {
+                queryParams.timezone = params.timezone;
+            }
+            const rawPayload = await http.get(`/matches/${encodeURIComponent(params.fixtureId)}/head-to-head`, Object.keys(queryParams).length > 0 ? queryParams : undefined, { signal: params.signal });
+            const payload = parseRuntimePayloadOrFallback({
+                schema: listResponseSchema,
+                payload: rawPayload,
+                fallback: { response: [] },
+                telemetry,
+                feature: 'matches.fixture_head_to_head',
+                endpoint: `/matches/${params.fixtureId}/head-to-head`,
             });
             return payload.response;
         },

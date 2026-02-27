@@ -96,6 +96,28 @@ describe('mobileTelemetry', () => {
     }
   });
 
+  it('suppresses transport-level network failures in dev telemetry', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const globalWithDev = globalThis as typeof globalThis & { __DEV__?: boolean };
+    const previousDevValue = globalWithDev.__DEV__;
+    globalWithDev.__DEV__ = true;
+
+    try {
+      const telemetry = createDefaultMobileTelemetry();
+      telemetry.trackError(new TypeError('Network request failed'), {
+        feature: 'network',
+        method: 'GET',
+        url: 'https://footalert.romdev.cloud/v1/matches?date=2026-02-27&timezone=Europe%2FParis',
+      });
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      globalWithDev.__DEV__ = previousDevValue;
+    }
+  });
+
   it('flushes telemetry queue when batch size is reached', async () => {
     const mockedFetch = jest.fn(async () => new Response('{}', { status: 200 }));
     globalThis.fetch = mockedFetch as unknown as typeof fetch;

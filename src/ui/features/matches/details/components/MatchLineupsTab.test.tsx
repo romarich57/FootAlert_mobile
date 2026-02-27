@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen } from '@testing-library/react-native';
+import { fireEvent, screen } from '@testing-library/react-native';
 
 import { MatchDetailsTabContent } from '@ui/features/matches/details/components/MatchDetailsTabContent';
 import type { ApiFootballFixtureDto } from '@ui/features/matches/types/matches.types';
@@ -53,28 +53,25 @@ describe('MatchLineupsTab', () => {
         fixture={fixture}
         events={[]}
         statistics={[]}
-        lineups={[
+        lineupTeams={[
           {
-            team: { id: 1, name: 'Home', logo: '' },
-            coach: { name: 'Coach A' },
+            teamId: '1',
+            teamName: 'Home',
+            teamLogo: '',
+            coach: 'Coach A',
             formation: '4-3-3',
-            startXI: [
-              { player: { id: 10, name: 'Starter One', number: 9, pos: 'F', grid: '1:1' } },
+            startingXI: [
+              { id: '10', name: 'Starter One', number: 9, position: 'F', grid: '1:1' },
             ],
             substitutes: [
-              { player: { id: 11, name: 'Sub One', number: 14, pos: 'M', grid: '0:0' } },
+              { id: '11', name: 'Sub One', number: 14, position: 'M', grid: '0:0' },
             ],
+            reserves: [],
+            absences: ['Injured One'],
           },
         ]}
-        h2h={[]}
         predictions={null}
         winPercent={{ home: '40%', draw: '30%', away: '30%' }}
-        absences={[
-          {
-            teamId: 1,
-            response: [{ player: { name: 'Injured One' } }],
-          },
-        ]}
         homePlayersStats={[
           {
             players: [
@@ -96,13 +93,44 @@ describe('MatchLineupsTab', () => {
         standings={null}
         homeTeamId="1"
         awayTeamId="2"
+        headToHead={[]}
         isLiveRefreshing={false}
       />,
     );
 
     expect(screen.getByText(/Coach A/)).toBeTruthy();
     expect(screen.getByText(i18n.t('matchDetails.lineups.substitutes'))).toBeTruthy();
-    expect(screen.getByText(i18n.t('matchDetails.lineups.reserves'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('matchDetails.lineups.absencesDetailedTitle'))).toBeTruthy();
     expect(screen.getByText(/Injured One/)).toBeTruthy();
+  });
+
+  it('shows retry action on finished state when lineups are unavailable', () => {
+    const onRefreshLineups = jest.fn();
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="lineups"
+        lifecycleState="finished"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+        onRefreshLineups={onRefreshLineups}
+        isLineupsRefetching={false}
+      />,
+    );
+
+    const retryLabel = i18n.t('actions.retry');
+    const retryAction = screen.getByText(retryLabel);
+    fireEvent.press(retryAction);
+    expect(onRefreshLineups).toHaveBeenCalledTimes(1);
   });
 });

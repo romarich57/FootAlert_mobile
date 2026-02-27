@@ -119,7 +119,7 @@ export function RootNavigator() {
         component={TabsNavigator}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="MatchDetails" getComponent={getMatchDetailsScreen} />
+      <Stack.Screen name="MatchDetails" getComponent={getMatchDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="CompetitionDetails"
         getComponent={getCompetitionDetailsScreen}

@@ -26,6 +26,7 @@ export function mapStandingsToTeamData(
         points: toNumber(row.points),
         isTargetTeam: rowTeamId === teamId,
         form: toText(row.form),
+        update: row.update ?? null,
         all: {
           played: toNumber(row.all?.played),
           win: toNumber(row.all?.win),

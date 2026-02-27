@@ -92,7 +92,6 @@ function createModelOverrides(overrides: Record<string, unknown> = {}) {
     events: [],
     statistics: [],
     lineups: [],
-    h2h: [],
     predictions: null,
     winPercent: {
       home: '40%',

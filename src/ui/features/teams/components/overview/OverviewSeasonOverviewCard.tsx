@@ -94,27 +94,34 @@ export function OverviewSeasonOverviewCard({
         })}
       </View>
 
-      <View style={styles.pitch}>
-        <View style={styles.lineupRow}>
-          {(seasonLineup?.attackers ?? []).map(player => (
-            <PlayerBubble key={`att-${player.playerId}`} player={player} styles={styles} />
-          ))}
+      {(seasonLineup?.attackers?.length ?? 0) > 0 ||
+        (seasonLineup?.midfielders?.length ?? 0) > 0 ||
+        (seasonLineup?.defenders?.length ?? 0) > 0 ||
+        seasonLineup?.goalkeeper ? (
+        <View style={styles.pitch}>
+          <View style={styles.lineupRow}>
+            {(seasonLineup?.attackers ?? []).map(player => (
+              <PlayerBubble key={`att-${player.playerId}`} player={player} styles={styles} />
+            ))}
+          </View>
+          <View style={styles.pitchHalfLine} />
+          <View style={styles.lineupRow}>
+            {(seasonLineup?.midfielders ?? []).map(player => (
+              <PlayerBubble key={`mid-${player.playerId}`} player={player} styles={styles} />
+            ))}
+          </View>
+          <View style={styles.lineupRow}>
+            {(seasonLineup?.defenders ?? []).map(player => (
+              <PlayerBubble key={`def-${player.playerId}`} player={player} styles={styles} />
+            ))}
+          </View>
+          <View style={styles.lineupRow}>
+            <PlayerBubble player={seasonLineup?.goalkeeper ?? null} styles={styles} />
+          </View>
         </View>
-        <View style={styles.pitchHalfLine} />
-        <View style={styles.lineupRow}>
-          {(seasonLineup?.midfielders ?? []).map(player => (
-            <PlayerBubble key={`mid-${player.playerId}`} player={player} styles={styles} />
-          ))}
-        </View>
-        <View style={styles.lineupRow}>
-          {(seasonLineup?.defenders ?? []).map(player => (
-            <PlayerBubble key={`def-${player.playerId}`} player={player} styles={styles} />
-          ))}
-        </View>
-        <View style={styles.lineupRow}>
-          <PlayerBubble player={seasonLineup?.goalkeeper ?? null} styles={styles} />
-        </View>
-      </View>
+      ) : (
+        <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+      )}
     </View>
   );
 }

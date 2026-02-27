@@ -114,7 +114,7 @@ export type MatchDetailsTabKey =
   | 'lineups'
   | 'standings'
   | 'stats'
-  | 'h2h';
+  | 'faceOff';
 
 export type MatchDetailTabDefinition = {
   key: MatchDetailsTabKey;
@@ -140,8 +140,11 @@ export type MatchTimelineItem = {
 export type MatchLineupPlayer = {
   id: string;
   name: string;
+  photo?: string | null;
   number?: number | null;
   position?: string | null;
+  grid?: string | null;
+  isCaptain?: boolean | null;
   rating?: number | null;
   goals?: number | null;
   assists?: number | null;
@@ -154,21 +157,24 @@ export type MatchLineupPlayer = {
   statusTag?: string | null;
 };
 
+export type MatchLineupAbsence = {
+  id: string | null;
+  name: string;
+  photo: string | null;
+  reason: string | null;
+  status: string | null;
+  type: string | null;
+};
+
 export type MatchLineupTeam = {
   teamId: string;
   teamName: string;
   teamLogo: string | null;
   formation: string | null;
   coach: string | null;
+  coachPhoto?: string | null;
   startingXI: MatchLineupPlayer[];
   substitutes: MatchLineupPlayer[];
   reserves: MatchLineupPlayer[];
-  absences: string[];
-};
-
-export type MatchH2HSummary = {
-  homeWins: number;
-  draws: number;
-  awayWins: number;
-  total: number;
+  absences: Array<MatchLineupAbsence | string>;
 };

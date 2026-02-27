@@ -62,16 +62,15 @@ describe('MatchTimelineTab', () => {
           },
         ]}
         statistics={[]}
-        lineups={[]}
-        h2h={[]}
+        lineupTeams={[]}
         predictions={null}
         winPercent={{ home: '40%', draw: '30%', away: '30%' }}
-        absences={[]}
         homePlayersStats={[]}
         awayPlayersStats={[]}
         standings={null}
         homeTeamId="1"
         awayTeamId="2"
+        headToHead={[]}
         isLiveRefreshing={false}
       />,
     );

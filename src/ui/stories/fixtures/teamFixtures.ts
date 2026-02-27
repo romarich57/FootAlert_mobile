@@ -36,6 +36,7 @@ function createStandingRow(overrides?: Partial<TeamStandingRow>): TeamStandingRo
     points: 48,
     isTargetTeam: false,
     form: 'WWDWW',
+    update: null,
     all: createStandingStats(),
     home: createStandingStats({ played: 12, win: 9, draw: 2, lose: 1, goalsFor: 27, goalsAgainst: 10 }),
     away: createStandingStats({ played: 12, win: 5, draw: 4, lose: 3, goalsFor: 15, goalsAgainst: 10 }),

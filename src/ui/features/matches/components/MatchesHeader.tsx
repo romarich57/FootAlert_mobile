@@ -13,46 +13,41 @@ type MatchesHeaderProps = {
 };
 
 function createStyles(colors: ThemeColors, isCompact: boolean) {
-  const actionButtonSize = isCompact ? 40 : 44;
-  const logoWidth = isCompact ? 126 : 164;
-  const actionsGap = isCompact ? 8 : 12;
+  const actionButtonSize = isCompact ? 38 : 42;
+  const logoWidth = isCompact ? 120 : 150;
+  const actionsGap = isCompact ? 8 : 10;
 
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      gap: 10,
+      paddingVertical: 10,
     },
     logoContainer: {
       flexShrink: 1,
-      marginRight: 8,
       width: logoWidth,
     },
     logo: {
       width: '100%',
-      height: isCompact ? 44 : 54,
-      borderRadius: 8,
+      height: isCompact ? 40 : 48,
+      borderRadius: 12,
     },
     actions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: actionsGap,
-      flexShrink: 0,
     },
     actionButton: {
       width: actionButtonSize,
       height: actionButtonSize,
-      borderRadius: actionButtonSize / 2,
-      borderWidth: 1,
+      borderRadius: 12, // Modern squircle-like
       alignItems: 'center',
       justifyContent: 'center',
-      borderColor: colors.chipBorder,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceElevated,
     },
     actionButtonPrimary: {
-      borderColor: colors.primary,
-      backgroundColor: 'rgba(21,248,106,0.1)',
+      backgroundColor: 'rgba(16, 185, 129, 0.1)',
     },
   });
 }
@@ -74,7 +69,7 @@ export function MatchesHeader({
         <Image
           source={require('../../../../../assets/Logo_footalert.jpg')}
           style={styles.logo}
-          resizeMode="cover"
+          resizeMode="contain"
         />
       </View>
 
@@ -85,7 +80,7 @@ export function MatchesHeader({
           testID="matches-header-manage-hidden-button"
           style={styles.actionButton}
         >
-          <MaterialCommunityIcons name="eye-outline" size={24} color={colors.text} />
+          <MaterialCommunityIcons name="eye-outline" size={22} color={colors.text} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -93,7 +88,7 @@ export function MatchesHeader({
           testID="matches-header-calendar-button"
           style={[styles.actionButton, styles.actionButtonPrimary]}
         >
-          <MaterialCommunityIcons name="calendar-month" size={22} color={colors.primary} />
+          <MaterialCommunityIcons name="calendar-month" size={20} color={colors.primary} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -101,7 +96,7 @@ export function MatchesHeader({
           testID="matches-header-search-button"
           style={styles.actionButton}
         >
-          <MaterialCommunityIcons name="magnify" size={24} color={colors.text} />
+          <MaterialCommunityIcons name="magnify" size={22} color={colors.text} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -109,7 +104,7 @@ export function MatchesHeader({
           testID="matches-header-notifications-button"
           style={styles.actionButton}
         >
-          <MaterialCommunityIcons name="bell" size={23} color={colors.text} />
+          <MaterialCommunityIcons name="bell-outline" size={22} color={colors.text} />
         </Pressable>
       </View>
     </View>

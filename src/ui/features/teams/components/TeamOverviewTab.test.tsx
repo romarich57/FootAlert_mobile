@@ -243,6 +243,7 @@ const baseData: TeamOverviewData = {
         points: 61,
         isTargetTeam: false,
         form: null,
+        update: null,
         all: {
           played: 25,
           win: 20,
@@ -278,6 +279,7 @@ const baseData: TeamOverviewData = {
         points: 60,
         isTargetTeam: true,
         form: null,
+        update: null,
         all: {
           played: 25,
           win: 19,
@@ -313,6 +315,7 @@ const baseData: TeamOverviewData = {
         points: 52,
         isTargetTeam: false,
         form: null,
+        update: null,
         all: {
           played: 25,
           win: 16,

@@ -7,5 +7,8 @@
     "lint": "node ./scripts/lint-contract.mjs",
     "generate": "node ./scripts/generate-types.mjs",
     "check": "npm run lint && npm run generate && node ./scripts/ensure-clean-generated.mjs"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
   }
 }

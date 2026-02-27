@@ -22,30 +22,27 @@ function createStyles(colors: ThemeColors) {
     container: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
+      gap: 10,
     },
     chip: {
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceElevated,
       minHeight: MIN_TOUCH_TARGET,
       justifyContent: 'center',
       alignItems: 'center',
       paddingVertical: 8,
-      paddingHorizontal: 14,
+      paddingHorizontal: 16,
     },
     chipActive: {
-      borderColor: colors.primary,
-      backgroundColor: 'rgba(20, 225, 92, 0.12)',
+      backgroundColor: colors.primary,
     },
     text: {
       color: colors.textMuted,
       fontSize: 13,
-      fontWeight: '700',
+      fontWeight: '600',
     },
     textActive: {
-      color: colors.primary,
+      color: colors.primaryContrast,
     },
   });
 }

@@ -46,7 +46,7 @@ describe('applyLiveStandingsProjection', () => {
       { teamId: '1', rank: 1, points: 40, goalDiff: 20, teamName: 'A' },
       { teamId: '2', rank: 2, points: 39, goalDiff: 15, teamName: 'B' },
       { teamId: '3', rank: 3, points: 39, goalDiff: 12, teamName: 'C' },
-    ];
+    ].map(r => ({ ...r, played: 10, update: null, all: {} as any, home: {} as any, away: {} as any }));
 
     const projected = applyLiveStandingsProjection({
       rows,
@@ -73,7 +73,7 @@ describe('applyLiveStandingsProjection', () => {
     const rows = [
       { teamId: '1', rank: 1, points: 40, goalDiff: 20 },
       { teamId: '2', rank: 2, points: 39, goalDiff: 15 },
-    ];
+    ].map(r => ({ ...r, played: 10, update: null, all: {} as any, home: {} as any, away: {} as any }));
 
     const projected = applyLiveStandingsProjection({
       rows,

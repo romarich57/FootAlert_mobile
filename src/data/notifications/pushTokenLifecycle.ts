@@ -2,6 +2,7 @@ import Config from 'react-native-config';
 import { Platform } from 'react-native';
 
 import { getAppVersion } from '@data/config/appMeta';
+import { isNetworkRequestFailedError } from '@data/api/http/client';
 import {
   registerPushToken,
   revokePushToken,
@@ -153,6 +154,13 @@ export async function syncPushTokenRegistration(options: {
   if (!notificationsEnabled) {
     if (currentSnapshot?.token) {
       await revokePushToken(currentSnapshot.token).catch(error => {
+        if (isNetworkRequestFailedError(error)) {
+          getMobileTelemetry().addBreadcrumb('notifications.push.revoke_deferred', {
+            reason: 'network_unavailable',
+          });
+          return;
+        }
+
         getMobileTelemetry().trackError(error, {
           feature: 'notifications.revoke',
         });

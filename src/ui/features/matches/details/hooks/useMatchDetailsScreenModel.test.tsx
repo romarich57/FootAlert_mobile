@@ -159,7 +159,7 @@ describe('useMatchDetailsScreenModel', () => {
         } as never;
       }
 
-      if (key[2] === 'events' || key[2] === 'statistics' || key[2] === 'lineups' || key[2] === 'h2h' || key[2] === 'absences' || key[2] === 'team_players_stats') {
+      if (key[2] === 'events' || key[2] === 'statistics' || key[2] === 'lineups' || key[2] === 'absences' || key[2] === 'team_players_stats') {
         return {
           ...baseResult,
           data: [],
@@ -178,7 +178,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     expect(result.current.lifecycleState).toBe('pre_match');
     expect(result.current.tabs[0].label).toBe(i18n.t('matchDetails.tabs.preMatch'));
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'standings', 'stats', 'h2h']);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'stats', 'faceOff']);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         hasLiveMatches: false,
@@ -199,9 +199,8 @@ describe('useMatchDetailsScreenModel', () => {
       'primary',
       'timeline',
       'lineups',
-      'standings',
       'stats',
-      'h2h',
+      'faceOff',
     ]);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -222,9 +221,121 @@ describe('useMatchDetailsScreenModel', () => {
       'primary',
       'timeline',
       'lineups',
-      'standings',
       'stats',
-      'h2h',
+      'faceOff',
     ]);
+  });
+
+  it('does not build lineups from players stats when lineups endpoint is empty', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: {
+            league: {
+              standings: [],
+            },
+          },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'lineups') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'team_players_stats') {
+        const teamId = String(key[3] ?? '');
+
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: {
+                id: Number(teamId),
+              },
+              players: [
+                {
+                  player: { id: teamId === '1' ? 10 : 20, name: teamId === '1' ? 'Home Starter' : 'Away Starter' },
+                  statistics: [
+                    {
+                      games: { number: 9, position: 'Attacker', rating: '7.4', captain: false, substitute: false },
+                      goals: { total: 1, assists: 0 },
+                      cards: { yellow: 0, red: 0 },
+                      substitutes: { in: null, out: null },
+                    },
+                  ],
+                },
+                {
+                  player: { id: teamId === '1' ? 11 : 21, name: teamId === '1' ? 'Home Sub' : 'Away Sub' },
+                  statistics: [
+                    {
+                      games: { number: 18, position: 'Midfielder', rating: '6.8', captain: false, substitute: true },
+                      goals: { total: 0, assists: 0 },
+                      cards: { yellow: 1, red: 0 },
+                      substitutes: { in: 77, out: null },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'events' || key[2] === 'statistics' || key[2] === 'absences') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.lineupTeams).toEqual([]);
   });
 });

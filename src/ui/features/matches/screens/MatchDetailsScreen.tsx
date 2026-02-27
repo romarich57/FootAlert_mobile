@@ -2,11 +2,13 @@ import { useMemo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { MatchDetailsHeader } from '@ui/features/matches/details/components/MatchDetailsHeader';
@@ -15,7 +17,7 @@ import { MatchDetailsTabs } from '@ui/features/matches/details/components/MatchD
 import { useMatchDetailsScreenModel } from '@ui/features/matches/details/hooks/useMatchDetailsScreenModel';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, topInset: number) {
   return StyleSheet.create({
     screen: {
       flex: 1,
@@ -42,12 +44,11 @@ function createStyles(colors: ThemeColors) {
     },
     headerWrap: {
       paddingHorizontal: 12,
-      paddingTop: 12,
+      paddingTop: topInset + 12,
       paddingBottom: 8,
       backgroundColor: colors.background,
     },
     body: {
-      flex: 1,
       backgroundColor: colors.background,
     },
   });
@@ -56,7 +57,8 @@ function createStyles(colors: ThemeColors) {
 export function MatchDetailsScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const model = useMatchDetailsScreenModel();
 
   if (!model.safeMatchId) {
@@ -96,7 +98,7 @@ export function MatchDetailsScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <ScrollView style={styles.screen} stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
       <View style={styles.headerWrap}>
         <MatchDetailsHeader
           fixture={model.fixture}
@@ -121,19 +123,20 @@ export function MatchDetailsScreen() {
           fixture={model.fixture}
           events={model.events}
           statistics={model.statistics}
-          lineups={model.lineups}
-          h2h={model.h2h}
+          lineupTeams={model.lineupTeams}
           predictions={model.predictions}
           winPercent={model.winPercent}
-          absences={model.absences}
           homePlayersStats={model.homePlayersStats}
           awayPlayersStats={model.awayPlayersStats}
           standings={model.standings}
           homeTeamId={model.homeTeamId}
           awayTeamId={model.awayTeamId}
+          headToHead={model.headToHead}
           isLiveRefreshing={model.isLiveRefreshing}
+          onRefreshLineups={model.onRefreshLineups}
+          isLineupsRefetching={model.isLineupsRefetching}
         />
       </View>
-    </View>
+    </ScrollView>
   );
 }

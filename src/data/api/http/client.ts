@@ -1,5 +1,7 @@
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 
+const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -24,6 +26,18 @@ type HttpRequestOptions = HttpBaseOptions & {
 };
 
 type HttpMethod = 'GET' | 'POST' | 'DELETE';
+
+export function isNetworkRequestFailedError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const normalizedMessage = error.message.trim().toLowerCase();
+  return (
+    normalizedMessage.includes('network request failed') ||
+    normalizedMessage.includes('failed to fetch')
+  );
+}
 
 function withTimeout(
   signal: AbortSignal | undefined,
@@ -52,7 +66,7 @@ async function httpRequest<T>(
   url: string,
   options: HttpRequestOptions = {},
 ): Promise<T> {
-  const timeoutMs = options.timeoutMs ?? 15_000;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS;
   const hasJsonBody = typeof options.body !== 'undefined';
   const requestHeaders: Record<string, string> = {
     Accept: 'application/json',

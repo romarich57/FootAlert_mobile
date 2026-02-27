@@ -160,6 +160,7 @@ export type TeamStandingRow = {
   points: number | null;
   isTargetTeam: boolean;
   form: string | null;
+  update: string | null;
   all: TeamStandingStats;
   home: TeamStandingStats;
   away: TeamStandingStats;
@@ -457,6 +458,7 @@ export type TeamApiStandingsDto = {
             against?: number;
           };
         };
+        update?: string;
       }>
     >;
   };

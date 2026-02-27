@@ -18,38 +18,6 @@ jest.mock('react-native-config', () => ({
 
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 
-jest.mock('react-native-fast-image', () => {
-  const React = require('react');
-  const { Image } = require('react-native');
-
-  const FastImage = React.forwardRef((props, ref) => (
-    <Image ref={ref} {...props} />
-  ));
-
-  FastImage.displayName = 'FastImage';
-  FastImage.resizeMode = {
-    contain: 'contain',
-    cover: 'cover',
-    stretch: 'stretch',
-    center: 'center',
-  };
-  FastImage.cacheControl = {
-    immutable: 'immutable',
-    web: 'web',
-    cacheOnly: 'cacheOnly',
-  };
-  FastImage.priority = {
-    low: 'low',
-    normal: 'normal',
-    high: 'high',
-  };
-
-  return {
-    __esModule: true,
-    default: FastImage,
-  };
-});
-
 jest.mock('react-native-background-fetch', () => ({
   NETWORK_TYPE_ANY: 1,
   configure: jest.fn(async () => 2),

@@ -45,6 +45,15 @@ export const en = {
     status: {
       upcoming: 'Upcoming',
     },
+    rounds: {
+      regularSeason: 'Regular Season',
+      groupStage: 'Group Stage',
+      semiFinals: 'Semi-finals',
+      final: 'Final',
+      roundOf16: 'Round of 16',
+      quarterFinals: 'Quarter-finals',
+      thirdPlace: '3rd Place',
+    },
     broadcast: {
       available: 'Broadcast available',
       unknown: 'Broadcast unknown',
@@ -92,7 +101,7 @@ export const en = {
       lineups: 'Lineups',
       standings: 'Standings',
       stats: 'Statistics',
-      h2h: 'Head to head',
+      faceOff: 'Head to head',
     },
     labels: {
       status: 'Status',
@@ -150,6 +159,19 @@ export const en = {
       substitutes: 'Substitutes',
       reserves: 'Reserves',
       absences: 'Injured / suspended',
+      absencesDetailedTitle: 'Absent, injured or suspended players',
+      legend: {
+        savedPenalties: 'Saved penalties',
+        assist: 'Assist',
+        goal: 'Goal',
+        ownGoal: 'Own goal',
+        missedPenalty: 'Missed penalty',
+        yellowCard: 'Yellow card',
+        redCard: 'Red card',
+        secondYellow: 'Second yellow',
+        injured: 'Injured',
+        nationalTeam: 'National team',
+      },
     },
     stats: {
       period: {
@@ -160,12 +182,14 @@ export const en = {
       shotMapTitle: 'Shot map',
       shotMapPlaceholder: 'Shot map unavailable for this match.',
     },
-    h2h: {
-      draws: 'Draws',
+    faceOff: {
+      title: 'Head to head',
       allCompetitions: 'All competitions',
-      filtersTitle: 'Competition filters',
-      historyTitle: 'Head-to-head history',
-      comparisonTitle: 'Team comparison',
+      homeWins: 'Wins',
+      draws: 'Draws',
+      awayWins: 'Wins',
+      noData: 'No head to head matches available.',
+      matchesTitle: 'Previous meetings',
     },
   },
   follows: {

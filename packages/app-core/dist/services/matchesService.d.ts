@@ -27,12 +27,6 @@ export declare function createMatchesReadService({ http, telemetry }: MatchesSer
         fixtureId: string;
         signal?: AbortSignal;
     }): Promise<T[]>;
-    fetchFixtureHeadToHead<T = unknown>(params: {
-        fixtureId: string;
-        timezone?: string;
-        last?: number;
-        signal?: AbortSignal;
-    }): Promise<T[]>;
     fetchFixturePredictions<T = unknown>(params: {
         fixtureId: string;
         signal?: AbortSignal;
@@ -44,6 +38,12 @@ export declare function createMatchesReadService({ http, telemetry }: MatchesSer
     }): Promise<T[]>;
     fetchFixtureAbsences<T = unknown>(params: {
         fixtureId: string;
+        timezone?: string;
+        signal?: AbortSignal;
+    }): Promise<T[]>;
+    fetchFixtureHeadToHead<T = unknown>(params: {
+        fixtureId: string;
+        last?: number;
         timezone?: string;
         signal?: AbortSignal;
     }): Promise<T[]>;

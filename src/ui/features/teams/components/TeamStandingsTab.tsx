@@ -20,6 +20,7 @@ type TeamStandingsTabProps = {
   isLoading: boolean;
   isError: boolean;
   hasFetched?: boolean;
+  disableVirtualization?: boolean;
   onRetry: () => void;
 };
 
@@ -28,6 +29,7 @@ export function TeamStandingsTab({
   isLoading,
   isError,
   hasFetched = true,
+  disableVirtualization = false,
   onRetry,
 }: TeamStandingsTabProps) {
   const { colors } = useAppTheme();
@@ -173,21 +175,38 @@ export function TeamStandingsTab({
       ) : null}
 
       {!shouldShowLoadingState && !shouldShowErrorState ? (
-        <FlashList
-          data={feedItems}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          ListHeaderComponent={renderListHeader}
-          contentContainerStyle={styles.listContent}
-          estimatedItemSize={58}
-          ListEmptyComponent={
-            hasFetched ? (
+        disableVirtualization ? (
+          <View style={styles.listContent}>
+            {renderListHeader()}
+            {feedItems.length > 0 ? (
+              feedItems.map((item, index) => (
+                <View key={keyExtractor(item)}>
+                  {renderItem({ item, index, target: 'Cell' } as any)}
+                </View>
+              ))
+            ) : hasFetched ? (
               <View style={styles.emptyWrap}>
                 <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
               </View>
-            ) : null
-          }
-        />
+            ) : null}
+          </View>
+        ) : (
+          <FlashList
+            data={feedItems}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            ListHeaderComponent={renderListHeader}
+            contentContainerStyle={styles.listContent}
+            estimatedItemSize={58}
+            ListEmptyComponent={
+              hasFetched ? (
+                <View style={styles.emptyWrap}>
+                  <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>
+                </View>
+              ) : null
+            }
+          />
+        )
       ) : null}
 
       <Modal visible={filterModalOpen} transparent animationType="fade" onRequestClose={() => setFilterModalOpen(false)}>
