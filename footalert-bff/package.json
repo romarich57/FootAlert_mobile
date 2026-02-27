@@ -6,13 +6,13 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "prebuild": "npm --prefix ../packages/app-core run build",
+    "prebuild": "npm --prefix ./node_modules/@footalert/app-core run build",
     "build": "tsc -p tsconfig.json",
     "prestart": "npm run build",
-    "pretypecheck": "npm --prefix ../packages/app-core run build",
+    "pretypecheck": "npm --prefix ./node_modules/@footalert/app-core run build",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "pretest": "npm --prefix ../packages/app-core run build",
+    "pretest": "npm --prefix ./node_modules/@footalert/app-core run build",
     "test": "node --import tsx --test test/**/*.test.ts",
     "smoke:staging": "node scripts/smoke-staging.mjs"
   },
