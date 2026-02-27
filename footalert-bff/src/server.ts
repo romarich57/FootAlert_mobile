@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { env } from './config/env.js';
 import { configureCache } from './lib/cache.js';
 import { BffError } from './lib/errors.js';
+import { registerCapabilitiesRoutes } from './routes/capabilities.js';
 import { registerCompetitionsRoutes } from './routes/competitions.js';
 import { registerFollowsRoutes } from './routes/follows.js';
 import { registerMatchesRoutes } from './routes/matches.js';
@@ -47,6 +48,7 @@ const CACHE_CONTROL_BY_ROUTE: Record<string, string> = {
   '/v1/follows/trends/players': CACHE_CONTROL_MEDIUM,
   '/v1/follows/teams/:teamId': CACHE_CONTROL_MEDIUM,
   '/v1/follows/players/:playerId/season/:season': CACHE_CONTROL_MEDIUM,
+  '/v1/capabilities': CACHE_CONTROL_MEDIUM,
   '/v1/teams/:id': CACHE_CONTROL_MEDIUM,
   '/v1/players/:id': CACHE_CONTROL_MEDIUM,
 
@@ -222,6 +224,7 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   app.get('/health', async () => ({ status: 'ok' }));
 
+  await registerCapabilitiesRoutes(app);
   await registerMatchesRoutes(app);
   await registerCompetitionsRoutes(app);
   await registerTeamsRoutes(app);

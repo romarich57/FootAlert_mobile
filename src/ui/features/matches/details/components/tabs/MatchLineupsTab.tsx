@@ -12,6 +12,7 @@ import type {
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
 import { toText } from '@ui/features/matches/details/components/tabs/shared/matchDetailsParsing';
 import { groupPlayersByPitchRows } from '@ui/features/matches/details/components/tabs/shared/matchDetailsSelectors';
+import type { MatchDetailsDatasetErrorReason } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
 
 type MatchLineupsTabProps = {
   styles: MatchDetailsTabStyles;
@@ -21,6 +22,8 @@ type MatchLineupsTabProps = {
   isLineupsRefetching?: boolean;
   hasLineupsError?: boolean;
   hasAbsencesError?: boolean;
+  lineupsErrorReason?: MatchDetailsDatasetErrorReason;
+  absencesErrorReason?: MatchDetailsDatasetErrorReason;
   lineupsDataSource?: 'query' | 'fixture_fallback' | 'none';
 };
 
@@ -513,11 +516,23 @@ export function MatchLineupsTab({
   isLineupsRefetching,
   hasLineupsError = false,
   hasAbsencesError = false,
+  lineupsErrorReason = 'none',
+  absencesErrorReason = 'none',
   lineupsDataSource,
 }: MatchLineupsTabProps) {
   const { t } = useTranslation();
 
   const showFinishedLayout = lifecycleState === 'finished';
+  const lineupsEmptyStateKey =
+    hasLineupsError && lineupsErrorReason === 'endpoint_not_available'
+      ? 'matchDetails.states.datasetErrorsUnsupported.lineups'
+      : hasLineupsError
+        ? 'matchDetails.states.datasetErrors.lineups'
+        : 'matchDetails.values.unavailable';
+  const absencesErrorKey =
+    absencesErrorReason === 'endpoint_not_available'
+      ? 'matchDetails.states.datasetErrorsUnsupported.absences'
+      : 'matchDetails.states.datasetErrors.absences';
 
   return (
     <View style={styles.content}>
@@ -534,7 +549,7 @@ export function MatchLineupsTab({
             ) : null}
           </View>
           <Text style={styles.emptyText}>
-            {hasLineupsError ? t('matchDetails.states.datasetErrors.lineups') : t('matchDetails.values.unavailable')}
+            {t(lineupsEmptyStateKey)}
           </Text>
         </View>
       ) : null}
@@ -551,7 +566,7 @@ export function MatchLineupsTab({
 
       {lineupTeams.length > 0 && hasAbsencesError ? (
         <View style={styles.card}>
-          <Text style={styles.newsText}>{t('matchDetails.states.datasetErrors.absences')}</Text>
+          <Text style={styles.newsText}>{t(absencesErrorKey)}</Text>
         </View>
       ) : null}
 

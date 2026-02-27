@@ -197,6 +197,78 @@ test('GET /v1/competitions/:id/standings applies longer Cache-Control header', a
   assert.equal(response.headers['cache-control'], 'public, max-age=300, stale-while-revalidate=600');
 });
 
+test('GET /v1/capabilities returns match-details capabilities without upstream calls', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/capabilities',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['cache-control'], 'public, max-age=120, stale-while-revalidate=120');
+  assert.deepEqual(response.json().features.matchDetails, {
+    details: true,
+    events: true,
+    statistics: true,
+    lineups: true,
+    headToHead: true,
+    predictions: true,
+    absences: true,
+    playersStats: true,
+  });
+  assert.equal(
+    response.json().endpoints.matchDetails.headToHead,
+    '/v1/matches/:id/head-to-head',
+  );
+  assert.equal(calls.length, 0);
+});
+
+test('critical match-details routes are registered and do not return 404', async t => {
+  const fixtureId = '909';
+  const teamId = '901';
+
+  installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('id') === fixtureId) {
+      return jsonResponse({
+        response: [
+          {
+            league: { id: 39, season: 2025 },
+            teams: { home: { id: 10 }, away: { id: 20 } },
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const urls = [
+    `/v1/matches/${fixtureId}?timezone=Europe/Paris`,
+    `/v1/matches/${fixtureId}/events`,
+    `/v1/matches/${fixtureId}/statistics`,
+    `/v1/matches/${fixtureId}/lineups`,
+    `/v1/matches/${fixtureId}/head-to-head?timezone=Europe/Paris&last=5`,
+    `/v1/matches/${fixtureId}/predictions`,
+    `/v1/matches/${fixtureId}/absences?timezone=Europe/Paris`,
+    `/v1/matches/${fixtureId}/players/${teamId}/stats`,
+  ] as const;
+
+  for (const url of urls) {
+    const response = await app.inject({
+      method: 'GET',
+      url,
+    });
+
+    assert.notEqual(response.statusCode, 404, `${url} should be registered`);
+  }
+});
+
 test('GET /v1/competitions compresses large JSON payloads when client accepts gzip', async t => {
   installFetchMock(async () =>
     jsonResponse({

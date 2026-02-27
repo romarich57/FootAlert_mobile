@@ -134,6 +134,14 @@ export const en = {
         predictions: 'Unable to fetch predictions.',
         absences: 'Unable to fetch absences.',
       },
+      datasetErrorsUnsupported: {
+        events: 'Match events are not available on this environment.',
+        statistics: 'Match statistics are not available on this environment.',
+        lineups: 'Lineups are not available on this environment.',
+        faceOff: 'Head to head data is not available on this environment.',
+        predictions: 'Predictions are not available on this environment.',
+        absences: 'Absences are not available on this environment.',
+      },
     },
     values: {
       unavailable: 'Data unavailable',
@@ -161,6 +169,19 @@ export const en = {
     },
     timeline: {
       tapHint: 'Tap to open details',
+      events: {
+        normal_goal: 'Goal',
+        own_goal: 'Own goal',
+        penalty: 'Penalty',
+        missed_penalty: 'Missed penalty',
+        yellow_card: 'Yellow card',
+        red_card: 'Red card',
+        second_yellow_card: 'Second yellow card',
+        substitution: 'Substitution',
+        goal_cancelled: 'Goal cancelled',
+        penalty_awarded: 'Penalty awarded',
+        goal_confirmed: 'Goal confirmed',
+      },
     },
     lineups: {
       formation: 'Formation',

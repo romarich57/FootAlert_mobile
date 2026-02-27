@@ -165,6 +165,7 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       padding: 8,
       gap: 8,
       maxWidth: '100%',
+      flexShrink: 1,
     },
     timelineCardLeft: {
       flexDirection: 'row-reverse',
@@ -191,9 +192,11 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
     },
     timelineEventDetailsLeft: {
       alignItems: 'flex-end',
+      flexShrink: 1,
     },
     timelineEventDetailsRight: {
       alignItems: 'flex-start',
+      flexShrink: 1,
     },
     timelinePlayerName: {
       color: colors.text,
@@ -205,11 +208,13 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
+      flexShrink: 1,
     },
     timelineEventText: {
       color: colors.textMuted,
       fontSize: 12,
       fontWeight: '600',
+      flexShrink: 1,
     },
     timelineIconWrap: {
       alignItems: 'center',

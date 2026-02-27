@@ -482,6 +482,91 @@ describe('useMatchDetailsScreenModel', () => {
     expect(result.current.datasetErrors.lineups).toBe(false);
   });
 
+  it('classifies 404 dataset failures as endpoint_not_available', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        error: undefined,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'events') {
+        return {
+          ...baseResult,
+          isError: true,
+          error: new ApiError('HTTP 500', 500, ''),
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'head_to_head') {
+        return {
+          ...baseResult,
+          isError: true,
+          error: new ApiError('HTTP 404', 404, ''),
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'statistics' || key[2] === 'lineups' || key[2] === 'absences' || key[2] === 'team_players_stats') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.datasetErrors.events).toBe(true);
+    expect(result.current.datasetErrors.faceOff).toBe(true);
+    expect(result.current.datasetErrorReasons.events).toBe('request_failed');
+    expect(result.current.datasetErrorReasons.faceOff).toBe('endpoint_not_available');
+  });
+
   it('configures detail queries to skip retries on HTTP 404 and refetch on mount', () => {
     renderHook(() => useMatchDetailsScreenModel());
 

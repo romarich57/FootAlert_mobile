@@ -25,6 +25,19 @@ export type MatchDetailsDatasetErrors = {
   awayPlayersStats: boolean;
 };
 
+export type MatchDetailsDatasetErrorReason = 'none' | 'request_failed' | 'endpoint_not_available';
+
+export type MatchDetailsDatasetErrorReasons = {
+  events: MatchDetailsDatasetErrorReason;
+  statistics: MatchDetailsDatasetErrorReason;
+  lineups: MatchDetailsDatasetErrorReason;
+  predictions: MatchDetailsDatasetErrorReason;
+  absences: MatchDetailsDatasetErrorReason;
+  faceOff: MatchDetailsDatasetErrorReason;
+  homePlayersStats: MatchDetailsDatasetErrorReason;
+  awayPlayersStats: MatchDetailsDatasetErrorReason;
+};
+
 export type MatchDetailsDatasetSources = {
   events: MatchDetailsDatasetSource;
   statistics: MatchDetailsDatasetSource;
@@ -84,6 +97,7 @@ export type MatchDetailsTabContentProps = {
   onRefreshLineups?: () => void;
   isLineupsRefetching?: boolean;
   datasetErrors?: Partial<MatchDetailsDatasetErrors>;
+  datasetErrorReasons?: Partial<MatchDetailsDatasetErrorReasons>;
   dataSources?: Partial<MatchDetailsDatasetSources>;
   statsRowsByPeriod?: StatRowsByPeriod;
   statsAvailablePeriods?: StatsPeriodFilter[];

@@ -9,6 +9,7 @@ import {
   parseH2HFixtures,
 } from '@ui/features/matches/details/components/tabs/shared/matchFaceOffHelpers';
 import type { H2HFixture } from '@ui/features/matches/details/components/tabs/shared/matchFaceOffHelpers';
+import type { MatchDetailsDatasetErrorReason } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
 
 // --- Types ---
 
@@ -22,6 +23,7 @@ type MatchFaceOffTabProps = {
   homeTeamLogo: string;
   awayTeamLogo: string;
   hasDataError?: boolean;
+  dataErrorReason?: MatchDetailsDatasetErrorReason;
 };
 
 // --- Sous-composants ---
@@ -108,6 +110,7 @@ export function MatchFaceOffTab({
   homeTeamName,
   awayTeamName,
   hasDataError = false,
+  dataErrorReason = 'none',
 }: MatchFaceOffTabProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -149,6 +152,12 @@ export function MatchFaceOffTab({
   // Largeurs de la barre comparative (proportionnelles au total)
   const homeBarPercent = summary.total > 0 ? Math.round((summary.homeWins / summary.total) * 100) : 33;
   const awayBarPercent = summary.total > 0 ? Math.round((summary.awayWins / summary.total) * 100) : 33;
+  const emptyStateKey =
+    hasDataError && dataErrorReason === 'endpoint_not_available'
+      ? 'matchDetails.states.datasetErrorsUnsupported.faceOff'
+      : hasDataError
+        ? 'matchDetails.states.datasetErrors.faceOff'
+        : 'matchDetails.faceOff.noData';
 
   return (
     <View style={styles.content}>
@@ -225,9 +234,7 @@ export function MatchFaceOffTab({
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t('matchDetails.faceOff.matchesTitle')}</Text>
         {filteredFixtures.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {hasDataError ? t('matchDetails.states.datasetErrors.faceOff') : t('matchDetails.faceOff.noData')}
-          </Text>
+          <Text style={styles.emptyText}>{t(emptyStateKey)}</Text>
         ) : (
           filteredFixtures.map(fixture => (
             <H2HMatchRow

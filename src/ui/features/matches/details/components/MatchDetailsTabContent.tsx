@@ -42,6 +42,7 @@ export function MatchDetailsTabContent({
   onRefreshLineups,
   isLineupsRefetching,
   datasetErrors,
+  datasetErrorReasons,
   dataSources,
   statsRowsByPeriod,
   statsAvailablePeriods,
@@ -133,8 +134,11 @@ export function MatchDetailsTabContent({
           eventRows={eventRows}
           matchScore={matchScore}
           statsError={datasetErrors?.statistics === true}
+          statsErrorReason={datasetErrorReasons?.statistics}
           eventsError={datasetErrors?.events === true}
+          eventsErrorReason={datasetErrorReasons?.events}
           predictionsError={datasetErrors?.predictions === true}
+          predictionsErrorReason={datasetErrorReasons?.predictions}
         />
       );
 
@@ -145,6 +149,7 @@ export function MatchDetailsTabContent({
           lifecycleState={lifecycleState}
           eventRows={eventRows}
           hasDataError={datasetErrors?.events === true}
+          dataErrorReason={datasetErrorReasons?.events}
         />
       );
 
@@ -158,6 +163,8 @@ export function MatchDetailsTabContent({
           isLineupsRefetching={isLineupsRefetching}
           hasLineupsError={datasetErrors?.lineups === true}
           hasAbsencesError={datasetErrors?.absences === true}
+          lineupsErrorReason={datasetErrorReasons?.lineups}
+          absencesErrorReason={datasetErrorReasons?.absences}
           lineupsDataSource={dataSources?.lineups}
         />
       );
@@ -172,6 +179,7 @@ export function MatchDetailsTabContent({
           statRowsByPeriod={effectiveStatsRowsByPeriod}
           statsAvailablePeriods={effectiveStatsAvailablePeriods}
           hasDataError={datasetErrors?.statistics === true}
+          dataErrorReason={datasetErrorReasons?.statistics}
         />
       );
 
@@ -187,6 +195,7 @@ export function MatchDetailsTabContent({
           homeTeamLogo={fixture.teams.home.logo}
           awayTeamLogo={fixture.teams.away.logo}
           hasDataError={datasetErrors?.faceOff === true}
+          dataErrorReason={datasetErrorReasons?.faceOff}
         />
       );
 

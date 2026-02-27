@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
 import type {
+  MatchDetailsDatasetErrorReason,
   MatchStatsSectionKey,
   StatRowsByPeriod,
   StatsPeriodFilter,
@@ -14,6 +15,7 @@ type MatchStatsTabProps = {
   statRowsByPeriod: StatRowsByPeriod;
   statsAvailablePeriods: StatsPeriodFilter[];
   hasDataError?: boolean;
+  dataErrorReason?: MatchDetailsDatasetErrorReason;
 };
 
 const SECTION_ORDER: readonly MatchStatsSectionKey[] = [
@@ -56,6 +58,7 @@ export function MatchStatsTab({
   statRowsByPeriod,
   statsAvailablePeriods,
   hasDataError = false,
+  dataErrorReason = 'none',
 }: MatchStatsTabProps) {
   const { t } = useTranslation();
   const defaultPeriod: StatsPeriodFilter =
@@ -86,6 +89,12 @@ export function MatchStatsTab({
         .filter(group => group.rows.length > 0),
     [visibleStats],
   );
+  const emptyStateKey =
+    hasDataError && dataErrorReason === 'endpoint_not_available'
+      ? 'matchDetails.states.datasetErrorsUnsupported.statistics'
+      : hasDataError
+        ? 'matchDetails.states.datasetErrors.statistics'
+        : 'matchDetails.values.unavailable';
 
   return (
     <View style={styles.content}>
@@ -109,9 +118,7 @@ export function MatchStatsTab({
         </View>
 
         {visibleStats.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {hasDataError ? t('matchDetails.states.datasetErrors.statistics') : t('matchDetails.values.unavailable')}
-          </Text>
+          <Text style={styles.emptyText}>{t(emptyStateKey)}</Text>
         ) : null}
 
         {groupedStats.map(group => (

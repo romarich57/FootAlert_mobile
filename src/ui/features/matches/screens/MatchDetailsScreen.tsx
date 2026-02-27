@@ -136,6 +136,7 @@ export function MatchDetailsScreen() {
           onRefreshLineups={model.onRefreshLineups}
           isLineupsRefetching={model.isLineupsRefetching}
           datasetErrors={model.datasetErrors}
+          datasetErrorReasons={model.datasetErrorReasons}
           dataSources={model.dataSources}
           statsRowsByPeriod={model.statsRowsByPeriod}
           statsAvailablePeriods={model.statsAvailablePeriods}

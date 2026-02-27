@@ -30,6 +30,11 @@ const coreChecks = [
     expectedStatuses: [200],
   },
   {
+    name: 'capabilities',
+    url: `${apiBaseUrl}${apiPrefix}/capabilities`,
+    expectedStatuses: [200],
+  },
+  {
     name: 'teams trends',
     url: `${apiBaseUrl}${apiPrefix}/follows/trends/teams?leagueIds=${encodeURIComponent(leagueIds)}&season=${encodeURIComponent(season)}`,
     expectedStatuses: [200],

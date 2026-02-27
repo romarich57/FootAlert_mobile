@@ -75,9 +75,9 @@ describe('MatchTimelineTab', () => {
       />,
     );
 
-    expect(screen.getByText("78'")).toBeTruthy();
-    expect(screen.getByText(/Goal · Kylian Mbappe/)).toBeTruthy();
-    expect(screen.getByText(i18n.t('matchDetails.timeline.tapHint'))).toBeTruthy();
+    expect(screen.getByText(/78/)).toBeTruthy();
+    expect(screen.getByText('Kylian Mbappe')).toBeTruthy();
+    expect(screen.getByText('But (O. Dembele)')).toBeTruthy();
   });
 
   it('renders explicit timeline error when events request failed', () => {
@@ -103,5 +103,31 @@ describe('MatchTimelineTab', () => {
     );
 
     expect(screen.getByText(i18n.t('matchDetails.states.datasetErrors.events'))).toBeTruthy();
+  });
+
+  it('renders endpoint-unavailable timeline error when events endpoint returns 404', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="timeline"
+        lifecycleState="live"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+        datasetErrors={{ events: true }}
+        datasetErrorReasons={{ events: 'endpoint_not_available' }}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('matchDetails.states.datasetErrorsUnsupported.events'))).toBeTruthy();
   });
 });

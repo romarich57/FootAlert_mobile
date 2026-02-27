@@ -135,6 +135,14 @@ export const fr = {
         predictions: 'Impossible de récupérer les prédictions.',
         absences: 'Impossible de récupérer les absences.',
       },
+      datasetErrorsUnsupported: {
+        events: 'Les événements ne sont pas disponibles sur cet environnement.',
+        statistics: 'Les statistiques ne sont pas disponibles sur cet environnement.',
+        lineups: 'Les compositions ne sont pas disponibles sur cet environnement.',
+        faceOff: 'Le face-à-face n’est pas disponible sur cet environnement.',
+        predictions: 'Les prédictions ne sont pas disponibles sur cet environnement.',
+        absences: 'Les absences ne sont pas disponibles sur cet environnement.',
+      },
     },
     values: {
       unavailable: 'Donnée indisponible',
@@ -162,6 +170,19 @@ export const fr = {
     },
     timeline: {
       tapHint: 'Touchez pour afficher le détail',
+      events: {
+        normal_goal: 'But',
+        own_goal: 'But contre son camp',
+        penalty: 'Penalty',
+        missed_penalty: 'Penalty manqué',
+        yellow_card: 'Carton jaune',
+        red_card: 'Carton rouge',
+        second_yellow_card: 'Deuxième carton jaune',
+        substitution: 'Remplacement',
+        goal_cancelled: 'But annulé (VAR)',
+        penalty_awarded: 'Penalty accordé (VAR)',
+        goal_confirmed: 'But validé (VAR)',
+      },
     },
     lineups: {
       formation: 'Formation',

@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next';
 
 import type { MatchLifecycleState } from '@ui/features/matches/types/matches.types';
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
-import type { EventRow, StatRow } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
+import type {
+  EventRow,
+  MatchDetailsDatasetErrorReason,
+  StatRow,
+} from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
 
 type MatchPrimaryTabProps = {
   styles: MatchDetailsTabStyles;
@@ -24,8 +28,11 @@ type MatchPrimaryTabProps = {
   eventRows: EventRow[];
   matchScore: string;
   statsError?: boolean;
+  statsErrorReason?: MatchDetailsDatasetErrorReason;
   eventsError?: boolean;
+  eventsErrorReason?: MatchDetailsDatasetErrorReason;
   predictionsError?: boolean;
+  predictionsErrorReason?: MatchDetailsDatasetErrorReason;
 };
 
 function ProbabilityCard({
@@ -67,14 +74,29 @@ export function MatchPrimaryTab({
   eventRows,
   matchScore,
   statsError = false,
+  statsErrorReason = 'none',
   eventsError = false,
+  eventsErrorReason = 'none',
   predictionsError = false,
+  predictionsErrorReason = 'none',
 }: MatchPrimaryTabProps) {
   const { t } = useTranslation();
 
   const homePct = Number.parseFloat(winPercent.home.replace('%', '')) || 0;
   const drawPct = Number.parseFloat(winPercent.draw.replace('%', '')) || 0;
   const awayPct = Number.parseFloat(winPercent.away.replace('%', '')) || 0;
+  const statsErrorKey =
+    statsErrorReason === 'endpoint_not_available'
+      ? 'matchDetails.states.datasetErrorsUnsupported.statistics'
+      : 'matchDetails.states.datasetErrors.statistics';
+  const eventsErrorKey =
+    eventsErrorReason === 'endpoint_not_available'
+      ? 'matchDetails.states.datasetErrorsUnsupported.events'
+      : 'matchDetails.states.datasetErrors.events';
+  const predictionsErrorKey =
+    predictionsErrorReason === 'endpoint_not_available'
+      ? 'matchDetails.states.datasetErrorsUnsupported.predictions'
+      : 'matchDetails.states.datasetErrors.predictions';
 
   return (
     <View style={styles.content}>
@@ -139,7 +161,7 @@ export function MatchPrimaryTab({
             <Text style={styles.cardTitle}>{t('matchDetails.primary.insightTitle')}</Text>
             <Text style={styles.newsText}>{insightText}</Text>
             {predictionsError ? (
-              <Text style={styles.newsText}>{t('matchDetails.states.datasetErrors.predictions')}</Text>
+              <Text style={styles.newsText}>{t(predictionsErrorKey)}</Text>
             ) : null}
           </View>
 
@@ -169,7 +191,7 @@ export function MatchPrimaryTab({
             <Text style={styles.cardTitle}>{t('matchDetails.tabs.stats')}</Text>
             {statRows.length === 0 ? (
               <Text style={styles.emptyText}>
-                {statsError ? t('matchDetails.states.datasetErrors.statistics') : t('matchDetails.values.unavailable')}
+                {statsError ? t(statsErrorKey) : t('matchDetails.values.unavailable')}
               </Text>
             ) : null}
             {statRows.slice(0, 6).map(row => (
@@ -191,7 +213,7 @@ export function MatchPrimaryTab({
             <Text style={styles.cardTitle}>{t('matchDetails.primary.keyMomentsTitle')}</Text>
             {eventRows.length === 0 ? (
               <Text style={styles.emptyText}>
-                {eventsError ? t('matchDetails.states.datasetErrors.events') : t('matchDetails.values.unavailable')}
+                {eventsError ? t(eventsErrorKey) : t('matchDetails.values.unavailable')}
               </Text>
             ) : null}
             {eventRows.slice(0, 6).map(event => (
@@ -227,7 +249,7 @@ export function MatchPrimaryTab({
             <Text style={styles.cardTitle}>{t('matchDetails.tabs.stats')}</Text>
             {statRows.length === 0 ? (
               <Text style={styles.emptyText}>
-                {statsError ? t('matchDetails.states.datasetErrors.statistics') : t('matchDetails.values.unavailable')}
+                {statsError ? t(statsErrorKey) : t('matchDetails.values.unavailable')}
               </Text>
             ) : null}
             {statRows.slice(0, 8).map(row => (
@@ -249,7 +271,7 @@ export function MatchPrimaryTab({
             <Text style={styles.cardTitle}>{t('matchDetails.primary.keyMomentsTitle')}</Text>
             {eventRows.length === 0 ? (
               <Text style={styles.emptyText}>
-                {eventsError ? t('matchDetails.states.datasetErrors.events') : t('matchDetails.values.unavailable')}
+                {eventsError ? t(eventsErrorKey) : t('matchDetails.values.unavailable')}
               </Text>
             ) : null}
             {eventRows.map(event => (

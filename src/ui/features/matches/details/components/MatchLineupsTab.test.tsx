@@ -159,6 +159,32 @@ describe('MatchLineupsTab', () => {
     expect(screen.getByText(i18n.t('matchDetails.states.datasetErrors.lineups'))).toBeTruthy();
   });
 
+  it('shows endpoint-unavailable lineups message when lineups endpoint returns 404', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="lineups"
+        lifecycleState="finished"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+        datasetErrors={{ lineups: true }}
+        datasetErrorReasons={{ lineups: 'endpoint_not_available' }}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('matchDetails.states.datasetErrorsUnsupported.lineups'))).toBeTruthy();
+  });
+
   it('shows fallback source note when lineups are built from fixture payload', () => {
     renderWithAppProviders(
       <MatchDetailsTabContent
@@ -194,5 +220,43 @@ describe('MatchLineupsTab', () => {
     );
 
     expect(screen.getByText(i18n.t('matchDetails.states.fallbackSource'))).toBeTruthy();
+  });
+
+  it('shows endpoint-unavailable absences note when absences endpoint returns 404', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="lineups"
+        lifecycleState="finished"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[
+          {
+            teamId: '1',
+            teamName: 'Home',
+            teamLogo: '',
+            coach: 'Coach A',
+            formation: '4-3-3',
+            startingXI: [{ id: '10', name: 'Starter One', number: 9, position: 'F', grid: '1:1' }],
+            substitutes: [],
+            reserves: [],
+            absences: [],
+          },
+        ]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+        datasetErrors={{ absences: true }}
+        datasetErrorReasons={{ absences: 'endpoint_not_available' }}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('matchDetails.states.datasetErrorsUnsupported.absences'))).toBeTruthy();
   });
 });

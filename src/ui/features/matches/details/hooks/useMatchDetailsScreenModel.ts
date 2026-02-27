@@ -43,6 +43,7 @@ import type {
   MatchLineupTeam,
 } from '@ui/features/matches/types/matches.types';
 import type {
+  MatchDetailsDatasetErrorReason,
   StatRowsByPeriod,
   StatsPeriodFilter,
 } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
@@ -57,6 +58,7 @@ type DatasetResolution = {
   data: unknown[];
   source: MatchDetailsDatasetSource;
   isError: boolean;
+  errorReason: MatchDetailsDatasetErrorReason;
 };
 
 function toRawRecord(value: unknown): RawRecord | null {
@@ -93,10 +95,12 @@ function shouldRetryMatchDetailsRequest(maxRetries: number) {
 function resolveDatasetWithFallback({
   queryData,
   fallbackData,
+  queryError,
   isQueryError,
 }: {
   queryData: unknown;
   fallbackData: unknown;
+  queryError: unknown;
   isQueryError: boolean;
 }): DatasetResolution {
   const queryRows = toArray(queryData);
@@ -109,13 +113,20 @@ function resolveDatasetWithFallback({
       data: resolvedRows,
       source: shouldUseFallback ? 'fixture_fallback' : 'query',
       isError: false,
+      errorReason: 'none',
     };
   }
+
+  const isEndpointUnavailable = queryError instanceof ApiError && queryError.status === 404;
+  const errorReason: MatchDetailsDatasetErrorReason = isQueryError
+    ? (isEndpointUnavailable ? 'endpoint_not_available' : 'request_failed')
+    : 'none';
 
   return {
     data: [],
     source: isQueryError ? 'none' : 'query',
     isError: isQueryError,
+    errorReason,
   };
 }
 
@@ -502,9 +513,10 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: eventsQuery.data,
         fallbackData: fixtureRecord?.events,
+        queryError: eventsQuery.error,
         isQueryError: eventsQuery.isError,
       }),
-    [eventsQuery.data, eventsQuery.isError, fixtureRecord],
+    [eventsQuery.data, eventsQuery.error, eventsQuery.isError, fixtureRecord],
   );
 
   const resolvedStatistics = useMemo(
@@ -512,9 +524,10 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: statisticsQuery.data,
         fallbackData: fixtureRecord?.statistics,
+        queryError: statisticsQuery.error,
         isQueryError: statisticsQuery.isError,
       }),
-    [fixtureRecord, statisticsQuery.data, statisticsQuery.isError],
+    [fixtureRecord, statisticsQuery.data, statisticsQuery.error, statisticsQuery.isError],
   );
 
   const resolvedLineups = useMemo(
@@ -522,9 +535,10 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: lineupsQuery.data,
         fallbackData: fixtureRecord?.lineups,
+        queryError: lineupsQuery.error,
         isQueryError: lineupsQuery.isError,
       }),
-    [fixtureRecord, lineupsQuery.data, lineupsQuery.isError],
+    [fixtureRecord, lineupsQuery.data, lineupsQuery.error, lineupsQuery.isError],
   );
 
   const resolvedPredictions = useMemo(
@@ -532,9 +546,10 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: predictionsQuery.data,
         fallbackData: fixtureRecord?.predictions,
+        queryError: predictionsQuery.error,
         isQueryError: predictionsQuery.isError,
       }),
-    [fixtureRecord, predictionsQuery.data, predictionsQuery.isError],
+    [fixtureRecord, predictionsQuery.data, predictionsQuery.error, predictionsQuery.isError],
   );
 
   const resolvedAbsences = useMemo(
@@ -542,9 +557,10 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: absencesQuery.data,
         fallbackData: fixtureRecord?.absences,
+        queryError: absencesQuery.error,
         isQueryError: absencesQuery.isError,
       }),
-    [absencesQuery.data, absencesQuery.isError, fixtureRecord],
+    [absencesQuery.data, absencesQuery.error, absencesQuery.isError, fixtureRecord],
   );
 
   const resolvedHeadToHead = useMemo(
@@ -552,9 +568,10 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: headToHeadQuery.data,
         fallbackData: fixtureRecord?.headToHead,
+        queryError: headToHeadQuery.error,
         isQueryError: headToHeadQuery.isError,
       }),
-    [fixtureRecord, headToHeadQuery.data, headToHeadQuery.isError],
+    [fixtureRecord, headToHeadQuery.data, headToHeadQuery.error, headToHeadQuery.isError],
   );
 
   const fixturePlayersRows = useMemo(() => toArray(fixtureRecord?.players), [fixtureRecord]);
@@ -564,9 +581,16 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: homePlayersStatsQuery.data,
         fallbackData: filterPlayersStatsByTeam(fixturePlayersRows, homeTeamId),
+        queryError: homePlayersStatsQuery.error,
         isQueryError: homePlayersStatsQuery.isError,
       }),
-    [fixturePlayersRows, homePlayersStatsQuery.data, homePlayersStatsQuery.isError, homeTeamId],
+    [
+      fixturePlayersRows,
+      homePlayersStatsQuery.data,
+      homePlayersStatsQuery.error,
+      homePlayersStatsQuery.isError,
+      homeTeamId,
+    ],
   );
 
   const resolvedAwayPlayersStats = useMemo(
@@ -574,9 +598,16 @@ export function useMatchDetailsScreenModel() {
       resolveDatasetWithFallback({
         queryData: awayPlayersStatsQuery.data,
         fallbackData: filterPlayersStatsByTeam(fixturePlayersRows, awayTeamId),
+        queryError: awayPlayersStatsQuery.error,
         isQueryError: awayPlayersStatsQuery.isError,
       }),
-    [awayPlayersStatsQuery.data, awayPlayersStatsQuery.isError, awayTeamId, fixturePlayersRows],
+    [
+      awayPlayersStatsQuery.data,
+      awayPlayersStatsQuery.error,
+      awayPlayersStatsQuery.isError,
+      awayTeamId,
+      fixturePlayersRows,
+    ],
   );
 
   const hasPreMatchLineups = useMemo(
@@ -853,6 +884,29 @@ export function useMatchDetailsScreenModel() {
     ],
   );
 
+  const datasetErrorReasons = useMemo(
+    () => ({
+      events: resolvedEvents.errorReason,
+      statistics: resolvedStatistics.errorReason,
+      lineups: resolvedLineups.errorReason,
+      predictions: resolvedPredictions.errorReason,
+      absences: resolvedAbsences.errorReason,
+      faceOff: resolvedHeadToHead.errorReason,
+      homePlayersStats: resolvedHomePlayersStats.errorReason,
+      awayPlayersStats: resolvedAwayPlayersStats.errorReason,
+    }),
+    [
+      resolvedAbsences.errorReason,
+      resolvedAwayPlayersStats.errorReason,
+      resolvedEvents.errorReason,
+      resolvedHeadToHead.errorReason,
+      resolvedHomePlayersStats.errorReason,
+      resolvedLineups.errorReason,
+      resolvedPredictions.errorReason,
+      resolvedStatistics.errorReason,
+    ],
+  );
+
   const dataSources = useMemo(
     () => ({
       events: resolvedEvents.source,
@@ -911,6 +965,7 @@ export function useMatchDetailsScreenModel() {
     awayTeamId,
     headToHead: resolvedHeadToHead.data,
     datasetErrors,
+    datasetErrorReasons,
     dataSources,
   };
 }

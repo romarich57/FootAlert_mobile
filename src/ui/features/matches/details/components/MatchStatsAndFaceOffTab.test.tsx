@@ -187,6 +187,22 @@ describe('MatchStatsTab and faceOff placeholder', () => {
     expect(screen.getByText(i18n.t('matchDetails.states.datasetErrors.statistics'))).toBeTruthy();
   });
 
+  it('renders endpoint-unavailable stats error message when dataset endpoint returns 404', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        {...baseProps}
+        activeTab="stats"
+        statistics={[]}
+        datasetErrors={{ statistics: true }}
+        datasetErrorReasons={{ statistics: 'endpoint_not_available' }}
+      />,
+    );
+
+    expect(
+      screen.getByText(i18n.t('matchDetails.states.datasetErrorsUnsupported.statistics')),
+    ).toBeTruthy();
+  });
+
   it('renders explicit face-off error message when dataset request failed', () => {
     renderWithAppProviders(
       <MatchDetailsTabContent
@@ -198,6 +214,20 @@ describe('MatchStatsTab and faceOff placeholder', () => {
     );
 
     expect(screen.getByText(i18n.t('matchDetails.states.datasetErrors.faceOff'))).toBeTruthy();
+  });
+
+  it('renders endpoint-unavailable face-off message when h2h endpoint returns 404', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        {...baseProps}
+        activeTab="faceOff"
+        headToHead={[]}
+        datasetErrors={{ faceOff: true }}
+        datasetErrorReasons={{ faceOff: 'endpoint_not_available' }}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('matchDetails.states.datasetErrorsUnsupported.faceOff'))).toBeTruthy();
   });
 
   it('resets league filter when face-off data changes between matches', () => {
