@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -21,6 +21,7 @@ type MatchFaceOffTabProps = {
   awayTeamName: string;
   homeTeamLogo: string;
   awayTeamLogo: string;
+  hasDataError?: boolean;
 };
 
 // --- Sous-composants ---
@@ -106,6 +107,7 @@ export function MatchFaceOffTab({
   awayTeamId,
   homeTeamName,
   awayTeamName,
+  hasDataError = false,
 }: MatchFaceOffTabProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -126,6 +128,17 @@ export function MatchFaceOffTab({
     }
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
   }, [fixtures]);
+
+  useEffect(() => {
+    if (activeLeague === 'all') {
+      return;
+    }
+
+    const hasActiveLeague = leagues.some(league => league.id === activeLeague);
+    if (!hasActiveLeague) {
+      setActiveLeague('all');
+    }
+  }, [activeLeague, leagues]);
 
   // Matchs filtrés par compétition sélectionnée
   const filteredFixtures = useMemo(
@@ -212,7 +225,9 @@ export function MatchFaceOffTab({
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t('matchDetails.faceOff.matchesTitle')}</Text>
         {filteredFixtures.length === 0 ? (
-          <Text style={styles.emptyText}>{t('matchDetails.faceOff.noData')}</Text>
+          <Text style={styles.emptyText}>
+            {hasDataError ? t('matchDetails.states.datasetErrors.faceOff') : t('matchDetails.faceOff.noData')}
+          </Text>
         ) : (
           filteredFixtures.map(fixture => (
             <H2HMatchRow

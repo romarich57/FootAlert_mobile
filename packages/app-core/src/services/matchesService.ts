@@ -93,11 +93,17 @@ export function createMatchesReadService({ http, telemetry }: MatchesServiceDepe
 
     async fetchFixtureStatistics<T = unknown>(params: {
       fixtureId: string;
+      period?: 'all' | 'first' | 'second';
       signal?: AbortSignal;
     }): Promise<T[]> {
+      const queryParams: Record<string, string> = {};
+      if (params.period) {
+        queryParams.period = params.period;
+      }
+
       const rawPayload = await http.get<unknown>(
         `/matches/${encodeURIComponent(params.fixtureId)}/statistics`,
-        undefined,
+        Object.keys(queryParams).length > 0 ? queryParams : undefined,
         { signal: params.signal },
       );
 

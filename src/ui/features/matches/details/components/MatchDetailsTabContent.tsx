@@ -17,7 +17,11 @@ import {
   mergeLineupStats,
 } from '@ui/features/matches/details/components/tabs/shared/matchDetailsSelectors';
 import { createMatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
-import type { MatchDetailsTabContentProps } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
+import type {
+  MatchDetailsTabContentProps,
+  StatRowsByPeriod,
+  StatsPeriodFilter,
+} from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
 
 export function MatchDetailsTabContent({
   activeTab,
@@ -37,23 +41,47 @@ export function MatchDetailsTabContent({
   isLiveRefreshing,
   onRefreshLineups,
   isLineupsRefetching,
+  datasetErrors,
+  dataSources,
+  statsRowsByPeriod,
+  statsAvailablePeriods,
 }: MatchDetailsTabContentProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
 
   const styles = useMemo(() => createMatchDetailsTabStyles(colors), [colors]);
 
-  const eventRows = useMemo(
-    () => buildEvents(events, homeTeamId, awayTeamId),
-    [awayTeamId, events, homeTeamId],
-  );
-
-  const statRows = useMemo(() => buildStatRows(statistics), [statistics]);
-
   const mergedLineupTeams = useMemo(
-    () => mergeLineupStats(lineupTeams, homePlayersStats, awayPlayersStats),
-    [awayPlayersStats, homePlayersStats, lineupTeams],
+    () => mergeLineupStats(lineupTeams, homePlayersStats, awayPlayersStats, events),
+    [awayPlayersStats, events, homePlayersStats, lineupTeams],
   );
+
+  const eventRows = useMemo(
+    () => buildEvents(events, homeTeamId, awayTeamId, mergedLineupTeams),
+    [awayTeamId, events, homeTeamId, mergedLineupTeams],
+  );
+
+  const fallbackStatsRowsByPeriod = useMemo<StatRowsByPeriod>(
+    () => ({
+      all: buildStatRows(statistics),
+      first: [],
+      second: [],
+    }),
+    [statistics],
+  );
+
+  const effectiveStatsRowsByPeriod = statsRowsByPeriod ?? fallbackStatsRowsByPeriod;
+  const statRows = effectiveStatsRowsByPeriod.all;
+
+  const effectiveStatsAvailablePeriods = useMemo<StatsPeriodFilter[]>(() => {
+    if (Array.isArray(statsAvailablePeriods) && statsAvailablePeriods.length > 0) {
+      return statsAvailablePeriods;
+    }
+
+    const inferred = (['all', 'first', 'second'] as const)
+      .filter(period => (effectiveStatsRowsByPeriod[period] ?? []).length > 0);
+    return inferred.length > 0 ? [...inferred] : ['all'];
+  }, [effectiveStatsRowsByPeriod, statsAvailablePeriods]);
 
   const standingsData = useMemo(
     () => buildStandingsData(standings, homeTeamId, awayTeamId, lifecycleState, fixture),
@@ -104,11 +132,21 @@ export function MatchDetailsTabContent({
           statRows={statRows}
           eventRows={eventRows}
           matchScore={matchScore}
+          statsError={datasetErrors?.statistics === true}
+          eventsError={datasetErrors?.events === true}
+          predictionsError={datasetErrors?.predictions === true}
         />
       );
 
     case 'timeline':
-      return <MatchTimelineTab styles={styles} lifecycleState={lifecycleState} eventRows={eventRows} />;
+      return (
+        <MatchTimelineTab
+          styles={styles}
+          lifecycleState={lifecycleState}
+          eventRows={eventRows}
+          hasDataError={datasetErrors?.events === true}
+        />
+      );
 
     case 'lineups':
       return (
@@ -118,6 +156,9 @@ export function MatchDetailsTabContent({
           lineupTeams={mergedLineupTeams}
           onRefreshLineups={onRefreshLineups}
           isLineupsRefetching={isLineupsRefetching}
+          hasLineupsError={datasetErrors?.lineups === true}
+          hasAbsencesError={datasetErrors?.absences === true}
+          lineupsDataSource={dataSources?.lineups}
         />
       );
 
@@ -125,7 +166,14 @@ export function MatchDetailsTabContent({
       return <MatchStandingsTab styles={styles} standingsData={standingsData} />;
 
     case 'stats':
-      return <MatchStatsTab styles={styles} statRows={statRows} />;
+      return (
+        <MatchStatsTab
+          styles={styles}
+          statRowsByPeriod={effectiveStatsRowsByPeriod}
+          statsAvailablePeriods={effectiveStatsAvailablePeriods}
+          hasDataError={datasetErrors?.statistics === true}
+        />
+      );
 
     case 'faceOff':
       return (
@@ -138,10 +186,17 @@ export function MatchDetailsTabContent({
           awayTeamName={awayTeamName}
           homeTeamLogo={fixture.teams.home.logo}
           awayTeamLogo={fixture.teams.away.logo}
+          hasDataError={datasetErrors?.faceOff === true}
         />
       );
 
     default:
-      return <MatchStatsTab styles={styles} statRows={statRows} />;
+      return (
+        <MatchStatsTab
+          styles={styles}
+          statRowsByPeriod={effectiveStatsRowsByPeriod}
+          statsAvailablePeriods={effectiveStatsAvailablePeriods}
+        />
+      );
   }
 }

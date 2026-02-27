@@ -8,6 +8,7 @@ import {
 } from '@react-navigation/native';
 import { usePowerState } from 'react-native-device-info';
 
+import { ApiError } from '@data/api/http/client';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
 import { useMatchDetailsScreenModel } from '@ui/features/matches/details/hooks/useMatchDetailsScreenModel';
 import i18n from '@ui/shared/i18n';
@@ -178,7 +179,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     expect(result.current.lifecycleState).toBe('pre_match');
     expect(result.current.tabs[0].label).toBe(i18n.t('matchDetails.tabs.preMatch'));
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'stats', 'faceOff']);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'faceOff']);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         hasLiveMatches: false,
@@ -199,7 +200,6 @@ describe('useMatchDetailsScreenModel', () => {
       'primary',
       'timeline',
       'lineups',
-      'stats',
       'faceOff',
     ]);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
@@ -221,7 +221,6 @@ describe('useMatchDetailsScreenModel', () => {
       'primary',
       'timeline',
       'lineups',
-      'stats',
       'faceOff',
     ]);
   });
@@ -337,5 +336,395 @@ describe('useMatchDetailsScreenModel', () => {
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
     expect(result.current.lineupTeams).toEqual([]);
+  });
+
+  it('falls back to fixture embedded details when sub-routes are failing', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    const fixtureWithEmbeddedDetails = {
+      ...buildFixture(),
+      events: [
+        {
+          time: { elapsed: 14, extra: null },
+          team: { id: 1 },
+          player: { name: 'Home Scorer' },
+          assist: { name: 'Home Assist' },
+          type: 'Goal',
+          detail: 'Normal Goal',
+        },
+      ],
+      statistics: [
+        {
+          team: { id: 1 },
+          statistics: [{ type: 'Shots on Goal', value: 5 }],
+        },
+        {
+          team: { id: 2 },
+          statistics: [{ type: 'Shots on Goal', value: 2 }],
+        },
+      ],
+      lineups: [
+        {
+          team: { id: 1, name: 'Home', logo: '' },
+          coach: { name: 'Coach Home', photo: null },
+          formation: '4-3-3',
+          startXI: [{ player: { id: 10, name: 'Home Starter', number: 9, pos: 'F', grid: '1:1' } }],
+          substitutes: [],
+        },
+        {
+          team: { id: 2, name: 'Away', logo: '' },
+          coach: { name: 'Coach Away', photo: null },
+          formation: '4-4-2',
+          startXI: [{ player: { id: 20, name: 'Away Starter', number: 10, pos: 'F', grid: '1:1' } }],
+          substitutes: [],
+        },
+      ],
+      players: [
+        {
+          team: { id: 1 },
+          players: [
+            {
+              player: { id: 10, photo: null },
+              statistics: [
+                {
+                  games: { rating: '7.2', captain: false },
+                  goals: { total: 1, assists: 0 },
+                  cards: { yellow: 0, red: 0 },
+                  substitutes: { in: null, out: null },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          team: { id: 2 },
+          players: [
+            {
+              player: { id: 20, photo: null },
+              statistics: [
+                {
+                  games: { rating: '6.8', captain: false },
+                  goals: { total: 0, assists: 0 },
+                  cards: { yellow: 1, red: 0 },
+                  substitutes: { in: null, out: null },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (
+        key[2] === 'events' ||
+        key[2] === 'statistics' ||
+        key[2] === 'lineups' ||
+        key[2] === 'team_players_stats'
+      ) {
+        return {
+          ...baseResult,
+          isError: true,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'head_to_head' || key[2] === 'absences') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: fixtureWithEmbeddedDetails,
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.events).toHaveLength(1);
+    expect(result.current.statistics).toHaveLength(2);
+    expect(result.current.lineupTeams).toHaveLength(2);
+    expect(result.current.homePlayersStats).toHaveLength(1);
+    expect(result.current.awayPlayersStats).toHaveLength(1);
+    expect(result.current.dataSources.events).toBe('fixture_fallback');
+    expect(result.current.dataSources.statistics).toBe('fixture_fallback');
+    expect(result.current.dataSources.lineups).toBe('fixture_fallback');
+    expect(result.current.dataSources.homePlayersStats).toBe('fixture_fallback');
+    expect(result.current.dataSources.awayPlayersStats).toBe('fixture_fallback');
+    expect(result.current.datasetErrors.events).toBe(false);
+    expect(result.current.datasetErrors.lineups).toBe(false);
+  });
+
+  it('configures detail queries to skip retries on HTTP 404 and refetch on mount', () => {
+    renderHook(() => useMatchDetailsScreenModel());
+
+    const fixtureQueryCall = mockedUseQuery.mock.calls.find(
+      ([options]) =>
+        Array.isArray((options as { queryKey: readonly unknown[] }).queryKey) &&
+        (options as { queryKey: readonly unknown[] }).queryKey[0] === 'match_details' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'events' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'statistics' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'lineups' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'team_players_stats' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'predictions' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'absences' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'head_to_head',
+    );
+    const eventsQueryCall = mockedUseQuery.mock.calls.find(
+      ([options]) => (options as { queryKey: readonly unknown[] }).queryKey[2] === 'events',
+    );
+    const playersStatsCall = mockedUseQuery.mock.calls.find(
+      ([options]) => (options as { queryKey: readonly unknown[] }).queryKey[2] === 'team_players_stats',
+    );
+
+    const fixtureRetry = fixtureQueryCall?.[0].retry as (failureCount: number, error: unknown) => boolean;
+    const eventsRetry = eventsQueryCall?.[0].retry as (failureCount: number, error: unknown) => boolean;
+
+    expect(fixtureQueryCall?.[0].refetchOnMount).toBe('always');
+    expect(eventsQueryCall?.[0].refetchOnMount).toBe('always');
+    expect(playersStatsCall?.[0].refetchOnMount).toBe('always');
+    expect(fixtureRetry(1, new ApiError('HTTP 404', 404, ''))).toBe(false);
+    expect(eventsRetry(1, new ApiError('HTTP 404', 404, ''))).toBe(false);
+    expect(eventsRetry(1, new ApiError('HTTP 500', 500, ''))).toBe(true);
+  });
+
+  it('shows stats tab only when at least one supported stat is available', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'statistics' && key[3] === 'all') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: { id: 1 },
+              statistics: [
+                { type: 'Shots on Goal', value: 5 },
+                { type: 'Unsupported metric', value: 2 },
+              ],
+            },
+            {
+              team: { id: 2 },
+              statistics: [{ type: 'Shots on Goal', value: 3 }],
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'statistics') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'events' || key[2] === 'lineups' || key[2] === 'absences' || key[2] === 'team_players_stats') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.tabs.map(tab => tab.key)).toEqual([
+      'primary',
+      'timeline',
+      'lineups',
+      'stats',
+      'faceOff',
+    ]);
+    expect(result.current.statsAvailablePeriods).toEqual(['all']);
+    expect(result.current.statsRowsByPeriod.all).toHaveLength(1);
+    expect(result.current.statsRowsByPeriod.first).toHaveLength(0);
+    expect(result.current.statsRowsByPeriod.second).toHaveLength(0);
+  });
+
+  it('exposes all/first/second periods when half statistics are available', () => {
+    fixtureStatusShort = '2H';
+    fixtureStatusLong = 'Second Half';
+    fixtureElapsed = 70;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'statistics' && key[3] === 'all') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: { id: 1 },
+              statistics: [{ type: 'Total Shots', value: 12 }],
+            },
+            {
+              team: { id: 2 },
+              statistics: [{ type: 'Total Shots', value: 7 }],
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'statistics' && key[3] === 'first') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: { id: 1 },
+              statistics: [{ type: 'Shots on Goal', value: 4 }],
+            },
+            {
+              team: { id: 2 },
+              statistics: [{ type: 'Shots on Goal', value: 2 }],
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'statistics' && key[3] === 'second') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: { id: 1 },
+              statistics: [{ type: 'Shots on Goal', value: 3 }],
+            },
+            {
+              team: { id: 2 },
+              statistics: [{ type: 'Shots on Goal', value: 1 }],
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'events' || key[2] === 'lineups' || key[2] === 'absences' || key[2] === 'team_players_stats') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.statsAvailablePeriods).toEqual(['all', 'first', 'second']);
+    expect(result.current.statsRowsByPeriod.all).toHaveLength(1);
+    expect(result.current.statsRowsByPeriod.first).toHaveLength(1);
+    expect(result.current.statsRowsByPeriod.second).toHaveLength(1);
   });
 });

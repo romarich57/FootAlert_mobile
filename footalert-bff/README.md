@@ -61,7 +61,22 @@ The smoke command checks:
 
 - `/health`
 - Critical 200 routes (`/v1/competitions`, `/v1/matches`, `/v1/follows/trends/teams`)
+- Match details contract:
+  - `/v1/matches/:id?timezone=...`
+  - `/v1/matches/:id/events`
+  - `/v1/matches/:id/statistics`
+  - `/v1/matches/:id/statistics?period=first|second`
+  - `/v1/matches/:id/lineups`
+  - `/v1/matches/:id/head-to-head`
+  - `/v1/matches/:id/predictions`
+  - `/v1/matches/:id/absences?timezone=...`
+  - `/v1/matches/:id/players/:teamId/stats`
 - Validation 400 routes (`/v1/matches` missing timezone, `/v1/teams/standings` missing season)
+
+Optional smoke overrides:
+
+- `SMOKE_MATCH_ID` to force a fixture id for match detail checks.
+- `SMOKE_TEAM_ID` to force the team id used for `/players/:teamId/stats`.
 
 ## CI staging gate
 
@@ -76,6 +91,14 @@ Required GitHub secrets:
 
 - `GET /v1/matches`
 - `GET /v1/matches/:id`
+- `GET /v1/matches/:id/events`
+- `GET /v1/matches/:id/statistics`
+- `GET /v1/matches/:id/statistics?period=first|second`
+- `GET /v1/matches/:id/lineups`
+- `GET /v1/matches/:id/head-to-head`
+- `GET /v1/matches/:id/predictions`
+- `GET /v1/matches/:id/absences`
+- `GET /v1/matches/:id/players/:teamId/stats`
 - `GET /v1/competitions`
 - `GET /v1/competitions/search`
 - `GET /v1/competitions/:id`

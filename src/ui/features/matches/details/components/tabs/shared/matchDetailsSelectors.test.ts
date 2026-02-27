@@ -34,8 +34,8 @@ describe('matchDetailsSelectors', () => {
 
   it('buildStatRows builds stat percentages for home/away', () => {
     const rows = buildStatRows([
-        {
-          statistics: [
+      {
+        statistics: [
           { type: 'Shots on Goal', value: '10' },
           { type: 'Ball Possession', value: '60%' },
         ],
@@ -50,12 +50,39 @@ describe('matchDetailsSelectors', () => {
 
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      key: 'Shots on Goal',
+      key: 'shots_on_goal',
       homeValue: '10',
       awayValue: '5',
     });
     expect(rows[0]?.homePercent).toBeCloseTo(66.67, 1);
     expect(rows[0]?.awayPercent).toBeCloseTo(33.33, 1);
+  });
+
+  it('buildStatRows keeps only supported metrics and only rows with available values', () => {
+    const rows = buildStatRows([
+      {
+        statistics: [
+          { type: 'Unsupported metric', value: 10 },
+          { type: 'Shots outside box', value: '' },
+          { type: 'Corner Kicks', value: 6 },
+        ],
+      },
+      {
+        statistics: [
+          { type: 'Unsupported metric', value: 12 },
+          { type: 'Corner Kicks', value: 3 },
+        ],
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      metricKey: 'corner_kicks',
+      section: 'other',
+      labelKey: 'matchDetails.stats.labels.cornerKicks',
+      homeValue: '6',
+      awayValue: '3',
+    });
   });
 
   it('mergeLineupStats enriches lineup players with live stats', () => {
@@ -102,12 +129,22 @@ describe('matchDetailsSelectors', () => {
       },
     ];
 
-    const merged = mergeLineupStats(lineupTeams, homePlayersStats, []);
+    const events = [
+      {
+        time: { elapsed: 72 },
+        type: 'subst',
+        player: { id: 11, name: 'Sub' },
+        assist: { id: 10, name: 'Starter' },
+      },
+    ];
+
+    const merged = mergeLineupStats(lineupTeams, homePlayersStats, [], events);
 
     expect(merged[0]?.startingXI[0]).toMatchObject({
       rating: 7.2,
       goals: 1,
       assists: 0,
+      outMinute: 72,
     });
     expect(merged[0]?.substitutes[0]).toMatchObject({
       rating: 6.9,

@@ -21,6 +21,7 @@ export declare function createMatchesReadService({ http, telemetry }: MatchesSer
     }): Promise<T[]>;
     fetchFixtureStatistics<T = unknown>(params: {
         fixtureId: string;
+        period?: "all" | "first" | "second";
         signal?: AbortSignal;
     }): Promise<T[]>;
     fetchFixtureLineups<T = unknown>(params: {

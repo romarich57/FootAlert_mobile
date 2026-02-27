@@ -133,4 +133,66 @@ describe('MatchLineupsTab', () => {
     fireEvent.press(retryAction);
     expect(onRefreshLineups).toHaveBeenCalledTimes(1);
   });
+
+  it('shows explicit lineups error when lineup dataset failed', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="lineups"
+        lifecycleState="finished"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+        datasetErrors={{ lineups: true }}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('matchDetails.states.datasetErrors.lineups'))).toBeTruthy();
+  });
+
+  it('shows fallback source note when lineups are built from fixture payload', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="lineups"
+        lifecycleState="finished"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[
+          {
+            teamId: '1',
+            teamName: 'Home',
+            teamLogo: '',
+            coach: 'Coach A',
+            formation: '4-3-3',
+            startingXI: [{ id: '10', name: 'Starter One', number: 9, position: 'F', grid: '1:1' }],
+            substitutes: [],
+            reserves: [],
+            absences: [],
+          },
+        ]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+        dataSources={{ lineups: 'fixture_fallback' }}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('matchDetails.states.fallbackSource'))).toBeTruthy();
+  });
 });

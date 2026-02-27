@@ -23,6 +23,9 @@ type MatchPrimaryTabProps = {
   statRows: StatRow[];
   eventRows: EventRow[];
   matchScore: string;
+  statsError?: boolean;
+  eventsError?: boolean;
+  predictionsError?: boolean;
 };
 
 function ProbabilityCard({
@@ -63,6 +66,9 @@ export function MatchPrimaryTab({
   statRows,
   eventRows,
   matchScore,
+  statsError = false,
+  eventsError = false,
+  predictionsError = false,
 }: MatchPrimaryTabProps) {
   const { t } = useTranslation();
 
@@ -132,6 +138,9 @@ export function MatchPrimaryTab({
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('matchDetails.primary.insightTitle')}</Text>
             <Text style={styles.newsText}>{insightText}</Text>
+            {predictionsError ? (
+              <Text style={styles.newsText}>{t('matchDetails.states.datasetErrors.predictions')}</Text>
+            ) : null}
           </View>
 
           <View style={styles.newsCard}>
@@ -159,13 +168,15 @@ export function MatchPrimaryTab({
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('matchDetails.tabs.stats')}</Text>
             {statRows.length === 0 ? (
-              <Text style={styles.emptyText}>{t('matchDetails.values.unavailable')}</Text>
+              <Text style={styles.emptyText}>
+                {statsError ? t('matchDetails.states.datasetErrors.statistics') : t('matchDetails.values.unavailable')}
+              </Text>
             ) : null}
             {statRows.slice(0, 6).map(row => (
               <View key={row.key} style={styles.statRow}>
                 <View style={styles.statHeaderRow}>
                   <Text style={styles.statValue}>{row.homeValue}</Text>
-                  <Text style={styles.statLabel}>{row.label}</Text>
+                  <Text style={styles.statLabel}>{t(row.labelKey, { defaultValue: row.label })}</Text>
                   <Text style={styles.statValue}>{row.awayValue}</Text>
                 </View>
                 <View style={styles.statBarRail}>
@@ -179,7 +190,9 @@ export function MatchPrimaryTab({
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('matchDetails.primary.keyMomentsTitle')}</Text>
             {eventRows.length === 0 ? (
-              <Text style={styles.emptyText}>{t('matchDetails.values.unavailable')}</Text>
+              <Text style={styles.emptyText}>
+                {eventsError ? t('matchDetails.states.datasetErrors.events') : t('matchDetails.values.unavailable')}
+              </Text>
             ) : null}
             {eventRows.slice(0, 6).map(event => (
               <View key={event.id} style={[styles.eventRow, event.isNew ? styles.eventRowNew : null]}>
@@ -212,11 +225,16 @@ export function MatchPrimaryTab({
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('matchDetails.tabs.stats')}</Text>
+            {statRows.length === 0 ? (
+              <Text style={styles.emptyText}>
+                {statsError ? t('matchDetails.states.datasetErrors.statistics') : t('matchDetails.values.unavailable')}
+              </Text>
+            ) : null}
             {statRows.slice(0, 8).map(row => (
               <View key={row.key} style={styles.statRow}>
                 <View style={styles.statHeaderRow}>
                   <Text style={styles.statValue}>{row.homeValue}</Text>
-                  <Text style={styles.statLabel}>{row.label}</Text>
+                  <Text style={styles.statLabel}>{t(row.labelKey, { defaultValue: row.label })}</Text>
                   <Text style={styles.statValue}>{row.awayValue}</Text>
                 </View>
                 <View style={styles.statBarRail}>
@@ -229,6 +247,11 @@ export function MatchPrimaryTab({
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('matchDetails.primary.keyMomentsTitle')}</Text>
+            {eventRows.length === 0 ? (
+              <Text style={styles.emptyText}>
+                {eventsError ? t('matchDetails.states.datasetErrors.events') : t('matchDetails.values.unavailable')}
+              </Text>
+            ) : null}
             {eventRows.map(event => (
               <View key={event.id} style={styles.eventRow}>
                 <Text style={styles.eventMinute}>{event.minute}</Text>

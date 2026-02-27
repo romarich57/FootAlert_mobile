@@ -7,7 +7,8 @@ export const queryKeys = {
   matchDetails: (matchId: string, timezone: string) =>
     ['match_details', matchId, timezone] as const,
   matchEvents: (matchId: string) => ['match_details', matchId, 'events'] as const,
-  matchStatistics: (matchId: string) => ['match_details', matchId, 'statistics'] as const,
+  matchStatistics: (matchId: string, period: 'all' | 'first' | 'second' = 'all') =>
+    ['match_details', matchId, 'statistics', period] as const,
   matchLineups: (matchId: string) => ['match_details', matchId, 'lineups'] as const,
   matchPredictions: (matchId: string) => ['match_details', matchId, 'predictions'] as const,
   matchPlayersStatsByTeam: (matchId: string, teamId: string) =>

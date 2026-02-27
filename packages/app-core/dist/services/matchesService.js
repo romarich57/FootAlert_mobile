@@ -49,7 +49,11 @@ export function createMatchesReadService({ http, telemetry }) {
             return payload.response;
         },
         async fetchFixtureStatistics(params) {
-            const rawPayload = await http.get(`/matches/${encodeURIComponent(params.fixtureId)}/statistics`, undefined, { signal: params.signal });
+            const queryParams = {};
+            if (params.period) {
+                queryParams.period = params.period;
+            }
+            const rawPayload = await http.get(`/matches/${encodeURIComponent(params.fixtureId)}/statistics`, Object.keys(queryParams).length > 0 ? queryParams : undefined, { signal: params.signal });
             const payload = parseRuntimePayloadOrFallback({
                 schema: listResponseSchema,
                 payload: rawPayload,

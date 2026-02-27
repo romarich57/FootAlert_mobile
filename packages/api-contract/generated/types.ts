@@ -957,6 +957,7 @@ export type components = {
         OptionalNextQuery: number;
         OptionalPageQuery: number;
         OptionalSeasonQuery: number;
+        OptionalStatisticsPeriodQuery: "all" | "first" | "second";
         OptionalTimezoneQuery: string;
         PlayerIdPath: string;
         PlayerStatsTypeQuery: "topscorers" | "topassists" | "topyellowcards" | "topredcards";
@@ -1338,7 +1339,9 @@ export interface operations {
     };
     getMatchStatistics: {
         parameters: {
-            query?: never;
+            query?: {
+                period?: components["parameters"]["OptionalStatisticsPeriodQuery"];
+            };
             header?: never;
             path: {
                 id: components["parameters"]["IdPath"];
@@ -1743,4 +1746,3 @@ export interface operations {
         };
     };
 }
-

@@ -287,6 +287,211 @@ test('GET /v1/matches/:id/events rejects unsupported query params', async t => {
   assert.equal(calls.length, 0);
 });
 
+test('GET /v1/matches/:id/statistics rejects unsupported period values', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches/101/statistics?period=invalid',
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, 'VALIDATION_ERROR');
+  assert.equal(calls.length, 0);
+});
+
+test('GET /v1/matches/:id/statistics defaults to global upstream endpoint', async t => {
+  const calls = installFetchMock(async () =>
+    jsonResponse({
+      response: [{ team: { id: 1 }, statistics: [{ type: 'Shots on Goal', value: 5 }] }],
+    }),
+  );
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches/101/statistics',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(
+    String(calls[0].input),
+    'https://api-football.test/fixtures/statistics?fixture=101',
+  );
+});
+
+test('GET /v1/matches/:id/statistics filters first-half payload when period=first', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('id') === '101') {
+      return jsonResponse({
+        response: [
+          {
+            league: { season: 2025 },
+            teams: { home: { id: 1 }, away: { id: 2 } },
+          },
+        ],
+      });
+    }
+
+    if (url.pathname.endsWith('/fixtures/statistics')) {
+      return jsonResponse({
+        response: [
+          {
+            team: { id: 1 },
+            statistics: [
+              { type: 'Shots on Goal (1st Half)', value: 3 },
+              { type: 'Shots on Goal (2nd Half)', value: 4 },
+            ],
+          },
+          {
+            team: { id: 2 },
+            statistics: [
+              { type: 'Shots on Goal (1st Half)', value: 1 },
+              { type: 'Shots on Goal (2nd Half)', value: 2 },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/matches/101/statistics?period=first',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    response: [
+      {
+        team: { id: 1 },
+        statistics: [{ type: 'Shots on Goal', value: 3 }],
+      },
+      {
+        team: { id: 2 },
+        statistics: [{ type: 'Shots on Goal', value: 1 }],
+      },
+    ],
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(
+    String(calls[1].input),
+    'https://api-football.test/fixtures/statistics?fixture=101&half=true',
+  );
+});
+
+test('GET /v1/matches/:id/statistics returns empty payload for half periods before 2024 season', async t => {
+  const fixtureId = '202';
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('id') === fixtureId) {
+      return jsonResponse({
+        response: [
+          {
+            league: { season: 2023 },
+            teams: { home: { id: 1 }, away: { id: 2 } },
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: `/v1/matches/${fixtureId}/statistics?period=second`,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { response: [] });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    String(calls[0].input),
+    `https://api-football.test/fixtures?id=${fixtureId}`,
+  );
+});
+
+test('GET /v1/matches/:id/statistics caches per period so first and second do not collide', async t => {
+  const fixtureId = '303';
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('id') === fixtureId) {
+      return jsonResponse({
+        response: [
+          {
+            league: { season: 2025 },
+            teams: { home: { id: 1 }, away: { id: 2 } },
+          },
+        ],
+      });
+    }
+
+    if (url.pathname.endsWith('/fixtures/statistics')) {
+      return jsonResponse({
+        response: [
+          {
+            team: { id: 1 },
+            statistics: [
+              { type: 'Shots on Goal (1st Half)', value: 2 },
+              { type: 'Shots on Goal (2nd Half)', value: 1 },
+            ],
+          },
+          {
+            team: { id: 2 },
+            statistics: [
+              { type: 'Shots on Goal (1st Half)', value: 1 },
+              { type: 'Shots on Goal (2nd Half)', value: 2 },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const first = await app.inject({
+    method: 'GET',
+    url: `/v1/matches/${fixtureId}/statistics?period=first`,
+  });
+  const firstAgain = await app.inject({
+    method: 'GET',
+    url: `/v1/matches/${fixtureId}/statistics?period=first`,
+  });
+  const second = await app.inject({
+    method: 'GET',
+    url: `/v1/matches/${fixtureId}/statistics?period=second`,
+  });
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(firstAgain.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+
+  const statisticsCalls = calls.filter(call =>
+    new URL(String(call.input)).pathname.endsWith('/fixtures/statistics'),
+  );
+  assert.equal(statisticsCalls.length, 2);
+  assert.equal(
+    statisticsCalls.every(call => new URL(String(call.input)).searchParams.get('half') === 'true'),
+    true,
+  );
+});
+
 test('GET /v1/matches/:id/head-to-head fetches fixture context and proxies h2h query', async t => {
   const calls = installFetchMock(async call => {
     const url = new URL(String(call.input));

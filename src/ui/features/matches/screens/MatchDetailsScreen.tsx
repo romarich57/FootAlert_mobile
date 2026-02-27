@@ -135,6 +135,10 @@ export function MatchDetailsScreen() {
           isLiveRefreshing={model.isLiveRefreshing}
           onRefreshLineups={model.onRefreshLineups}
           isLineupsRefetching={model.isLineupsRefetching}
+          datasetErrors={model.datasetErrors}
+          dataSources={model.dataSources}
+          statsRowsByPeriod={model.statsRowsByPeriod}
+          statsAvailablePeriods={model.statsAvailablePeriods}
         />
       </View>
     </ScrollView>

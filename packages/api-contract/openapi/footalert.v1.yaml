@@ -71,6 +71,7 @@ paths:
       operationId: getMatchStatistics
       parameters:
         - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/OptionalStatisticsPeriodQuery'
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
@@ -771,6 +772,13 @@ components:
         type: integer
         minimum: 1
         maximum: 20
+    OptionalStatisticsPeriodQuery:
+      name: period
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [all, first, second]
     LeagueIdsQuery:
       name: leagueIds
       in: query

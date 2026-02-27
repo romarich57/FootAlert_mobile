@@ -12,6 +12,59 @@ export type MatchDetailsWinPercent = {
   away: string;
 };
 
+export type MatchDetailsDatasetSource = 'query' | 'fixture_fallback' | 'none';
+
+export type MatchDetailsDatasetErrors = {
+  events: boolean;
+  statistics: boolean;
+  lineups: boolean;
+  predictions: boolean;
+  absences: boolean;
+  faceOff: boolean;
+  homePlayersStats: boolean;
+  awayPlayersStats: boolean;
+};
+
+export type MatchDetailsDatasetSources = {
+  events: MatchDetailsDatasetSource;
+  statistics: MatchDetailsDatasetSource;
+  lineups: MatchDetailsDatasetSource;
+  predictions: MatchDetailsDatasetSource;
+  absences: MatchDetailsDatasetSource;
+  faceOff: MatchDetailsDatasetSource;
+  homePlayersStats: MatchDetailsDatasetSource;
+  awayPlayersStats: MatchDetailsDatasetSource;
+};
+
+export type StatsPeriodFilter = 'all' | 'first' | 'second';
+
+export type MatchStatsSectionKey =
+  | 'shots'
+  | 'possessionPasses'
+  | 'discipline'
+  | 'other'
+  | 'advanced';
+
+export type MatchStatsMetricKey =
+  | 'total_shots'
+  | 'shots_on_goal'
+  | 'shots_off_goal'
+  | 'blocked_shots'
+  | 'shots_insidebox'
+  | 'shots_outsidebox'
+  | 'ball_possession'
+  | 'total_passes'
+  | 'passes_accurate'
+  | 'passes_percent'
+  | 'fouls'
+  | 'yellow_cards'
+  | 'red_cards'
+  | 'corner_kicks'
+  | 'offsides'
+  | 'goalkeeper_saves'
+  | 'expected_goals'
+  | 'goals_prevented';
+
 export type MatchDetailsTabContentProps = {
   activeTab: MatchDetailsTabKey;
   lifecycleState: MatchLifecycleState;
@@ -30,6 +83,10 @@ export type MatchDetailsTabContentProps = {
   isLiveRefreshing: boolean;
   onRefreshLineups?: () => void;
   isLineupsRefetching?: boolean;
+  datasetErrors?: Partial<MatchDetailsDatasetErrors>;
+  dataSources?: Partial<MatchDetailsDatasetSources>;
+  statsRowsByPeriod?: StatRowsByPeriod;
+  statsAvailablePeriods?: StatsPeriodFilter[];
 };
 
 export type RawRecord = Record<string, unknown>;
@@ -38,16 +95,28 @@ export type EventRow = {
   id: string;
   minute: string;
   label: string;
+  type: string;
   detail: string;
   team: 'home' | 'away' | 'neutral';
   isNew: boolean;
+  playerName: string;
+  playerId: string | null;
+  playerPhoto: string | null;
+  assistName: string | null;
+  assistId: string | null;
+  assistPhoto: string | null;
 };
 
 export type StatRow = {
-  key: string;
+  key: MatchStatsMetricKey;
+  metricKey: MatchStatsMetricKey;
+  section: MatchStatsSectionKey;
   label: string;
+  labelKey: string;
   homeValue: string;
   awayValue: string;
   homePercent: number;
   awayPercent: number;
 };
+
+export type StatRowsByPeriod = Record<StatsPeriodFilter, StatRow[]>;

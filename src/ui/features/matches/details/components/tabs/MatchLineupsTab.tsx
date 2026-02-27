@@ -19,6 +19,9 @@ type MatchLineupsTabProps = {
   lineupTeams: MatchLineupTeam[];
   onRefreshLineups?: () => void;
   isLineupsRefetching?: boolean;
+  hasLineupsError?: boolean;
+  hasAbsencesError?: boolean;
+  lineupsDataSource?: 'query' | 'fixture_fallback' | 'none';
 };
 
 type RatingVariant = 'elite' | 'good' | 'warning' | 'neutral';
@@ -68,8 +71,7 @@ function formatShortPlayerName(player: MatchLineupPlayer): string {
 
   const chunks = fullName.split(/\s+/).filter(Boolean);
   const shortName = chunks.length > 1 ? chunks[chunks.length - 1] : fullName;
-  const captainPrefix = player.isCaptain ? 'C ' : '';
-  return `${captainPrefix}${player.number ?? '--'} ${shortName}`;
+  return `${player.number ?? '--'} ${shortName}`;
 }
 
 function parseGridIndex(value: string | null | undefined): { row: number; col: number } {
@@ -107,6 +109,8 @@ function normalizeAbsence(absence: MatchLineupAbsence | string): MatchLineupAbse
   return absence;
 }
 
+// Removed normalizeAbsence helper
+
 function resolvePositionLabel(position: string | null | undefined, t: (key: string) => string): string {
   switch (position) {
     case 'G':
@@ -141,6 +145,10 @@ function renderRatingChip(
   variant: RatingVariant,
   testId?: string,
 ) {
+  if (rating === null || rating === undefined) {
+    return null;
+  }
+
   const chipStyle =
     variant === 'elite'
       ? styles.lineupRatingChipElite
@@ -176,13 +184,21 @@ function LineupPlayerNode({
   return (
     <View style={styles.lineupPlayerNode}>
       <View style={styles.lineupPlayerAvatarWrap}>
-        {player.photo ? (
-          <AppImage source={{ uri: player.photo }} style={styles.lineupPlayerAvatar} resizeMode="cover" />
-        ) : (
-          <View style={styles.lineupPlayerAvatarFallback}>
-            <Text style={styles.lineupPlayerAvatarFallbackText}>{toInitials(player.name)}</Text>
+        <View style={styles.lineupPlayerImageWrap}>
+          {player.photo ? (
+            <AppImage source={{ uri: player.photo }} style={styles.lineupPlayerAvatar} resizeMode="contain" />
+          ) : (
+            <View style={styles.lineupPlayerAvatarFallback}>
+              <Text style={styles.lineupPlayerAvatarFallbackText}>{toInitials(player.name)}</Text>
+            </View>
+          )}
+        </View>
+
+        {player.isCaptain ? (
+          <View style={styles.lineupCaptainArmbandWrap}>
+            <MaterialCommunityIcons name="alpha-c-box" size={18} color="#FDE047" />
           </View>
-        )}
+        ) : null}
 
         {renderRatingChip(styles, player.rating, ratingVariant)}
 
@@ -192,9 +208,9 @@ function LineupPlayerNode({
               {(hasOutgoingSub ? player.outMinute : player.inMinute) ?? '--'}'
             </Text>
             <MaterialCommunityIcons
-              name={hasOutgoingSub ? 'arrow-left-circle' : 'arrow-right-circle'}
-              size={18}
-              color={hasOutgoingSub ? '#F97373' : '#34D399'}
+              name="swap-vertical"
+              size={16}
+              color={hasOutgoingSub ? '#F87171' : '#34D399'}
             />
           </View>
         ) : null}
@@ -202,7 +218,7 @@ function LineupPlayerNode({
         {eventMode === 'bench' && hasIncomingSub ? (
           <View style={styles.lineupBenchEventWrap}>
             <Text style={styles.lineupBenchEventMinute}>{player.inMinute}'</Text>
-            <MaterialCommunityIcons name="arrow-right-circle" size={18} color="#34D399" />
+            <MaterialCommunityIcons name="swap-vertical" size={16} color="#34D399" />
           </View>
         ) : null}
 
@@ -230,54 +246,87 @@ function LineupPlayerNode({
   );
 }
 
-function FinishedTeamPitch({
+function UnifiedLineupsPitch({
   styles,
-  team,
+  homeTeam,
+  awayTeam,
 }: {
   styles: MatchDetailsTabStyles;
-  team: MatchLineupTeam;
+  homeTeam: MatchLineupTeam;
+  awayTeam: MatchLineupTeam;
 }) {
-  const rows = groupPlayersByPitchRows(team.startingXI)
-    .map(row =>
-      [...row].sort((playerA, playerB) => {
-        const gridA = parseGridIndex(playerA.grid);
-        const gridB = parseGridIndex(playerB.grid);
-        return gridA.col - gridB.col;
-      }),
-    )
-    .sort((rowA, rowB) => {
-      const rowAIndex = parseGridIndex(rowA[0]?.grid).row;
-      const rowBIndex = parseGridIndex(rowB[0]?.grid).row;
-      return rowAIndex - rowBIndex;
-    });
+  const processTeamRows = (team: MatchLineupTeam) => {
+    return groupPlayersByPitchRows(team.startingXI)
+      .map(row =>
+        [...row].sort((playerA, playerB) => {
+          const gridA = parseGridIndex(playerA.grid);
+          const gridB = parseGridIndex(playerB.grid);
+          return gridB.col - gridA.col;
+        }),
+      )
+      .sort((rowA, rowB) => {
+        const rowAIndex = parseGridIndex(rowA[0]?.grid).row;
+        const rowBIndex = parseGridIndex(rowB[0]?.grid).row;
+        return rowAIndex - rowBIndex;
+      });
+  };
 
-  const teamRating = computeTeamAverageRating(team.startingXI);
-  const teamRatingVariant = resolveRatingVariant(teamRating);
+  const homeRows = processTeamRows(homeTeam);
+  const awayRows = processTeamRows(awayTeam);
+
+  const homeTeamRating = computeTeamAverageRating(homeTeam.startingXI);
+  const awayTeamRating = computeTeamAverageRating(awayTeam.startingXI);
 
   return (
     <View style={styles.lineupTeamBlock}>
+      {/* Home Team Header */}
       <View style={styles.lineupTeamHeader}>
-        {renderRatingChip(styles, teamRating, teamRatingVariant, 'lineup-team-rating')}
-        {team.teamLogo ? (
-          <AppImage source={{ uri: team.teamLogo }} style={styles.lineupTeamLogo} resizeMode="contain" />
+        {renderRatingChip(styles, homeTeamRating, resolveRatingVariant(homeTeamRating), 'lineup-home-rating')}
+        {homeTeam.teamLogo ? (
+          <AppImage source={{ uri: homeTeam.teamLogo }} style={styles.lineupTeamLogo} resizeMode="contain" />
         ) : null}
-        <Text style={styles.lineupTeamName}>{team.teamName}</Text>
-        <Text style={styles.lineupTeamFormation}>{team.formation ?? '--'}</Text>
+        <Text style={styles.lineupTeamName}>{homeTeam.teamName}</Text>
+        <Text style={styles.lineupTeamFormation}>{homeTeam.formation ?? '--'}</Text>
       </View>
 
+      {/* Unified Pitch Surface */}
       <View style={styles.lineupPitchSurface}>
         <View style={styles.lineupPitchCenterLine} />
         <View style={styles.lineupPitchCenterCircle} />
         <View style={styles.lineupPitchPenaltyTop} />
         <View style={styles.lineupPitchPenaltyBottom} />
 
-        {rows.map((row, index) => (
-          <View key={`${team.teamId}-pitch-row-${index}`} style={styles.lineupPitchRow}>
-            {row.map(player => (
-              <LineupPlayerNode key={player.id} styles={styles} player={player} eventMode="pitch" />
-            ))}
-          </View>
-        ))}
+        <View style={styles.lineupPitchHalfHome}>
+          {homeRows.map((row, index) => (
+            <View key={`${homeTeam.teamId}-pitch-row-${index}`} style={[styles.lineupPitchRow, { zIndex: 10 - index }]}>
+              {row.map(player => (
+                <LineupPlayerNode key={player.id} styles={styles} player={player} eventMode="pitch" />
+              ))}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.lineupPitchHalfAway}>
+          {awayRows.map((row, index) => (
+            <View key={`${awayTeam.teamId}-pitch-row-${index}`} style={[styles.lineupPitchRow, { zIndex: index }]}>
+              {row.map(player => (
+                <LineupPlayerNode key={player.id} styles={styles} player={player} eventMode="pitch" />
+              ))}
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Away Team Footer */}
+      <View style={styles.lineupTeamHeaderAway}>
+        <Text style={[styles.lineupTeamFormation, { marginLeft: 0, marginRight: 'auto' }]}>
+          {awayTeam.formation ?? '--'}
+        </Text>
+        {renderRatingChip(styles, awayTeamRating, resolveRatingVariant(awayTeamRating), 'lineup-away-rating')}
+        <Text style={styles.lineupTeamName}>{awayTeam.teamName}</Text>
+        {awayTeam.teamLogo ? (
+          <AppImage source={{ uri: awayTeam.teamLogo }} style={styles.lineupTeamLogo} resizeMode="contain" />
+        ) : null}
       </View>
     </View>
   );
@@ -340,37 +389,14 @@ function FinishedAbsenceColumn({
         const absence = normalizeAbsence(rawAbsence);
         const reason = toText(absence.reason, t('matchDetails.values.unavailable'));
         const status = toText(absence.status, '');
-        const type = toText(absence.type, '').toLowerCase();
-        const isSuspension = type.includes('suspend') || status.toLowerCase().includes('suspend');
 
         return (
-          <View key={`${team.teamId}-absence-${absence.id ?? absence.name}`} style={styles.lineupAbsenceItem}>
-            <View style={styles.lineupAbsenceAvatarWrap}>
-              {absence.photo ? (
-                <AppImage source={{ uri: absence.photo }} style={styles.lineupAbsenceAvatar} resizeMode="cover" />
-              ) : (
-                <View style={styles.lineupAbsenceAvatarFallback}>
-                  <Text style={styles.lineupPlayerAvatarFallbackText}>{toInitials(absence.name)}</Text>
-                </View>
-              )}
-              <View
-                style={[
-                  styles.lineupAbsenceBadge,
-                  isSuspension ? styles.lineupAbsenceBadgeSuspended : styles.lineupAbsenceBadgeInjured,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={isSuspension ? 'card' : 'medical-bag'}
-                  size={10}
-                  color={isSuspension ? '#FFFFFF' : '#DC2626'}
-                />
-              </View>
-            </View>
-            <Text style={styles.lineupAbsenceName} numberOfLines={2}>
+          <View key={`${team.teamId}-absence-${absence.id ?? absence.name}`} style={styles.rosterRow}>
+            <Text style={styles.rosterName} numberOfLines={1}>
               {absence.name}
             </Text>
-            <Text style={styles.lineupAbsenceReason}>{reason}</Text>
-            {status ? <Text style={styles.lineupAbsenceStatus}>{status}</Text> : null}
+            <Text style={styles.newsText}>{reason}</Text>
+            {status ? <Text style={styles.newsText}>{status}</Text> : null}
           </View>
         );
       })}
@@ -414,12 +440,14 @@ function FinishedLineups({
   t: (key: string) => string;
 }) {
   const teams = lineupTeams.slice(0, 2);
+  const homeTeam = teams[0];
+  const awayTeam = teams[1];
 
   return (
     <>
-      {teams.map(team => (
-        <FinishedTeamPitch key={`finished-team-pitch-${team.teamId}`} styles={styles} team={team} />
-      ))}
+      {homeTeam && awayTeam ? (
+        <UnifiedLineupsPitch styles={styles} homeTeam={homeTeam} awayTeam={awayTeam} />
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t('matchDetails.lineups.coach')}</Text>
@@ -429,13 +457,15 @@ function FinishedLineups({
               <TeamColumnLabel styles={styles} team={team} />
               <View style={styles.lineupCoachCard}>
                 <View style={styles.lineupCoachAvatarWrap}>
-                  {team.coachPhoto ? (
-                    <AppImage source={{ uri: team.coachPhoto }} style={styles.lineupCoachAvatar} resizeMode="cover" />
-                  ) : (
-                    <View style={styles.lineupCoachAvatarFallback}>
-                      <Text style={styles.lineupPlayerAvatarFallbackText}>{toInitials(team.coach ?? team.teamName)}</Text>
-                    </View>
-                  )}
+                  <View style={styles.lineupPlayerImageWrap}>
+                    {team.coachPhoto ? (
+                      <AppImage source={{ uri: team.coachPhoto }} style={styles.lineupCoachAvatar} resizeMode="contain" />
+                    ) : (
+                      <View style={styles.lineupCoachAvatarFallback}>
+                        <Text style={styles.lineupPlayerAvatarFallbackText}>{toInitials(team.coach ?? team.teamName)}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <Text style={styles.lineupCoachName}>{team.coach ?? t('matchDetails.values.unavailable')}</Text>
               </View>
@@ -481,6 +511,9 @@ export function MatchLineupsTab({
   lineupTeams,
   onRefreshLineups,
   isLineupsRefetching,
+  hasLineupsError = false,
+  hasAbsencesError = false,
+  lineupsDataSource,
 }: MatchLineupsTabProps) {
   const { t } = useTranslation();
 
@@ -500,12 +533,26 @@ export function MatchLineupsTab({
               </Pressable>
             ) : null}
           </View>
-          <Text style={styles.emptyText}>{t('matchDetails.values.unavailable')}</Text>
+          <Text style={styles.emptyText}>
+            {hasLineupsError ? t('matchDetails.states.datasetErrors.lineups') : t('matchDetails.values.unavailable')}
+          </Text>
         </View>
       ) : null}
 
       {lineupTeams.length > 0 && showFinishedLayout ? (
         <FinishedLineups styles={styles} lineupTeams={lineupTeams} t={t} />
+      ) : null}
+
+      {lineupTeams.length > 0 && lineupsDataSource === 'fixture_fallback' ? (
+        <View style={styles.card}>
+          <Text style={styles.newsText}>{t('matchDetails.states.fallbackSource')}</Text>
+        </View>
+      ) : null}
+
+      {lineupTeams.length > 0 && hasAbsencesError ? (
+        <View style={styles.card}>
+          <Text style={styles.newsText}>{t('matchDetails.states.datasetErrors.absences')}</Text>
+        </View>
       ) : null}
 
       {lineupTeams.length > 0 && !showFinishedLayout
@@ -585,20 +632,6 @@ export function MatchLineupsTab({
                     </Text>
                   </View>
                 ))
-              ) : (
-                <Text style={styles.newsText}>{t('matchDetails.values.unavailable')}</Text>
-              )}
-
-              <Text style={styles.metricLabel}>{t('matchDetails.lineups.absences')}</Text>
-              {team.absences.length > 0 ? (
-                team.absences.map(absence => {
-                  const item = normalizeAbsence(absence);
-                  return (
-                    <Text key={`${team.teamId}-absence-${item.id ?? item.name}`} style={styles.newsText}>
-                      • {item.name}
-                    </Text>
-                  );
-                })
               ) : (
                 <Text style={styles.newsText}>{t('matchDetails.values.unavailable')}</Text>
               )}

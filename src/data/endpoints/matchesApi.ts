@@ -62,15 +62,18 @@ export async function fetchFixtureEvents({
 
 type FetchFixtureStatisticsParams = {
   fixtureId: string;
+  period?: 'all' | 'first' | 'second';
   signal?: AbortSignal;
 };
 
 export async function fetchFixtureStatistics({
   fixtureId,
+  period,
   signal,
 }: FetchFixtureStatisticsParams): Promise<unknown[]> {
   return matchesReadService.fetchFixtureStatistics<unknown>({
     fixtureId,
+    period,
     signal,
   });
 }

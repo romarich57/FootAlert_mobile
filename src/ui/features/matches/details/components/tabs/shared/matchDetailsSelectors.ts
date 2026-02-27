@@ -9,7 +9,13 @@ import type { TeamStandingsData } from '@ui/features/teams/types/teams.types';
 import { applyLiveStandingsProjection } from '@ui/features/matches/details/utils/matchStandingsProjection';
 
 import { toArray, toId, toNumber, toRecord, toText } from './matchDetailsParsing';
-import type { EventRow, RawRecord, StatRow } from './matchDetailsTabTypes';
+import type {
+  EventRow,
+  MatchStatsMetricKey,
+  MatchStatsSectionKey,
+  RawRecord,
+  StatRow,
+} from './matchDetailsTabTypes';
 
 function getTeamSide(
   teamId: string,
@@ -41,20 +47,200 @@ function formatEventMinute(elapsed: unknown, extra: unknown): string {
   return `${elapsedValue}'`;
 }
 
-function normalizeStatValue(value: unknown): number {
+type MatchStatDescriptor = {
+  metricKey: MatchStatsMetricKey;
+  section: MatchStatsSectionKey;
+  labelKey: string;
+  fallbackLabel: string;
+  aliases: readonly string[];
+};
+
+const MATCH_STAT_DESCRIPTORS: readonly MatchStatDescriptor[] = [
+  {
+    metricKey: 'total_shots',
+    section: 'shots',
+    labelKey: 'matchDetails.stats.labels.totalShots',
+    fallbackLabel: 'Total Shots',
+    aliases: ['total shots'],
+  },
+  {
+    metricKey: 'shots_on_goal',
+    section: 'shots',
+    labelKey: 'matchDetails.stats.labels.shotsOnGoal',
+    fallbackLabel: 'Shots on Goal',
+    aliases: ['shots on goal', 'shots on target'],
+  },
+  {
+    metricKey: 'shots_off_goal',
+    section: 'shots',
+    labelKey: 'matchDetails.stats.labels.shotsOffGoal',
+    fallbackLabel: 'Shots off Goal',
+    aliases: ['shots off goal', 'shots off target'],
+  },
+  {
+    metricKey: 'blocked_shots',
+    section: 'shots',
+    labelKey: 'matchDetails.stats.labels.blockedShots',
+    fallbackLabel: 'Blocked Shots',
+    aliases: ['blocked shots'],
+  },
+  {
+    metricKey: 'shots_insidebox',
+    section: 'shots',
+    labelKey: 'matchDetails.stats.labels.shotsInsidebox',
+    fallbackLabel: 'Shots inside box',
+    aliases: ['shots insidebox', 'shots inside box'],
+  },
+  {
+    metricKey: 'shots_outsidebox',
+    section: 'shots',
+    labelKey: 'matchDetails.stats.labels.shotsOutsidebox',
+    fallbackLabel: 'Shots outside box',
+    aliases: ['shots outsidebox', 'shots outside box'],
+  },
+  {
+    metricKey: 'ball_possession',
+    section: 'possessionPasses',
+    labelKey: 'matchDetails.stats.labels.ballPossession',
+    fallbackLabel: 'Ball Possession',
+    aliases: ['ball possession', 'possession'],
+  },
+  {
+    metricKey: 'total_passes',
+    section: 'possessionPasses',
+    labelKey: 'matchDetails.stats.labels.totalPasses',
+    fallbackLabel: 'Total passes',
+    aliases: ['total passes'],
+  },
+  {
+    metricKey: 'passes_accurate',
+    section: 'possessionPasses',
+    labelKey: 'matchDetails.stats.labels.passesAccurate',
+    fallbackLabel: 'Passes accurate',
+    aliases: ['passes accurate', 'accurate passes'],
+  },
+  {
+    metricKey: 'passes_percent',
+    section: 'possessionPasses',
+    labelKey: 'matchDetails.stats.labels.passesPercent',
+    fallbackLabel: 'Passes %',
+    aliases: ['passes %', 'passes percentage', 'passes accuracy', 'pass accuracy'],
+  },
+  {
+    metricKey: 'fouls',
+    section: 'discipline',
+    labelKey: 'matchDetails.stats.labels.fouls',
+    fallbackLabel: 'Fouls',
+    aliases: ['fouls', 'fouls committed'],
+  },
+  {
+    metricKey: 'yellow_cards',
+    section: 'discipline',
+    labelKey: 'matchDetails.stats.labels.yellowCards',
+    fallbackLabel: 'Yellow Cards',
+    aliases: ['yellow cards'],
+  },
+  {
+    metricKey: 'red_cards',
+    section: 'discipline',
+    labelKey: 'matchDetails.stats.labels.redCards',
+    fallbackLabel: 'Red Cards',
+    aliases: ['red cards'],
+  },
+  {
+    metricKey: 'corner_kicks',
+    section: 'other',
+    labelKey: 'matchDetails.stats.labels.cornerKicks',
+    fallbackLabel: 'Corner Kicks',
+    aliases: ['corner kicks', 'corners'],
+  },
+  {
+    metricKey: 'offsides',
+    section: 'other',
+    labelKey: 'matchDetails.stats.labels.offsides',
+    fallbackLabel: 'Offsides',
+    aliases: ['offsides'],
+  },
+  {
+    metricKey: 'goalkeeper_saves',
+    section: 'other',
+    labelKey: 'matchDetails.stats.labels.goalkeeperSaves',
+    fallbackLabel: 'Goalkeeper Saves',
+    aliases: ['goalkeeper saves', 'saves'],
+  },
+  {
+    metricKey: 'expected_goals',
+    section: 'advanced',
+    labelKey: 'matchDetails.stats.labels.expectedGoals',
+    fallbackLabel: 'Expected Goals',
+    aliases: ['expected goals', 'expected_goals', 'xg'],
+  },
+  {
+    metricKey: 'goals_prevented',
+    section: 'advanced',
+    labelKey: 'matchDetails.stats.labels.goalsPrevented',
+    fallbackLabel: 'Goals Prevented',
+    aliases: ['goals prevented', 'goals_prevented'],
+  },
+];
+
+const MATCH_STAT_DESCRIPTOR_BY_ALIAS = MATCH_STAT_DESCRIPTORS.reduce<Map<string, MatchStatDescriptor>>((map, descriptor) => {
+  descriptor.aliases.forEach(alias => {
+    map.set(alias, descriptor);
+  });
+  return map;
+}, new Map<string, MatchStatDescriptor>());
+
+function normalizeStatLabel(value: unknown): string {
+  return toText(value)
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\(\s*(1st|first|2nd|second)\s*half\s*\)/gi, '')
+    .replace(/\b(1st|first|2nd|second)\s*half\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function resolveStatDescriptor(type: unknown): MatchStatDescriptor | null {
+  const normalizedType = normalizeStatLabel(type);
+  if (!normalizedType) {
+    return null;
+  }
+
+  return MATCH_STAT_DESCRIPTOR_BY_ALIAS.get(normalizedType) ?? null;
+}
+
+function normalizeStatValue(value: unknown): number | null {
   const raw = toText(value, '').replace('%', '').trim();
+  if (!raw) {
+    return null;
+  }
+
   const parsed = Number.parseFloat(raw);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function hasDisplayableValue(value: unknown): boolean {
+  if (value === null || typeof value === 'undefined') {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  return true;
 }
 
 export function formatDisplayStat(value: unknown): string {
   if (typeof value === 'string') {
-    return value;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : '—';
   }
 
   const parsed = toNumber(value);
   if (parsed === null) {
-    return '0';
+    return '—';
   }
 
   if (Number.isInteger(parsed)) {
@@ -68,7 +254,19 @@ export function buildEvents(
   events: unknown[],
   homeTeamId: string | null,
   awayTeamId: string | null,
+  lineupTeams: MatchLineupTeam[] = [],
 ): EventRow[] {
+  const photoMap = new Map<string, string>();
+  lineupTeams.forEach(team => {
+    const allPlayers = [...team.startingXI, ...team.substitutes];
+    allPlayers.forEach(p => {
+      if (p.photo) {
+        if (p.id) photoMap.set(p.id, p.photo);
+        if (p.name) photoMap.set(p.name.toLowerCase(), p.photo);
+      }
+    });
+  });
+
   return events
     .map((entry, index) => {
       const raw = toRecord(entry);
@@ -84,13 +282,26 @@ export function buildEvents(
       const teamId = toId(team?.id);
       const side = getTeamSide(teamId, homeTeamId, awayTeamId);
 
+      const playerId = toId(player?.id);
+      const assistId = toId(assist?.id);
+
+      const playerPhoto = playerId && photoMap.has(playerId) ? photoMap.get(playerId) ?? null : photoMap.get(playerName.toLowerCase()) ?? null;
+      const assistPhoto = assistId && photoMap.has(assistId) ? photoMap.get(assistId) ?? null : assistName ? (photoMap.get(assistName.toLowerCase()) ?? null) : null;
+
       return {
         id: `${teamId}-${minute}-${type}-${index}`,
         minute,
         label: assistName ? `${type} · ${playerName} (${assistName})` : `${type} · ${playerName}`,
+        type,
         detail,
         team: side,
         isNew: index < 2,
+        playerName,
+        playerId,
+        playerPhoto,
+        assistName: assistName || null,
+        assistId,
+        assistPhoto,
       } satisfies EventRow;
     })
     .filter(item => item.label.trim().length > 0);
@@ -102,42 +313,56 @@ export function buildStatRows(statistics: unknown[]): StatRow[] {
   const homeStats = toArray(homeRaw?.statistics);
   const awayStats = toArray(awayRaw?.statistics);
 
-  const awayMap = new Map<string, unknown>();
-  awayStats.forEach(stat => {
+  const mapTeamStats = (rows: unknown[]) => rows.reduce<Map<MatchStatsMetricKey, unknown>>((map, stat) => {
     const statRecord = toRecord(stat);
-    const label = toText(statRecord?.type);
-    if (label) {
-      awayMap.set(label, statRecord?.value);
+    const descriptor = resolveStatDescriptor(statRecord?.type);
+    if (!descriptor) {
+      return map;
     }
-  });
 
-  return homeStats
-    .map(stat => {
-      const statRecord = toRecord(stat);
-      const typeLabel = toText(statRecord?.type);
-      if (!typeLabel) {
+    const incomingValue = statRecord?.value;
+    const existingValue = map.get(descriptor.metricKey);
+    if (!hasDisplayableValue(existingValue) && hasDisplayableValue(incomingValue)) {
+      map.set(descriptor.metricKey, incomingValue);
+    } else if (!map.has(descriptor.metricKey)) {
+      map.set(descriptor.metricKey, incomingValue);
+    }
+
+    return map;
+  }, new Map<MatchStatsMetricKey, unknown>());
+
+  const homeMap = mapTeamStats(homeStats);
+  const awayMap = mapTeamStats(awayStats);
+
+  return MATCH_STAT_DESCRIPTORS
+    .map(descriptor => {
+      const homeValueRaw = homeMap.get(descriptor.metricKey);
+      const awayValueRaw = awayMap.get(descriptor.metricKey);
+      if (!hasDisplayableValue(homeValueRaw) && !hasDisplayableValue(awayValueRaw)) {
         return null;
       }
 
-      const homeValueRaw = statRecord?.value;
-      const awayValueRaw = awayMap.get(typeLabel);
-      const homeValue = normalizeStatValue(homeValueRaw);
-      const awayValue = normalizeStatValue(awayValueRaw);
-      const total = homeValue + awayValue;
-      const homePercent = total > 0 ? (homeValue / total) * 100 : 50;
-      const awayPercent = total > 0 ? (awayValue / total) * 100 : 50;
+      const homeNumeric = normalizeStatValue(homeValueRaw);
+      const awayNumeric = normalizeStatValue(awayValueRaw);
+      const homeWeight = homeNumeric ?? 0;
+      const awayWeight = awayNumeric ?? 0;
+      const total = homeWeight + awayWeight;
+      const homePercent = total > 0 ? (homeWeight / total) * 100 : 50;
+      const awayPercent = total > 0 ? (awayWeight / total) * 100 : 50;
 
       return {
-        key: typeLabel,
-        label: typeLabel,
+        key: descriptor.metricKey,
+        metricKey: descriptor.metricKey,
+        section: descriptor.section,
+        label: descriptor.fallbackLabel,
+        labelKey: descriptor.labelKey,
         homeValue: formatDisplayStat(homeValueRaw),
         awayValue: formatDisplayStat(awayValueRaw),
         homePercent,
         awayPercent,
       } satisfies StatRow;
     })
-    .filter((row): row is StatRow => row !== null)
-    .slice(0, 12);
+    .filter((row): row is StatRow => row !== null);
 }
 
 function mapPlayerStatById(playerStats: unknown[]): Map<string, RawRecord> {
@@ -165,9 +390,37 @@ export function mergeLineupStats(
   lineupTeams: MatchLineupTeam[],
   homePlayersStats: unknown[],
   awayPlayersStats: unknown[],
+  events: unknown[] = [],
 ): MatchLineupTeam[] {
   const homeStatMap = mapPlayerStatById(homePlayersStats);
   const awayStatMap = mapPlayerStatById(awayPlayersStats);
+
+  const subInMap = new Map<string, number>();
+  const subOutMap = new Map<string, number>();
+
+  toArray(events).forEach(entry => {
+    const raw = toRecord(entry);
+    if (toText(raw?.type)?.toLowerCase() === 'subst') {
+      const time = toRecord(raw?.time);
+      const elapsed = toNumber(time?.elapsed);
+      const playerRecord = toRecord(raw?.player);
+      const assistRecord = toRecord(raw?.assist);
+
+      const incomingPlayerId = toId(playerRecord?.id);
+      const outgoingPlayerId = toId(assistRecord?.id);
+
+      const incomingPlayerName = toText(playerRecord?.name)?.toLowerCase();
+      const outgoingPlayerName = toText(assistRecord?.name)?.toLowerCase();
+
+      if (elapsed !== null) {
+        if (incomingPlayerId) subInMap.set(incomingPlayerId, elapsed);
+        else if (incomingPlayerName) subInMap.set(incomingPlayerName, elapsed);
+
+        if (outgoingPlayerId) subOutMap.set(outgoingPlayerId, elapsed);
+        else if (outgoingPlayerName) subOutMap.set(outgoingPlayerName, elapsed);
+      }
+    }
+  });
 
   return lineupTeams.map(teamLineup => {
     const firstStarterId = teamLineup.startingXI[0]?.id;
@@ -188,8 +441,18 @@ export function mergeLineupStats(
       const cards = toRecord(stats?.cards);
       const penalties = toRecord(stats?.penalty);
 
-      const inMinute = toNumber(toRecord(stats?.substitutes)?.in);
-      const outMinute = toNumber(toRecord(stats?.substitutes)?.out);
+      let inMinute = subInMap.get(player.id) ?? subInMap.get(player.name.toLowerCase()) ?? null;
+      let outMinute = subOutMap.get(player.id) ?? subOutMap.get(player.name.toLowerCase()) ?? null;
+
+      if (inMinute === null) {
+        inMinute = toNumber(toRecord(stats?.substitutes)?.in);
+      }
+      if (outMinute === null) {
+        outMinute = toNumber(toRecord(stats?.substitutes)?.out);
+      }
+
+      if (inMinute === 0) inMinute = null;
+      if (outMinute === 0) outMinute = null;
 
       return {
         ...player,

@@ -79,4 +79,29 @@ describe('MatchTimelineTab', () => {
     expect(screen.getByText(/Goal · Kylian Mbappe/)).toBeTruthy();
     expect(screen.getByText(i18n.t('matchDetails.timeline.tapHint'))).toBeTruthy();
   });
+
+  it('renders explicit timeline error when events request failed', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="timeline"
+        lifecycleState="live"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+        datasetErrors={{ events: true }}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('matchDetails.states.datasetErrors.events'))).toBeTruthy();
+  });
 });
