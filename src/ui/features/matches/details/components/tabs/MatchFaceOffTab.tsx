@@ -26,6 +26,9 @@ type MatchFaceOffTabProps = {
   dataErrorReason?: MatchDetailsDatasetErrorReason;
 };
 
+const INITIAL_VISIBLE_FIXTURES = 10;
+const LOAD_MORE_STEP = 10;
+
 // --- Sous-composants ---
 
 /**
@@ -116,6 +119,7 @@ export function MatchFaceOffTab({
   const { colors } = useAppTheme();
 
   const [activeLeague, setActiveLeague] = useState<string>('all');
+  const [visibleCount, setVisibleCount] = useState<number>(INITIAL_VISIBLE_FIXTURES);
 
   // Parsing et calcul du summary (memoïsé car potentiellement coûteux)
   const { fixtures, summary } = useMemo(
@@ -148,6 +152,15 @@ export function MatchFaceOffTab({
     () => (activeLeague === 'all' ? fixtures : fixtures.filter(f => f.leagueId === activeLeague)),
     [fixtures, activeLeague],
   );
+  const visibleFixtures = useMemo(
+    () => filteredFixtures.slice(0, visibleCount),
+    [filteredFixtures, visibleCount],
+  );
+  const canLoadMore = filteredFixtures.length > visibleCount;
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_FIXTURES);
+  }, [activeLeague, fixtures]);
 
   // Largeurs de la barre comparative (proportionnelles au total)
   const homeBarPercent = summary.total > 0 ? Math.round((summary.homeWins / summary.total) * 100) : 33;
@@ -236,15 +249,28 @@ export function MatchFaceOffTab({
         {filteredFixtures.length === 0 ? (
           <Text style={styles.emptyText}>{t(emptyStateKey)}</Text>
         ) : (
-          filteredFixtures.map(fixture => (
-            <H2HMatchRow
-              key={fixture.fixtureId}
-              fixture={fixture}
-              styles={styles}
-              borderColor={colors.border}
-              textColor={colors.text}
-            />
-          ))
+          <>
+            {visibleFixtures.map(fixture => (
+              <H2HMatchRow
+                key={fixture.fixtureId}
+                fixture={fixture}
+                styles={styles}
+                borderColor={colors.border}
+                textColor={colors.text}
+              />
+            ))}
+            {canLoadMore ? (
+              <View style={localStyles.loadMoreWrap}>
+                <Pressable
+                  style={[styles.chip, localStyles.loadMoreBtn]}
+                  onPress={() => setVisibleCount(count => count + LOAD_MORE_STEP)}
+                  accessibilityRole='button'
+                >
+                  <Text style={styles.chipText}>{t('matchDetails.faceOff.loadMore')}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </>
         )}
       </View>
     </View>
@@ -307,5 +333,14 @@ const localStyles = StyleSheet.create({
     fontWeight: '800',
     minWidth: 48,
     textAlign: 'center',
+  },
+  loadMoreWrap: {
+    paddingTop: 10,
+    alignItems: 'center',
+  },
+  loadMoreBtn: {
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

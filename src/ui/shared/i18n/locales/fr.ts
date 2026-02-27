@@ -248,6 +248,7 @@ export const fr = {
       awayWins: 'Victoires',
       noData: 'Aucun match face à face disponible.',
       matchesTitle: 'Derniers matchs',
+      loadMore: 'Voir plus',
     },
   },
   follows: {

@@ -60,6 +60,8 @@ type MatchStatisticsPeriod = Exclude<z.infer<typeof statisticsPeriodSchema>, 'al
 type FixtureContext = {
   fixture?: {
     id?: number;
+    date?: string;
+    timestamp?: number;
   };
   league?: {
     id?: number;
@@ -81,6 +83,132 @@ type FixtureListResponse = {
 
 function toNumericId(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function toEpochMilliseconds(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  if (value > 1_000_000_000_000) {
+    return value;
+  }
+
+  if (value > 1_000_000_000) {
+    return value * 1_000;
+  }
+
+  return null;
+}
+
+function toDateMilliseconds(value: unknown): number | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function toInjuryFixtureId(value: unknown): number | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const fixture = record.fixture;
+  if (!fixture || typeof fixture !== 'object') {
+    return null;
+  }
+
+  const fixtureRecord = fixture as Record<string, unknown>;
+  return toNumericId(fixtureRecord.id);
+}
+
+function toInjuryFixtureDateMs(value: unknown): number | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const fixture = record.fixture;
+  if (!fixture || typeof fixture !== 'object') {
+    return null;
+  }
+
+  const fixtureRecord = fixture as Record<string, unknown>;
+  return toEpochMilliseconds(fixtureRecord.timestamp) ?? toDateMilliseconds(fixtureRecord.date);
+}
+
+function toInjuryPlayerName(value: unknown): string {
+  if (!value || typeof value !== 'object') {
+    return '';
+  }
+
+  const record = value as Record<string, unknown>;
+  const player = record.player;
+  if (!player || typeof player !== 'object') {
+    return '';
+  }
+
+  const playerRecord = player as Record<string, unknown>;
+  if (typeof playerRecord.name !== 'string') {
+    return '';
+  }
+
+  return playerRecord.name.trim().toLowerCase();
+}
+
+function sortInjuriesByDate(entries: unknown[]): unknown[] {
+  return [...entries].sort((left, right) => {
+    const leftDate = toInjuryFixtureDateMs(left);
+    const rightDate = toInjuryFixtureDateMs(right);
+
+    if (leftDate === null && rightDate !== null) {
+      return 1;
+    }
+
+    if (leftDate !== null && rightDate === null) {
+      return -1;
+    }
+
+    if (leftDate !== null && rightDate !== null && leftDate !== rightDate) {
+      return rightDate - leftDate;
+    }
+
+    return toInjuryPlayerName(left).localeCompare(toInjuryPlayerName(right));
+  });
+}
+
+function filterInjuriesForMatch(
+  entries: unknown[],
+  matchFixtureId: number,
+  matchFixtureDateMs: number | null,
+): unknown[] {
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const exactFixtureEntries = entries.filter(entry => toInjuryFixtureId(entry) === matchFixtureId);
+  if (exactFixtureEntries.length > 0) {
+    return sortInjuriesByDate(exactFixtureEntries);
+  }
+
+  if (matchFixtureDateMs === null) {
+    return [];
+  }
+
+  const oneDayMs = 24 * 60 * 60 * 1_000;
+  const nearbyEntries = entries.filter(entry => {
+    const injuryDateMs = toInjuryFixtureDateMs(entry);
+    if (injuryDateMs === null) {
+      return false;
+    }
+
+    return Math.abs(injuryDateMs - matchFixtureDateMs) <= oneDayMs;
+  });
+
+  return sortInjuriesByDate(nearbyEntries);
 }
 
 function normalizeText(value: unknown): string {
@@ -416,7 +544,10 @@ export async function registerMatchesRoutes(app: FastifyInstance): Promise<void>
       const season = toNumericId(context?.league?.season);
       const homeTeamId = toNumericId(context?.teams?.home?.id);
       const awayTeamId = toNumericId(context?.teams?.away?.id);
-      if (leagueId === null || season === null || homeTeamId === null || awayTeamId === null) {
+      const fallbackFixtureId = Number.parseInt(params.id, 10);
+      const fixtureId = toNumericId(context?.fixture?.id) ?? (Number.isFinite(fallbackFixtureId) ? fallbackFixtureId : null);
+      const fixtureDateMs = toEpochMilliseconds(context?.fixture?.timestamp) ?? toDateMilliseconds(context?.fixture?.date);
+      if (leagueId === null || season === null || homeTeamId === null || awayTeamId === null || fixtureId === null) {
         return { response: [] };
       }
 
@@ -430,9 +561,11 @@ export async function registerMatchesRoutes(app: FastifyInstance): Promise<void>
               const payload = await apiFootballGet<{ response?: unknown[] }>(
                 `/injuries?league=${encodeURIComponent(String(leagueId))}&season=${encodeURIComponent(String(season))}&team=${encodeURIComponent(String(teamId))}`,
               );
+
+              const filteredResponse = filterInjuriesForMatch(payload.response ?? [], fixtureId, fixtureDateMs);
               return {
                 teamId,
-                response: payload.response ?? [],
+                response: filteredResponse,
               };
             } catch {
               return {

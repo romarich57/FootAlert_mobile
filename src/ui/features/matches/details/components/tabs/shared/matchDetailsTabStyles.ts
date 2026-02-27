@@ -126,18 +126,19 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       justifyContent: 'center',
       marginBottom: 20,
       position: 'relative',
+      width: '100%',
     },
     timelineMinuteBadge: {
-      width: 32,
+      minWidth: 32,
       height: 32,
+      paddingHorizontal: 6,
       borderRadius: 16,
       backgroundColor: colors.surfaceElevated,
       borderWidth: 2,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 2,
-      marginHorizontal: 12,
+      marginHorizontal: 8,
     },
     timelineMinuteText: {
       color: colors.text,
@@ -150,12 +151,12 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
     timelineContentLeft: {
       flex: 1,
       alignItems: 'flex-end',
-      paddingRight: 8,
+      paddingRight: 12,
     },
     timelineContentRight: {
       flex: 1,
       alignItems: 'flex-start',
-      paddingLeft: 8,
+      paddingLeft: 12,
     },
     timelineCard: {
       flexDirection: 'row',
@@ -203,6 +204,7 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       fontSize: 13,
       fontWeight: '700',
       marginBottom: 2,
+      flexShrink: 1,
     },
     timelineEventSubLine: {
       flexDirection: 'row',
@@ -582,6 +584,12 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       color: '#111827',
       fontSize: 12,
       fontWeight: '900',
+    },
+    lineupTeamRatingChip: {
+      position: 'relative',
+      right: 0,
+      top: 0,
+      minWidth: 32,
     },
     lineupPlayerEventWrap: {
       position: 'absolute',

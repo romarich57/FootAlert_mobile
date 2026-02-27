@@ -362,6 +362,7 @@ export function useMatchDetailsScreenModel() {
   const { homeTeamId, awayTeamId } = useMemo(() => pickTeamIdsFromFixture(fixture), [fixture]);
   const season = useMemo(() => extractFixtureSeason(fixture), [fixture]);
   const leagueId = fixture?.league?.id;
+  const canFetchHeadToHead = Boolean(safeMatchId) && Boolean(homeTeamId) && Boolean(awayTeamId);
 
   const eventsQuery = useQuery({
     queryKey: queryKeys.matchEvents(safeMatchId ?? 'invalid'),
@@ -451,15 +452,15 @@ export function useMatchDetailsScreenModel() {
 
   const headToHeadQuery = useQuery({
     queryKey: queryKeys.matchHeadToHead(safeMatchId ?? 'invalid'),
-    enabled: Boolean(safeMatchId),
+    enabled: canFetchHeadToHead,
     queryFn: ({ signal }) =>
       fetchFixtureHeadToHead({
         fixtureId: safeMatchId ?? '',
-        last: 10,
         timezone,
         signal,
       }),
     ...featureQueryOptions.matches.headToHead,
+    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.headToHead.retry),
   });
 
@@ -781,7 +782,9 @@ export function useMatchDetailsScreenModel() {
   const isInitialError = fixtureQuery.isError || !safeMatchId;
 
   const queryLineupsRaw = toArray(lineupsQuery.data);
+  const queryHeadToHeadRaw = toArray(headToHeadQuery.data);
   const autoRefetchedFinishedLineupsRef = useRef<string | null>(null);
+  const autoRefetchedPrematchHeadToHeadRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!safeMatchId) {
@@ -808,6 +811,42 @@ export function useMatchDetailsScreenModel() {
     autoRefetchedFinishedLineupsRef.current = guardKey;
     lineupsQuery.refetch().catch(() => undefined);
   }, [lifecycleState, lineupsQuery, queryLineupsRaw.length, safeMatchId]);
+
+  useEffect(() => {
+    if (!safeMatchId) {
+      autoRefetchedPrematchHeadToHeadRef.current = null;
+      return;
+    }
+
+    const guardKey = `${safeMatchId}:pre_match:h2h`;
+    if (lifecycleState !== 'pre_match') {
+      if (autoRefetchedPrematchHeadToHeadRef.current === guardKey) {
+        autoRefetchedPrematchHeadToHeadRef.current = null;
+      }
+      return;
+    }
+
+    if (!canFetchHeadToHead) {
+      return;
+    }
+
+    if (queryHeadToHeadRaw.length > 0 || headToHeadQuery.isFetching) {
+      return;
+    }
+
+    if (autoRefetchedPrematchHeadToHeadRef.current === guardKey) {
+      return;
+    }
+
+    autoRefetchedPrematchHeadToHeadRef.current = guardKey;
+    headToHeadQuery.refetch().catch(() => undefined);
+  }, [
+    canFetchHeadToHead,
+    headToHeadQuery,
+    lifecycleState,
+    queryHeadToHeadRaw.length,
+    safeMatchId,
+  ]);
 
   const teamLineups = useMemo(() => {
     const absencesMap = new Map<string, MatchLineupAbsence[]>();

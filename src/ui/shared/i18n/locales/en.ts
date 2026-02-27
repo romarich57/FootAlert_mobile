@@ -247,6 +247,7 @@ export const en = {
       awayWins: 'Wins',
       noData: 'No head to head matches available.',
       matchesTitle: 'Previous meetings',
+      loadMore: 'Show more',
     },
   },
   follows: {

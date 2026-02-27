@@ -281,4 +281,39 @@ describe('MatchStatsTab and faceOff placeholder', () => {
     expect(screen.getByText('League C')).toBeTruthy();
     expect(screen.queryByText(i18n.t('matchDetails.faceOff.noData'))).toBeNull();
   });
+
+  it('loads additional face-off matches lazily when pressing show more', () => {
+    const headToHead = Array.from({ length: 11 }, (_, index) => {
+      const fixtureIndex = index + 1;
+      return {
+        fixture: {
+          id: fixtureIndex,
+          date: `2026-01-${String(fixtureIndex).padStart(2, '0')}T20:00:00Z`,
+        },
+        league: {
+          id: fixtureIndex,
+          name: `League ${fixtureIndex}`,
+        },
+        teams: {
+          home: { id: 1, name: 'Home', logo: '' },
+          away: { id: 2, name: 'Away', logo: '' },
+        },
+        goals: { home: 1, away: 0 },
+      };
+    });
+
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        {...baseProps}
+        activeTab="faceOff"
+        headToHead={headToHead}
+      />,
+    );
+
+    expect(screen.getAllByText('League 1')).toHaveLength(1);
+
+    fireEvent.press(screen.getByText(i18n.t('matchDetails.faceOff.loadMore')));
+
+    expect(screen.getAllByText('League 1').length).toBeGreaterThan(1);
+  });
 });

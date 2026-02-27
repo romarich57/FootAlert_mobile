@@ -622,6 +622,7 @@ test('GET /v1/matches/:id/absences returns partial fallback when one upstream in
       return jsonResponse({
         response: [
           {
+            fixture: { id: 202, date: '2026-02-21T20:00:00+00:00' },
             league: { id: 61, season: 2025 },
             teams: {
               home: { id: 10 },
@@ -638,7 +639,24 @@ test('GET /v1/matches/:id/absences returns partial fallback when one upstream in
 
     if (url.pathname.endsWith('/injuries') && url.searchParams.get('team') === '20') {
       return jsonResponse({
-        response: [{ player: { name: 'Player Two' } }],
+        response: [
+          {
+            fixture: { id: 201, date: '2026-02-17T20:00:00+00:00' },
+            player: { name: 'Old Injury' },
+          },
+          {
+            fixture: { id: 202, date: '2026-02-21T20:00:00+00:00' },
+            player: { name: 'Zed Player' },
+          },
+          {
+            fixture: { id: 202, date: '2026-02-21T20:00:00+00:00' },
+            player: { name: 'Alpha Player' },
+          },
+          {
+            fixture: { id: 203, date: '2026-02-24T20:00:00+00:00' },
+            player: { name: 'Future Injury' },
+          },
+        ],
       });
     }
 
@@ -656,7 +674,19 @@ test('GET /v1/matches/:id/absences returns partial fallback when one upstream in
   assert.deepEqual(response.json(), {
     response: [
       { teamId: 10, response: [] },
-      { teamId: 20, response: [{ player: { name: 'Player Two' } }] },
+      {
+        teamId: 20,
+        response: [
+          {
+            fixture: { id: 202, date: '2026-02-21T20:00:00+00:00' },
+            player: { name: 'Alpha Player' },
+          },
+          {
+            fixture: { id: 202, date: '2026-02-21T20:00:00+00:00' },
+            player: { name: 'Zed Player' },
+          },
+        ],
+      },
     ],
   });
 

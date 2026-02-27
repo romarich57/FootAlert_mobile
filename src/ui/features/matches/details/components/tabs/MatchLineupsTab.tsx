@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
@@ -147,6 +147,7 @@ function renderRatingChip(
   rating: number | null | undefined,
   variant: RatingVariant,
   testId?: string,
+  extraStyle?: StyleProp<ViewStyle>,
 ) {
   if (rating === null || rating === undefined) {
     return null;
@@ -162,7 +163,7 @@ function renderRatingChip(
           : styles.lineupRatingChipNeutral;
 
   return (
-    <View style={[styles.lineupRatingChip, chipStyle]} testID={testId}>
+    <View style={[styles.lineupRatingChip, chipStyle, extraStyle]} testID={testId}>
       <Text style={styles.lineupRatingChipText}>{formatRating(rating)}</Text>
     </View>
   );
@@ -284,7 +285,7 @@ function UnifiedLineupsPitch({
     <View style={styles.lineupTeamBlock}>
       {/* Home Team Header */}
       <View style={styles.lineupTeamHeader}>
-        {renderRatingChip(styles, homeTeamRating, resolveRatingVariant(homeTeamRating), 'lineup-home-rating')}
+        {renderRatingChip(styles, homeTeamRating, resolveRatingVariant(homeTeamRating), 'lineup-home-rating', styles.lineupTeamRatingChip)}
         {homeTeam.teamLogo ? (
           <AppImage source={{ uri: homeTeam.teamLogo }} style={styles.lineupTeamLogo} resizeMode="contain" />
         ) : null}
@@ -325,7 +326,7 @@ function UnifiedLineupsPitch({
         <Text style={[styles.lineupTeamFormation, styles.lineupTeamFormationAway]}>
           {awayTeam.formation ?? '--'}
         </Text>
-        {renderRatingChip(styles, awayTeamRating, resolveRatingVariant(awayTeamRating), 'lineup-away-rating')}
+        {renderRatingChip(styles, awayTeamRating, resolveRatingVariant(awayTeamRating), 'lineup-away-rating', styles.lineupTeamRatingChip)}
         <Text style={styles.lineupTeamName}>{awayTeam.teamName}</Text>
         {awayTeam.teamLogo ? (
           <AppImage source={{ uri: awayTeam.teamLogo }} style={styles.lineupTeamLogo} resizeMode="contain" />
