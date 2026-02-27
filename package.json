@@ -20,7 +20,7 @@
     "check:file-size": "bash scripts/quality/check-file-line-limits.sh",
     "contract:lint": "npm --prefix packages/api-contract run lint",
     "contract:generate": "npm --prefix packages/api-contract install --no-audit --no-fund && npm --prefix packages/api-contract run generate",
-    "contract:check": "npm --prefix packages/api-contract run check",
+    "contract:check": "npm --prefix packages/api-contract install --no-audit --no-fund && npm --prefix packages/api-contract run check",
     "web:dev": "npm --prefix web run dev",
     "web:typecheck": "npm --prefix web run typecheck",
     "web:build": "npm --prefix web run build",

@@ -59,6 +59,9 @@ function createStyles(colors: ThemeColors) {
       gap: 8,
       marginTop: 12,
     },
+    loadingIndicator: {
+      alignSelf: 'center',
+    },
     stateText: {
       color: colors.textMuted,
       fontSize: 15,
@@ -266,7 +269,7 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
 
       {isLoading ? (
         <View style={styles.stateCard}>
-          <ActivityIndicator size="large" color={colors.primary} style={{ alignSelf: 'center' }} />
+          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
         </View>
       ) : null}
 

@@ -130,7 +130,7 @@ function TeamLogo({ logo, fallback, styles }: { logo: string; fallback: string; 
 export function MatchDetailsHeader({
   fixture,
   lifecycleState,
-  statusLabel,
+  statusLabel: _statusLabel,
   kickoffLabel,
   countdownLabel,
   onBack,

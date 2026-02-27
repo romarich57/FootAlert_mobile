@@ -38,6 +38,9 @@ function createStyles(colors: ThemeColors) {
       paddingVertical: 12,
       gap: 8,
     },
+    loadingIndicator: {
+      alignSelf: 'center',
+    },
     stateText: {
       color: colors.textMuted,
       fontSize: 15,
@@ -146,7 +149,7 @@ export function TeamDetailsScreen() {
       {!offlineUi.showOfflineNoCache && model.isContextLoading ? (
         <View style={styles.stateWrap}>
           <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color={colors.primary} style={{ alignSelf: 'center' }} />
+            <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
           </View>
         </View>
       ) : null}

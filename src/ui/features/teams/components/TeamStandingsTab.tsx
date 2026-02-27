@@ -161,7 +161,7 @@ export function TeamStandingsTab({
     <View style={styles.container}>
       {shouldShowLoadingState ? (
         <View style={styles.stateCard}>
-          <ActivityIndicator size="large" color={colors.primary} style={{ alignSelf: 'center' }} />
+          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
         </View>
       ) : null}
 
@@ -179,9 +179,22 @@ export function TeamStandingsTab({
           <View style={styles.listContent}>
             {renderListHeader()}
             {feedItems.length > 0 ? (
-              feedItems.map((item, index) => (
+              feedItems.map(item => (
                 <View key={keyExtractor(item)}>
-                  {renderItem({ item, index, target: 'Cell' } as any)}
+                  {item.type === 'header' ? (
+                    <View>
+                      <Text style={styles.groupHeader}>{item.title}</Text>
+                      {renderTableHeader()}
+                    </View>
+                  ) : (
+                    <TeamStandingRowItem
+                      row={item.row}
+                      mode={mode}
+                      subFilter={subFilter}
+                      formLabels={formLabels}
+                      styles={styles}
+                    />
+                  )}
                 </View>
               ))
             ) : hasFetched ? (

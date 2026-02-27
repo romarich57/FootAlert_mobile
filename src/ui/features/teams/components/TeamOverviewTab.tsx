@@ -151,7 +151,7 @@ export function TeamOverviewTab({
       <View style={styles.container}>
         <View style={styles.content}>
           <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color={colors.primary} style={{ alignSelf: 'center' }} />
+            <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
           </View>
         </View>
       </View>

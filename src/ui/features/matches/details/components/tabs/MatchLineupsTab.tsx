@@ -322,7 +322,7 @@ function UnifiedLineupsPitch({
 
       {/* Away Team Footer */}
       <View style={styles.lineupTeamHeaderAway}>
-        <Text style={[styles.lineupTeamFormation, { marginLeft: 0, marginRight: 'auto' }]}>
+        <Text style={[styles.lineupTeamFormation, styles.lineupTeamFormationAway]}>
           {awayTeam.formation ?? '--'}
         </Text>
         {renderRatingChip(styles, awayTeamRating, resolveRatingVariant(awayTeamRating), 'lineup-away-rating')}

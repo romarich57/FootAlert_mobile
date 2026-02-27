@@ -22,6 +22,9 @@ export function createTeamStatsTabStyles(colors: ThemeColors) {
       gap: 8,
       marginTop: 12,
     },
+    loadingIndicator: {
+      alignSelf: 'center',
+    },
     stateText: {
       color: colors.textMuted,
       fontSize: 14,

@@ -210,6 +210,9 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       gap: 4,
       flexShrink: 1,
     },
+    timelineEventSubLineReversed: {
+      flexDirection: 'row-reverse',
+    },
     timelineEventText: {
       color: colors.textMuted,
       fontSize: 12,
@@ -439,6 +442,10 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       fontSize: 17,
       fontWeight: '700',
       marginLeft: 'auto',
+    },
+    lineupTeamFormationAway: {
+      marginLeft: 0,
+      marginRight: 'auto',
     },
     lineupPitchSurface: {
       backgroundColor: '#1E293B',

@@ -105,7 +105,7 @@ function TimelineEventCard({
         <Text style={styles.timelinePlayerName} numberOfLines={1}>
           {playerName}
         </Text>
-        <View style={[styles.timelineEventSubLine, isLeft ? { flexDirection: 'row-reverse' } : null]}>
+        <View style={[styles.timelineEventSubLine, isLeft ? styles.timelineEventSubLineReversed : null]}>
           <View style={styles.timelineIconWrap}>
             <MaterialCommunityIcons name={name} size={14} color={color} />
           </View>
@@ -120,7 +120,7 @@ function TimelineEventCard({
 
 export function MatchTimelineTab({
   styles,
-  lifecycleState,
+  lifecycleState: _lifecycleState,
   eventRows,
   hasDataError = false,
   dataErrorReason = 'none',

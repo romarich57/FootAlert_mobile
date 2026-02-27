@@ -20,6 +20,9 @@ export function createTeamOverviewStyles(colors: ThemeColors) {
       padding: 14,
       gap: 8,
     },
+    loadingIndicator: {
+      alignSelf: 'center',
+    },
     stateText: {
       color: colors.textMuted,
       fontSize: 15,
