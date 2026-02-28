@@ -141,6 +141,7 @@ export function MatchDetailsScreen() {
           statsRowsByPeriod={model.statsRowsByPeriod}
           statsAvailablePeriods={model.statsAvailablePeriods}
           preMatchTab={model.preMatchTab}
+          postMatchTab={model.postMatchTab}
         />
       </View>
     </ScrollView>

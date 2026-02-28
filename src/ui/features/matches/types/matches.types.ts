@@ -289,6 +289,78 @@ export type MatchPreMatchTabViewModel = {
   isLoading: boolean;
 };
 
+export type MatchPostMatchSectionId =
+  | 'venueWeather'
+  | 'competitionMeta'
+  | 'standings'
+  | 'recentResults'
+  | 'upcomingMatches';
+
+export type MatchPostMatchUpcomingMatch = {
+  fixtureId: string;
+  leagueId: string | null;
+  leagueName: string | null;
+  leagueLogo: string | null;
+  dateIso: string | null;
+  kickoffDisplay: string | null;
+  homeTeamName: string | null;
+  homeTeamLogo: string | null;
+  awayTeamName: string | null;
+  awayTeamLogo: string | null;
+  homeGoals: number | null;
+  awayGoals: number | null;
+};
+
+export type MatchPostMatchUpcomingMatchesTeam = {
+  teamId: string | null;
+  teamName: string;
+  teamLogo: string | null;
+  matches: MatchPostMatchUpcomingMatch[];
+};
+
+export type MatchPostMatchUpcomingMatchesPayload = {
+  home: MatchPostMatchUpcomingMatchesTeam;
+  away: MatchPostMatchUpcomingMatchesTeam;
+};
+
+export type MatchPostMatchSection =
+  | {
+    id: 'venueWeather';
+    order: 4;
+    isAvailable: boolean;
+    payload: MatchPreMatchVenueWeatherPayload | null;
+  }
+  | {
+    id: 'competitionMeta';
+    order: 5;
+    isAvailable: boolean;
+    payload: MatchPreMatchCompetitionMetaPayload | null;
+  }
+  | {
+    id: 'standings';
+    order: 6;
+    isAvailable: boolean;
+    payload: MatchPreMatchStandingsPayload | null;
+  }
+  | {
+    id: 'recentResults';
+    order: 7;
+    isAvailable: boolean;
+    payload: MatchPreMatchRecentResultsPayload | null;
+  }
+  | {
+    id: 'upcomingMatches';
+    order: 8;
+    isAvailable: boolean;
+    payload: MatchPostMatchUpcomingMatchesPayload | null;
+  };
+
+export type MatchPostMatchTabViewModel = {
+  sectionsOrdered: MatchPostMatchSection[];
+  hasAnySection: boolean;
+  isLoading: boolean;
+};
+
 export type MatchOverviewStat = {
   label: string;
   homeValue: string;

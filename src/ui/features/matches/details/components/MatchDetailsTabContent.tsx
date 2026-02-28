@@ -13,6 +13,7 @@ import { MatchTimelineTab } from '@ui/features/matches/details/components/tabs/M
 import { toRecord, toText } from '@ui/features/matches/details/components/tabs/shared/matchDetailsParsing';
 import {
   buildEvents,
+  buildFinalScorers,
   buildStandingsData,
   buildStatRows,
   mergeLineupStats,
@@ -48,6 +49,7 @@ export function MatchDetailsTabContent({
   statsRowsByPeriod,
   statsAvailablePeriods,
   preMatchTab,
+  postMatchTab,
 }: MatchDetailsTabContentProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -62,6 +64,11 @@ export function MatchDetailsTabContent({
   const eventRows = useMemo(
     () => buildEvents(events, homeTeamId, awayTeamId, mergedLineupTeams),
     [awayTeamId, events, homeTeamId, mergedLineupTeams],
+  );
+
+  const finalScorers = useMemo(
+    () => buildFinalScorers(eventRows),
+    [eventRows],
   );
 
   const fallbackStatsRowsByPeriod = useMemo<StatRowsByPeriod>(
@@ -151,6 +158,8 @@ export function MatchDetailsTabContent({
           eventsErrorReason={datasetErrorReasons?.events}
           predictionsError={datasetErrors?.predictions === true}
           predictionsErrorReason={datasetErrorReasons?.predictions}
+          finalScorers={finalScorers}
+          postMatchTab={postMatchTab}
         />
       );
 

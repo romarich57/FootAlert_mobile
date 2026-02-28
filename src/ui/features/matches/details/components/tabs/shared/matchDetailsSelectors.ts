@@ -11,6 +11,7 @@ import { applyLiveStandingsProjection } from '@ui/features/matches/details/utils
 import { toArray, toId, toNumber, toRecord, toText } from './matchDetailsParsing';
 import type {
   EventRow,
+  FinalScorerRow,
   MatchStatsMetricKey,
   MatchStatsSectionKey,
   RawRecord,
@@ -305,6 +306,56 @@ export function buildEvents(
       } satisfies EventRow;
     })
     .filter(item => item.label.trim().length > 0);
+}
+
+function isGoalEvent(event: EventRow): boolean {
+  const typeLower = event.type.toLowerCase();
+  const detailLower = event.detail.toLowerCase();
+  if (!typeLower.includes('goal')) {
+    return false;
+  }
+
+  return (
+    !detailLower.includes('cancelled') &&
+    !detailLower.includes('missed penalty') &&
+    !detailLower.includes('missed')
+  );
+}
+
+function isScorerEvent(
+  event: EventRow,
+): event is EventRow & { team: 'home' | 'away' } {
+  return (event.team === 'home' || event.team === 'away') && isGoalEvent(event);
+}
+
+function toMinuteSortValue(minute: string): number {
+  const match = minute.match(/^(\d+)(?:\+(\d+))?/);
+  if (!match) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const elapsed = Number.parseInt(match[1] ?? '0', 10);
+  const extra = Number.parseInt(match[2] ?? '0', 10);
+  if (!Number.isFinite(elapsed) || !Number.isFinite(extra)) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  return elapsed + (extra / 100);
+}
+
+export function buildFinalScorers(eventRows: EventRow[]): FinalScorerRow[] {
+  return eventRows
+    .filter(isScorerEvent)
+    .map(event => ({
+      id: `${event.id}-scorer`,
+      team: event.team,
+      minute: event.minute,
+      playerName: event.playerName,
+      assistName: event.assistName,
+      eventType: event.type,
+      eventDetail: event.detail,
+    }))
+    .sort((first, second) => toMinuteSortValue(first.minute) - toMinuteSortValue(second.minute));
 }
 
 export function buildStatRows(statistics: unknown[]): StatRow[] {

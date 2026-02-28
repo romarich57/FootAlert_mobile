@@ -1,5 +1,6 @@
 import type {
   ApiFootballFixtureDto,
+  MatchPostMatchTabViewModel,
   MatchPreMatchTabViewModel,
   MatchDetailsTabKey,
   MatchLifecycleState,
@@ -103,6 +104,7 @@ export type MatchDetailsTabContentProps = {
   statsRowsByPeriod?: StatRowsByPeriod;
   statsAvailablePeriods?: StatsPeriodFilter[];
   preMatchTab?: MatchPreMatchTabViewModel;
+  postMatchTab?: MatchPostMatchTabViewModel;
 };
 
 export type RawRecord = Record<string, unknown>;
@@ -121,6 +123,16 @@ export type EventRow = {
   assistName: string | null;
   assistId: string | null;
   assistPhoto: string | null;
+};
+
+export type FinalScorerRow = {
+  id: string;
+  team: 'home' | 'away';
+  minute: string;
+  playerName: string;
+  assistName: string | null;
+  eventType: string;
+  eventDetail: string;
 };
 
 export type StatRow = {

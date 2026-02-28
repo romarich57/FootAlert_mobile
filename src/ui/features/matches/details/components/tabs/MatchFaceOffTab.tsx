@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
 import {
   formatH2HDate,
@@ -28,6 +29,45 @@ type MatchFaceOffTabProps = {
 
 const INITIAL_VISIBLE_FIXTURES = 10;
 const LOAD_MORE_STEP = 10;
+
+const toPercentWidth = (value: number): { width: `${number}%` } => ({
+  width: `${value}%` as `${number}%`,
+});
+
+function createFaceOffDynamicStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    h2hRow: {
+      borderColor: colors.border,
+      backgroundColor: 'transparent',
+    },
+    scoreBadge: {
+      backgroundColor: colors.surfaceElevated,
+      borderColor: colors.border,
+    },
+    scoreText: {
+      color: colors.text,
+    },
+    teamNameWin: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    teamNameLoss: {
+      color: colors.textMuted,
+      fontWeight: '600',
+    },
+    teamNameDraw: {
+      color: colors.text,
+      fontWeight: '700',
+    },
+    drawBar: {
+      height: '100%',
+      backgroundColor: colors.border,
+    },
+    awayBar: {
+      backgroundColor: `${colors.text}B3`,
+    },
+  });
+}
 
 // --- Sous-composants ---
 
@@ -63,15 +103,24 @@ function SummaryColumn({
 function H2HMatchRow({
   fixture,
   styles,
-  colors,
+  dynamicStyles,
 }: {
   fixture: H2HFixture;
   styles: MatchDetailsTabStyles;
-  colors: any;
+  dynamicStyles: ReturnType<typeof createFaceOffDynamicStyles>;
 }) {
   const isHomeWinner = fixture.homeGoals !== null && fixture.awayGoals !== null && fixture.homeGoals > fixture.awayGoals;
   const isAwayWinner = fixture.homeGoals !== null && fixture.awayGoals !== null && fixture.awayGoals > fixture.homeGoals;
-  const isDraw = fixture.homeGoals !== null && fixture.awayGoals !== null && fixture.homeGoals === fixture.awayGoals;
+  const homeTeamResultStyle = isHomeWinner
+    ? dynamicStyles.teamNameWin
+    : isAwayWinner
+      ? dynamicStyles.teamNameLoss
+      : dynamicStyles.teamNameDraw;
+  const awayTeamResultStyle = isAwayWinner
+    ? dynamicStyles.teamNameWin
+    : isHomeWinner
+      ? dynamicStyles.teamNameLoss
+      : dynamicStyles.teamNameDraw;
 
   const scoreText =
     fixture.homeGoals !== null && fixture.awayGoals !== null
@@ -79,7 +128,7 @@ function H2HMatchRow({
       : '- - -';
 
   return (
-    <View style={[localStyles.h2hRow, { borderColor: colors.border, backgroundColor: 'transparent' }]}>
+    <View style={[localStyles.h2hRow, dynamicStyles.h2hRow]}>
       <View style={styles.inlineRow}>
         <Text style={styles.newsText}>{formatH2HDate(fixture.date)}</Text>
         <View style={styles.badge}>
@@ -90,10 +139,7 @@ function H2HMatchRow({
       </View>
       <View style={localStyles.scoreRow}>
         <Text
-          style={[
-            localStyles.teamName,
-            isHomeWinner ? { color: colors.primary, fontWeight: '800' } : isAwayWinner ? { color: colors.textMuted, fontWeight: '600' } : { color: colors.text, fontWeight: '700' }
-          ]}
+          style={[localStyles.teamName, homeTeamResultStyle]}
           numberOfLines={1}
         >
           {fixture.homeTeamName}
@@ -101,17 +147,14 @@ function H2HMatchRow({
         {fixture.homeTeamLogo ? (
           <Image source={{ uri: fixture.homeTeamLogo }} style={localStyles.teamLogo} />
         ) : null}
-        <View style={[localStyles.scoreBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <Text style={[localStyles.scoreText, { color: colors.text }]}>{scoreText}</Text>
+        <View style={[localStyles.scoreBadge, dynamicStyles.scoreBadge]}>
+          <Text style={[localStyles.scoreText, dynamicStyles.scoreText]}>{scoreText}</Text>
         </View>
         {fixture.awayTeamLogo ? (
           <Image source={{ uri: fixture.awayTeamLogo }} style={localStyles.teamLogo} />
         ) : null}
         <Text
-          style={[
-            localStyles.teamName,
-            isAwayWinner ? { color: colors.primary, fontWeight: '800' } : isHomeWinner ? { color: colors.textMuted, fontWeight: '600' } : { color: colors.text, fontWeight: '700' }
-          ]}
+          style={[localStyles.teamName, awayTeamResultStyle]}
           numberOfLines={1}
         >
           {fixture.awayTeamName}
@@ -135,6 +178,7 @@ export function MatchFaceOffTab({
 }: MatchFaceOffTabProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
+  const dynamicStyles = useMemo(() => createFaceOffDynamicStyles(colors), [colors]);
 
   const [activeLeague, setActiveLeague] = useState<string>('all');
   const [visibleCount, setVisibleCount] = useState<number>(INITIAL_VISIBLE_FIXTURES);
@@ -185,6 +229,9 @@ export function MatchFaceOffTab({
   const homeBarPercent = Math.round((summary.homeWins / total) * 100);
   const drawBarPercent = Math.round((summary.draws / total) * 100);
   const awayBarPercent = summary.total > 0 ? 100 - homeBarPercent - drawBarPercent : 0;
+  const homeBarWidthStyle = useMemo(() => toPercentWidth(homeBarPercent), [homeBarPercent]);
+  const drawBarWidthStyle = useMemo(() => toPercentWidth(drawBarPercent), [drawBarPercent]);
+  const awayBarWidthStyle = useMemo(() => toPercentWidth(awayBarPercent), [awayBarPercent]);
   const emptyStateKey =
     hasDataError && dataErrorReason === 'endpoint_not_available'
       ? 'matchDetails.states.datasetErrorsUnsupported.faceOff'
@@ -224,9 +271,15 @@ export function MatchFaceOffTab({
 
         {/* Barre comparative home vs away */}
         <View style={styles.statBarRail}>
-          {homeBarPercent > 0 && <View style={[styles.statBarHome, { width: `${homeBarPercent}%`, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]} />}
-          {drawBarPercent > 0 && <View style={{ width: `${drawBarPercent}%`, backgroundColor: colors.border, height: '100%' }} />}
-          {awayBarPercent > 0 && <View style={[styles.statBarAway, { width: `${awayBarPercent}%`, backgroundColor: `${colors.text}B3`, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }]} />}
+          {homeBarPercent > 0 ? (
+            <View style={[styles.statBarHome, localStyles.barHomeFlat, homeBarWidthStyle]} />
+          ) : null}
+          {drawBarPercent > 0 ? (
+            <View style={[dynamicStyles.drawBar, drawBarWidthStyle]} />
+          ) : null}
+          {awayBarPercent > 0 ? (
+            <View style={[styles.statBarAway, dynamicStyles.awayBar, localStyles.barAwayFlat, awayBarWidthStyle]} />
+          ) : null}
         </View>
       </View>
 
@@ -279,7 +332,7 @@ export function MatchFaceOffTab({
                 key={fixture.fixtureId}
                 fixture={fixture}
                 styles={styles}
-                colors={colors}
+                dynamicStyles={dynamicStyles}
               />
             ))}
             {canLoadMore ? (
@@ -371,6 +424,14 @@ const localStyles = StyleSheet.create({
     fontWeight: '900',
     minWidth: 40,
     textAlign: 'center',
+  },
+  barHomeFlat: {
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  barAwayFlat: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
   },
   loadMoreWrap: {
     paddingTop: 10,

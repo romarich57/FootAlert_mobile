@@ -94,6 +94,38 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       color: colors.primary,
       fontWeight: '800',
     },
+    preMatchProbContainer: {
+      gap: 12,
+      paddingVertical: 4,
+    },
+    preMatchProbLabelsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    preMatchProbLabelCol: {
+      flex: 1,
+      gap: 2,
+    },
+    preMatchProbLabelCenter: {
+      alignItems: 'center',
+    },
+    preMatchProbLabelRight: {
+      alignItems: 'flex-end',
+    },
+    preMatchProbTeamName: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    preMatchProbValue: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    preMatchProbValueHome: {
+      color: colors.primary,
+    },
     probBarWrap: {
       gap: 6,
     },
@@ -107,6 +139,58 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       height: '100%',
       borderRadius: 999,
       backgroundColor: colors.primary,
+    },
+    preMatchProbBarRail: {
+      flexDirection: 'row',
+      height: 10,
+      borderRadius: 999,
+      backgroundColor: colors.surfaceElevated,
+      overflow: 'hidden',
+    },
+    preMatchProbSegmentHome: {
+      backgroundColor: colors.primary,
+      height: '100%',
+    },
+    preMatchProbSegmentDraw: {
+      backgroundColor: colors.border,
+      height: '100%',
+    },
+    preMatchProbSegmentAway: {
+      backgroundColor: `${colors.text}B3`,
+      height: '100%',
+    },
+    preMatchGridContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    preMatchGridItem: {
+      flex: 1,
+      minWidth: '45%',
+      backgroundColor: colors.surfaceElevated,
+      padding: 12,
+      borderRadius: 12,
+      gap: 6,
+    },
+    preMatchGridItemFull: {
+      minWidth: '100%',
+    },
+    preMatchGridIconRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    preMatchGridLabel: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    preMatchGridValue: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+      marginTop: 2,
     },
     timelineContainer: {
       position: 'relative',
@@ -227,6 +311,43 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       justifyContent: 'center',
       width: 16,
       height: 16,
+    },
+    compactTimelineRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceElevated,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    compactTimelineMinute: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: '800',
+      minWidth: 34,
+    },
+    compactTimelineTextWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    compactTimelinePlayer: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    compactTimelineDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    compactTimelineDetail: {
+      flex: 1,
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
     },
     eventRow: {
       borderRadius: 12,
@@ -412,15 +533,32 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 8,
+      backgroundColor: colors.surfaceElevated,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    postMatchUpcomingInfo: {
+      flex: 1,
+      gap: 2,
+      minWidth: 0,
+      alignItems: 'center',
+    },
+    postMatchUpcomingMeta: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '600',
     },
     preMatchTeamLogo: {
-      width: 20,
-      height: 20,
+      width: 24,
+      height: 24,
     },
     preMatchTeamLogoFallback: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
       backgroundColor: colors.surfaceElevated,
       borderWidth: 1,
       borderColor: colors.border,
@@ -429,7 +567,7 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
     },
     preMatchTeamLogoFallbackText: {
       color: colors.textMuted,
-      fontSize: 8,
+      fontSize: 10,
       fontWeight: '800',
     },
     preMatchResultBadge: {
@@ -514,10 +652,14 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingTop: 10,
+      gap: 12,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: 8,
     },
     preMatchLeaderSide: {
       flex: 1,
@@ -526,7 +668,7 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       gap: 8,
     },
     preMatchLeadersCenter: {
-      width: 88,
+      width: 70,
       alignItems: 'center',
     },
     preMatchLeaderAvatar: {
@@ -577,6 +719,60 @@ export function createMatchDetailsTabStyles(colors: ThemeColors) {
       color: colors.primary,
       fontSize: 16,
       fontWeight: '900',
+      textAlign: 'right',
+    },
+    postMatchScorersWrap: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginTop: 2,
+    },
+    postMatchScorerColumn: {
+      flex: 1,
+      gap: 8,
+    },
+    postMatchScorerHeader: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    postMatchScorerHeaderRight: {
+      textAlign: 'right',
+    },
+    postMatchScorerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    postMatchScorerRowRight: {
+      justifyContent: 'flex-end',
+    },
+    postMatchScorerMinute: {
+      color: colors.primary,
+      fontSize: 11,
+      fontWeight: '800',
+      minWidth: 34,
+      textAlign: 'center',
+    },
+    postMatchScorerContent: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    postMatchScorerContentRight: {
+      alignItems: 'flex-end',
+    },
+    postMatchScorerName: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    postMatchScorerMeta: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    postMatchScorerMetaRight: {
       textAlign: 'right',
     },
     newsCard: {

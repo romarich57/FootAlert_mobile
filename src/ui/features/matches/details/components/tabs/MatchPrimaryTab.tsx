@@ -1,13 +1,29 @@
 import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import type { MatchLifecycleState } from '@ui/features/matches/types/matches.types';
+import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import {
+  MatchCompetitionMetaCard,
+  MatchRecentResultsCard,
+  MatchStandingsCard,
+  MatchUpcomingMatchesCard,
+  MatchVenueWeatherCard,
+} from '@ui/features/matches/details/components/tabs/shared/matchContextCards';
+import {
+  CompactTimelineEventRow,
+  getTimelineEventDisplayName,
+} from '@ui/features/matches/details/components/tabs/shared/matchTimelineShared';
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
 import type {
   EventRow,
+  FinalScorerRow,
   MatchDetailsDatasetErrorReason,
   StatRow,
 } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
+import type {
+  MatchLifecycleState,
+  MatchPostMatchTabViewModel,
+} from '@ui/features/matches/types/matches.types';
 
 type MatchPrimaryTabProps = {
   styles: MatchDetailsTabStyles;
@@ -26,6 +42,8 @@ type MatchPrimaryTabProps = {
   isLiveRefreshing: boolean;
   statRows: StatRow[];
   eventRows: EventRow[];
+  finalScorers: FinalScorerRow[];
+  postMatchTab?: MatchPostMatchTabViewModel;
   matchScore: string;
   statsError?: boolean;
   statsErrorReason?: MatchDetailsDatasetErrorReason;
@@ -72,6 +90,8 @@ export function MatchPrimaryTab({
   isLiveRefreshing,
   statRows,
   eventRows,
+  finalScorers,
+  postMatchTab,
   matchScore,
   statsError = false,
   statsErrorReason = 'none',
@@ -81,6 +101,7 @@ export function MatchPrimaryTab({
   predictionsErrorReason = 'none',
 }: MatchPrimaryTabProps) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
 
   const homePct = Number.parseFloat(winPercent.home.replace('%', '')) || 0;
   const drawPct = Number.parseFloat(winPercent.draw.replace('%', '')) || 0;
@@ -97,6 +118,10 @@ export function MatchPrimaryTab({
     predictionsErrorReason === 'endpoint_not_available'
       ? 'matchDetails.states.datasetErrorsUnsupported.predictions'
       : 'matchDetails.states.datasetErrors.predictions';
+  const homeScorers = finalScorers.filter(row => row.team === 'home');
+  const awayScorers = finalScorers.filter(row => row.team === 'away');
+  const keyMomentsRows = eventRows.slice(0, 6);
+  const postMatchSections = (postMatchTab?.sectionsOrdered ?? []).filter(section => section.isAvailable);
 
   return (
     <View style={styles.content}>
@@ -242,51 +267,174 @@ export function MatchPrimaryTab({
             <Text style={styles.metricValue}>
               {homeTeamName} {matchScore} {awayTeamName}
             </Text>
-            <Text style={styles.newsText}>{t('matchDetails.primary.playerOfMatchFallback')}</Text>
-          </View>
+            {homeScorers.length > 0 || awayScorers.length > 0 ? (
+              <View style={styles.postMatchScorersWrap}>
+                <View style={styles.postMatchScorerColumn}>
+                  <Text style={styles.postMatchScorerHeader}>{homeTeamName}</Text>
+                  {homeScorers.map(scorer => {
+                    const detailLabel = getTimelineEventDisplayName(
+                      scorer.eventType,
+                      scorer.eventDetail,
+                      t,
+                    );
+                    const assistLabel = scorer.assistName
+                      ? t('matchDetails.postMatch.scorers.assistBy', { player: scorer.assistName })
+                      : null;
+                    const metaLabel = assistLabel ? `${detailLabel} · ${assistLabel}` : detailLabel;
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('matchDetails.tabs.stats')}</Text>
-            {statRows.length === 0 ? (
-              <Text style={styles.emptyText}>
-                {statsError ? t(statsErrorKey) : t('matchDetails.values.unavailable')}
-              </Text>
-            ) : null}
-            {statRows.slice(0, 8).map(row => (
-              <View key={row.key} style={styles.statRow}>
-                <View style={styles.statHeaderRow}>
-                  <Text style={styles.statValue}>{row.homeValue}</Text>
-                  <Text style={styles.statLabel}>{t(row.labelKey, { defaultValue: row.label })}</Text>
-                  <Text style={styles.statValue}>{row.awayValue}</Text>
+                    return (
+                      <View key={scorer.id} style={styles.postMatchScorerRow}>
+                        <Text style={styles.postMatchScorerMinute}>{scorer.minute}</Text>
+                        <View style={styles.postMatchScorerContent}>
+                          <Text style={styles.postMatchScorerName} numberOfLines={1}>
+                            {scorer.playerName}
+                          </Text>
+                          <Text style={styles.postMatchScorerMeta} numberOfLines={1}>
+                            {metaLabel}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
-                <View style={styles.statBarRail}>
-                  <View style={[styles.statBarHome, { width: `${row.homePercent}%` }]} />
-                  <View style={[styles.statBarAway, { width: `${row.awayPercent}%` }]} />
+
+                <View style={styles.postMatchScorerColumn}>
+                  <Text style={[styles.postMatchScorerHeader, styles.postMatchScorerHeaderRight]}>
+                    {awayTeamName}
+                  </Text>
+                  {awayScorers.map(scorer => {
+                    const detailLabel = getTimelineEventDisplayName(
+                      scorer.eventType,
+                      scorer.eventDetail,
+                      t,
+                    );
+                    const assistLabel = scorer.assistName
+                      ? t('matchDetails.postMatch.scorers.assistBy', { player: scorer.assistName })
+                      : null;
+                    const metaLabel = assistLabel ? `${detailLabel} · ${assistLabel}` : detailLabel;
+
+                    return (
+                      <View key={scorer.id} style={[styles.postMatchScorerRow, styles.postMatchScorerRowRight]}>
+                        <View style={[styles.postMatchScorerContent, styles.postMatchScorerContentRight]}>
+                          <Text style={styles.postMatchScorerName} numberOfLines={1}>
+                            {scorer.playerName}
+                          </Text>
+                          <Text style={[styles.postMatchScorerMeta, styles.postMatchScorerMetaRight]} numberOfLines={1}>
+                            {metaLabel}
+                          </Text>
+                        </View>
+                        <Text style={styles.postMatchScorerMinute}>{scorer.minute}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
-            ))}
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('matchDetails.primary.keyMomentsTitle')}</Text>
-            {eventRows.length === 0 ? (
-              <Text style={styles.emptyText}>
-                {eventsError ? t(eventsErrorKey) : t('matchDetails.values.unavailable')}
-              </Text>
             ) : null}
-            {eventRows.map(event => (
-              <View key={event.id} style={styles.eventRow}>
-                <Text style={styles.eventMinute}>{event.minute}</Text>
-                <Text style={styles.eventLabel}>{event.label}</Text>
-                {event.detail ? <Text style={styles.eventDetail}>{event.detail}</Text> : null}
-              </View>
-            ))}
           </View>
 
-          <View style={styles.newsCard}>
-            <Text style={styles.newsTitle}>{t('matchDetails.primary.newsTitle')}</Text>
-            <Text style={styles.newsText}>{t('matchDetails.primary.postNewsFallback')}</Text>
-          </View>
+          {statRows.length > 0 || statsError ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>{t('matchDetails.tabs.stats')}</Text>
+              {statRows.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  {statsError ? t(statsErrorKey) : t('matchDetails.values.unavailable')}
+                </Text>
+              ) : null}
+              {statRows.slice(0, 8).map(row => (
+                <View key={row.key} style={styles.statRow}>
+                  <View style={styles.statHeaderRow}>
+                    <Text style={styles.statValue}>{row.homeValue}</Text>
+                    <Text style={styles.statLabel}>{t(row.labelKey, { defaultValue: row.label })}</Text>
+                    <Text style={styles.statValue}>{row.awayValue}</Text>
+                  </View>
+                  <View style={styles.statBarRail}>
+                    <View style={[styles.statBarHome, { width: `${row.homePercent}%` }]} />
+                    <View style={[styles.statBarAway, { width: `${row.awayPercent}%` }]} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {keyMomentsRows.length > 0 || eventsError ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>{t('matchDetails.primary.keyMomentsTitle')}</Text>
+              {keyMomentsRows.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  {eventsError ? t(eventsErrorKey) : t('matchDetails.values.unavailable')}
+                </Text>
+              ) : null}
+              {keyMomentsRows.map(event => (
+                <CompactTimelineEventRow
+                  key={`compact-${event.id}`}
+                  styles={styles}
+                  event={event}
+                  t={t}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {postMatchSections.map(section => {
+            if (!section.payload) {
+              return null;
+            }
+
+            if (section.id === 'venueWeather') {
+              return (
+                <MatchVenueWeatherCard
+                  key={section.id}
+                  styles={styles}
+                  colors={colors}
+                  t={t}
+                  payload={section.payload}
+                />
+              );
+            }
+
+            if (section.id === 'competitionMeta') {
+              return (
+                <MatchCompetitionMetaCard
+                  key={section.id}
+                  styles={styles}
+                  colors={colors}
+                  t={t}
+                  payload={section.payload}
+                />
+              );
+            }
+
+            if (section.id === 'standings') {
+              return (
+                <MatchStandingsCard
+                  key={section.id}
+                  styles={styles}
+                  t={t}
+                  payload={section.payload}
+                />
+              );
+            }
+
+            if (section.id === 'recentResults') {
+              return (
+                <MatchRecentResultsCard
+                  key={section.id}
+                  styles={styles}
+                  t={t}
+                  payload={section.payload}
+                />
+              );
+            }
+
+            return (
+              <MatchUpcomingMatchesCard
+                key={section.id}
+                styles={styles}
+                t={t}
+                payload={section.payload}
+              />
+            );
+          })}
         </>
       ) : null}
     </View>

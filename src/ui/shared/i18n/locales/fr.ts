@@ -112,6 +112,10 @@ export const fr = {
       capacity: 'Capacité',
       surface: 'Surface',
       weather: 'Météo',
+      league: 'Compétition',
+      roundTitle: 'Journée / Tour',
+      referee: 'Arbitre',
+      date: 'Date',
     },
     header: {
       final: 'Score final',
@@ -189,6 +193,14 @@ export const fr = {
         title: 'Comparaison des leaders',
         topScorer: 'Meilleur buteur',
         topAssister: 'Meilleur passeur',
+      },
+    },
+    postMatch: {
+      scorers: {
+        assistBy: 'passeur {{player}}',
+      },
+      upcomingMatches: {
+        title: 'Prochains matchs',
       },
     },
     timeline: {

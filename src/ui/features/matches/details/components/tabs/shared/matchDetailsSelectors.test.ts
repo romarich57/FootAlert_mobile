@@ -1,5 +1,6 @@
 import {
   buildEvents,
+  buildFinalScorers,
   buildStatRows,
   mergeLineupStats,
 } from '@ui/features/matches/details/components/tabs/shared/matchDetailsSelectors';
@@ -30,6 +31,79 @@ describe('matchDetailsSelectors', () => {
       isNew: true,
     });
     expect(rows[0]?.label).toContain('Goal · Kylian Mbappe');
+  });
+
+  it('buildFinalScorers keeps only valid goal events and sorts by minute', () => {
+    const scorers = buildFinalScorers([
+      {
+        id: 'e3',
+        minute: "90+2'",
+        label: 'Goal · Late Winner',
+        type: 'Goal',
+        detail: 'Normal Goal',
+        team: 'home',
+        isNew: false,
+        playerName: 'Late Winner',
+        playerId: '3',
+        playerPhoto: null,
+        assistName: null,
+        assistId: null,
+        assistPhoto: null,
+      },
+      {
+        id: 'e2',
+        minute: "45'",
+        label: 'Goal · Equalizer',
+        type: 'Goal',
+        detail: 'Penalty',
+        team: 'away',
+        isNew: false,
+        playerName: 'Equalizer',
+        playerId: '2',
+        playerPhoto: null,
+        assistName: 'Playmaker',
+        assistId: '20',
+        assistPhoto: null,
+      },
+      {
+        id: 'e1',
+        minute: "12'",
+        label: 'Goal · Opener',
+        type: 'Goal',
+        detail: 'Normal Goal',
+        team: 'home',
+        isNew: true,
+        playerName: 'Opener',
+        playerId: '1',
+        playerPhoto: null,
+        assistName: 'Assist Guy',
+        assistId: '10',
+        assistPhoto: null,
+      },
+      {
+        id: 'e4',
+        minute: "60'",
+        label: 'Goal · Cancelled',
+        type: 'Goal',
+        detail: 'Goal cancelled',
+        team: 'home',
+        isNew: false,
+        playerName: 'Cancelled',
+        playerId: '4',
+        playerPhoto: null,
+        assistName: null,
+        assistId: null,
+        assistPhoto: null,
+      },
+    ]);
+
+    expect(scorers).toHaveLength(3);
+    expect(scorers.map(row => row.playerName)).toEqual(['Opener', 'Equalizer', 'Late Winner']);
+    expect(scorers[1]).toMatchObject({
+      assistName: 'Playmaker',
+      team: 'away',
+      eventDetail: 'Penalty',
+    });
   });
 
   it('buildStatRows builds stat percentages for home/away', () => {

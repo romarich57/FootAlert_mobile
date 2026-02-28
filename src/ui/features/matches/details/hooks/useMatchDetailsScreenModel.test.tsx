@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -205,6 +205,51 @@ describe('useMatchDetailsScreenModel', () => {
     );
   });
 
+  it('keeps pre-match primary tab visible while fixture request is loading', () => {
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key.length === 3) {
+        return {
+          ...baseResult,
+          isLoading: true,
+          isFetching: true,
+          data: null,
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: [],
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'faceOff']);
+    expect(result.current.activeTab).toBe('primary');
+  });
+
   it('switches to live lifecycle and summary tab label during match', () => {
     fixtureStatusShort = '2H';
     fixtureStatusLong = 'Second Half';
@@ -223,6 +268,27 @@ describe('useMatchDetailsScreenModel', () => {
         hasLiveMatches: true,
       }),
     );
+  });
+
+  it('resets active tab to primary when match id changes', () => {
+    let currentMatchId = '101';
+    mockedUseRoute.mockImplementation(() => ({
+      params: { matchId: currentMatchId },
+    }) as never);
+
+    const { result, rerender } = renderHook(() => useMatchDetailsScreenModel(), {
+      initialProps: {},
+    });
+
+    act(() => {
+      result.current.setActiveTab('faceOff');
+    });
+    expect(result.current.activeTab).toBe('faceOff');
+
+    currentMatchId = '202';
+    rerender({});
+
+    expect(result.current.activeTab).toBe('primary');
   });
 
   it('classifies unknown short status as finished when long status indicates match finished', () => {
@@ -906,6 +972,150 @@ describe('useMatchDetailsScreenModel', () => {
     ]);
   });
 
+  it('enables team context fixtures queries when lifecycle is finished', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    renderHook(() => useMatchDetailsScreenModel());
+
+    const teamContextCalls = mockedUseQuery.mock.calls.filter(
+      ([options]) => (options as { queryKey: readonly unknown[] }).queryKey[2] === 'team_recent_results',
+    );
+
+    expect(teamContextCalls).toHaveLength(2);
+    expect(teamContextCalls.every(([options]) => Boolean((options as { enabled?: boolean }).enabled))).toBe(true);
+  });
+
+  it('keeps post-match section order stable', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.postMatchTab.sectionsOrdered.map(section => section.id)).toEqual([
+      'venueWeather',
+      'competitionMeta',
+      'standings',
+      'recentResults',
+      'upcomingMatches',
+    ]);
+  });
+
+  it('falls back to all competitions for upcoming matches when league-filtered rows are empty', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'team_recent_results') {
+        const teamId = String(key[3] ?? '');
+        return {
+          ...baseResult,
+          data: {
+            all: [
+              {
+                fixtureId: `${teamId}-up-all`,
+                leagueId: '999',
+                leagueName: 'Cup',
+                leagueLogo: null,
+                date: '2026-03-10T20:00:00.000Z',
+                round: null,
+                venue: null,
+                status: 'upcoming',
+                statusLabel: 'Not Started',
+                minute: null,
+                homeTeamId: teamId,
+                homeTeamName: teamId === '1' ? 'Home' : 'Away',
+                homeTeamLogo: null,
+                awayTeamId: '99',
+                awayTeamName: 'Opponent',
+                awayTeamLogo: null,
+                homeGoals: null,
+                awayGoals: null,
+              },
+            ],
+            upcoming: [],
+            live: [],
+            past: [],
+          },
+        } as never;
+      }
+
+      if (
+        key[2] === 'events' ||
+        key[2] === 'statistics' ||
+        key[2] === 'lineups' ||
+        key[2] === 'absences' ||
+        key[2] === 'team_players_stats' ||
+        key[2] === 'head_to_head'
+      ) {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+    const section = result.current.postMatchTab.sectionsOrdered.find(current => current.id === 'upcomingMatches');
+
+    expect(section?.isAvailable).toBe(true);
+    if (!section || section.id !== 'upcomingMatches' || !section.payload) {
+      throw new Error('Expected upcomingMatches section payload');
+    }
+
+    expect(section.payload.home.matches).toHaveLength(1);
+    expect(section.payload.away.matches).toHaveLength(1);
+    expect(section.payload.home.matches[0]?.leagueId).toBe('999');
+    expect(section.payload.away.matches[0]?.leagueId).toBe('999');
+  });
+
   it('filters recent results to same competition, finished status and top 5 entries', () => {
     fixtureStatusShort = 'NS';
     fixtureStatusLong = 'Not started';
@@ -937,29 +1147,43 @@ describe('useMatchDetailsScreenModel', () => {
       if (key[2] === 'team_recent_results') {
         const teamId = String(key[3] ?? '');
         if (teamId === '1') {
+          const rows = [
+            { fixtureId: 'h1', leagueId: '61', date: '2026-02-01T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '10', awayTeamName: 'A', awayTeamLogo: '', homeGoals: 2, awayGoals: 1 },
+            { fixtureId: 'h2', leagueId: '61', date: '2026-02-02T12:00:00.000Z', status: 'finished', homeTeamId: '11', homeTeamName: 'B', homeTeamLogo: '', awayTeamId: '1', awayTeamName: 'Home', awayTeamLogo: '', homeGoals: 0, awayGoals: 3 },
+            { fixtureId: 'h3', leagueId: '61', date: '2026-02-03T12:00:00.000Z', status: 'upcoming', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '12', awayTeamName: 'C', awayTeamLogo: '', homeGoals: null, awayGoals: null },
+            { fixtureId: 'h4', leagueId: '999', date: '2026-02-04T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '13', awayTeamName: 'D', awayTeamLogo: '', homeGoals: 1, awayGoals: 1 },
+            { fixtureId: 'h5', leagueId: '61', date: '2026-02-05T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '14', awayTeamName: 'E', awayTeamLogo: '', homeGoals: 4, awayGoals: 0 },
+            { fixtureId: 'h6', leagueId: '61', date: '2026-02-06T12:00:00.000Z', status: 'finished', homeTeamId: '15', homeTeamName: 'F', homeTeamLogo: '', awayTeamId: '1', awayTeamName: 'Home', awayTeamLogo: '', homeGoals: 2, awayGoals: 2 },
+            { fixtureId: 'h7', leagueId: '61', date: '2026-02-07T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '16', awayTeamName: 'G', awayTeamLogo: '', homeGoals: 1, awayGoals: 0 },
+          ];
+
           return {
             ...baseResult,
-            data: [
-              { fixtureId: 'h1', leagueId: '61', date: '2026-02-01T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '10', awayTeamName: 'A', awayTeamLogo: '', homeGoals: 2, awayGoals: 1 },
-              { fixtureId: 'h2', leagueId: '61', date: '2026-02-02T12:00:00.000Z', status: 'finished', homeTeamId: '11', homeTeamName: 'B', homeTeamLogo: '', awayTeamId: '1', awayTeamName: 'Home', awayTeamLogo: '', homeGoals: 0, awayGoals: 3 },
-              { fixtureId: 'h3', leagueId: '61', date: '2026-02-03T12:00:00.000Z', status: 'upcoming', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '12', awayTeamName: 'C', awayTeamLogo: '', homeGoals: null, awayGoals: null },
-              { fixtureId: 'h4', leagueId: '999', date: '2026-02-04T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '13', awayTeamName: 'D', awayTeamLogo: '', homeGoals: 1, awayGoals: 1 },
-              { fixtureId: 'h5', leagueId: '61', date: '2026-02-05T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '14', awayTeamName: 'E', awayTeamLogo: '', homeGoals: 4, awayGoals: 0 },
-              { fixtureId: 'h6', leagueId: '61', date: '2026-02-06T12:00:00.000Z', status: 'finished', homeTeamId: '15', homeTeamName: 'F', homeTeamLogo: '', awayTeamId: '1', awayTeamName: 'Home', awayTeamLogo: '', homeGoals: 2, awayGoals: 2 },
-              { fixtureId: 'h7', leagueId: '61', date: '2026-02-07T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '16', awayTeamName: 'G', awayTeamLogo: '', homeGoals: 1, awayGoals: 0 },
-            ],
+            data: {
+              all: rows,
+              upcoming: rows.filter(row => row.status === 'upcoming'),
+              live: [],
+              past: rows.filter(row => row.status === 'finished'),
+            },
           } as never;
         }
 
+        const rows = [
+          { fixtureId: 'a1', leagueId: '61', date: '2026-02-07T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '21', awayTeamName: 'AA', awayTeamLogo: '', homeGoals: 1, awayGoals: 0 },
+          { fixtureId: 'a2', leagueId: '61', date: '2026-02-06T12:00:00.000Z', status: 'finished', homeTeamId: '22', homeTeamName: 'BB', homeTeamLogo: '', awayTeamId: '2', awayTeamName: 'Away', awayTeamLogo: '', homeGoals: 1, awayGoals: 1 },
+          { fixtureId: 'a3', leagueId: '61', date: '2026-02-05T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '23', awayTeamName: 'CC', awayTeamLogo: '', homeGoals: 0, awayGoals: 2 },
+          { fixtureId: 'a4', leagueId: '61', date: '2026-02-04T12:00:00.000Z', status: 'finished', homeTeamId: '24', homeTeamName: 'DD', homeTeamLogo: '', awayTeamId: '2', awayTeamName: 'Away', awayTeamLogo: '', homeGoals: 3, awayGoals: 4 },
+          { fixtureId: 'a5', leagueId: '61', date: '2026-02-03T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '25', awayTeamName: 'EE', awayTeamLogo: '', homeGoals: 2, awayGoals: 2 },
+        ];
+
         return {
           ...baseResult,
-          data: [
-            { fixtureId: 'a1', leagueId: '61', date: '2026-02-07T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '21', awayTeamName: 'AA', awayTeamLogo: '', homeGoals: 1, awayGoals: 0 },
-            { fixtureId: 'a2', leagueId: '61', date: '2026-02-06T12:00:00.000Z', status: 'finished', homeTeamId: '22', homeTeamName: 'BB', homeTeamLogo: '', awayTeamId: '2', awayTeamName: 'Away', awayTeamLogo: '', homeGoals: 1, awayGoals: 1 },
-            { fixtureId: 'a3', leagueId: '61', date: '2026-02-05T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '23', awayTeamName: 'CC', awayTeamLogo: '', homeGoals: 0, awayGoals: 2 },
-            { fixtureId: 'a4', leagueId: '61', date: '2026-02-04T12:00:00.000Z', status: 'finished', homeTeamId: '24', homeTeamName: 'DD', homeTeamLogo: '', awayTeamId: '2', awayTeamName: 'Away', awayTeamLogo: '', homeGoals: 3, awayGoals: 4 },
-            { fixtureId: 'a5', leagueId: '61', date: '2026-02-03T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '25', awayTeamName: 'EE', awayTeamLogo: '', homeGoals: 2, awayGoals: 2 },
-          ],
+          data: {
+            all: rows,
+            upcoming: [],
+            live: [],
+            past: rows,
+          },
         } as never;
       }
 
