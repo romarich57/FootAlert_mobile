@@ -264,6 +264,7 @@ function pickTeamIdsFromFixture(fixture: ApiFootballFixtureDto | null): {
 
 function toTabDefinitions(
   lifecycleState: MatchLifecycleState,
+  hasTimeline: boolean,
   hasLineups: boolean,
   hasStandings: boolean,
   hasStatistics: boolean,
@@ -278,14 +279,14 @@ function toTabDefinitions(
     },
   ];
 
-  if (lifecycleState !== 'pre_match') {
+  if (lifecycleState !== 'pre_match' && hasTimeline) {
     tabs.push({
       key: 'timeline',
       label: t('matchDetails.tabs.timeline'),
     });
   }
 
-  if (lifecycleState !== 'pre_match' || hasLineups) {
+  if (hasLineups) {
     tabs.push({
       key: 'lineups',
       label: t('matchDetails.tabs.lineups'),
@@ -456,6 +457,7 @@ export function useMatchDetailsScreenModel() {
     queryFn: ({ signal }) =>
       fetchFixtureHeadToHead({
         fixtureId: safeMatchId ?? '',
+        last: 20,
         timezone,
         signal,
       }),
@@ -611,10 +613,24 @@ export function useMatchDetailsScreenModel() {
     ],
   );
 
-  const hasPreMatchLineups = useMemo(
-    () => resolvedLineups.data.length > 0,
+  const hasLineupsData = useMemo(
+    () =>
+      resolvedLineups.data.some(rawEntry => {
+        const entry = toRawRecord(rawEntry);
+        if (!entry) {
+          return false;
+        }
+
+        const startXI = toArray(entry.startXI);
+        const substitutes = toArray(entry.substitutes);
+        const coach = toRawRecord(entry.coach);
+        const coachName = toText(coach?.name);
+
+        return startXI.length > 0 || substitutes.length > 0 || coachName.length > 0;
+      }),
     [resolvedLineups.data],
   );
+  const hasTimelineData = resolvedEvents.data.length > 0;
 
   const statsRowsByPeriod = useMemo<StatRowsByPeriod>(
     () => ({
@@ -641,8 +657,16 @@ export function useMatchDetailsScreenModel() {
   const hasStatistics = statsAvailablePeriods.length > 0;
 
   const tabs = useMemo(
-    () => toTabDefinitions(lifecycleState, hasPreMatchLineups, hasStandings, hasStatistics, t),
-    [hasPreMatchLineups, hasStandings, hasStatistics, lifecycleState, t],
+    () =>
+      toTabDefinitions(
+        lifecycleState,
+        hasTimelineData,
+        hasLineupsData,
+        hasStandings,
+        hasStatistics,
+        t,
+      ),
+    [hasLineupsData, hasStandings, hasStatistics, hasTimelineData, lifecycleState, t],
   );
 
   useEffect(() => {

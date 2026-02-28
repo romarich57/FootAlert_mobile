@@ -162,9 +162,7 @@ export function MatchDetailsTabContent({
           onRefreshLineups={onRefreshLineups}
           isLineupsRefetching={isLineupsRefetching}
           hasLineupsError={datasetErrors?.lineups === true}
-          hasAbsencesError={datasetErrors?.absences === true}
           lineupsErrorReason={datasetErrorReasons?.lineups}
-          absencesErrorReason={datasetErrorReasons?.absences}
           lineupsDataSource={dataSources?.lineups}
         />
       );

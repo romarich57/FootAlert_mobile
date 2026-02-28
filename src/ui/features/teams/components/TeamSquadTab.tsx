@@ -179,7 +179,7 @@ function buildFeedItems(
 
     const rows: SquadFeedItem[] = rolePlayers.map(player => ({
       type: 'player',
-      key: `player-${player.playerId}`,
+      key: `player-${role}-${player.playerId}`,
       player,
     }));
 

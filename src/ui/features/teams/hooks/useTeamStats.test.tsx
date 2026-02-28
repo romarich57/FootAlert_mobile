@@ -46,6 +46,12 @@ type CapturedQueryConfig = {
   queryFn?: (context: { signal?: AbortSignal }) => Promise<unknown>;
 };
 
+function createAbortError(message = 'aborted'): Error {
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
+}
+
 describe('useTeamStats', () => {
   let capturedQueryConfig: CapturedQueryConfig | null = null;
 
@@ -120,5 +126,30 @@ describe('useTeamStats', () => {
     expect(queryFn).toBeDefined();
 
     await expect(queryFn?.({ signal: undefined } as never)).rejects.toThrow('stats failed');
+  });
+
+  it('rethrows abort errors instead of committing partial stats', async () => {
+    mockedFetchTeamStatistics.mockResolvedValue({ fixtures: {} } as never);
+    mockedFetchLeagueStandings.mockResolvedValue({ league: { standings: [] } } as never);
+    mockedFetchTeamPlayers.mockRejectedValue(createAbortError());
+    mockedFetchTeamAdvancedStats.mockResolvedValue(null as never);
+
+    mockedMapStandingsToTeamData.mockReturnValue({ groups: [] } as never);
+    mockedMapPlayersToTopPlayers.mockReturnValue([]);
+    mockedMapPlayersToTopPlayersByCategory.mockReturnValue({ ratings: [], scorers: [], assisters: [] } as never);
+
+    useTeamStats({
+      teamId: '529',
+      leagueId: '140',
+      season: 2025,
+    });
+
+    const queryFn = capturedQueryConfig?.queryFn;
+    expect(queryFn).toBeDefined();
+
+    await expect(queryFn?.({ signal: undefined } as never)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(mockedMapTeamStatisticsToStats).not.toHaveBeenCalled();
   });
 });

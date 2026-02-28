@@ -59,6 +59,20 @@ const EMPTY_TEAM_STATS: TeamStatsData = {
   topPlayers: [],
 };
 
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function findAbortError(results: ReadonlyArray<PromiseSettledResult<unknown>>): Error | null {
+  for (const result of results) {
+    if (result.status === 'rejected' && isAbortError(result.reason)) {
+      return result.reason;
+    }
+  }
+
+  return null;
+}
+
 type FetchTeamStatsDataParams = {
   teamId: string;
   leagueId: string | null;
@@ -121,6 +135,16 @@ export async function fetchTeamStatsData({
       fetchAllTeamPlayers(teamId, leagueId, season, signal),
       fetchTeamAdvancedStats(leagueId, season, teamId, signal),
     ]);
+
+  const abortedError = findAbortError([
+    statisticsResult,
+    standingsResult,
+    playersResult,
+    advancedStatsResult,
+  ]);
+  if (abortedError) {
+    throw abortedError;
+  }
 
   const statisticsPayload = statisticsResult.status === 'fulfilled' ? statisticsResult.value : null;
   const standingsPayload = standingsResult.status === 'fulfilled' ? standingsResult.value : null;

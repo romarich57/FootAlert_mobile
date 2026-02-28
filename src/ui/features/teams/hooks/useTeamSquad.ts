@@ -20,6 +20,7 @@ export function useTeamSquad({ teamId, enabled = true }: UseTeamSquadParams) {
   return useQuery({
     queryKey: queryKeys.teams.squad(teamId),
     enabled: enabled && Boolean(teamId),
+    placeholderData: previousData => previousData,
     ...featureQueryOptions.teams.squad,
     queryFn: async ({ signal }): Promise<TeamSquadData> => {
       if (!teamId) {

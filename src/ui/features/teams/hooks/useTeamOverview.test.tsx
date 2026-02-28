@@ -80,6 +80,12 @@ type CapturedQueryConfig = {
   queryFn?: (context: { signal?: AbortSignal }) => Promise<unknown>;
 };
 
+function createAbortError(message = 'aborted'): Error {
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
+}
+
 function createStandingRow(rank: number, teamId: string, isTargetTeam: boolean): TeamStandingRow {
   return {
     rank,
@@ -450,6 +456,57 @@ describe('useTeamOverview', () => {
     expect(queryFn).toBeDefined();
 
     await expect(queryFn?.({ signal: undefined } as never)).rejects.toThrow('fixtures failed');
+  });
+
+  it('rethrows abort errors instead of returning partial payload', async () => {
+    const abortError = createAbortError();
+    mockedFetchTeamPlayers.mockRejectedValue(abortError);
+
+    renderHook(() =>
+      useTeamOverview({
+        teamId: '529',
+        leagueId: '140',
+        season: 2025,
+        timezone: 'Europe/Paris',
+        competitionSeasons: [2024, 2023],
+      }),
+    );
+
+    const queryFn = capturedQueryConfig?.queryFn;
+    expect(queryFn).toBeDefined();
+
+    await expect(queryFn?.({ signal: undefined } as never)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(mockedMapTeamStatisticsToStats).not.toHaveBeenCalled();
+  });
+
+  it('rethrows abort errors from standing history requests', async () => {
+    const abortError = createAbortError('history aborted');
+    mockedFetchLeagueStandings.mockImplementation(async (_leagueId, season) => {
+      if (season === 2024) {
+        throw abortError;
+      }
+
+      return { season } as never;
+    });
+
+    renderHook(() =>
+      useTeamOverview({
+        teamId: '529',
+        leagueId: '140',
+        season: 2025,
+        timezone: 'Europe/Paris',
+        competitionSeasons: [2024, 2023],
+      }),
+    );
+
+    const queryFn = capturedQueryConfig?.queryFn;
+    expect(queryFn).toBeDefined();
+
+    await expect(queryFn?.({ signal: undefined } as never)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
   });
 
   it('builds mini standing correctly when target is first', async () => {

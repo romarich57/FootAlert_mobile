@@ -222,7 +222,7 @@ describe('MatchLineupsTab', () => {
     expect(screen.getByText(i18n.t('matchDetails.states.fallbackSource'))).toBeTruthy();
   });
 
-  it('shows endpoint-unavailable absences note when absences endpoint returns 404', () => {
+  it('hides absences section and error note when absences data is unavailable', () => {
     renderWithAppProviders(
       <MatchDetailsTabContent
         activeTab="lineups"
@@ -257,6 +257,7 @@ describe('MatchLineupsTab', () => {
       />,
     );
 
-    expect(screen.getByText(i18n.t('matchDetails.states.datasetErrorsUnsupported.absences'))).toBeTruthy();
+    expect(screen.queryByText(i18n.t('matchDetails.lineups.absencesDetailedTitle'))).toBeNull();
+    expect(screen.queryByText(i18n.t('matchDetails.states.datasetErrorsUnsupported.absences'))).toBeNull();
   });
 });

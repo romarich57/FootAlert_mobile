@@ -198,8 +198,6 @@ describe('useMatchDetailsScreenModel', () => {
     expect(result.current.tabs[0].label).toBe(i18n.t('matchDetails.tabs.summary'));
     expect(result.current.tabs.map(tab => tab.key)).toEqual([
       'primary',
-      'timeline',
-      'lineups',
       'faceOff',
     ]);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
@@ -219,10 +217,95 @@ describe('useMatchDetailsScreenModel', () => {
     expect(result.current.lifecycleState).toBe('finished');
     expect(result.current.tabs.map(tab => tab.key)).toEqual([
       'primary',
-      'timeline',
-      'lineups',
       'faceOff',
     ]);
+  });
+
+  it('shows timeline tab when events data is available', () => {
+    fixtureStatusShort = '2H';
+    fixtureStatusLong = 'Second Half';
+    fixtureElapsed = 67;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: {
+            league: {
+              standings: [],
+            },
+          },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'events') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              type: 'Goal',
+              detail: 'Normal Goal',
+              team: { id: 1 },
+              player: { name: 'Scorer' },
+              time: { elapsed: 12, extra: null },
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      if (
+        key[2] === 'statistics' ||
+        key[2] === 'lineups' ||
+        key[2] === 'absences' ||
+        key[2] === 'team_players_stats'
+      ) {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'timeline', 'faceOff']);
   });
 
   it('does not build lineups from players stats when lineups endpoint is empty', () => {
@@ -688,8 +771,6 @@ describe('useMatchDetailsScreenModel', () => {
 
     expect(result.current.tabs.map(tab => tab.key)).toEqual([
       'primary',
-      'timeline',
-      'lineups',
       'stats',
       'faceOff',
     ]);

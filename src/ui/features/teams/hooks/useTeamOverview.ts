@@ -89,6 +89,20 @@ function asFiniteNumber(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function findAbortError(results: ReadonlyArray<PromiseSettledResult<unknown>>): Error | null {
+  for (const result of results) {
+    if (result.status === 'rejected' && isAbortError(result.reason)) {
+      return result.reason;
+    }
+  }
+
+  return null;
+}
+
 function resolvePlayerLineCategory(position: string | null | undefined): PlayerLineCategory {
   const normalized = (position ?? '').trim().toLowerCase();
   if (!normalized) {
@@ -339,6 +353,7 @@ export function useTeamOverview({
   return useQuery({
     queryKey: queryKeys.teams.overview(teamId, leagueId, season, timezone, historySeasonsKey),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
+    placeholderData: previousData => previousData,
     ...featureQueryOptions.teams.overview,
     queryFn: async ({ signal }): Promise<TeamOverviewData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {
@@ -370,6 +385,19 @@ export function useTeamOverview({
         fetchTeamSquad(teamId, signal),
         fetchTeamTrophies(teamId, signal),
       ]);
+
+      const abortedError = findAbortError([
+        fixturesResult,
+        nextFixtureResult,
+        standingsResult,
+        statsResult,
+        playersResult,
+        squadResult,
+        trophiesResult,
+      ]);
+      if (abortedError) {
+        throw abortedError;
+      }
 
       const coreUnavailable =
         fixturesResult.status === 'rejected' &&
@@ -432,6 +460,11 @@ export function useTeamOverview({
           return fetchLeagueStandings(leagueId, historySeason, signal);
         }),
       );
+
+      const historyAbortedError = findAbortError(standingsHistoryResults);
+      if (historyAbortedError) {
+        throw historyAbortedError;
+      }
 
       const standingHistory = historySeasons.map((historySeason, index) => {
         const historyPayload = standingsHistoryResults[index];

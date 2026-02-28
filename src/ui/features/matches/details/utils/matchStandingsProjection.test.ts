@@ -77,7 +77,7 @@ describe('applyLiveStandingsProjection', () => {
 
     const projected = applyLiveStandingsProjection({
       rows,
-      lifecycleState: 'finished',
+      lifecycleState: 'pre_match',
       fixture: baseFixture,
       homeTeamId: '2',
       awayTeamId: '3',

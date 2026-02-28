@@ -18,7 +18,7 @@ import {
   fetchTeamStandingsData,
   useTeamStandings,
 } from '@ui/features/teams/hooks/useTeamStandings';
-import { fetchTeamStatsData, useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
+import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
 import { useTeamTrophies } from '@ui/features/teams/hooks/useTeamTrophies';
 import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
@@ -173,55 +173,28 @@ export function useTeamDetailsScreenModel() {
     }
 
     const shouldPrefetchStandings = !visitedTabs.standings;
-    const shouldPrefetchStats = !visitedTabs.stats;
-    if (!shouldPrefetchStandings && !shouldPrefetchStats) {
+    if (!shouldPrefetchStandings) {
       return;
     }
 
-    const timers: Array<ReturnType<typeof setTimeout>> = [];
-
-    if (shouldPrefetchStandings) {
-      timers.push(
-        setTimeout(() => {
-          queryClient
-            .prefetchQuery({
-              queryKey: queryKeys.teams.standings(teamId, selectedLeagueId, selectedSeason),
-              ...featureQueryOptions.teams.standings,
-              queryFn: ({ signal }) =>
-                fetchTeamStandingsData({
-                  teamId,
-                  leagueId: selectedLeagueId,
-                  season: selectedSeason,
-                  signal,
-                }),
-            })
-            .catch(() => undefined);
-        }, 150),
-      );
-    }
-
-    if (shouldPrefetchStats) {
-      timers.push(
-        setTimeout(() => {
-          queryClient
-            .prefetchQuery({
-              queryKey: queryKeys.teams.stats(teamId, selectedLeagueId, selectedSeason),
-              ...featureQueryOptions.teams.stats,
-              queryFn: ({ signal }) =>
-                fetchTeamStatsData({
-                  teamId,
-                  leagueId: selectedLeagueId,
-                  season: selectedSeason,
-                  signal,
-                }),
-            })
-            .catch(() => undefined);
-        }, 550),
-      );
-    }
+    const timer = setTimeout(() => {
+      queryClient
+        .prefetchQuery({
+          queryKey: queryKeys.teams.standings(teamId, selectedLeagueId, selectedSeason),
+          ...featureQueryOptions.teams.standings,
+          queryFn: ({ signal }) =>
+            fetchTeamStandingsData({
+              teamId,
+              leagueId: selectedLeagueId,
+              season: selectedSeason,
+              signal,
+            }),
+        })
+        .catch(() => undefined);
+    }, 150);
 
     return () => {
-      timers.forEach(timer => clearTimeout(timer));
+      clearTimeout(timer);
     };
   }, [
     isContextError,
@@ -231,7 +204,6 @@ export function useTeamDetailsScreenModel() {
     selectedSeason,
     teamId,
     visitedTabs.standings,
-    visitedTabs.stats,
   ]);
 
   useEffect(() => {

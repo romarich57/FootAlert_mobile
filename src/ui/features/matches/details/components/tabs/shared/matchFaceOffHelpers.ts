@@ -88,10 +88,11 @@ export function parseH2HFixtures(
   for (const item of raw) {
     const parsed = parseRawFixture(item);
     if (!parsed) continue;
-    fixtures.push(parsed);
-
     const { homeTeamId, homeGoals, awayGoals } = parsed;
+    // Exclure les matchs non joués / à venir dans l'historique H2H.
     if (homeGoals === null || awayGoals === null) continue;
+
+    fixtures.push(parsed);
 
     if (homeGoals === awayGoals) {
       draws++;

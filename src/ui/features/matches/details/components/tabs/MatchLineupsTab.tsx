@@ -21,9 +21,7 @@ type MatchLineupsTabProps = {
   onRefreshLineups?: () => void;
   isLineupsRefetching?: boolean;
   hasLineupsError?: boolean;
-  hasAbsencesError?: boolean;
   lineupsErrorReason?: MatchDetailsDatasetErrorReason;
-  absencesErrorReason?: MatchDetailsDatasetErrorReason;
   lineupsDataSource?: 'query' | 'fixture_fallback' | 'none';
 };
 
@@ -111,8 +109,6 @@ function normalizeAbsence(absence: MatchLineupAbsence | string): MatchLineupAbse
 
   return absence;
 }
-
-// Removed normalizeAbsence helper
 
 function resolvePositionLabel(position: string | null | undefined, t: (key: string) => string): string {
   switch (position) {
@@ -384,18 +380,18 @@ function FinishedAbsenceColumn({
   t: (key: string) => string;
 }) {
   if (team.absences.length === 0) {
-    return <Text style={styles.newsText}>{t('matchDetails.values.unavailable')}</Text>;
+    return null;
   }
 
   return (
     <View style={styles.lineupColumnList}>
-      {team.absences.map(rawAbsence => {
+      {team.absences.map((rawAbsence, index) => {
         const absence = normalizeAbsence(rawAbsence);
         const reason = toText(absence.reason, t('matchDetails.values.unavailable'));
         const status = toText(absence.status, '');
 
         return (
-          <View key={`${team.teamId}-absence-${absence.id ?? absence.name}`} style={styles.rosterRow}>
+          <View key={`${team.teamId}-absence-${absence.id ?? absence.name}-${index}`} style={styles.rosterRow}>
             <Text style={styles.rosterName} numberOfLines={1}>
               {absence.name}
             </Text>
@@ -446,6 +442,7 @@ function FinishedLineups({
   const teams = lineupTeams.slice(0, 2);
   const homeTeam = teams[0];
   const awayTeam = teams[1];
+  const hasAbsencesData = teams.some(team => team.absences.length > 0);
 
   return (
     <>
@@ -490,17 +487,19 @@ function FinishedLineups({
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{t('matchDetails.lineups.absencesDetailedTitle')}</Text>
-        <View style={styles.lineupTwoColumnsWrap}>
-          {teams.map(team => (
-            <View key={`absences-${team.teamId}`} style={styles.lineupColumn}>
-              <TeamColumnLabel styles={styles} team={team} />
-              <FinishedAbsenceColumn styles={styles} team={team} t={t} />
-            </View>
-          ))}
+      {hasAbsencesData ? (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t('matchDetails.lineups.absencesDetailedTitle')}</Text>
+          <View style={styles.lineupTwoColumnsWrap}>
+            {teams.map(team => (
+              <View key={`absences-${team.teamId}`} style={styles.lineupColumn}>
+                <TeamColumnLabel styles={styles} team={team} />
+                <FinishedAbsenceColumn styles={styles} team={team} t={t} />
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <View style={styles.card}>
         <FinishedLegend styles={styles} t={t} />
@@ -516,9 +515,7 @@ export function MatchLineupsTab({
   onRefreshLineups,
   isLineupsRefetching,
   hasLineupsError = false,
-  hasAbsencesError = false,
   lineupsErrorReason = 'none',
-  absencesErrorReason = 'none',
   lineupsDataSource,
 }: MatchLineupsTabProps) {
   const { t } = useTranslation();
@@ -530,10 +527,6 @@ export function MatchLineupsTab({
       : hasLineupsError
         ? 'matchDetails.states.datasetErrors.lineups'
         : 'matchDetails.values.unavailable';
-  const absencesErrorKey =
-    absencesErrorReason === 'endpoint_not_available'
-      ? 'matchDetails.states.datasetErrorsUnsupported.absences'
-      : 'matchDetails.states.datasetErrors.absences';
 
   return (
     <View style={styles.content}>
@@ -562,12 +555,6 @@ export function MatchLineupsTab({
       {lineupTeams.length > 0 && lineupsDataSource === 'fixture_fallback' ? (
         <View style={styles.card}>
           <Text style={styles.newsText}>{t('matchDetails.states.fallbackSource')}</Text>
-        </View>
-      ) : null}
-
-      {lineupTeams.length > 0 && hasAbsencesError ? (
-        <View style={styles.card}>
-          <Text style={styles.newsText}>{t(absencesErrorKey)}</Text>
         </View>
       ) : null}
 

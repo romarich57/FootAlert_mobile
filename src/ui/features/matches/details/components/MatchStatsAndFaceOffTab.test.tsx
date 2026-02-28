@@ -316,4 +316,37 @@ describe('MatchStatsTab and faceOff placeholder', () => {
 
     expect(screen.getAllByText('League 1').length).toBeGreaterThan(1);
   });
+
+  it('does not show upcoming h2h fixtures with missing score in history list', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        {...baseProps}
+        activeTab="faceOff"
+        headToHead={[
+          {
+            fixture: { id: 1, date: '2026-03-10T20:00:00Z' },
+            league: { id: 10, name: 'Upcoming League' },
+            teams: {
+              home: { id: 1, name: 'Home', logo: '' },
+              away: { id: 2, name: 'Away', logo: '' },
+            },
+            goals: { home: null, away: null },
+          },
+          {
+            fixture: { id: 2, date: '2026-01-10T20:00:00Z' },
+            league: { id: 20, name: 'Played League' },
+            teams: {
+              home: { id: 1, name: 'Home', logo: '' },
+              away: { id: 2, name: 'Away', logo: '' },
+            },
+            goals: { home: 2, away: 1 },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Played League')).toBeTruthy();
+    expect(screen.queryByText('Upcoming League')).toBeNull();
+    expect(screen.queryByText('- - -')).toBeNull();
+  });
 });

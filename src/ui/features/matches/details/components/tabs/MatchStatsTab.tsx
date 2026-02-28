@@ -141,13 +141,6 @@ export function MatchStatsTab({
         ))}
 
       </View>
-
-      {visibleStats.length > 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{t('matchDetails.stats.shotMapTitle')}</Text>
-          <Text style={styles.newsText}>{t('matchDetails.stats.shotMapPlaceholder')}</Text>
-        </View>
-      ) : null}
     </View>
   );
 }
