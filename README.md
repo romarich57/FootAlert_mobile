@@ -182,6 +182,22 @@ npm run storybook:android
 
 Guide Storybook React Native: `docs/mobile/storybook-react-native.md`.
 
+## E2E mobile Match Details (Maestro)
+
+Les flows Maestro pour `Match Details` sont dans `.maestro/`:
+
+- `match-details-summary-flow.yaml` (données complètes)
+- `match-details-empty-blocks-flow.yaml` (blocs optionnels absents)
+- `match-details-error-flow.yaml` (erreur BFF visible)
+
+Le workflow CI `.github/workflows/mobile-e2e-match-details.yml` lance ces flows avec un stub BFF déterministe local:
+
+```bash
+npm run e2e:mobile:bff-stub
+```
+
+Puis l'app Android est lancée et testée via Maestro.
+
 ## Performance runtime (Hermes + cold-start)
 
 - Hermes est activé côté Android (`android/gradle.properties`) et iOS (`ios/Mobile_Foot.xcodeproj/project.pbxproj`).

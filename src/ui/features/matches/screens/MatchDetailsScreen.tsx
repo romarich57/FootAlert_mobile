@@ -63,7 +63,7 @@ export function MatchDetailsScreen() {
 
   if (!model.safeMatchId) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loadingContainer} testID="match-details-error">
         <Text style={styles.infoText}>{t('matchDetails.states.error')}</Text>
       </View>
     );
@@ -71,7 +71,7 @@ export function MatchDetailsScreen() {
 
   if (model.isInitialLoading && !model.fixture) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loadingContainer} testID="match-details-loading">
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.infoText}>{t('matchDetails.states.loading')}</Text>
       </View>
@@ -80,9 +80,9 @@ export function MatchDetailsScreen() {
 
   if (model.isInitialError && !model.fixture) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loadingContainer} testID="match-details-error">
         <Text style={styles.infoText}>{t('matchDetails.states.error')}</Text>
-        <Pressable onPress={model.onRetryAll}>
+        <Pressable testID="match-details-retry" onPress={model.onRetryAll}>
           <Text style={styles.retryText}>{t('actions.retry')}</Text>
         </Pressable>
       </View>
@@ -91,14 +91,19 @@ export function MatchDetailsScreen() {
 
   if (!model.fixture) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loadingContainer} testID="match-details-error">
         <Text style={styles.infoText}>{t('matchDetails.states.error')}</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.screen} stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      testID="match-details-screen"
+      style={styles.screen}
+      stickyHeaderIndices={[1]}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.headerWrap}>
         <MatchDetailsHeader
           fixture={model.fixture}

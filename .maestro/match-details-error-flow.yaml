@@ -1,0 +1,9 @@
+appId: com.footalert.app
+---
+- launchApp:
+    clearState: true
+- openLink: footalert://match/999
+- assertVisible:
+    id: match-details-error
+- assertVisible:
+    id: match-details-retry

@@ -63,6 +63,7 @@ export function MatchDetailsTabs({ tabs, activeTab, onChangeTab }: MatchDetailsT
           return (
             <Pressable
               key={tab.key}
+              testID={`match-details-tab-${tab.key}`}
               accessibilityRole="button"
               accessibilityState={{ selected: isActive }}
               accessibilityLabel={tab.label}

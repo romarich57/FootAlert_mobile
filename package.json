@@ -12,6 +12,7 @@
     "storybook": "npm run storybook:generate && STORYBOOK_ENABLED=true react-native start --reset-cache",
     "storybook:ios": "npm run storybook:generate && STORYBOOK_ENABLED=true react-native run-ios",
     "storybook:android": "npm run storybook:generate && STORYBOOK_ENABLED=true react-native run-android",
+    "e2e:mobile:bff-stub": "node scripts/e2e/mobile-bff-stub.mjs",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "check:keys": "bash scripts/quality/check-no-index-keys.sh",

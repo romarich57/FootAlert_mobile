@@ -34,5 +34,20 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Tests
-        run: npm run test -- --test-concurrency=1
+      - name: Refresh route catalog
+        run: npm run routes:catalog
+
+      - name: Route suites
+        run: npm run test:routes
+
+      - name: Route file-size gates
+        run: npm run routes:line-limits
+
+      - name: BFF black-box E2E
+        run: npm run test:e2e:bff
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Coverage critical gates
+        run: npm run coverage:critical

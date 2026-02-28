@@ -1,0 +1,314 @@
+[
+  {
+    "method": "GET",
+    "path": "/health",
+    "critical": false,
+    "testFile": "test/server.crosscutting.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/capabilities",
+    "critical": false,
+    "testFile": "test/server.crosscutting.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/search",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/standings",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/matches",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/player-stats",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/transfers",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/events",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/statistics",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/lineups",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/head-to-head",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/predictions",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/players/:teamId/stats",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/absences",
+    "critical": true,
+    "testFile": "test/routes/matches.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/standings",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/leagues",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/fixtures",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/next-fixture",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/standings",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/stats",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/squad",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/advanced-stats",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/players",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/transfers",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/trophies",
+    "critical": false,
+    "testFile": "test/routes/teams.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/events",
+    "critical": true,
+    "testFile": "test/routes/telemetry.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/events/batch",
+    "critical": true,
+    "testFile": "test/routes/telemetry.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/errors",
+    "critical": true,
+    "testFile": "test/routes/telemetry.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/errors/batch",
+    "critical": true,
+    "testFile": "test/routes/telemetry.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/breadcrumbs",
+    "critical": true,
+    "testFile": "test/routes/telemetry.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/breadcrumbs/batch",
+    "critical": true,
+    "testFile": "test/routes/telemetry.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/team/:teamId/fixtures",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/fixtures/:fixtureId/team/:teamId/stats",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/seasons",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/trophies",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/career",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/matches",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/search/teams",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/search/players",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/teams/:teamId",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/teams/:teamId/next-fixture",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/trends/teams",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/trends/players",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/players/:playerId/season/:season",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/tokens",
+    "critical": true,
+    "testFile": "test/routes/notifications.routes.test.ts"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/notifications/tokens/:token",
+    "critical": true,
+    "testFile": "test/routes/notifications.routes.test.ts"
+  }
+]

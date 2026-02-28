@@ -49,6 +49,28 @@ Coverage currently includes:
 - 5xx/502 normalization for upstream/API-Football failures.
 - Critical route contracts (`matches`, `competitions`, `teams`, `players`, `follows`).
 
+## Quality gates (routes, coverage, E2E)
+
+```bash
+npm run routes:catalog
+npm run test:routes
+npm run routes:line-limits
+npm run test:e2e:bff
+npm run test:coverage
+npm run coverage:critical
+```
+
+- `test/routes/**`: suites par domaine.
+- `test/route-contract.test.ts`: cohérence `buildServer` <-> `route-catalog` <-> `route-test-matrix`.
+- `coverage:critical`: gate globale `>=85%` + routes/fichiers critiques `>=95%`.
+
+Checklist convention:
+
+1. Toute nouvelle route doit apparaître dans `test/fixtures/route-catalog.json`.
+2. Toute nouvelle route doit être mappée dans `test/fixtures/route-test-matrix.json`.
+3. Toute nouvelle route doit avoir des tests domaine (succès, validation, erreur amont normalisée).
+4. Toute PR BFF doit passer `bff-quality.yml` avant merge.
+
 ## Staging smoke checks
 
 Use the same base URL as the mobile app:
@@ -84,7 +106,9 @@ Workflow: `.github/workflows/bff-staging.yml`.
 
 Required GitHub secrets:
 
-- `BFF_STAGING_DEPLOY_HOOK_URL`
+- `VPS_SSH_HOST`
+- `VPS_SSH_USERNAME`
+- `VPS_SSH_KEY`
 - `MOBILE_API_BASE_URL_STAGING`
 
 ## Exposed Routes

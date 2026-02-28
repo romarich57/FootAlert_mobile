@@ -14,6 +14,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "npm --prefix ../packages/app-core install --no-audit --no-fund && npm --prefix ../packages/app-core run build",
     "test": "node --import tsx --test test/**/*.test.ts",
+    "test:routes": "node --import tsx --test --test-concurrency=1 test/routes/**/*.test.ts test/server.crosscutting.test.ts test/route-contract.test.ts",
+    "test:e2e:bff": "node --import tsx --test --test-concurrency=1 test/e2e/**/*.test.ts",
+    "test:coverage": "c8 --reporter=text --reporter=json-summary --report-dir coverage node --import tsx --test --test-concurrency=1 test/**/*.test.ts",
+    "coverage:critical": "node scripts/quality/check-critical-coverage.mjs",
+    "routes:line-limits": "bash scripts/quality/check-route-line-limits.sh",
+    "routes:catalog": "node --import tsx scripts/quality/generate-route-catalog.mjs",
     "smoke:staging": "node scripts/smoke-staging.mjs"
   },
   "engines": {
@@ -29,6 +35,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.18.6",
+    "c8": "^10.1.3",
     "tsx": "^4.20.5",
     "typescript": "^5.8.3"
   }

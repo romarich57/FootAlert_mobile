@@ -124,7 +124,7 @@ export function MatchPrimaryTab({
   const postMatchSections = (postMatchTab?.sectionsOrdered ?? []).filter(section => section.isAvailable);
 
   return (
-    <View style={styles.content}>
+    <View style={styles.content} testID="match-primary-tab">
       {lifecycleState === 'pre_match' ? (
         <>
           <View style={styles.card}>
@@ -262,13 +262,13 @@ export function MatchPrimaryTab({
 
       {lifecycleState === 'finished' ? (
         <>
-          <View style={styles.card}>
+          <View style={styles.card} testID="match-summary-final">
             <Text style={styles.cardTitle}>{t('matchDetails.primary.finalSummaryTitle')}</Text>
             <Text style={styles.metricValue}>
               {homeTeamName} {matchScore} {awayTeamName}
             </Text>
             {homeScorers.length > 0 || awayScorers.length > 0 ? (
-              <View style={styles.postMatchScorersWrap}>
+              <View style={styles.postMatchScorersWrap} testID="match-summary-scorers">
                 <View style={styles.postMatchScorerColumn}>
                   <Text style={styles.postMatchScorerHeader}>{homeTeamName}</Text>
                   {homeScorers.map(scorer => {
@@ -333,7 +333,7 @@ export function MatchPrimaryTab({
           </View>
 
           {statRows.length > 0 || statsError ? (
-            <View style={styles.card}>
+            <View style={styles.card} testID="match-summary-stats">
               <Text style={styles.cardTitle}>{t('matchDetails.tabs.stats')}</Text>
               {statRows.length === 0 ? (
                 <Text style={styles.emptyText}>
@@ -357,7 +357,7 @@ export function MatchPrimaryTab({
           ) : null}
 
           {keyMomentsRows.length > 0 || eventsError ? (
-            <View style={styles.card}>
+            <View style={styles.card} testID="match-summary-key-moments">
               <Text style={styles.cardTitle}>{t('matchDetails.primary.keyMomentsTitle')}</Text>
               {keyMomentsRows.length === 0 ? (
                 <Text style={styles.emptyText}>
@@ -382,57 +382,62 @@ export function MatchPrimaryTab({
 
             if (section.id === 'venueWeather') {
               return (
-                <MatchVenueWeatherCard
-                  key={section.id}
-                  styles={styles}
-                  colors={colors}
-                  t={t}
-                  payload={section.payload}
-                />
+                <View key={section.id} testID="match-summary-section-venueWeather">
+                  <MatchVenueWeatherCard
+                    styles={styles}
+                    colors={colors}
+                    t={t}
+                    payload={section.payload}
+                  />
+                </View>
               );
             }
 
             if (section.id === 'competitionMeta') {
               return (
-                <MatchCompetitionMetaCard
-                  key={section.id}
-                  styles={styles}
-                  colors={colors}
-                  t={t}
-                  payload={section.payload}
-                />
+                <View key={section.id} testID="match-summary-section-competitionMeta">
+                  <MatchCompetitionMetaCard
+                    styles={styles}
+                    colors={colors}
+                    t={t}
+                    payload={section.payload}
+                  />
+                </View>
               );
             }
 
             if (section.id === 'standings') {
               return (
-                <MatchStandingsCard
-                  key={section.id}
-                  styles={styles}
-                  t={t}
-                  payload={section.payload}
-                />
+                <View key={section.id} testID="match-summary-section-standings">
+                  <MatchStandingsCard
+                    styles={styles}
+                    t={t}
+                    payload={section.payload}
+                  />
+                </View>
               );
             }
 
             if (section.id === 'recentResults') {
               return (
-                <MatchRecentResultsCard
-                  key={section.id}
-                  styles={styles}
-                  t={t}
-                  payload={section.payload}
-                />
+                <View key={section.id} testID="match-summary-section-recentResults">
+                  <MatchRecentResultsCard
+                    styles={styles}
+                    t={t}
+                    payload={section.payload}
+                  />
+                </View>
               );
             }
 
             return (
-              <MatchUpcomingMatchesCard
-                key={section.id}
-                styles={styles}
-                t={t}
-                payload={section.payload}
-              />
+              <View key={section.id} testID="match-summary-section-upcomingMatches">
+                <MatchUpcomingMatchesCard
+                  styles={styles}
+                  t={t}
+                  payload={section.payload}
+                />
+              </View>
             );
           })}
         </>

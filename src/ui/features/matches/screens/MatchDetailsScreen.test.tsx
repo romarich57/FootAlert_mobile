@@ -124,6 +124,7 @@ describe('MatchDetailsScreen', () => {
 
     renderWithAppProviders(<MatchDetailsScreen />);
 
+    expect(screen.getByTestId('match-details-loading')).toBeTruthy();
     expect(screen.getByText(i18n.t('matchDetails.states.loading'))).toBeTruthy();
   });
 
@@ -139,7 +140,8 @@ describe('MatchDetailsScreen', () => {
 
     renderWithAppProviders(<MatchDetailsScreen />);
 
-    fireEvent.press(screen.getByText(i18n.t('actions.retry')));
+    expect(screen.getByTestId('match-details-error')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('match-details-retry'));
     expect(onRetryAll).toHaveBeenCalled();
   });
 

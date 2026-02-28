@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 UI_LIMIT=350
 BFF_ROUTE_LIMIT=500
+BFF_REFACTORED_ROUTE_LIMIT=250
 
 violations=""
 
@@ -41,6 +42,17 @@ while IFS= read -r file; do
     append_violation "BFF_ROUTE" "$file" "$line_count" "$BFF_ROUTE_LIMIT"
   fi
 done < <(find footalert-bff/src/routes -type f -name '*.ts' | sort)
+
+while IFS= read -r file; do
+  case "$file" in
+    *.test.ts|*.spec.ts) continue ;;
+  esac
+
+  line_count="$(wc -l < "$file" | tr -d ' ')"
+  if (( line_count > BFF_REFACTORED_ROUTE_LIMIT )); then
+    append_violation "BFF_REFACTORED_ROUTE" "$file" "$line_count" "$BFF_REFACTORED_ROUTE_LIMIT"
+  fi
+done < <(find footalert-bff/src/routes/matches footalert-bff/src/routes/competitions -type f -name '*.ts' | sort)
 
 if [[ -n "$violations" ]]; then
   echo "File line limits exceeded:"

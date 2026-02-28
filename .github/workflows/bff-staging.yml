@@ -32,8 +32,23 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Integration tests (fastify.inject)
-        run: npm run test
+      - name: Refresh route catalog
+        run: npm run routes:catalog
+
+      - name: Route suites
+        run: npm run test:routes
+
+      - name: Route file-size gates
+        run: npm run routes:line-limits
+
+      - name: BFF black-box E2E
+        run: npm run test:e2e:bff
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Coverage critical gates
+        run: npm run coverage:critical
 
   deploy-staging:
     runs-on: ubuntu-latest

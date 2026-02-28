@@ -1,0 +1,210 @@
+[
+  {
+    "method": "GET",
+    "path": "/health"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/capabilities"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/search"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/standings"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/matches"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/player-stats"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/transfers"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/events"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/statistics"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/lineups"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/head-to-head"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/predictions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/players/:teamId/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/absences"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/standings"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/leagues"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/fixtures"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/next-fixture"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/standings"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/squad"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/advanced-stats"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/players"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/transfers"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/trophies"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/events"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/events/batch"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/errors"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/errors/batch"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/breadcrumbs"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/telemetry/breadcrumbs/batch"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/team/:teamId/fixtures"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/fixtures/:fixtureId/team/:teamId/stats"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/seasons"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/trophies"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/career"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/matches"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/search/teams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/search/players"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/teams/:teamId"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/teams/:teamId/next-fixture"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/trends/teams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/trends/players"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/players/:playerId/season/:season"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/tokens"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/notifications/tokens/:token"
+  }
+]

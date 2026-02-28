@@ -1,0 +1,19 @@
+appId: com.footalert.app
+---
+- launchApp:
+    clearState: true
+- openLink: footalert://match/202
+- assertVisible:
+    id: match-details-screen
+- assertVisible:
+    id: match-details-tab-primary
+- tapOn:
+    id: match-details-tab-primary
+- assertVisible:
+    id: match-summary-final
+- assertNotVisible:
+    id: match-summary-stats
+- assertNotVisible:
+    id: match-summary-key-moments
+- assertNotVisible:
+    id: match-summary-section-upcomingMatches
