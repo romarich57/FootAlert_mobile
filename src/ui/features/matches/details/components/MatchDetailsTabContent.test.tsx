@@ -6,6 +6,7 @@ import type {
   MatchDetailsTabKey,
 } from '@ui/features/matches/types/matches.types';
 import type { CompetitionsApiStandingDto } from '@ui/features/competitions/types/competitions.types';
+import i18n from '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 const fixture: ApiFootballFixtureDto = {
@@ -149,4 +150,41 @@ describe('MatchDetailsTabContent router', () => {
       }).not.toThrow();
     },
   );
+
+  it('renders only available pre-match sections on primary tab', () => {
+    const { getByText, queryByText } = renderWithAppProviders(
+      <MatchDetailsTabContent
+        {...baseProps}
+        lifecycleState="pre_match"
+        activeTab="primary"
+        preMatchTab={{
+          isLoading: false,
+          hasAnySection: true,
+          sectionsOrdered: [
+            {
+              id: 'winProbability',
+              order: 1,
+              isAvailable: true,
+              payload: {
+                homeTeamName: 'Home',
+                awayTeamName: 'Away',
+                home: '44%',
+                draw: '30%',
+                away: '26%',
+              },
+            },
+            {
+              id: 'standings',
+              order: 5,
+              isAvailable: false,
+              payload: null,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(getByText(i18n.t('matchDetails.preMatch.winProbability.title'))).toBeTruthy();
+    expect(queryByText(i18n.t('matchDetails.preMatch.standings.title'))).toBeNull();
+  });
 });

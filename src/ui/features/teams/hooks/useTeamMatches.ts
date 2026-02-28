@@ -28,7 +28,7 @@ export function useTeamMatches({
   timezone,
   enabled = true,
 }: UseTeamMatchesParams) {
-  return useQuery({
+  return useQuery<TeamMatchesData>({
     queryKey: queryKeys.teams.matches(teamId, leagueId, season, timezone),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
     ...featureQueryOptions.teams.matches,

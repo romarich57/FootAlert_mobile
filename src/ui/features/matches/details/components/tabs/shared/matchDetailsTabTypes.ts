@@ -1,5 +1,6 @@
 import type {
   ApiFootballFixtureDto,
+  MatchPreMatchTabViewModel,
   MatchDetailsTabKey,
   MatchLifecycleState,
   MatchLineupTeam,
@@ -101,6 +102,7 @@ export type MatchDetailsTabContentProps = {
   dataSources?: Partial<MatchDetailsDatasetSources>;
   statsRowsByPeriod?: StatRowsByPeriod;
   statsAvailablePeriods?: StatsPeriodFilter[];
+  preMatchTab?: MatchPreMatchTabViewModel;
 };
 
 export type RawRecord = Record<string, unknown>;

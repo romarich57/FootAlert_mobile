@@ -140,6 +140,7 @@ export function MatchDetailsScreen() {
           dataSources={model.dataSources}
           statsRowsByPeriod={model.statsRowsByPeriod}
           statsAvailablePeriods={model.statsAvailablePeriods}
+          preMatchTab={model.preMatchTab}
         />
       </View>
     </ScrollView>

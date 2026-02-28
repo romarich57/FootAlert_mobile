@@ -73,6 +73,33 @@ function findAbortError(results: ReadonlyArray<PromiseSettledResult<unknown>>): 
   return null;
 }
 
+function mergeTeamStatsData(
+  previousData: TeamStatsData | undefined,
+  nextData: TeamStatsData,
+): TeamStatsData {
+  if (!previousData) {
+    return nextData;
+  }
+
+  const hasNextTopPlayers = nextData.topPlayers.length > 0;
+  const hasNextCategoryPlayers =
+    nextData.topPlayersByCategory.ratings.length > 0 ||
+    nextData.topPlayersByCategory.scorers.length > 0 ||
+    nextData.topPlayersByCategory.assisters.length > 0;
+  const hasNextComparisonMetrics = nextData.comparisonMetrics.length > 0;
+  const hasNextGoalBreakdown = nextData.goalBreakdown.length > 0;
+
+  return {
+    ...nextData,
+    topPlayers: hasNextTopPlayers ? nextData.topPlayers : previousData.topPlayers,
+    topPlayersByCategory: hasNextCategoryPlayers
+      ? nextData.topPlayersByCategory
+      : previousData.topPlayersByCategory,
+    comparisonMetrics: hasNextComparisonMetrics ? nextData.comparisonMetrics : previousData.comparisonMetrics,
+    goalBreakdown: hasNextGoalBreakdown ? nextData.goalBreakdown : previousData.goalBreakdown,
+  };
+}
+
 type FetchTeamStatsDataParams = {
   teamId: string;
   leagueId: string | null;
@@ -195,6 +222,8 @@ export function useTeamStats({
     queryKey: queryKeys.teams.stats(teamId, leagueId, season),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
     placeholderData: previousData => previousData,
+    structuralSharing: (oldData, newData) =>
+      mergeTeamStatsData(oldData as TeamStatsData | undefined, newData as TeamStatsData),
     ...featureQueryOptions.teams.stats,
     queryFn: ({ signal }) =>
       fetchTeamStatsData({

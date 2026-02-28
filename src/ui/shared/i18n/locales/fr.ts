@@ -168,6 +168,29 @@ export const fr = {
       playerOfMatchFallback: 'Joueur du match indisponible.',
       postNewsFallback: 'Le contenu post-match sera affiché ici.',
     },
+    preMatch: {
+      loading: 'Chargement des données avant-match...',
+      winProbability: {
+        title: 'Probabilités de victoire',
+      },
+      venueWeather: {
+        title: 'Stade et météo',
+      },
+      competitionMeta: {
+        title: 'Contexte du match',
+      },
+      recentResults: {
+        title: '5 derniers matchs',
+      },
+      standings: {
+        title: 'Position au classement',
+      },
+      leaders: {
+        title: 'Comparaison des leaders',
+        topScorer: 'Meilleur buteur',
+        topAssister: 'Meilleur passeur',
+      },
+    },
     timeline: {
       tapHint: 'Touchez pour afficher le détail',
       events: {

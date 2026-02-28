@@ -16,11 +16,27 @@ const EMPTY_TEAM_SQUAD: TeamSquadData = {
   players: [],
 };
 
+function mergeTeamSquadData(
+  previousData: TeamSquadData | undefined,
+  nextData: TeamSquadData,
+): TeamSquadData {
+  if (!previousData) {
+    return nextData;
+  }
+
+  return {
+    coach: nextData.coach ?? previousData.coach,
+    players: nextData.players.length > 0 ? nextData.players : previousData.players,
+  };
+}
+
 export function useTeamSquad({ teamId, enabled = true }: UseTeamSquadParams) {
-  return useQuery({
+  return useQuery<TeamSquadData>({
     queryKey: queryKeys.teams.squad(teamId),
     enabled: enabled && Boolean(teamId),
     placeholderData: previousData => previousData,
+    structuralSharing: (oldData, newData) =>
+      mergeTeamSquadData(oldData as TeamSquadData | undefined, newData as TeamSquadData),
     ...featureQueryOptions.teams.squad,
     queryFn: async ({ signal }): Promise<TeamSquadData> => {
       if (!teamId) {

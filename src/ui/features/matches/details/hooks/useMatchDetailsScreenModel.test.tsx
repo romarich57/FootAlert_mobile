@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -157,6 +157,24 @@ describe('useMatchDetailsScreenModel', () => {
               },
             },
           ],
+        } as never;
+      }
+
+      if (key[2] === 'team_recent_results') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'team_leaders') {
+        return {
+          ...baseResult,
+          data: {
+            ratings: [],
+            scorers: [],
+            assisters: [],
+          },
         } as never;
       }
 
@@ -661,6 +679,8 @@ describe('useMatchDetailsScreenModel', () => {
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'statistics' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'lineups' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'team_players_stats' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'team_recent_results' &&
+        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'team_leaders' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'predictions' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'absences' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'head_to_head',
@@ -778,6 +798,230 @@ describe('useMatchDetailsScreenModel', () => {
     expect(result.current.statsRowsByPeriod.all).toHaveLength(1);
     expect(result.current.statsRowsByPeriod.first).toHaveLength(0);
     expect(result.current.statsRowsByPeriod.second).toHaveLength(0);
+  });
+
+  it('hides pre-match tab when none of the six pre-match blocks has data', async () => {
+    fixtureStatusShort = 'NS';
+    fixtureStatusLong = 'Not started';
+    fixtureElapsed = null;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'team_recent_results') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'team_leaders') {
+        return {
+          ...baseResult,
+          data: {
+            ratings: [],
+            scorers: [],
+            assisters: [],
+          },
+        } as never;
+      }
+
+      if (
+        key[2] === 'events' ||
+        key[2] === 'statistics' ||
+        key[2] === 'lineups' ||
+        key[2] === 'absences' ||
+        key[2] === 'team_players_stats' ||
+        key[2] === 'predictions' ||
+        key[2] === 'head_to_head'
+      ) {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: {
+          ...buildFixture(),
+          fixture: {
+            ...buildFixture().fixture,
+            date: '',
+            venue: {
+              name: null,
+              city: null,
+            },
+            referee: null,
+          },
+          league: {
+            ...buildFixture().league,
+            name: '',
+            round: '',
+            type: '',
+          },
+        },
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.preMatchTab.hasAnySection).toBe(false);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(['faceOff']);
+    await waitFor(() => {
+      expect(result.current.activeTab).toBe('faceOff');
+    });
+  });
+
+  it('keeps pre-match section order stable', () => {
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.preMatchTab.sectionsOrdered.map(section => section.id)).toEqual([
+      'winProbability',
+      'venueWeather',
+      'competitionMeta',
+      'recentResults',
+      'standings',
+      'leadersComparison',
+    ]);
+  });
+
+  it('filters recent results to same competition, finished status and top 5 entries', () => {
+    fixtureStatusShort = 'NS';
+    fixtureStatusLong = 'Not started';
+    fixtureElapsed = null;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'team_recent_results') {
+        const teamId = String(key[3] ?? '');
+        if (teamId === '1') {
+          return {
+            ...baseResult,
+            data: [
+              { fixtureId: 'h1', leagueId: '61', date: '2026-02-01T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '10', awayTeamName: 'A', awayTeamLogo: '', homeGoals: 2, awayGoals: 1 },
+              { fixtureId: 'h2', leagueId: '61', date: '2026-02-02T12:00:00.000Z', status: 'finished', homeTeamId: '11', homeTeamName: 'B', homeTeamLogo: '', awayTeamId: '1', awayTeamName: 'Home', awayTeamLogo: '', homeGoals: 0, awayGoals: 3 },
+              { fixtureId: 'h3', leagueId: '61', date: '2026-02-03T12:00:00.000Z', status: 'upcoming', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '12', awayTeamName: 'C', awayTeamLogo: '', homeGoals: null, awayGoals: null },
+              { fixtureId: 'h4', leagueId: '999', date: '2026-02-04T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '13', awayTeamName: 'D', awayTeamLogo: '', homeGoals: 1, awayGoals: 1 },
+              { fixtureId: 'h5', leagueId: '61', date: '2026-02-05T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '14', awayTeamName: 'E', awayTeamLogo: '', homeGoals: 4, awayGoals: 0 },
+              { fixtureId: 'h6', leagueId: '61', date: '2026-02-06T12:00:00.000Z', status: 'finished', homeTeamId: '15', homeTeamName: 'F', homeTeamLogo: '', awayTeamId: '1', awayTeamName: 'Home', awayTeamLogo: '', homeGoals: 2, awayGoals: 2 },
+              { fixtureId: 'h7', leagueId: '61', date: '2026-02-07T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '16', awayTeamName: 'G', awayTeamLogo: '', homeGoals: 1, awayGoals: 0 },
+            ],
+          } as never;
+        }
+
+        return {
+          ...baseResult,
+          data: [
+            { fixtureId: 'a1', leagueId: '61', date: '2026-02-07T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '21', awayTeamName: 'AA', awayTeamLogo: '', homeGoals: 1, awayGoals: 0 },
+            { fixtureId: 'a2', leagueId: '61', date: '2026-02-06T12:00:00.000Z', status: 'finished', homeTeamId: '22', homeTeamName: 'BB', homeTeamLogo: '', awayTeamId: '2', awayTeamName: 'Away', awayTeamLogo: '', homeGoals: 1, awayGoals: 1 },
+            { fixtureId: 'a3', leagueId: '61', date: '2026-02-05T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '23', awayTeamName: 'CC', awayTeamLogo: '', homeGoals: 0, awayGoals: 2 },
+            { fixtureId: 'a4', leagueId: '61', date: '2026-02-04T12:00:00.000Z', status: 'finished', homeTeamId: '24', homeTeamName: 'DD', homeTeamLogo: '', awayTeamId: '2', awayTeamName: 'Away', awayTeamLogo: '', homeGoals: 3, awayGoals: 4 },
+            { fixtureId: 'a5', leagueId: '61', date: '2026-02-03T12:00:00.000Z', status: 'finished', homeTeamId: '2', homeTeamName: 'Away', homeTeamLogo: '', awayTeamId: '25', awayTeamName: 'EE', awayTeamLogo: '', homeGoals: 2, awayGoals: 2 },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'team_leaders') {
+        return {
+          ...baseResult,
+          data: {
+            ratings: [],
+            scorers: [{ playerId: '9', name: 'Scorer', photo: null, teamLogo: null, position: 'Attacker', goals: 10, assists: 1, rating: 7.1 }],
+            assisters: [{ playerId: '8', name: 'Assister', photo: null, teamLogo: null, position: 'Midfielder', goals: 2, assists: 8, rating: 7.0 }],
+          },
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      if (
+        key[2] === 'events' ||
+        key[2] === 'statistics' ||
+        key[2] === 'lineups' ||
+        key[2] === 'absences' ||
+        key[2] === 'team_players_stats' ||
+        key[2] === 'head_to_head'
+      ) {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+    const section = result.current.preMatchTab.sectionsOrdered.find(current => current.id === 'recentResults');
+
+    expect(section?.isAvailable).toBe(true);
+    if (!section || section.id !== 'recentResults' || !section.payload) {
+      throw new Error('Expected recentResults section payload');
+    }
+
+    expect(section.payload.home.matches).toHaveLength(5);
+    expect(section.payload.home.matches.map(match => match.fixtureId)).not.toContain('h3');
+    expect(section.payload.home.matches.map(match => match.fixtureId)).not.toContain('h4');
   });
 
   it('exposes all/first/second periods when half statistics are available', () => {

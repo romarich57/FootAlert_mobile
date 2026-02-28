@@ -118,6 +118,29 @@ describe('mobileTelemetry', () => {
     }
   });
 
+  it('suppresses runtime errors in dev telemetry to avoid duplicate logbox entries', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const globalWithDev = globalThis as typeof globalThis & { __DEV__?: boolean };
+    const previousDevValue = globalWithDev.__DEV__;
+    globalWithDev.__DEV__ = true;
+
+    try {
+      const telemetry = createDefaultMobileTelemetry();
+      telemetry.trackError(new Error('Maximum update depth exceeded'), {
+        feature: 'runtime',
+        details: {
+          isFatal: true,
+        },
+      });
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      globalWithDev.__DEV__ = previousDevValue;
+    }
+  });
+
   it('flushes telemetry queue when batch size is reached', async () => {
     const mockedFetch = jest.fn(async () => new Response('{}', { status: 200 }));
     globalThis.fetch = mockedFetch as unknown as typeof fetch;

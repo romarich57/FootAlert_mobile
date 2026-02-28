@@ -18,7 +18,7 @@ const EMPTY_TEAM_TROPHIES: TeamTrophiesData = {
 };
 
 export function useTeamTrophies({ teamId, enabled = true }: UseTeamTrophiesParams) {
-  return useQuery({
+  return useQuery<TeamTrophiesData>({
     queryKey: queryKeys.teams.trophies(teamId),
     enabled: enabled && Boolean(teamId),
     refetchOnMount: 'always',

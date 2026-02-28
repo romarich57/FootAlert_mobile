@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { MatchFaceOffTab } from '@ui/features/matches/details/components/tabs/MatchFaceOffTab';
 import { MatchLineupsTab } from '@ui/features/matches/details/components/tabs/MatchLineupsTab';
+import { MatchPreMatchTab } from '@ui/features/matches/details/components/tabs/MatchPreMatchTab';
 import { MatchPrimaryTab } from '@ui/features/matches/details/components/tabs/MatchPrimaryTab';
 import { MatchStandingsTab } from '@ui/features/matches/details/components/tabs/MatchStandingsTab';
 import { MatchStatsTab } from '@ui/features/matches/details/components/tabs/MatchStatsTab';
@@ -46,6 +47,7 @@ export function MatchDetailsTabContent({
   dataSources,
   statsRowsByPeriod,
   statsAvailablePeriods,
+  preMatchTab,
 }: MatchDetailsTabContentProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -118,6 +120,16 @@ export function MatchDetailsTabContent({
 
   switch (activeTab) {
     case 'primary':
+      if (lifecycleState === 'pre_match' && preMatchTab) {
+        return (
+          <MatchPreMatchTab
+            styles={styles}
+            sections={preMatchTab.sectionsOrdered}
+            isLoading={preMatchTab.isLoading}
+          />
+        );
+      }
+
       return (
         <MatchPrimaryTab
           styles={styles}

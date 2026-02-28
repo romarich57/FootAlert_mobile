@@ -163,6 +163,7 @@ export function createTeamStandingsTabStyles(colors: ThemeColors) {
       gap: 4,
     },
     teamText: {
+      flex: 1,
       color: colors.text,
       fontSize: 13,
       fontWeight: '700',

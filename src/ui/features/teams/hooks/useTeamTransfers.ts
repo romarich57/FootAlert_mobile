@@ -18,7 +18,7 @@ const EMPTY_TEAM_TRANSFERS: TeamTransfersData = {
 };
 
 export function useTeamTransfers({ teamId, season, enabled = true }: UseTeamTransfersParams) {
-  return useQuery({
+  return useQuery<TeamTransfersData>({
     queryKey: queryKeys.teams.transfers(teamId, season),
     enabled: enabled && Boolean(teamId),
     ...featureQueryOptions.teams.transfers,

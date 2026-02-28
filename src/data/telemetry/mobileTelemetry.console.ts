@@ -51,6 +51,12 @@ export function createConsoleMobileTelemetry(): MobileTelemetry {
     );
   };
 
+  const shouldSuppressRuntimeErrorLog = (context?: TelemetryErrorContext): boolean => {
+    // The global runtime handler already forwards fatal errors to LogBox/RedBox.
+    // Logging them again with console.error duplicates entries in development.
+    return context?.feature === 'runtime';
+  };
+
   return {
     trackEvent: (eventName, attributes) => {
       console.info('[telemetry:event]', eventName, {
@@ -66,6 +72,10 @@ export function createConsoleMobileTelemetry(): MobileTelemetry {
       };
 
       if (shouldSuppressExpectedErrorLog(error, context)) {
+        return;
+      }
+
+      if (shouldSuppressRuntimeErrorLog(context)) {
         return;
       }
 

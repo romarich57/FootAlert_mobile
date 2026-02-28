@@ -167,6 +167,29 @@ export const en = {
       playerOfMatchFallback: 'Player of the match unavailable.',
       postNewsFallback: 'Post-match content will appear here.',
     },
+    preMatch: {
+      loading: 'Loading pre-match data...',
+      winProbability: {
+        title: 'Win probability',
+      },
+      venueWeather: {
+        title: 'Venue and weather',
+      },
+      competitionMeta: {
+        title: 'Match context',
+      },
+      recentResults: {
+        title: 'Last 5 matches',
+      },
+      standings: {
+        title: 'Standings position',
+      },
+      leaders: {
+        title: 'Leaders comparison',
+        topScorer: 'Top scorer',
+        topAssister: 'Top assister',
+      },
+    },
     timeline: {
       tapHint: 'Tap to open details',
       events: {

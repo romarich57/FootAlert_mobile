@@ -86,6 +86,7 @@ function createStyles(colors: ThemeColors) {
             marginRight: 10,
         },
         teamName: {
+            flex: 1,
             color: colors.text,
             fontSize: 14,
             fontWeight: '600',

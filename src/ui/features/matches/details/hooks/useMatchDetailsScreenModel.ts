@@ -24,10 +24,18 @@ import {
 import { ApiError } from '@data/api/http/client';
 import { fetchLeagueStandings } from '@data/endpoints/competitionsApi';
 import {
+  fetchTeamFixtures,
+  fetchTeamPlayers,
+} from '@data/endpoints/teamsApi';
+import {
   classifyFixtureStatus,
   formatStatusLabel,
   mapMatchLineupTeam,
 } from '@data/mappers/fixturesMapper';
+import {
+  mapFixturesToTeamMatches,
+  mapPlayersToTopPlayersByCategory,
+} from '@data/mappers/teamsMapper';
 import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
@@ -37,11 +45,20 @@ import { queryKeys } from '@ui/shared/query/queryKeys';
 import type {
   ApiFootballFixtureDto,
   MatchDetailTabDefinition,
+  MatchPreMatchLeaderPlayer,
+  MatchPreMatchRecentResult,
+  MatchPreMatchSection,
+  MatchPreMatchTabViewModel,
   MatchDetailsTabKey,
   MatchLifecycleState,
   MatchLineupAbsence,
   MatchLineupTeam,
 } from '@ui/features/matches/types/matches.types';
+import type {
+  TeamApiPlayerDto,
+  TeamTopPlayer,
+  TeamTopPlayersByCategory,
+} from '@ui/features/teams/types/teams.types';
 import type {
   MatchDetailsDatasetErrorReason,
   StatRowsByPeriod,
@@ -80,6 +97,291 @@ function toText(value: unknown, fallback = ''): string {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function toNullableText(value: unknown): string | null {
+  const normalized = toText(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function toId(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  return null;
+}
+
+type FetchTeamRecentResultsParams = {
+  teamId: string;
+  leagueId: number;
+  season: number;
+  timezone: string;
+  signal?: AbortSignal;
+};
+
+async function fetchTeamRecentResults({
+  teamId,
+  leagueId,
+  season,
+  timezone,
+  signal,
+}: FetchTeamRecentResultsParams) {
+  const fixtures = await fetchTeamFixtures(
+    {
+      teamId,
+      leagueId: String(leagueId),
+      season,
+      timezone,
+    },
+    signal,
+  );
+
+  return mapFixturesToTeamMatches(fixtures).past;
+}
+
+async function fetchAllTeamPlayers({
+  teamId,
+  leagueId,
+  season,
+  signal,
+}: {
+  teamId: string;
+  leagueId: number;
+  season: number;
+  signal?: AbortSignal;
+}): Promise<TeamApiPlayerDto[]> {
+  const firstPage = await fetchTeamPlayers(
+    {
+      teamId,
+      leagueId: String(leagueId),
+      season,
+      page: 1,
+    },
+    signal,
+  );
+
+  const totalPages = Math.max(1, firstPage.paging?.total ?? 1);
+  if (totalPages <= 1) {
+    return firstPage.response ?? [];
+  }
+
+  const nextPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      fetchTeamPlayers(
+        {
+          teamId,
+          leagueId: String(leagueId),
+          season,
+          page: index + 2,
+        },
+        signal,
+      )),
+  );
+
+  return [firstPage, ...nextPages].flatMap(page => page.response ?? []);
+}
+
+async function fetchTeamLeadersByCategory({
+  teamId,
+  leagueId,
+  season,
+  signal,
+}: {
+  teamId: string;
+  leagueId: number;
+  season: number;
+  signal?: AbortSignal;
+}): Promise<TeamTopPlayersByCategory> {
+  const players = await fetchAllTeamPlayers({
+    teamId,
+    leagueId,
+    season,
+    signal,
+  });
+
+  return mapPlayersToTopPlayersByCategory(players, 1, {
+    teamId,
+    leagueId: String(leagueId),
+    season,
+  });
+}
+
+function normalizePreMatchResult({
+  homeGoals,
+  awayGoals,
+  isHomeTeam,
+}: {
+  homeGoals: number | null;
+  awayGoals: number | null;
+  isHomeTeam: boolean;
+}): MatchPreMatchRecentResult['result'] {
+  if (homeGoals === null || awayGoals === null) {
+    return '';
+  }
+
+  if (homeGoals === awayGoals) {
+    return 'D';
+  }
+
+  if (isHomeTeam) {
+    return homeGoals > awayGoals ? 'W' : 'L';
+  }
+
+  return awayGoals > homeGoals ? 'W' : 'L';
+}
+
+function toRecentResultRows({
+  matches,
+  teamId,
+  leagueId,
+}: {
+  matches: Array<{
+    fixtureId: string;
+    leagueId: string | null;
+    date: string | null;
+    status: 'live' | 'upcoming' | 'finished';
+    homeTeamId: string | null;
+    homeTeamName: string | null;
+    homeTeamLogo: string | null;
+    awayTeamId: string | null;
+    awayTeamName: string | null;
+    awayTeamLogo: string | null;
+    homeGoals: number | null;
+    awayGoals: number | null;
+  }>;
+  teamId: string;
+  leagueId: number;
+}): MatchPreMatchRecentResult[] {
+  return matches
+    .filter(match => {
+      const matchLeagueId = toId(match.leagueId);
+      if (!matchLeagueId || matchLeagueId !== String(leagueId)) {
+        return false;
+      }
+
+      return match.status === 'finished';
+    })
+    .sort((first, second) => {
+      const firstDate = first.date ? new Date(first.date).getTime() : 0;
+      const secondDate = second.date ? new Date(second.date).getTime() : 0;
+      return secondDate - firstDate;
+    })
+    .slice(0, 5)
+    .map(match => {
+      const isHomeTeam = match.homeTeamId === teamId;
+      const score =
+        typeof match.homeGoals === 'number' && typeof match.awayGoals === 'number'
+          ? `${match.homeGoals}-${match.awayGoals}`
+          : null;
+
+      return {
+        fixtureId: match.fixtureId,
+        homeTeamName: match.homeTeamName,
+        homeTeamLogo: match.homeTeamLogo,
+        awayTeamName: match.awayTeamName,
+        awayTeamLogo: match.awayTeamLogo,
+        homeGoals: match.homeGoals,
+        awayGoals: match.awayGoals,
+        score,
+        result: normalizePreMatchResult({
+          homeGoals: match.homeGoals,
+          awayGoals: match.awayGoals,
+          isHomeTeam,
+        }),
+      } satisfies MatchPreMatchRecentResult;
+    });
+}
+
+function toLeaderPlayer(player: TeamTopPlayer | null | undefined): MatchPreMatchLeaderPlayer | null {
+  if (!player || !player.playerId) {
+    return null;
+  }
+
+  return {
+    playerId: player.playerId,
+    name: player.name,
+    photo: player.photo,
+    teamLogo: player.teamLogo,
+    position: player.position,
+    goals: player.goals,
+    assists: player.assists,
+    rating: player.rating,
+  };
+}
+
+function pickWeather(fixture: ApiFootballFixtureDto | null, fixtureRecord: RawRecord | null) {
+  const fixtureRecordNode = toRawRecord(fixtureRecord?.fixture);
+  const fixtureWeatherNode =
+    toRawRecord(fixtureRecordNode?.weather) ??
+    toRawRecord(fixture?.fixture.weather) ??
+    toRawRecord(fixtureRecord?.weather);
+
+  if (!fixtureWeatherNode) {
+    return null;
+  }
+
+  return {
+    temperature:
+      toNumber(fixtureWeatherNode.temp) ??
+      toNumber(fixtureWeatherNode.temperature) ??
+      toNumber(fixtureWeatherNode.temp_c) ??
+      toNumber(fixtureWeatherNode.temperatureC),
+    feelsLike:
+      toNumber(fixtureWeatherNode.feels_like) ??
+      toNumber(fixtureWeatherNode.feelsLike) ??
+      toNumber(fixtureWeatherNode.feels_like_c) ??
+      toNumber(fixtureWeatherNode.feelsLikeC),
+    humidity: toNumber(fixtureWeatherNode.humidity),
+    windSpeed:
+      toNumber(fixtureWeatherNode.wind_kph) ??
+      toNumber(fixtureWeatherNode.windSpeed),
+    description:
+      toNullableText(fixtureWeatherNode.description) ??
+      toNullableText(fixtureWeatherNode.text) ??
+      toNullableText(fixtureWeatherNode.main),
+    icon: toNullableText(fixtureWeatherNode.icon),
+  };
+}
+
+function formatKickoffWithDate(dateIso: string | null | undefined): string | null {
+  if (!dateIso) {
+    return null;
+  }
+
+  const parsed = new Date(dateIso);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toLocaleString('fr-FR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 }
 
 function shouldRetryMatchDetailsRequest(maxRetries: number) {
@@ -262,22 +564,322 @@ function pickTeamIdsFromFixture(fixture: ApiFootballFixtureDto | null): {
   };
 }
 
+function buildPreMatchSections({
+  isLoading,
+  fixture,
+  fixtureRecord,
+  predictionsPercent,
+  winPercent,
+  leagueId,
+  homeTeamId,
+  awayTeamId,
+  homeRecentMatches,
+  awayRecentMatches,
+  standings,
+  homeLeaders,
+  awayLeaders,
+}: {
+  isLoading: boolean;
+  fixture: ApiFootballFixtureDto | null;
+  fixtureRecord: RawRecord | null;
+  predictionsPercent: {
+    home: string | null;
+    draw: string | null;
+    away: string | null;
+  };
+  winPercent: {
+    home: string;
+    draw: string;
+    away: string;
+  };
+  leagueId: number | undefined;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeRecentMatches: Array<{
+    fixtureId: string;
+    leagueId: string | null;
+    date: string | null;
+    status: 'live' | 'upcoming' | 'finished';
+    homeTeamId: string | null;
+    homeTeamName: string | null;
+    homeTeamLogo: string | null;
+    awayTeamId: string | null;
+    awayTeamName: string | null;
+    awayTeamLogo: string | null;
+    homeGoals: number | null;
+    awayGoals: number | null;
+  }>;
+  awayRecentMatches: Array<{
+    fixtureId: string;
+    leagueId: string | null;
+    date: string | null;
+    status: 'live' | 'upcoming' | 'finished';
+    homeTeamId: string | null;
+    homeTeamName: string | null;
+    homeTeamLogo: string | null;
+    awayTeamId: string | null;
+    awayTeamName: string | null;
+    awayTeamLogo: string | null;
+    homeGoals: number | null;
+    awayGoals: number | null;
+  }>;
+  standings: {
+    league?: {
+      name?: string;
+      standings?: Array<Array<{
+        rank: number;
+        team: {
+          id: number;
+          name: string;
+          logo: string;
+        };
+        points: number;
+        goalsDiff: number;
+        all: {
+          played: number;
+          win: number;
+          draw: number;
+          lose: number;
+        };
+      }>>;
+    };
+  } | null | undefined;
+  homeLeaders: TeamTopPlayersByCategory | null;
+  awayLeaders: TeamTopPlayersByCategory | null;
+}): MatchPreMatchTabViewModel {
+  const homeTeamName = fixture?.teams.home.name ?? '';
+  const awayTeamName = fixture?.teams.away.name ?? '';
+
+  const fixtureNode = toRawRecord(fixtureRecord?.fixture);
+  const venueNode = toRawRecord(fixtureNode?.venue);
+  const leagueNode = toRawRecord(fixtureRecord?.league);
+
+  const venueName = toNullableText(fixture?.fixture.venue.name) ?? toNullableText(venueNode?.name);
+  const venueCity = toNullableText(fixture?.fixture.venue.city) ?? toNullableText(venueNode?.city);
+  const venueCapacity = toNumber(fixture?.fixture.venue.capacity) ?? toNumber(venueNode?.capacity);
+  const venueSurface = toNullableText(fixture?.fixture.venue.surface) ?? toNullableText(venueNode?.surface);
+  const weather = pickWeather(fixture, fixtureRecord);
+
+  const roundValue = toNullableText(fixture?.league.round) ?? toNullableText(leagueNode?.round);
+  const competitionType = toNullableText(fixture?.league.type) ?? toNullableText(leagueNode?.type);
+  const refereeValue = toNullableText(fixture?.fixture.referee) ?? toNullableText(fixtureNode?.referee);
+  const kickoffDisplay = formatKickoffWithDate(fixture?.fixture.date);
+
+  const shouldShowWinProbability =
+    Boolean(predictionsPercent.home) &&
+    Boolean(predictionsPercent.draw) &&
+    Boolean(predictionsPercent.away);
+
+  const winProbabilitySection: MatchPreMatchSection = {
+    id: 'winProbability',
+    order: 1,
+    isAvailable: shouldShowWinProbability,
+    payload: shouldShowWinProbability
+      ? {
+        homeTeamName,
+        awayTeamName,
+        home: winPercent.home,
+        draw: winPercent.draw,
+        away: winPercent.away,
+      }
+      : null,
+  };
+
+  const hasVenueWeatherData =
+    Boolean(venueName) ||
+    Boolean(venueCity) ||
+    typeof venueCapacity === 'number' ||
+    Boolean(venueSurface) ||
+    Boolean(weather?.description) ||
+    typeof weather?.temperature === 'number';
+
+  const venueWeatherSection: MatchPreMatchSection = {
+    id: 'venueWeather',
+    order: 2,
+    isAvailable: hasVenueWeatherData,
+    payload: hasVenueWeatherData
+      ? {
+        venueName,
+        venueCity,
+        capacity: venueCapacity,
+        surface: venueSurface,
+        weather,
+      }
+      : null,
+  };
+
+  const hasCompetitionMetaData =
+    Boolean(fixture?.league.name) ||
+    Boolean(roundValue) ||
+    Boolean(kickoffDisplay) ||
+    Boolean(refereeValue) ||
+    Boolean(competitionType);
+
+  const competitionMetaSection: MatchPreMatchSection = {
+    id: 'competitionMeta',
+    order: 3,
+    isAvailable: hasCompetitionMetaData,
+    payload: hasCompetitionMetaData
+      ? {
+        competitionName: toNullableText(fixture?.league.name),
+        competitionType,
+        competitionRound: roundValue,
+        kickoffDateIso: toNullableText(fixture?.fixture.date),
+        kickoffDisplay,
+        referee: refereeValue,
+      }
+      : null,
+  };
+
+  const homeRecentRows =
+    homeTeamId && typeof leagueId === 'number'
+      ? toRecentResultRows({
+        matches: homeRecentMatches,
+        teamId: homeTeamId,
+        leagueId,
+      })
+      : [];
+  const awayRecentRows =
+    awayTeamId && typeof leagueId === 'number'
+      ? toRecentResultRows({
+        matches: awayRecentMatches,
+        teamId: awayTeamId,
+        leagueId,
+      })
+      : [];
+  const hasRecentResultsData = homeRecentRows.length > 0 && awayRecentRows.length > 0;
+
+  const recentResultsSection: MatchPreMatchSection = {
+    id: 'recentResults',
+    order: 4,
+    isAvailable: hasRecentResultsData,
+    payload: hasRecentResultsData
+      ? {
+        home: {
+          teamId: homeTeamId,
+          teamName: homeTeamName,
+          teamLogo: fixture?.teams.home.logo ?? null,
+          matches: homeRecentRows,
+        },
+        away: {
+          teamId: awayTeamId,
+          teamName: awayTeamName,
+          teamLogo: fixture?.teams.away.logo ?? null,
+          matches: awayRecentRows,
+        },
+      }
+      : null,
+  };
+
+  const standingsRows = (standings?.league?.standings ?? []).flat();
+  const homeStandingRow =
+    standingsRows.find(row => String(row.team.id) === homeTeamId) ?? null;
+  const awayStandingRow =
+    standingsRows.find(row => String(row.team.id) === awayTeamId) ?? null;
+  const hasStandingsData = homeStandingRow !== null && awayStandingRow !== null;
+
+  const standingsSection: MatchPreMatchSection = {
+    id: 'standings',
+    order: 5,
+    isAvailable: hasStandingsData,
+    payload: hasStandingsData
+      ? {
+        competitionName: toNullableText(standings?.league?.name) ?? toNullableText(fixture?.league.name),
+        home: {
+          teamId: homeTeamId,
+          teamName: homeStandingRow?.team.name ?? null,
+          teamLogo: homeStandingRow?.team.logo ?? null,
+          rank: homeStandingRow?.rank ?? null,
+          played: homeStandingRow?.all.played ?? null,
+          win: homeStandingRow?.all.win ?? null,
+          draw: homeStandingRow?.all.draw ?? null,
+          lose: homeStandingRow?.all.lose ?? null,
+          goalDiff: homeStandingRow?.goalsDiff ?? null,
+          points: homeStandingRow?.points ?? null,
+        },
+        away: {
+          teamId: awayTeamId,
+          teamName: awayStandingRow?.team.name ?? null,
+          teamLogo: awayStandingRow?.team.logo ?? null,
+          rank: awayStandingRow?.rank ?? null,
+          played: awayStandingRow?.all.played ?? null,
+          win: awayStandingRow?.all.win ?? null,
+          draw: awayStandingRow?.all.draw ?? null,
+          lose: awayStandingRow?.all.lose ?? null,
+          goalDiff: awayStandingRow?.goalsDiff ?? null,
+          points: awayStandingRow?.points ?? null,
+        },
+      }
+      : null,
+  };
+
+  const homeTopScorer = toLeaderPlayer(homeLeaders?.scorers?.[0]);
+  const homeTopAssister = toLeaderPlayer(homeLeaders?.assisters?.[0]);
+  const awayTopScorer = toLeaderPlayer(awayLeaders?.scorers?.[0]);
+  const awayTopAssister = toLeaderPlayer(awayLeaders?.assisters?.[0]);
+  const hasLeadersData =
+    (homeTopScorer !== null || homeTopAssister !== null) &&
+    (awayTopScorer !== null || awayTopAssister !== null);
+
+  const leadersSection: MatchPreMatchSection = {
+    id: 'leadersComparison',
+    order: 6,
+    isAvailable: hasLeadersData,
+    payload: hasLeadersData
+      ? {
+        home: {
+          teamId: homeTeamId,
+          teamName: homeTeamName,
+          teamLogo: fixture?.teams.home.logo ?? null,
+          topScorer: homeTopScorer,
+          topAssister: homeTopAssister,
+        },
+        away: {
+          teamId: awayTeamId,
+          teamName: awayTeamName,
+          teamLogo: fixture?.teams.away.logo ?? null,
+          topScorer: awayTopScorer,
+          topAssister: awayTopAssister,
+        },
+      }
+      : null,
+  };
+
+  const sectionsOrdered = [
+    winProbabilitySection,
+    venueWeatherSection,
+    competitionMetaSection,
+    recentResultsSection,
+    standingsSection,
+    leadersSection,
+  ];
+
+  return {
+    sectionsOrdered,
+    hasAnySection: sectionsOrdered.some(section => section.isAvailable),
+    isLoading,
+  };
+}
+
 function toTabDefinitions(
   lifecycleState: MatchLifecycleState,
+  shouldShowPreMatchPrimaryTab: boolean,
   hasTimeline: boolean,
   hasLineups: boolean,
   hasStandings: boolean,
   hasStatistics: boolean,
   t: (key: string) => string,
 ): MatchDetailTabDefinition[] {
-  const tabs: MatchDetailTabDefinition[] = [
-    {
+  const tabs: MatchDetailTabDefinition[] = [];
+
+  if (lifecycleState !== 'pre_match' || shouldShowPreMatchPrimaryTab) {
+    tabs.push({
       key: 'primary',
       label: lifecycleState === 'pre_match'
         ? t('matchDetails.tabs.preMatch')
         : t('matchDetails.tabs.summary'),
-    },
-  ];
+    });
+  }
 
   if (lifecycleState !== 'pre_match' && hasTimeline) {
     tabs.push({
@@ -504,6 +1106,74 @@ export function useMatchDetailsScreenModel() {
     ...featureQueryOptions.competitions.standings,
   });
 
+  const shouldFetchPreMatchExtras =
+    lifecycleState === 'pre_match' &&
+    Boolean(safeMatchId) &&
+    typeof leagueId === 'number' &&
+    typeof season === 'number';
+
+  const homeRecentResultsQuery = useQuery({
+    queryKey: queryKeys.matchTeamRecentResults(safeMatchId ?? 'invalid', homeTeamId ?? 'unknown'),
+    enabled: shouldFetchPreMatchExtras && Boolean(homeTeamId),
+    queryFn: ({ signal }) =>
+      fetchTeamRecentResults({
+        teamId: homeTeamId ?? '',
+        leagueId: leagueId as number,
+        season: season as number,
+        timezone,
+        signal,
+      }),
+    ...featureQueryOptions.teams.matches,
+    refetchOnMount: 'always',
+    retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.matches.retry),
+  });
+
+  const awayRecentResultsQuery = useQuery({
+    queryKey: queryKeys.matchTeamRecentResults(safeMatchId ?? 'invalid', awayTeamId ?? 'unknown'),
+    enabled: shouldFetchPreMatchExtras && Boolean(awayTeamId),
+    queryFn: ({ signal }) =>
+      fetchTeamRecentResults({
+        teamId: awayTeamId ?? '',
+        leagueId: leagueId as number,
+        season: season as number,
+        timezone,
+        signal,
+      }),
+    ...featureQueryOptions.teams.matches,
+    refetchOnMount: 'always',
+    retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.matches.retry),
+  });
+
+  const homeLeadersQuery = useQuery({
+    queryKey: queryKeys.matchTeamLeaders(safeMatchId ?? 'invalid', homeTeamId ?? 'unknown'),
+    enabled: shouldFetchPreMatchExtras && Boolean(homeTeamId),
+    queryFn: ({ signal }) =>
+      fetchTeamLeadersByCategory({
+        teamId: homeTeamId ?? '',
+        leagueId: leagueId as number,
+        season: season as number,
+        signal,
+      }),
+    ...featureQueryOptions.teams.stats,
+    refetchOnMount: 'always',
+    retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.stats.retry),
+  });
+
+  const awayLeadersQuery = useQuery({
+    queryKey: queryKeys.matchTeamLeaders(safeMatchId ?? 'invalid', awayTeamId ?? 'unknown'),
+    enabled: shouldFetchPreMatchExtras && Boolean(awayTeamId),
+    queryFn: ({ signal }) =>
+      fetchTeamLeadersByCategory({
+        teamId: awayTeamId ?? '',
+        leagueId: leagueId as number,
+        season: season as number,
+        signal,
+      }),
+    ...featureQueryOptions.teams.stats,
+    refetchOnMount: 'always',
+    retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.stats.retry),
+  });
+
   const hasStandings = useMemo(
     () => (standingsQuery.data?.league?.standings?.length ?? 0) > 0,
     [standingsQuery.data],
@@ -656,24 +1326,119 @@ export function useMatchDetailsScreenModel() {
 
   const hasStatistics = statsAvailablePeriods.length > 0;
 
+  const predictionsRaw = useMemo(
+    () => toRawRecord(resolvedPredictions.data[0] ?? null),
+    [resolvedPredictions.data],
+  );
+
+  const predictionsPercent = useMemo(() => {
+    const predictions = toRawRecord(predictionsRaw?.predictions);
+    const percent = toRawRecord(predictions?.percent);
+
+    return {
+      home: toNullableText(percent?.home),
+      draw: toNullableText(percent?.draw),
+      away: toNullableText(percent?.away),
+    };
+  }, [predictionsRaw]);
+
+  const winPercent = useMemo(() => ({
+    home: predictionsPercent.home ?? '0%',
+    draw: predictionsPercent.draw ?? '0%',
+    away: predictionsPercent.away ?? '0%',
+  }), [predictionsPercent.away, predictionsPercent.draw, predictionsPercent.home]);
+
+  const homeRecentResults = useMemo(
+    () => (Array.isArray(homeRecentResultsQuery.data) ? homeRecentResultsQuery.data : []),
+    [homeRecentResultsQuery.data],
+  );
+  const awayRecentResults = useMemo(
+    () => (Array.isArray(awayRecentResultsQuery.data) ? awayRecentResultsQuery.data : []),
+    [awayRecentResultsQuery.data],
+  );
+
+  const preMatchIsLoading =
+    shouldFetchPreMatchExtras && (
+      predictionsQuery.isLoading ||
+      predictionsQuery.isFetching ||
+      standingsQuery.isLoading ||
+      standingsQuery.isFetching ||
+      homeRecentResultsQuery.isLoading ||
+      homeRecentResultsQuery.isFetching ||
+      awayRecentResultsQuery.isLoading ||
+      awayRecentResultsQuery.isFetching ||
+      homeLeadersQuery.isLoading ||
+      homeLeadersQuery.isFetching ||
+      awayLeadersQuery.isLoading ||
+      awayLeadersQuery.isFetching
+    );
+
+  const preMatchTab = useMemo(
+    () =>
+      buildPreMatchSections({
+        isLoading: preMatchIsLoading,
+        fixture,
+        fixtureRecord,
+        predictionsPercent,
+        winPercent,
+        leagueId,
+        homeTeamId,
+        awayTeamId,
+        homeRecentMatches: homeRecentResults,
+        awayRecentMatches: awayRecentResults,
+        standings: standingsQuery.data,
+        homeLeaders: homeLeadersQuery.data ?? null,
+        awayLeaders: awayLeadersQuery.data ?? null,
+      }),
+    [
+      awayLeadersQuery.data,
+      awayRecentResults,
+      awayTeamId,
+      fixture,
+      fixtureRecord,
+      homeLeadersQuery.data,
+      homeRecentResults,
+      homeTeamId,
+      leagueId,
+      preMatchIsLoading,
+      predictionsPercent,
+      standingsQuery.data,
+      winPercent,
+    ],
+  );
+
   const tabs = useMemo(
     () =>
       toTabDefinitions(
         lifecycleState,
+        preMatchTab.hasAnySection || preMatchTab.isLoading,
         hasTimelineData,
         hasLineupsData,
         hasStandings,
         hasStatistics,
         t,
       ),
-    [hasLineupsData, hasStandings, hasStatistics, hasTimelineData, lifecycleState, t],
+    [
+      hasLineupsData,
+      hasStandings,
+      hasStatistics,
+      hasTimelineData,
+      lifecycleState,
+      preMatchTab.hasAnySection,
+      preMatchTab.isLoading,
+      t,
+    ],
   );
 
   useEffect(() => {
-    if (!tabs.some((tab: MatchDetailTabDefinition) => tab.key === activeTab)) {
-      setActiveTab(tabs[0]?.key ?? 'primary');
-    }
-  }, [tabs, activeTab]);
+    setActiveTab(currentTab => {
+      if (tabs.some((tab: MatchDetailTabDefinition) => tab.key === currentTab)) {
+        return currentTab;
+      }
+
+      return tabs[0]?.key ?? 'primary';
+    });
+  }, [tabs]);
 
   const kickoffLabel = useMemo(
     () => formatKickoff(fixture?.fixture.date),
@@ -767,14 +1532,22 @@ export function useMatchDetailsScreenModel() {
     awayPlayersStatsQuery.refetch().catch(() => undefined);
     headToHeadQuery.refetch().catch(() => undefined);
     standingsQuery.refetch().catch(() => undefined);
+    homeRecentResultsQuery.refetch().catch(() => undefined);
+    awayRecentResultsQuery.refetch().catch(() => undefined);
+    homeLeadersQuery.refetch().catch(() => undefined);
+    awayLeadersQuery.refetch().catch(() => undefined);
   }, [
     absencesQuery,
     awayPlayersStatsQuery,
+    awayRecentResultsQuery,
     eventsQuery,
     fixtureQuery,
     headToHeadQuery,
+    homeLeadersQuery,
     homePlayersStatsQuery,
+    homeRecentResultsQuery,
     lineupsQuery,
+    awayLeadersQuery,
     predictionsQuery,
     standingsQuery,
     statisticsFirstHalfQuery,
@@ -785,22 +1558,6 @@ export function useMatchDetailsScreenModel() {
   const onRefreshLineups = useCallback(() => {
     lineupsQuery.refetch().catch(() => undefined);
   }, [lineupsQuery]);
-
-  const predictionsRaw = useMemo(
-    () => toRawRecord(resolvedPredictions.data[0] ?? null),
-    [resolvedPredictions.data],
-  );
-
-  const winPercent = useMemo(() => {
-    const predictions = toRawRecord(predictionsRaw?.predictions);
-    const percent = toRawRecord(predictions?.percent);
-
-    return {
-      home: toText(percent?.home, '0%'),
-      draw: toText(percent?.draw, '0%'),
-      away: toText(percent?.away, '0%'),
-    };
-  }, [predictionsRaw]);
 
   const isInitialLoading = fixtureQuery.isLoading;
   const isInitialError = fixtureQuery.isError || !safeMatchId;
@@ -1017,6 +1774,7 @@ export function useMatchDetailsScreenModel() {
     statistics: resolvedStatistics.data,
     statsRowsByPeriod,
     statsAvailablePeriods,
+    preMatchTab,
     lineupTeams: teamLineups,
     predictions: predictionsRaw,
     winPercent,
