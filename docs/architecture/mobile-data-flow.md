@@ -40,8 +40,15 @@
 - Stratégie `read-through cache`: lecture immédiate depuis cache persistant puis revalidation réseau à la reconnexion.
 - Stratégie mutation: en cas d'échec réseau, retry contrôlé; les écritures non critiques (télémétrie/push) sont tolérantes aux erreurs côté UI.
 
+## Politique background refresh
+
+- Politique v1: `ios-only`.
+- Implémentation: `registerBackgroundRefresh` quitte immédiatement sur Android.
+- Raison: conserver le desktop/web-shell parity scope tout en limitant la divergence native dans ce cycle.
+
 ## Guardrails sécurité
 
 - Aucun `x-apisports-key` dans le mobile.
 - `API_FOOTBALL_KEY` présent uniquement dans l'env BFF.
 - Rejet des paramètres non supportés (`z.object(...).strict()`).
+- Stratégie d'attestation explicite (`strict` / `best-effort` / `disabled`) avec vérification de disponibilité au boot.

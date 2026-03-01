@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type DateChipsRowProps = {
@@ -151,10 +152,16 @@ export function DateChipsRow({ selectedDate, onSelectDate }: DateChipsRowProps) 
           const isSelected = areSameDay(selectedDate, chip.date);
 
           return (
-            <Pressable
+            <AppPressable
               key={chip.id}
               onPress={() => onSelectDate(chip.date)}
-              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={chip.date.toLocaleDateString(i18n.language, {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              })}
+              accessibilityState={{ selected: isSelected }}
               style={[
                 styles.chip,
                 chip.isToday ? styles.chipToday : undefined,
@@ -170,7 +177,7 @@ export function DateChipsRow({ selectedDate, onSelectDate }: DateChipsRowProps) 
               <Text style={[styles.monthLabel, isSelected ? styles.monthLabelActive : undefined]}>
                 {chip.monthLabel}
               </Text>
-            </Pressable>
+            </AppPressable>
           );
         })}
       </ScrollView>

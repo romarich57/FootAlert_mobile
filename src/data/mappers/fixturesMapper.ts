@@ -5,7 +5,7 @@ import type {
   MatchLineupPlayer,
   MatchLineupTeam,
   MatchStatus,
-} from '@ui/features/matches/types/matches.types';
+} from '@domain/contracts/matches.types';
 import { TOP_COMPETITION_IDS } from '@/shared/constants';
 
 const LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'BT', 'P', 'INT', 'SUSP', 'LIVE']);

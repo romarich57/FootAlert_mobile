@@ -24,6 +24,7 @@ import type {
   MatchLifecycleState,
   MatchPostMatchTabViewModel,
 } from '@ui/features/matches/types/matches.types';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 
 type MatchPrimaryTabProps = {
   styles: MatchDetailsTabStyles;
@@ -100,8 +101,9 @@ export function MatchPrimaryTab({
   predictionsError = false,
   predictionsErrorReason = 'none',
 }: MatchPrimaryTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
+  const locale = resolveAppLocaleTag(i18n.language);
 
   const homePct = Number.parseFloat(winPercent.home.replace('%', '')) || 0;
   const drawPct = Number.parseFloat(winPercent.draw.replace('%', '')) || 0;
@@ -387,6 +389,7 @@ export function MatchPrimaryTab({
                     styles={styles}
                     colors={colors}
                     t={t}
+                    locale={locale}
                     payload={section.payload}
                   />
                 </View>

@@ -17,6 +17,22 @@ module.exports = [
     },
   },
   {
+    files: ['src/data/**/*.ts', 'src/data/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@ui/*', '@/ui/*'],
+              message: 'Data layer must not import from UI. Use @domain/contracts or @app-core.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.js', '**/*.jsx'],
     rules: {
       'ft-flow/define-flow-type': 'off',

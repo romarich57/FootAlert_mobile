@@ -5,12 +5,17 @@ import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { promisify } from 'node:util';
 
 import { env } from './config/env.js';
-import { configureCache } from './lib/cache.js';
+import {
+  assertCacheReadyOrThrow,
+  configureCache,
+  getCacheHealthSnapshot,
+} from './lib/cache.js';
 import { BffError } from './lib/errors.js';
 import { registerCapabilitiesRoutes } from './routes/capabilities.js';
 import { registerCompetitionsRoutes } from './routes/competitions.js';
 import { registerFollowsRoutes } from './routes/follows.js';
 import { registerMatchesRoutes } from './routes/matches.js';
+import { registerMobileSessionRoutes } from './routes/mobileSession.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
 import { registerPlayersRoutes } from './routes/players.js';
 import { registerTeamsRoutes } from './routes/teams.js';
@@ -168,9 +173,11 @@ export async function buildServer(): Promise<FastifyInstance> {
     maxEntries: env.cacheMaxEntries,
     cleanupIntervalMs: env.cacheCleanupIntervalMs,
     backend: env.cacheBackend,
+    strictMode: env.cacheStrictMode,
     redisUrl: env.redisUrl,
     redisPrefix: env.redisCachePrefix,
   });
+  await assertCacheReadyOrThrow();
 
   await app.register(cors, {
     origin: (origin, callback) => {
@@ -222,7 +229,19 @@ export async function buildServer(): Promise<FastifyInstance> {
     done(null, payload);
   });
 
-  app.get('/health', async () => ({ status: 'ok' }));
+  app.get('/health', async (_request, reply) => {
+    const cache = getCacheHealthSnapshot();
+    const status = cache.degraded ? 'degraded' : 'ok';
+
+    if (cache.degraded) {
+      reply.code(503);
+    }
+
+    return {
+      status,
+      cache,
+    };
+  });
 
   await registerCapabilitiesRoutes(app);
   await registerMatchesRoutes(app);
@@ -230,6 +249,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerTeamsRoutes(app);
   await registerPlayersRoutes(app);
   await registerFollowsRoutes(app);
+  await registerMobileSessionRoutes(app);
   await registerNotificationsRoutes(app);
   await registerTelemetryRoutes(app);
 

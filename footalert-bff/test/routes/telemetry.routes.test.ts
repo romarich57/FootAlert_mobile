@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildApp, buildSignedMobileHeaders, installFetchMock, jsonResponse } from '../helpers/appTestHarness.ts';
+import {
+  buildApp,
+  buildMobileSessionAuthorizationHeader,
+  installFetchMock,
+  jsonResponse,
+} from '../helpers/appTestHarness.ts';
+
 test('POST /v1/telemetry/events accepts structured mobile events', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
   const app = await buildApp(t);
@@ -20,10 +26,9 @@ test('POST /v1/telemetry/events accepts structured mobile events', async t => {
   const response = await app.inject({
     method: 'POST',
     url: '/v1/telemetry/events',
-    headers: buildSignedMobileHeaders({
-      method: 'POST',
-      url: '/v1/telemetry/events',
-      body: payload,
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'device',
     }),
     payload,
   });
@@ -67,10 +72,9 @@ test('POST /v1/telemetry/events/batch accepts structured mobile event arrays', a
   const response = await app.inject({
     method: 'POST',
     url: '/v1/telemetry/events/batch',
-    headers: buildSignedMobileHeaders({
-      method: 'POST',
-      url: '/v1/telemetry/events/batch',
-      body: payload,
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'device',
     }),
     payload,
   });
@@ -95,10 +99,9 @@ test('POST /v1/telemetry/errors rejects malformed payloads', async t => {
   const response = await app.inject({
     method: 'POST',
     url: '/v1/telemetry/errors',
-    headers: buildSignedMobileHeaders({
-      method: 'POST',
-      url: '/v1/telemetry/errors',
-      body: payload,
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'device',
     }),
     payload,
   });
@@ -121,10 +124,9 @@ test('POST /v1/telemetry/errors/batch rejects malformed payload arrays', async t
   const response = await app.inject({
     method: 'POST',
     url: '/v1/telemetry/errors/batch',
-    headers: buildSignedMobileHeaders({
-      method: 'POST',
-      url: '/v1/telemetry/errors/batch',
-      body: payload,
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'device',
     }),
     payload,
   });
@@ -134,40 +136,27 @@ test('POST /v1/telemetry/errors/batch rejects malformed payload arrays', async t
   assert.equal(calls.length, 0);
 });
 
-test('POST /v1/telemetry/events rejects replayed nonce', async t => {
+test('POST /v1/telemetry/events rejects malformed bearer token', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
   const app = await buildApp(t);
-  const payload = {
-    name: 'navigation.route_change',
-    attributes: {
-      from: 'Matches',
-      to: 'More',
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/events',
+    headers: {
+      authorization: 'Bearer malformed',
     },
-  };
-  const headers = buildSignedMobileHeaders({
-    method: 'POST',
-    url: '/v1/telemetry/events',
-    body: payload,
-    timestamp: Date.now().toString(),
-    nonce: 'replay-nonce-1',
+    payload: {
+      name: 'navigation.route_change',
+      attributes: {
+        from: 'Matches',
+        to: 'More',
+      },
+    },
   });
 
-  const firstResponse = await app.inject({
-    method: 'POST',
-    url: '/v1/telemetry/events',
-    headers,
-    payload,
-  });
-  const secondResponse = await app.inject({
-    method: 'POST',
-    url: '/v1/telemetry/events',
-    headers,
-    payload,
-  });
-
-  assert.equal(firstResponse.statusCode, 200);
-  assert.equal(secondResponse.statusCode, 403);
-  assert.equal(secondResponse.json().error, 'MOBILE_REQUEST_REPLAY_DETECTED');
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.json().error, 'MOBILE_SESSION_TOKEN_INVALID');
   assert.equal(calls.length, 0);
 });
 
@@ -186,10 +175,9 @@ test('POST /v1/telemetry/breadcrumbs accepts structured breadcrumb payload', asy
   const response = await app.inject({
     method: 'POST',
     url: '/v1/telemetry/breadcrumbs',
-    headers: buildSignedMobileHeaders({
-      method: 'POST',
-      url: '/v1/telemetry/breadcrumbs',
-      body: payload,
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'device',
     }),
     payload,
   });
@@ -227,10 +215,9 @@ test('POST /v1/telemetry/breadcrumbs/batch accepts breadcrumb arrays', async t =
   const response = await app.inject({
     method: 'POST',
     url: '/v1/telemetry/breadcrumbs/batch',
-    headers: buildSignedMobileHeaders({
-      method: 'POST',
-      url: '/v1/telemetry/breadcrumbs/batch',
-      body: payload,
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'device',
     }),
     payload,
   });
@@ -258,7 +245,7 @@ test('POST /v1/telemetry/errors rejects unsigned requests', async t => {
   });
 
   assert.equal(response.statusCode, 401);
-  assert.equal(response.json().error, 'MOBILE_REQUEST_SIGNATURE_MISSING');
+  assert.equal(response.json().error, 'MOBILE_ATTESTATION_REQUIRED');
   assert.equal(calls.length, 0);
 });
 
@@ -275,6 +262,54 @@ test('POST /v1/telemetry/breadcrumbs rejects unsigned requests', async t => {
   });
 
   assert.equal(response.statusCode, 401);
-  assert.equal(response.json().error, 'MOBILE_REQUEST_SIGNATURE_MISSING');
+  assert.equal(response.json().error, 'MOBILE_ATTESTATION_REQUIRED');
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/telemetry/events accepts bearer session token auth', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const payload = {
+    name: 'navigation.route_change',
+    attributes: {
+      from: 'Matches',
+      to: 'More',
+    },
+  };
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/events',
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'device',
+    }),
+    payload,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().status, 'accepted');
+  assert.equal(calls.length, 0);
+});
+
+test('POST /v1/telemetry/events rejects bearer tokens with insufficient integrity', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/telemetry/events',
+    headers: buildMobileSessionAuthorizationHeader({
+      scope: ['telemetry:write'],
+      integrity: 'basic',
+    }),
+    payload: {
+      name: 'network.loaded_data',
+    },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.json().error, 'DEVICE_INTEGRITY_FAILED');
   assert.equal(calls.length, 0);
 });

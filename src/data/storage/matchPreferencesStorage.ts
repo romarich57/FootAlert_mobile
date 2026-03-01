@@ -1,4 +1,4 @@
-import type { MatchNotificationPrefs } from '@ui/features/matches/types/matches.types';
+import type { MatchNotificationPrefs } from '@domain/contracts/matches.types';
 import { getJsonValue, setJsonValue } from '@data/storage/asyncStorage';
 
 export const DEFAULT_MATCH_NOTIFICATION_PREFS: MatchNotificationPrefs = {

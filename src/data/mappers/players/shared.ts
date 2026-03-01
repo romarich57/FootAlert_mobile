@@ -1,4 +1,4 @@
-import type { PlayerApiDetailsDto, PlayerApiMatchPerformanceDto } from '@ui/features/players/types/players.types';
+import type { PlayerApiDetailsDto, PlayerApiMatchPerformanceDto } from '@domain/contracts/players.types';
 
 export type PlayerApiStat = NonNullable<PlayerApiDetailsDto['statistics']>[number];
 

@@ -1,5 +1,5 @@
 import { getJsonValue, setJsonValue } from '@data/storage/asyncStorage';
-import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
+import type { FollowEntityTab } from '@domain/contracts/follows.types';
 
 export const FOLLOWED_TEAM_IDS_KEY = 'followed_team_ids';
 export const FOLLOWED_PLAYER_IDS_KEY = 'followed_player_ids';

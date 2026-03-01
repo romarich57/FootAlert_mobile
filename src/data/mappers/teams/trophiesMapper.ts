@@ -2,7 +2,7 @@ import type {
   TeamApiTrophyDto,
   TeamTrophiesData,
   TeamTrophyGroup,
-} from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/teams.types';
 
 import { toText } from './shared';
 

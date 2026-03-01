@@ -3,7 +3,7 @@ import type {
   PlayerApiMatchPerformanceAggregateDto,
   PlayerApiMatchPerformanceDto,
   PlayerMatchPerformance,
-} from '@ui/features/players/types/players.types';
+} from '@domain/contracts/players.types';
 
 import {
   normalizeNumber,

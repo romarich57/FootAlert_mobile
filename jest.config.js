@@ -5,6 +5,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@data/(.*)$': '<rootDir>/src/data/$1',
     '^@ui/(.*)$': '<rootDir>/src/ui/$1',
+    '^@domain/(.*)$': '<rootDir>/src/domain/$1',
     '^@app-core$': '<rootDir>/packages/app-core/src/index.ts',
     '^@app-core/(.*)$': '<rootDir>/packages/app-core/src/$1',
     '^@api-contract$': '<rootDir>/packages/api-contract/generated/types.ts',

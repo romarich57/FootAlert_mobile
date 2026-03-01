@@ -49,6 +49,7 @@ const mockedUseMatchesRefresh = jest.mocked(useMatchesRefresh);
 let fixtureStatusShort = 'NS';
 let fixtureStatusLong = 'Not started';
 let fixtureElapsed: number | null = null;
+const STABLE_TAB_KEYS = ['primary', 'timeline', 'lineups', 'standings', 'stats', 'faceOff'];
 
 function buildFixture() {
   return {
@@ -197,7 +198,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     expect(result.current.lifecycleState).toBe('pre_match');
     expect(result.current.tabs[0].label).toBe(i18n.t('matchDetails.tabs.preMatch'));
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'faceOff']);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         hasLiveMatches: false,
@@ -246,7 +247,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'faceOff']);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
     expect(result.current.activeTab).toBe('primary');
   });
 
@@ -259,10 +260,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     expect(result.current.lifecycleState).toBe('live');
     expect(result.current.tabs[0].label).toBe(i18n.t('matchDetails.tabs.summary'));
-    expect(result.current.tabs.map(tab => tab.key)).toEqual([
-      'primary',
-      'faceOff',
-    ]);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         hasLiveMatches: true,
@@ -299,10 +297,7 @@ describe('useMatchDetailsScreenModel', () => {
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
     expect(result.current.lifecycleState).toBe('finished');
-    expect(result.current.tabs.map(tab => tab.key)).toEqual([
-      'primary',
-      'faceOff',
-    ]);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
   });
 
   it('shows timeline tab when events data is available', () => {
@@ -389,7 +384,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(['primary', 'timeline', 'faceOff']);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
   });
 
   it('does not build lineups from players stats when lineups endpoint is empty', () => {
@@ -855,11 +850,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
-    expect(result.current.tabs.map(tab => tab.key)).toEqual([
-      'primary',
-      'stats',
-      'faceOff',
-    ]);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
     expect(result.current.statsAvailablePeriods).toEqual(['all']);
     expect(result.current.statsRowsByPeriod.all).toHaveLength(1);
     expect(result.current.statsRowsByPeriod.first).toHaveLength(0);
@@ -953,9 +944,9 @@ describe('useMatchDetailsScreenModel', () => {
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
     expect(result.current.preMatchTab.hasAnySection).toBe(false);
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(['faceOff']);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
     await waitFor(() => {
-      expect(result.current.activeTab).toBe('faceOff');
+      expect(result.current.activeTab).toBe('primary');
     });
   });
 

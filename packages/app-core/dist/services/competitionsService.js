@@ -1,8 +1,16 @@
 import { z } from 'zod';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 const listResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),
+    pageInfo: z
+        .object({
+        hasMore: z.boolean(),
+        nextCursor: z.string().nullable(),
+        returnedCount: z.number(),
+    })
+        .passthrough()
+        .optional(),
 })
     .passthrough();
 export function createCompetitionsReadService({ http, telemetry }) {
@@ -33,8 +41,12 @@ export function createCompetitionsReadService({ http, telemetry }) {
             const items = await fetchList(`/competitions/${encodeURIComponent(String(leagueId))}/standings`, { season }, 'competitions.standings', `/competitions/${leagueId}/standings`, signal);
             return items[0] ?? null;
         },
-        fetchLeagueFixtures(leagueId, season, signal) {
-            return fetchList(`/competitions/${encodeURIComponent(String(leagueId))}/matches`, { season }, 'competitions.fixtures', `/competitions/${leagueId}/matches`, signal);
+        fetchLeagueFixtures(leagueId, season, signal, options) {
+            return fetchList(`/competitions/${encodeURIComponent(String(leagueId))}/matches`, {
+                season,
+                limit: options?.limit,
+                cursor: options?.cursor,
+            }, 'competitions.fixtures', `/competitions/${leagueId}/matches`, signal);
         },
         fetchLeaguePlayerStats(leagueId, season, type, signal) {
             return fetchList(`/competitions/${encodeURIComponent(String(leagueId))}/player-stats`, { season, type }, 'competitions.player_stats', `/competitions/${leagueId}/player-stats`, signal);

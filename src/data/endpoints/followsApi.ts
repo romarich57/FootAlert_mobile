@@ -1,14 +1,17 @@
-import { bffGet } from '@data/endpoints/bffClient';
+import { createFollowsReadService } from '@app-core/services/followsService';
 import type {
   FollowsApiFixtureDto,
   FollowsApiPlayerSearchDto,
   FollowsApiPlayerSeasonDto,
-  FollowsApiResponse,
   FollowsApiStandingDto,
   FollowsApiTeamDetailsDto,
   FollowsApiTeamSearchDto,
   FollowsApiTopScorerDto,
-} from '@ui/features/follows/types/follows.types';
+} from '@domain/contracts/follows.types';
+import {
+  mobileReadHttpAdapter,
+  mobileReadTelemetryAdapter,
+} from '@data/endpoints/sharedReadServiceAdapters';
 
 type NestedApiResponse<T> = {
   response: Array<{
@@ -16,17 +19,16 @@ type NestedApiResponse<T> = {
   }>;
 };
 
+const followsReadService = createFollowsReadService({
+  http: mobileReadHttpAdapter,
+  telemetry: mobileReadTelemetryAdapter,
+});
+
 export async function searchTeamsByName(
   query: string,
   signal?: AbortSignal,
 ): Promise<FollowsApiTeamSearchDto[]> {
-  const payload = await bffGet<FollowsApiResponse<FollowsApiTeamSearchDto>>(
-    '/follows/search/teams',
-    { q: query },
-    { signal },
-  );
-
-  return payload.response;
+  return followsReadService.searchTeams<FollowsApiTeamSearchDto>(query, signal);
 }
 
 export async function searchPlayersByName(
@@ -34,13 +36,7 @@ export async function searchPlayersByName(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiPlayerSearchDto[]> {
-  const payload = await bffGet<FollowsApiResponse<FollowsApiPlayerSearchDto>>(
-    '/follows/search/players',
-    { q: query, season },
-    { signal },
-  );
-
-  return payload.response;
+  return followsReadService.searchPlayers<FollowsApiPlayerSearchDto>(query, season, signal);
 }
 
 export async function fetchNextFixtureForTeam(
@@ -48,26 +44,14 @@ export async function fetchNextFixtureForTeam(
   timezone: string,
   signal?: AbortSignal,
 ): Promise<FollowsApiFixtureDto | null> {
-  const payload = await bffGet<FollowsApiResponse<FollowsApiFixtureDto>>(
-    `/follows/teams/${encodeURIComponent(teamId)}/next-fixture`,
-    { timezone },
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return followsReadService.fetchTeamNextFixture<FollowsApiFixtureDto>(teamId, timezone, signal);
 }
 
 export async function fetchTeamById(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<FollowsApiTeamDetailsDto | null> {
-  const payload = await bffGet<FollowsApiResponse<FollowsApiTeamDetailsDto>>(
-    `/follows/teams/${encodeURIComponent(teamId)}`,
-    undefined,
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return followsReadService.fetchTeamDetails<FollowsApiTeamDetailsDto>(teamId, signal);
 }
 
 export async function fetchPlayerSeasonStats(
@@ -75,13 +59,7 @@ export async function fetchPlayerSeasonStats(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiPlayerSeasonDto | null> {
-  const payload = await bffGet<FollowsApiResponse<FollowsApiPlayerSeasonDto>>(
-    `/follows/players/${encodeURIComponent(playerId)}/season/${encodeURIComponent(String(season))}`,
-    undefined,
-    { signal },
-  );
-
-  return payload.response[0] ?? null;
+  return followsReadService.fetchPlayerSeason<FollowsApiPlayerSeasonDto>(playerId, season, signal);
 }
 
 export async function fetchTrendingTeams(
@@ -89,16 +67,13 @@ export async function fetchTrendingTeams(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiStandingDto[]> {
-  const payload = await bffGet<NestedApiResponse<FollowsApiStandingDto>>(
-    '/follows/trends/teams',
-    {
-      leagueIds: topLeagueIds.join(','),
-      season,
-    },
-    { signal },
+  const payload = await followsReadService.fetchTeamsTrends<NestedApiResponse<FollowsApiStandingDto>['response'][number]>(
+    topLeagueIds.join(','),
+    season,
+    signal,
   );
 
-  return payload.response
+  return payload
     .map(group => group.response?.[0] ?? null)
     .filter(Boolean) as FollowsApiStandingDto[];
 }
@@ -108,14 +83,11 @@ export async function fetchTrendingPlayers(
   season: number,
   signal?: AbortSignal,
 ): Promise<FollowsApiTopScorerDto[]> {
-  const payload = await bffGet<NestedApiResponse<FollowsApiTopScorerDto>>(
-    '/follows/trends/players',
-    {
-      leagueIds: topLeagueIds.join(','),
-      season,
-    },
-    { signal },
+  const payload = await followsReadService.fetchPlayersTrends<NestedApiResponse<FollowsApiTopScorerDto>['response'][number]>(
+    topLeagueIds.join(','),
+    season,
+    signal,
   );
 
-  return payload.response.flatMap(group => group.response ?? []);
+  return payload.flatMap(group => group.response ?? []);
 }

@@ -37,15 +37,18 @@ import {
   mapPlayersToTopPlayers,
   mapPlayersToTopPlayersByCategory,
 } from '@data/mappers/teamsMapper';
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
+import { resolveMatchDetailsQueryPolicy } from '@ui/features/matches/details/hooks/matchDetailsQueryPolicy';
+import { composeMatchDetailsViewModel } from '@ui/features/matches/details/hooks/matchDetailsViewModel';
 import { buildStatRows } from '@ui/features/matches/details/components/tabs/shared/matchDetailsSelectors';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import type {
   ApiFootballFixtureDto,
-  MatchDetailTabDefinition,
   MatchPostMatchSection,
   MatchPostMatchTabViewModel,
   MatchPreMatchLeaderPlayer,
@@ -174,35 +177,44 @@ async function fetchAllTeamPlayers({
   season: number;
   signal?: AbortSignal;
 }): Promise<TeamApiPlayerDto[]> {
-  const firstPage = await fetchTeamPlayers(
-    {
-      teamId,
-      leagueId: String(leagueId),
-      season,
-      page: 1,
-    },
-    signal,
-  );
+  const aggregated: TeamApiPlayerDto[] = [];
+  const limit = 50;
+  const maxRequests = 10;
+  const targetItems = 200;
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
 
-  const totalPages = Math.max(1, firstPage.paging?.total ?? 1);
-  if (totalPages <= 1) {
-    return firstPage.response ?? [];
+  for (let requestIndex = 0; requestIndex < maxRequests; requestIndex += 1) {
+    const page = await fetchTeamPlayers(
+      {
+        teamId,
+        leagueId: String(leagueId),
+        season,
+        limit,
+        cursor,
+      },
+      signal,
+    );
+
+    if (Array.isArray(page.response) && page.response.length > 0) {
+      aggregated.push(...page.response);
+    }
+
+    const nextCursor = page.pageInfo?.nextCursor ?? undefined;
+    const hasMore = page.pageInfo?.hasMore ?? false;
+    if (!hasMore || !nextCursor || seenCursors.has(nextCursor)) {
+      break;
+    }
+
+    if (aggregated.length >= targetItems) {
+      break;
+    }
+
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
   }
 
-  const nextPages = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, index) =>
-      fetchTeamPlayers(
-        {
-          teamId,
-          leagueId: String(leagueId),
-          season,
-          page: index + 2,
-        },
-        signal,
-      )),
-  );
-
-  return [firstPage, ...nextPages].flatMap(page => page.response ?? []);
+  return aggregated;
 }
 
 async function fetchTeamLeadersByCategory({
@@ -357,9 +369,11 @@ function toRecentResultRows({
 function toUpcomingRows({
   matches,
   leagueId,
+  locale,
 }: {
   matches: TeamContextMatch[];
   leagueId: number;
+  locale: string;
 }) {
   const sameCompetitionUpcoming = matches.filter(match => {
     const matchLeagueId = toId(match.leagueId);
@@ -383,7 +397,7 @@ function toUpcomingRows({
       leagueName: match.leagueName,
       leagueLogo: match.leagueLogo,
       dateIso: match.date,
-      kickoffDisplay: formatKickoffWithDate(match.date),
+      kickoffDisplay: formatKickoffWithDate(match.date, locale),
       homeTeamName: match.homeTeamName,
       homeTeamLogo: match.homeTeamLogo,
       awayTeamName: match.awayTeamName,
@@ -480,7 +494,7 @@ function hasWeatherData(
   );
 }
 
-function formatKickoffWithDate(dateIso: string | null | undefined): string | null {
+function formatKickoffWithDate(dateIso: string | null | undefined, locale: string): string | null {
   if (!dateIso) {
     return null;
   }
@@ -490,7 +504,7 @@ function formatKickoffWithDate(dateIso: string | null | undefined): string | nul
     return null;
   }
 
-  return parsed.toLocaleString('fr-FR', {
+  return parsed.toLocaleString(locale, {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
@@ -587,7 +601,7 @@ function toLifecycleState(fixture: ApiFootballFixtureDto | null): MatchLifecycle
   return 'pre_match';
 }
 
-function formatKickoff(dateIso: string | null | undefined): string {
+function formatKickoff(dateIso: string | null | undefined, locale: string): string {
   if (!dateIso) {
     return '';
   }
@@ -597,7 +611,7 @@ function formatKickoff(dateIso: string | null | undefined): string {
     return '';
   }
 
-  return parsed.toLocaleTimeString('fr-FR', {
+  return parsed.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -688,6 +702,7 @@ function buildPreMatchSections({
   predictionsPercent,
   winPercent,
   leagueId,
+  locale,
   homeTeamId,
   awayTeamId,
   homeRecentMatches,
@@ -710,6 +725,7 @@ function buildPreMatchSections({
     away: string;
   };
   leagueId: number | undefined;
+  locale: string;
   homeTeamId: string | null;
   awayTeamId: string | null;
   homeRecentMatches: TeamContextMatch[];
@@ -754,7 +770,7 @@ function buildPreMatchSections({
   const roundValue = toNullableText(fixture?.league.round) ?? toNullableText(leagueNode?.round);
   const competitionType = toNullableText(fixture?.league.type) ?? toNullableText(leagueNode?.type);
   const refereeValue = toNullableText(fixture?.fixture.referee) ?? toNullableText(fixtureNode?.referee);
-  const kickoffDisplay = formatKickoffWithDate(fixture?.fixture.date);
+  const kickoffDisplay = formatKickoffWithDate(fixture?.fixture.date, locale);
 
   const shouldShowWinProbability =
     Boolean(predictionsPercent.home) ||
@@ -956,6 +972,7 @@ function buildPostMatchSections({
   fixture,
   fixtureRecord,
   leagueId,
+  locale,
   homeTeamId,
   awayTeamId,
   homeTeamMatches,
@@ -966,6 +983,7 @@ function buildPostMatchSections({
   fixture: ApiFootballFixtureDto | null;
   fixtureRecord: RawRecord | null;
   leagueId: number | undefined;
+  locale: string;
   homeTeamId: string | null;
   awayTeamId: string | null;
   homeTeamMatches: TeamContextMatch[];
@@ -1008,7 +1026,7 @@ function buildPostMatchSections({
   const roundValue = toNullableText(fixture?.league.round) ?? toNullableText(leagueNode?.round);
   const competitionType = toNullableText(fixture?.league.type) ?? toNullableText(leagueNode?.type);
   const refereeValue = toNullableText(fixture?.fixture.referee) ?? toNullableText(fixtureNode?.referee);
-  const kickoffDisplay = formatKickoffWithDate(fixture?.fixture.date);
+  const kickoffDisplay = formatKickoffWithDate(fixture?.fixture.date, locale);
 
   const hasVenueWeatherData =
     Boolean(venueName) ||
@@ -1142,6 +1160,7 @@ function buildPostMatchSections({
       ? toUpcomingRows({
         matches: homeTeamMatches,
         leagueId,
+        locale,
       })
       : [];
   const awayUpcomingRows =
@@ -1149,6 +1168,7 @@ function buildPostMatchSections({
       ? toUpcomingRows({
         matches: awayTeamMatches,
         leagueId,
+        locale,
       })
       : [];
   const hasUpcomingData = homeUpcomingRows.length > 0 || awayUpcomingRows.length > 0;
@@ -1190,64 +1210,8 @@ function buildPostMatchSections({
   };
 }
 
-function toTabDefinitions(
-  lifecycleState: MatchLifecycleState,
-  shouldShowPreMatchPrimaryTab: boolean,
-  hasTimeline: boolean,
-  hasLineups: boolean,
-  hasStandings: boolean,
-  hasStatistics: boolean,
-  t: (key: string) => string,
-): MatchDetailTabDefinition[] {
-  const tabs: MatchDetailTabDefinition[] = [];
-
-  if (lifecycleState !== 'pre_match' || shouldShowPreMatchPrimaryTab) {
-    tabs.push({
-      key: 'primary',
-      label: lifecycleState === 'pre_match'
-        ? t('matchDetails.tabs.preMatch')
-        : t('matchDetails.tabs.summary'),
-    });
-  }
-
-  if (lifecycleState !== 'pre_match' && hasTimeline) {
-    tabs.push({
-      key: 'timeline',
-      label: t('matchDetails.tabs.timeline'),
-    });
-  }
-
-  if (hasLineups) {
-    tabs.push({
-      key: 'lineups',
-      label: t('matchDetails.tabs.lineups'),
-    });
-  }
-
-  if (hasStandings) {
-    tabs.push({
-      key: 'standings',
-      label: t('matchDetails.tabs.standings'),
-    });
-  }
-
-  if (hasStatistics) {
-    tabs.push({
-      key: 'stats',
-      label: t('matchDetails.tabs.stats'),
-    });
-  }
-
-  tabs.push({
-    key: 'faceOff',
-    label: t('matchDetails.tabs.faceOff'),
-  });
-
-  return tabs;
-}
-
 export function useMatchDetailsScreenModel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation<MatchDetailsNavigation>();
   const route = useRoute<MatchDetailsRoute>();
   const isFocused = useIsFocused();
@@ -1259,6 +1223,10 @@ export function useMatchDetailsScreenModel() {
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
     [],
+  );
+  const locale = useMemo(
+    () => resolveAppLocaleTag(i18n.language),
+    [i18n.language],
   );
 
   const fixtureQuery = useQuery({
@@ -1294,11 +1262,23 @@ export function useMatchDetailsScreenModel() {
   const { homeTeamId, awayTeamId } = useMemo(() => pickTeamIdsFromFixture(fixture), [fixture]);
   const season = useMemo(() => extractFixtureSeason(fixture), [fixture]);
   const leagueId = fixture?.league?.id;
-  const canFetchHeadToHead = Boolean(safeMatchId) && Boolean(homeTeamId) && Boolean(awayTeamId);
+  const queryPolicy = useMemo(
+    () =>
+      resolveMatchDetailsQueryPolicy({
+        safeMatchId,
+        lifecycleState,
+        activeTab,
+        homeTeamId,
+        awayTeamId,
+        leagueId,
+        season,
+      }),
+    [activeTab, awayTeamId, homeTeamId, leagueId, lifecycleState, safeMatchId, season],
+  );
 
   const eventsQuery = useQuery({
     queryKey: queryKeys.matchEvents(safeMatchId ?? 'invalid'),
-    enabled: Boolean(safeMatchId),
+    enabled: queryPolicy.enableEvents,
     queryFn: ({ signal }) =>
       fetchFixtureEvents({
         fixtureId: safeMatchId ?? '',
@@ -1311,7 +1291,7 @@ export function useMatchDetailsScreenModel() {
 
   const statisticsQuery = useQuery({
     queryKey: queryKeys.matchStatistics(safeMatchId ?? 'invalid', 'all'),
-    enabled: Boolean(safeMatchId),
+    enabled: queryPolicy.enableStatistics,
     queryFn: ({ signal }) =>
       fetchFixtureStatistics({
         fixtureId: safeMatchId ?? '',
@@ -1323,11 +1303,7 @@ export function useMatchDetailsScreenModel() {
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.statistics.retry),
   });
 
-  const canUseHalfStatistics =
-    Boolean(safeMatchId) &&
-    lifecycleState !== 'pre_match' &&
-    typeof season === 'number' &&
-    season >= 2024;
+  const canUseHalfStatistics = queryPolicy.enableHalfStatistics;
 
   const statisticsFirstHalfQuery = useQuery({
     queryKey: queryKeys.matchStatistics(safeMatchId ?? 'invalid', 'first'),
@@ -1359,7 +1335,7 @@ export function useMatchDetailsScreenModel() {
 
   const predictionsQuery = useQuery({
     queryKey: queryKeys.matchPredictions(safeMatchId ?? 'invalid'),
-    enabled: Boolean(safeMatchId),
+    enabled: queryPolicy.enablePredictions,
     queryFn: ({ signal }) =>
       fetchFixturePredictions({
         fixtureId: safeMatchId ?? '',
@@ -1371,7 +1347,7 @@ export function useMatchDetailsScreenModel() {
 
   const absencesQuery = useQuery({
     queryKey: queryKeys.matchAbsences(safeMatchId ?? 'invalid', timezone),
-    enabled: Boolean(safeMatchId),
+    enabled: queryPolicy.enableAbsences,
     queryFn: ({ signal }) =>
       fetchFixtureAbsences({
         fixtureId: safeMatchId ?? '',
@@ -1384,7 +1360,7 @@ export function useMatchDetailsScreenModel() {
 
   const headToHeadQuery = useQuery({
     queryKey: queryKeys.matchHeadToHead(safeMatchId ?? 'invalid'),
-    enabled: canFetchHeadToHead,
+    enabled: queryPolicy.enableHeadToHead,
     queryFn: ({ signal }) =>
       fetchFixtureHeadToHead({
         fixtureId: safeMatchId ?? '',
@@ -1399,7 +1375,7 @@ export function useMatchDetailsScreenModel() {
 
   const homePlayersStatsQuery = useQuery({
     queryKey: queryKeys.matchPlayersStatsByTeam(safeMatchId ?? 'invalid', homeTeamId ?? 'unknown'),
-    enabled: Boolean(safeMatchId) && Boolean(homeTeamId),
+    enabled: queryPolicy.enableHomePlayersStats,
     queryFn: ({ signal }) =>
       fetchFixturePlayersStatsByTeam({
         fixtureId: safeMatchId ?? '',
@@ -1413,7 +1389,7 @@ export function useMatchDetailsScreenModel() {
 
   const awayPlayersStatsQuery = useQuery({
     queryKey: queryKeys.matchPlayersStatsByTeam(safeMatchId ?? 'invalid', awayTeamId ?? 'unknown'),
-    enabled: Boolean(safeMatchId) && Boolean(awayTeamId),
+    enabled: queryPolicy.enableAwayPlayersStats,
     queryFn: ({ signal }) =>
       fetchFixturePlayersStatsByTeam({
         fixtureId: safeMatchId ?? '',
@@ -1430,22 +1406,13 @@ export function useMatchDetailsScreenModel() {
       typeof leagueId === 'number' ? leagueId : undefined,
       typeof season === 'number' ? season : undefined,
     ),
-    enabled: typeof leagueId === 'number' && typeof season === 'number',
+    enabled: queryPolicy.enableStandings,
     queryFn: ({ signal }) => fetchLeagueStandings(leagueId as number, season as number, signal),
     ...featureQueryOptions.competitions.standings,
   });
 
-  const shouldFetchTeamContext =
-    (lifecycleState === 'pre_match' || lifecycleState === 'finished') &&
-    Boolean(safeMatchId) &&
-    typeof leagueId === 'number' &&
-    typeof season === 'number';
-
-  const shouldFetchPreMatchExtras =
-    lifecycleState === 'pre_match' &&
-    Boolean(safeMatchId) &&
-    typeof leagueId === 'number' &&
-    typeof season === 'number';
+  const shouldFetchTeamContext = queryPolicy.enableTeamContext;
+  const shouldFetchPreMatchExtras = queryPolicy.enablePreMatchExtras;
 
   const homeTeamMatchesQuery = useQuery({
     queryKey: queryKeys.matchTeamRecentResults(safeMatchId ?? 'invalid', homeTeamId ?? 'unknown'),
@@ -1508,11 +1475,6 @@ export function useMatchDetailsScreenModel() {
     refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.stats.retry),
   });
-
-  const hasStandings = useMemo(
-    () => (standingsQuery.data?.league?.standings?.length ?? 0) > 0,
-    [standingsQuery.data],
-  );
 
   const fixtureRecord = useMemo(() => toRawRecord(fixture), [fixture]);
 
@@ -1618,25 +1580,6 @@ export function useMatchDetailsScreenModel() {
     ],
   );
 
-  const hasLineupsData = useMemo(
-    () =>
-      resolvedLineups.data.some(rawEntry => {
-        const entry = toRawRecord(rawEntry);
-        if (!entry) {
-          return false;
-        }
-
-        const startXI = toArray(entry.startXI);
-        const substitutes = toArray(entry.substitutes);
-        const coach = toRawRecord(entry.coach);
-        const coachName = toText(coach?.name);
-
-        return startXI.length > 0 || substitutes.length > 0 || coachName.length > 0;
-      }),
-    [resolvedLineups.data],
-  );
-  const hasTimelineData = resolvedEvents.data.length > 0;
-
   const statsRowsByPeriod = useMemo<StatRowsByPeriod>(
     () => ({
       all: buildStatRows(resolvedStatistics.data),
@@ -1658,8 +1601,6 @@ export function useMatchDetailsScreenModel() {
       ),
     [statsRowsByPeriod],
   );
-
-  const hasStatistics = statsAvailablePeriods.length > 0;
 
   const predictionsRaw = useMemo(
     () => toRawRecord(resolvedPredictions.data[0] ?? null),
@@ -1727,6 +1668,7 @@ export function useMatchDetailsScreenModel() {
         predictionsPercent,
         winPercent,
         leagueId,
+        locale,
         homeTeamId,
         awayTeamId,
         homeRecentMatches: homeTeamMatches.all,
@@ -1745,6 +1687,7 @@ export function useMatchDetailsScreenModel() {
       homeTeamMatches.all,
       homeTeamId,
       leagueId,
+      locale,
       preMatchIsLoading,
       predictionsPercent,
       standingsQuery.data,
@@ -1759,6 +1702,7 @@ export function useMatchDetailsScreenModel() {
         fixture,
         fixtureRecord,
         leagueId,
+        locale,
         homeTeamId,
         awayTeamId,
         homeTeamMatches: homeTeamMatches.all,
@@ -1773,33 +1717,15 @@ export function useMatchDetailsScreenModel() {
       homeTeamId,
       homeTeamMatches.all,
       leagueId,
+      locale,
       postMatchIsLoading,
       standingsQuery.data,
     ],
   );
 
   const tabs = useMemo(
-    () =>
-      toTabDefinitions(
-        lifecycleState,
-        fixtureQuery.isLoading || preMatchTab.hasAnySection || preMatchTab.isLoading,
-        hasTimelineData,
-        hasLineupsData,
-        hasStandings,
-        hasStatistics,
-        t,
-      ),
-    [
-      hasLineupsData,
-      hasStandings,
-      hasStatistics,
-      hasTimelineData,
-      lifecycleState,
-      fixtureQuery.isLoading,
-      preMatchTab.hasAnySection,
-      preMatchTab.isLoading,
-      t,
-    ],
+    () => composeMatchDetailsViewModel(lifecycleState, t).tabs,
+    [lifecycleState, t],
   );
 
   useEffect(() => {
@@ -1808,7 +1734,7 @@ export function useMatchDetailsScreenModel() {
 
   useEffect(() => {
     setActiveTab(currentTab => {
-      if (tabs.some((tab: MatchDetailTabDefinition) => tab.key === currentTab)) {
+      if (tabs.some(tab => tab.key === currentTab)) {
         return currentTab;
       }
 
@@ -1817,8 +1743,8 @@ export function useMatchDetailsScreenModel() {
   }, [tabs]);
 
   const kickoffLabel = useMemo(
-    () => formatKickoff(fixture?.fixture.date),
-    [fixture?.fixture.date],
+    () => formatKickoff(fixture?.fixture.date, locale),
+    [fixture?.fixture.date, locale],
   );
   const countdownLabel = useMemo(
     () => formatCountdown(fixture?.fixture.date, t),
@@ -1859,27 +1785,74 @@ export function useMatchDetailsScreenModel() {
   const batteryLiteMode = powerState.lowPowerMode === true;
 
   const refetchLiveData = useCallback(async () => {
-    const results = await Promise.all([
-      fixtureQuery.refetch(),
-      eventsQuery.refetch(),
-      statisticsQuery.refetch(),
-      statisticsFirstHalfQuery.refetch(),
-      statisticsSecondHalfQuery.refetch(),
-      lineupsQuery.refetch(),
-      homePlayersStatsQuery.refetch(),
-      awayPlayersStatsQuery.refetch(),
-      standingsQuery.refetch(),
-    ]);
+    const refetchTasks: Array<() => Promise<unknown>> = [fixtureQuery.refetch];
+    const runWithGuard = (enabled: boolean, callback: () => Promise<unknown>) => {
+      if (enabled) {
+        refetchTasks.push(callback);
+      }
+    };
+
+    if (activeTab === 'primary') {
+      runWithGuard(queryPolicy.enableLineups, lineupsQuery.refetch);
+      runWithGuard(queryPolicy.enableEvents, eventsQuery.refetch);
+      runWithGuard(queryPolicy.enableStatistics, statisticsQuery.refetch);
+      runWithGuard(queryPolicy.enableHalfStatistics, statisticsFirstHalfQuery.refetch);
+      runWithGuard(queryPolicy.enableHalfStatistics, statisticsSecondHalfQuery.refetch);
+    } else if (activeTab === 'timeline') {
+      runWithGuard(queryPolicy.enableEvents, eventsQuery.refetch);
+    } else if (activeTab === 'lineups') {
+      runWithGuard(queryPolicy.enableLineups, lineupsQuery.refetch);
+      runWithGuard(queryPolicy.enableAbsences, absencesQuery.refetch);
+      runWithGuard(queryPolicy.enableHomePlayersStats, homePlayersStatsQuery.refetch);
+      runWithGuard(queryPolicy.enableAwayPlayersStats, awayPlayersStatsQuery.refetch);
+    } else if (activeTab === 'standings') {
+      runWithGuard(queryPolicy.enableStandings, standingsQuery.refetch);
+    } else if (activeTab === 'stats') {
+      runWithGuard(queryPolicy.enableStatistics, statisticsQuery.refetch);
+      runWithGuard(queryPolicy.enableHalfStatistics, statisticsFirstHalfQuery.refetch);
+      runWithGuard(queryPolicy.enableHalfStatistics, statisticsSecondHalfQuery.refetch);
+    }
+
+    const startedAtMs = Date.now();
+    const results = await Promise.all(
+      refetchTasks.map(task =>
+        task().catch(() => ({ isError: true })),
+      ),
+    );
+    const durationMs = Date.now() - startedAtMs;
+    getMobileTelemetry().trackEvent('match_details.refetch.duration', {
+      activeTab,
+      lifecycleState,
+      queryCount: refetchTasks.length,
+      durationMs,
+    });
 
     return {
-      isError: results.some(result => result.isError),
+      isError: results.some(result => {
+        if (typeof result !== 'object' || result === null) {
+          return true;
+        }
+
+        return Boolean((result as { isError?: boolean }).isError);
+      }),
     };
   }, [
+    absencesQuery,
+    activeTab,
     awayPlayersStatsQuery,
     eventsQuery,
     fixtureQuery,
     homePlayersStatsQuery,
     lineupsQuery,
+    lifecycleState,
+    queryPolicy.enableAbsences,
+    queryPolicy.enableAwayPlayersStats,
+    queryPolicy.enableEvents,
+    queryPolicy.enableHalfStatistics,
+    queryPolicy.enableHomePlayersStats,
+    queryPolicy.enableLineups,
+    queryPolicy.enableStandings,
+    queryPolicy.enableStatistics,
     standingsQuery,
     statisticsFirstHalfQuery,
     statisticsSecondHalfQuery,
@@ -1896,26 +1869,50 @@ export function useMatchDetailsScreenModel() {
   });
 
   const retryAll = useCallback(() => {
-    fixtureQuery.refetch().catch(() => undefined);
-    eventsQuery.refetch().catch(() => undefined);
-    statisticsQuery.refetch().catch(() => undefined);
-    statisticsFirstHalfQuery.refetch().catch(() => undefined);
-    statisticsSecondHalfQuery.refetch().catch(() => undefined);
-    lineupsQuery.refetch().catch(() => undefined);
-    predictionsQuery.refetch().catch(() => undefined);
-    absencesQuery.refetch().catch(() => undefined);
-    homePlayersStatsQuery.refetch().catch(() => undefined);
-    awayPlayersStatsQuery.refetch().catch(() => undefined);
-    headToHeadQuery.refetch().catch(() => undefined);
-    standingsQuery.refetch().catch(() => undefined);
-    homeTeamMatchesQuery.refetch().catch(() => undefined);
-    awayTeamMatchesQuery.refetch().catch(() => undefined);
-    homeLeadersQuery.refetch().catch(() => undefined);
-    awayLeadersQuery.refetch().catch(() => undefined);
+    const retry = (enabled: boolean, callback: () => Promise<unknown>) => {
+      if (!enabled) {
+        return;
+      }
+
+      callback().catch(() => undefined);
+    };
+
+    retry(true, fixtureQuery.refetch);
+
+    if (activeTab === 'primary') {
+      retry(queryPolicy.enableLineups, lineupsQuery.refetch);
+      retry(queryPolicy.enableEvents, eventsQuery.refetch);
+      retry(queryPolicy.enableStatistics, statisticsQuery.refetch);
+      retry(queryPolicy.enableHalfStatistics, statisticsFirstHalfQuery.refetch);
+      retry(queryPolicy.enableHalfStatistics, statisticsSecondHalfQuery.refetch);
+      retry(queryPolicy.enablePredictions, predictionsQuery.refetch);
+      retry(queryPolicy.enableStandings, standingsQuery.refetch);
+      retry(queryPolicy.enableTeamContext, homeTeamMatchesQuery.refetch);
+      retry(queryPolicy.enableTeamContext, awayTeamMatchesQuery.refetch);
+      retry(queryPolicy.enablePreMatchExtras, homeLeadersQuery.refetch);
+      retry(queryPolicy.enablePreMatchExtras, awayLeadersQuery.refetch);
+    } else if (activeTab === 'timeline') {
+      retry(queryPolicy.enableEvents, eventsQuery.refetch);
+    } else if (activeTab === 'lineups') {
+      retry(queryPolicy.enableLineups, lineupsQuery.refetch);
+      retry(queryPolicy.enableAbsences, absencesQuery.refetch);
+      retry(queryPolicy.enableHomePlayersStats, homePlayersStatsQuery.refetch);
+      retry(queryPolicy.enableAwayPlayersStats, awayPlayersStatsQuery.refetch);
+    } else if (activeTab === 'standings') {
+      retry(queryPolicy.enableStandings, standingsQuery.refetch);
+    } else if (activeTab === 'stats') {
+      retry(queryPolicy.enableStatistics, statisticsQuery.refetch);
+      retry(queryPolicy.enableHalfStatistics, statisticsFirstHalfQuery.refetch);
+      retry(queryPolicy.enableHalfStatistics, statisticsSecondHalfQuery.refetch);
+    } else if (activeTab === 'faceOff') {
+      retry(queryPolicy.enableHeadToHead, headToHeadQuery.refetch);
+    }
   }, [
     absencesQuery,
+    activeTab,
     awayPlayersStatsQuery,
     awayTeamMatchesQuery,
+    awayLeadersQuery,
     eventsQuery,
     fixtureQuery,
     headToHeadQuery,
@@ -1923,8 +1920,19 @@ export function useMatchDetailsScreenModel() {
     homePlayersStatsQuery,
     homeTeamMatchesQuery,
     lineupsQuery,
-    awayLeadersQuery,
     predictionsQuery,
+    queryPolicy.enableAbsences,
+    queryPolicy.enableAwayPlayersStats,
+    queryPolicy.enableEvents,
+    queryPolicy.enableHalfStatistics,
+    queryPolicy.enableHeadToHead,
+    queryPolicy.enableHomePlayersStats,
+    queryPolicy.enableLineups,
+    queryPolicy.enablePreMatchExtras,
+    queryPolicy.enablePredictions,
+    queryPolicy.enableStandings,
+    queryPolicy.enableStatistics,
+    queryPolicy.enableTeamContext,
     standingsQuery,
     statisticsFirstHalfQuery,
     statisticsSecondHalfQuery,
@@ -1937,6 +1945,57 @@ export function useMatchDetailsScreenModel() {
 
   const isInitialLoading = fixtureQuery.isLoading;
   const isInitialError = fixtureQuery.isError || !safeMatchId;
+  const isAnyDetailsQueryFetching =
+    fixtureQuery.isFetching ||
+    lineupsQuery.isFetching ||
+    eventsQuery.isFetching ||
+    statisticsQuery.isFetching ||
+    statisticsFirstHalfQuery.isFetching ||
+    statisticsSecondHalfQuery.isFetching ||
+    predictionsQuery.isFetching ||
+    absencesQuery.isFetching ||
+    homePlayersStatsQuery.isFetching ||
+    awayPlayersStatsQuery.isFetching ||
+    headToHeadQuery.isFetching ||
+    standingsQuery.isFetching ||
+    homeTeamMatchesQuery.isFetching ||
+    awayTeamMatchesQuery.isFetching ||
+    homeLeadersQuery.isFetching ||
+    awayLeadersQuery.isFetching;
+  const loadWindowStartedAtRef = useRef<number>(Date.now());
+  const trackedDataCostRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    loadWindowStartedAtRef.current = Date.now();
+    trackedDataCostRef.current = null;
+  }, [activeTab, lifecycleState, queryPolicy.enabledQueryCount, safeMatchId]);
+
+  useEffect(() => {
+    if (!safeMatchId || isInitialLoading || isAnyDetailsQueryFetching) {
+      return;
+    }
+
+    const key = `${safeMatchId}:${lifecycleState}:${activeTab}:${queryPolicy.enabledQueryCount}`;
+    if (trackedDataCostRef.current === key) {
+      return;
+    }
+
+    trackedDataCostRef.current = key;
+    getMobileTelemetry().trackEvent('match_details.data_cost', {
+      matchId: safeMatchId,
+      lifecycleState,
+      activeTab,
+      enabledQueries: queryPolicy.enabledQueryCount,
+      loadDurationMs: Date.now() - loadWindowStartedAtRef.current,
+    });
+  }, [
+    activeTab,
+    isAnyDetailsQueryFetching,
+    isInitialLoading,
+    lifecycleState,
+    queryPolicy.enabledQueryCount,
+    safeMatchId,
+  ]);
 
   const queryLineupsRaw = toArray(lineupsQuery.data);
   const queryHeadToHeadRaw = toArray(headToHeadQuery.data);
@@ -1983,7 +2042,7 @@ export function useMatchDetailsScreenModel() {
       return;
     }
 
-    if (!canFetchHeadToHead) {
+    if (!queryPolicy.enableHeadToHead) {
       return;
     }
 
@@ -1998,7 +2057,7 @@ export function useMatchDetailsScreenModel() {
     autoRefetchedPrematchHeadToHeadRef.current = guardKey;
     headToHeadQuery.refetch().catch(() => undefined);
   }, [
-    canFetchHeadToHead,
+    queryPolicy.enableHeadToHead,
     headToHeadQuery,
     lifecycleState,
     queryHeadToHeadRaw.length,
@@ -2125,6 +2184,10 @@ export function useMatchDetailsScreenModel() {
       resolvedStatistics.source,
     ],
   );
+  const lastUpdatedAt =
+    typeof fixture?.fixture.timestamp === 'number' && Number.isFinite(fixture.fixture.timestamp)
+      ? fixture.fixture.timestamp * 1000
+      : null;
 
   return {
     isPreMatch: lifecycleState === 'pre_match',
@@ -2143,6 +2206,7 @@ export function useMatchDetailsScreenModel() {
     lifecycleState,
     tabs,
     fixture,
+    lastUpdatedAt,
     statusLabel,
     kickoffLabel,
     countdownLabel,

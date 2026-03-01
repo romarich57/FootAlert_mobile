@@ -59,6 +59,11 @@ const criticalFileRules = [
     match: file => file.endsWith('/src/routes/telemetry.ts'),
     routes: ['/v1/telemetry'],
   },
+  {
+    id: 'mobileSession',
+    match: file => file.endsWith('/src/routes/mobileSession.ts'),
+    routes: ['/v1/mobile/session'],
+  },
 ];
 
 for (const rule of criticalFileRules) {

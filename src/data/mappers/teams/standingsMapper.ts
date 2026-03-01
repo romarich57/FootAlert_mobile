@@ -2,7 +2,7 @@ import type {
   TeamApiStandingsDto,
   TeamStandingRow,
   TeamStandingsData,
-} from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/teams.types';
 
 import { toId, toNumber, toText } from './shared';
 

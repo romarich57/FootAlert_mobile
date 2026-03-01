@@ -7,7 +7,9 @@
     "typecheck": "tsc --noEmit",
     "build:web": "npm --prefix ../web run build",
     "validate": "node ./scripts/validate-tauri.mjs",
-    "build": "npm run build:web && npm run validate"
+    "smoke:routes": "node ./scripts/smoke-routes.mjs",
+    "build": "npm run build:web && npm run validate",
+    "smoke": "npm run validate && npm run smoke:routes"
   },
   "devDependencies": {
     "@types/node": "^22.18.6",

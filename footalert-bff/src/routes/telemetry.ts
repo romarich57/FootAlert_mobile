@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../config/env.js';
-import { verifyMobileRequestAuth } from '../lib/mobileRequestAuth.js';
+import { verifySensitiveMobileAuth } from '../lib/mobileSessionAuth.js';
 import { parseOrThrow } from '../lib/validation.js';
 
 const telemetryScalarSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
@@ -58,18 +58,19 @@ function rejectUnauthorizedTelemetryRequest(
   request: FastifyRequest,
   reply: FastifyReply,
 ): boolean {
-  const authFailure = verifyMobileRequestAuth(request, {
-    signingKey: env.mobileRequestSigningKey,
-    maxSkewMs: env.mobileRequestSignatureMaxSkewMs,
+  const authResult = verifySensitiveMobileAuth(request, {
+    requiredScope: 'telemetry:write',
+    jwtSecret: env.mobileSessionJwtSecret,
+    minIntegrity: 'device',
   });
 
-  if (!authFailure) {
+  if (authResult.ok) {
     return false;
   }
 
-  reply.code(authFailure.statusCode).send({
-    error: authFailure.code,
-    message: authFailure.message,
+  reply.code(authResult.failure.statusCode).send({
+    error: authResult.failure.code,
+    message: authResult.failure.message,
   });
   return true;
 }

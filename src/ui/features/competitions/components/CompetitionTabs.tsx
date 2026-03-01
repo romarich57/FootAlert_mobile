@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { ScrollView, Pressable, Text, StyleSheet, View } from 'react-native';
+import { ScrollView, Text, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import {
-    DEFAULT_HIT_SLOP,
     MIN_TOUCH_TARGET,
     type ThemeColors,
 } from '@ui/shared/theme/theme';
@@ -79,7 +79,7 @@ export function CompetitionTabs({ activeTab, tabs, onTabChange }: CompetitionTab
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     return (
-        <View style={styles.container}>
+        <View testID="competition-tabs-tablist" style={styles.container} accessibilityRole="tablist">
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -87,18 +87,21 @@ export function CompetitionTabs({ activeTab, tabs, onTabChange }: CompetitionTab
             >
                 {tabs.map(tab => {
                     const isActive = activeTab === tab;
+                    const label = t(TAB_LABEL_KEYS[tab]);
                     return (
-                        <Pressable
+                        <AppPressable
                             key={tab}
                             style={styles.tab}
                             onPress={() => onTabChange(tab)}
-                            hitSlop={DEFAULT_HIT_SLOP}
+                            accessibilityRole="tab"
+                            accessibilityLabel={label}
+                            accessibilityState={{ selected: isActive }}
                         >
                             <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null]}>
-                                {t(TAB_LABEL_KEYS[tab])}
+                                {label}
                             </Text>
                             {isActive ? <View style={styles.indicator} /> : null}
-                        </Pressable>
+                        </AppPressable>
                     );
                 })}
             </ScrollView>

@@ -11,6 +11,7 @@ import {
   MatchStandingsCard,
   MatchVenueWeatherCard,
 } from '@ui/features/matches/details/components/tabs/shared/matchContextCards';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import type {
   MatchPreMatchLeaderPlayer,
   MatchPreMatchSection,
@@ -48,11 +49,13 @@ function renderSection({
   styles,
   colors,
   t,
+  locale,
 }: {
   section: MatchPreMatchSection;
   styles: MatchDetailsTabStyles;
   colors: ThemeColors;
   t: TFunction;
+  locale: string;
 }) {
   if (!section.isAvailable || !section.payload) {
     return null;
@@ -101,6 +104,7 @@ function renderSection({
         styles={styles}
         colors={colors}
         t={t}
+        locale={locale}
         payload={section.payload}
       />
     );
@@ -199,8 +203,9 @@ export function MatchPreMatchTab({
   sections,
   isLoading,
 }: MatchPreMatchTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
+  const locale = resolveAppLocaleTag(i18n.language);
   const visibleSections = sections.filter(section => section.isAvailable);
 
   if (visibleSections.length === 0 && isLoading) {
@@ -214,7 +219,13 @@ export function MatchPreMatchTab({
   }
 
   if (visibleSections.length === 0) {
-    return null;
+    return (
+      <View style={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.emptyText}>{t('matchDetails.values.unavailable')}</Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -225,6 +236,7 @@ export function MatchPreMatchTab({
           styles,
           colors,
           t,
+          locale,
         }))}
     </View>
   );

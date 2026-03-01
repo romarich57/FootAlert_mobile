@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
-import type { ListEnvelope, OptionalEnvelope, PagedEnvelope } from '../domain/network';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { ListEnvelope, OptionalEnvelope, PagedEnvelope } from '../domain/network.js';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 
 const listResponseSchema = z
   .object({
@@ -24,6 +24,14 @@ const pagedResponseSchema = z
       .object({
         current: z.number().optional(),
         total: z.number().optional(),
+      })
+      .passthrough()
+      .optional(),
+    pageInfo: z
+      .object({
+        hasMore: z.boolean(),
+        nextCursor: z.string().nullable(),
+        returnedCount: z.number(),
       })
       .passthrough()
       .optional(),
@@ -212,6 +220,8 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
         leagueId: string;
         season: number;
         page?: number;
+        limit?: number;
+        cursor?: string;
       },
       signal?: AbortSignal,
     ): Promise<PagedEnvelope<T>> {
@@ -221,6 +231,8 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
           leagueId: params.leagueId,
           season: params.season,
           page: params.page,
+          limit: params.limit,
+          cursor: params.cursor,
         },
         { signal },
       );
@@ -236,6 +248,7 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
       return {
         response: (payload as PagedEnvelope<T>).response,
         paging: (payload as PagedEnvelope<T>).paging,
+        pageInfo: (payload as PagedEnvelope<T>).pageInfo,
       };
     },
 

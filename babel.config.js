@@ -10,6 +10,7 @@ module.exports = {
           '@': './src',
           '@data': './src/data',
           '@ui': './src/ui',
+          '@domain': './src/domain',
           '@app-core': './packages/app-core/src',
           '@api-contract': './packages/api-contract/generated',
         },

@@ -108,6 +108,18 @@
     "testFile": "test/routes/matches.routes.test.ts"
   },
   {
+    "method": "POST",
+    "path": "/v1/mobile/session/challenge",
+    "critical": true,
+    "testFile": "test/routes/mobileSession.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/mobile/session/attest",
+    "critical": true,
+    "testFile": "test/routes/mobileSession.routes.test.ts"
+  },
+  {
     "method": "GET",
     "path": "/v1/teams/standings",
     "critical": false,

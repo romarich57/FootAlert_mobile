@@ -1,4 +1,5 @@
 import { normalizeNumber, normalizeRating, normalizeString } from '@data/mappers/playersMapper';
+import { rewriteAssetUrl } from '@data/mappers/shared/assetCdn';
 import type {
     Competition,
     CompetitionTotwData,
@@ -16,7 +17,7 @@ import type {
     StandingRow,
     Transfer,
     TransferDirection,
-} from '@ui/features/competitions/types/competitions.types';
+} from '@domain/contracts/competitions.types';
 
 type CompetitionPlayerStatistic = CompetitionsApiPlayerStatDto['statistics'][number];
 
@@ -574,7 +575,8 @@ export function mapTransfersDtoToCompetitionTransfers(
             return;
         }
 
-        const playerPhoto = `https://media.api-sports.io/football/players/${playerId}.png`;
+        const playerPhoto =
+            rewriteAssetUrl(`https://media.api-sports.io/football/players/${playerId}.png`) ?? '';
         const dtoTransfers = Array.isArray(dto.transfers) ? dto.transfers : [];
 
         dtoTransfers.forEach(transfer => {

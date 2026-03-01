@@ -1,5 +1,5 @@
 import { mapFixturesToSections } from './fixturesMapper';
-import type { ApiFootballFixtureDto } from '@ui/features/matches/types/matches.types';
+import type { ApiFootballFixtureDto } from '@domain/contracts/matches.types';
 
 type BuildFixtureParams = {
   fixtureId: number;

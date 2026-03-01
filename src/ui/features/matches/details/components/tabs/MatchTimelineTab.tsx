@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import type { MatchLifecycleState } from '@ui/features/matches/types/matches.types';
@@ -43,25 +43,34 @@ export function MatchTimelineTab({
         {eventRows.length > 0 ? (
           <View style={styles.timelineContainer}>
             <View style={styles.timelineCenterLine} />
-            {eventRows.map(event => {
-              const align = event.team === 'home' ? 'left' : 'right';
+            <FlatList
+              data={eventRows}
+              keyExtractor={event => event.id}
+              renderItem={({ item: event }) => {
+                const align = event.team === 'home' ? 'left' : 'right';
 
-              return (
-                <View key={event.id} style={styles.timelineRow}>
-                  <View style={align === 'left' ? styles.timelineContentLeft : styles.timelineContentEmpty}>
-                    {align === 'left' ? <TimelineEventCard styles={styles} event={event} align="left" t={t} /> : null}
-                  </View>
+                return (
+                  <View style={styles.timelineRow}>
+                    <View style={align === 'left' ? styles.timelineContentLeft : styles.timelineContentEmpty}>
+                      {align === 'left' ? <TimelineEventCard styles={styles} event={event} align="left" t={t} /> : null}
+                    </View>
 
-                  <View style={styles.timelineMinuteBadge}>
-                    <Text style={styles.timelineMinuteText}>{event.minute}'</Text>
-                  </View>
+                    <View style={styles.timelineMinuteBadge}>
+                      <Text style={styles.timelineMinuteText}>{event.minute}'</Text>
+                    </View>
 
-                  <View style={align === 'right' ? styles.timelineContentRight : styles.timelineContentEmpty}>
-                    {align === 'right' ? <TimelineEventCard styles={styles} event={event} align="right" t={t} /> : null}
+                    <View style={align === 'right' ? styles.timelineContentRight : styles.timelineContentEmpty}>
+                      {align === 'right' ? <TimelineEventCard styles={styles} event={event} align="right" t={t} /> : null}
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              }}
+              scrollEnabled={false}
+              removeClippedSubviews
+              initialNumToRender={12}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+            />
           </View>
         ) : null}
       </View>

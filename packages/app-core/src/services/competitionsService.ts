@@ -1,13 +1,21 @@
 import { z } from 'zod';
 
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
-import type { ListEnvelope } from '../domain/network';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { ListEnvelope } from '../domain/network.js';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 
 const listResponseSchema = z
   .object({
     response: z.array(z.unknown()).default([]),
+    pageInfo: z
+      .object({
+        hasMore: z.boolean(),
+        nextCursor: z.string().nullable(),
+        returnedCount: z.number(),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 
@@ -84,10 +92,18 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
       leagueId: number,
       season: number,
       signal?: AbortSignal,
+      options?: {
+        limit?: number;
+        cursor?: string;
+      },
     ): Promise<T[]> {
       return fetchList(
         `/competitions/${encodeURIComponent(String(leagueId))}/matches`,
-        { season },
+        {
+          season,
+          limit: options?.limit,
+          cursor: options?.cursor,
+        },
         'competitions.fixtures',
         `/competitions/${leagueId}/matches`,
         signal,

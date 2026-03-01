@@ -4,10 +4,15 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { MatchDetailsScreen } from '@ui/features/matches/screens/MatchDetailsScreen';
 import { useMatchDetailsScreenModel } from '@ui/features/matches/details/hooks/useMatchDetailsScreenModel';
 import i18n from '@ui/shared/i18n';
+import { useOfflineUiState } from '@ui/shared/hooks';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 jest.mock('@ui/features/matches/details/hooks/useMatchDetailsScreenModel', () => ({
   useMatchDetailsScreenModel: jest.fn(),
+}));
+
+jest.mock('@ui/shared/hooks', () => ({
+  useOfflineUiState: jest.fn(),
 }));
 
 jest.mock('@ui/features/matches/details/components/MatchDetailsHeader', () => ({
@@ -35,6 +40,7 @@ jest.mock('@ui/features/matches/details/components/MatchDetailsTabContent', () =
 }));
 
 const mockedUseMatchDetailsScreenModel = jest.mocked(useMatchDetailsScreenModel);
+const mockedUseOfflineUiState = jest.mocked(useOfflineUiState);
 
 function createModelOverrides(overrides: Record<string, unknown> = {}) {
   return {
@@ -112,6 +118,12 @@ function createModelOverrides(overrides: Record<string, unknown> = {}) {
 describe('MatchDetailsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseOfflineUiState.mockReturnValue({
+      isOffline: false,
+      showOfflineBanner: false,
+      showOfflineNoCache: false,
+      lastUpdatedAt: null,
+    });
   });
 
   it('renders loading state while initial fixture query is pending', () => {
@@ -155,5 +167,43 @@ describe('MatchDetailsScreen', () => {
     expect(screen.getByTestId('match-details-header')).toBeTruthy();
     expect(screen.getByTestId('match-details-tabs')).toBeTruthy();
     expect(screen.getByTestId('match-details-content')).toBeTruthy();
+  });
+
+  it('renders offline no-cache state when offline and no fixture data exists', () => {
+    mockedUseOfflineUiState.mockReturnValue({
+      isOffline: true,
+      showOfflineBanner: false,
+      showOfflineNoCache: true,
+      lastUpdatedAt: null,
+    });
+    mockedUseMatchDetailsScreenModel.mockReturnValue(
+      createModelOverrides({
+        fixture: null,
+        isInitialError: true,
+      }) as never,
+    );
+
+    renderWithAppProviders(<MatchDetailsScreen />);
+
+    expect(screen.getByTestId('match-details-offline-no-cache')).toBeTruthy();
+    expect(screen.getByText(i18n.t('matches.states.offline.title'))).toBeTruthy();
+  });
+
+  it('renders offline banner when cached fixture data is available', () => {
+    mockedUseOfflineUiState.mockReturnValue({
+      isOffline: true,
+      showOfflineBanner: true,
+      showOfflineNoCache: false,
+      lastUpdatedAt: 1730000000000,
+    });
+    mockedUseMatchDetailsScreenModel.mockReturnValue(
+      createModelOverrides({
+        lastUpdatedAt: 1730000000000,
+      }) as never,
+    );
+
+    renderWithAppProviders(<MatchDetailsScreen />);
+
+    expect(screen.getByText(i18n.t('matches.states.offline.title'))).toBeTruthy();
   });
 });

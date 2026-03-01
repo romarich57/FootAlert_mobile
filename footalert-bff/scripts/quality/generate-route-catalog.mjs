@@ -3,7 +3,8 @@ import path from 'node:path';
 
 process.env.API_FOOTBALL_KEY ??= 'catalog-server-key';
 process.env.API_FOOTBALL_BASE_URL ??= 'https://api-football.test';
-process.env.MOBILE_REQUEST_SIGNING_KEY ??= 'catalog-signing-key';
+process.env.MOBILE_SESSION_JWT_SECRET ??= 'catalog-mobile-session-secret';
+process.env.MOBILE_ATTESTATION_ACCEPT_MOCK ??= 'true';
 process.env.CORS_ALLOWED_ORIGINS ??= 'https://app.footalert.test';
 
 const { buildServer } = await import('../../src/server.ts');
@@ -80,6 +81,10 @@ function toTestFile(pathname) {
     return 'test/routes/telemetry.routes.test.ts';
   }
 
+  if (pathname.startsWith('/v1/mobile/session')) {
+    return 'test/routes/mobileSession.routes.test.ts';
+  }
+
   return 'test/server.crosscutting.test.ts';
 }
 
@@ -90,6 +95,7 @@ const matrix = catalog.map(entry => ({
     || entry.path.startsWith('/v1/competitions')
     || entry.path.startsWith('/v1/notifications')
     || entry.path.startsWith('/v1/telemetry')
+    || entry.path.startsWith('/v1/mobile/session')
   ),
   testFile: toTestFile(entry.path),
 }));

@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import { AppPressable } from '@ui/shared/components';
+import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type MatchesHeaderProps = {
   onPressCalendar: () => void;
@@ -13,7 +15,7 @@ type MatchesHeaderProps = {
 };
 
 function createStyles(colors: ThemeColors, isCompact: boolean) {
-  const actionButtonSize = isCompact ? 38 : 42;
+  const actionButtonSize = isCompact ? MIN_TOUCH_TARGET : 46;
   const logoWidth = isCompact ? 120 : 150;
   const actionsGap = isCompact ? 8 : 10;
 
@@ -60,6 +62,7 @@ export function MatchesHeader({
 }: MatchesHeaderProps) {
   const { width } = useWindowDimensions();
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
   const isCompact = width < 370;
   const styles = useMemo(() => createStyles(colors, isCompact), [colors, isCompact]);
 
@@ -74,38 +77,42 @@ export function MatchesHeader({
       </View>
 
       <View style={styles.actions}>
-        <Pressable
+        <AppPressable
           accessibilityRole="button"
+          accessibilityLabel={t('matches.actions.manageHiddenCompetitions')}
           onPress={onPressManageHidden}
           testID="matches-header-manage-hidden-button"
           style={styles.actionButton}
         >
           <MaterialCommunityIcons name="eye-outline" size={22} color={colors.text} />
-        </Pressable>
-        <Pressable
+        </AppPressable>
+        <AppPressable
           accessibilityRole="button"
+          accessibilityLabel={t('matches.actions.openCalendar')}
           onPress={onPressCalendar}
           testID="matches-header-calendar-button"
           style={[styles.actionButton, styles.actionButtonPrimary]}
         >
           <MaterialCommunityIcons name="calendar-month" size={20} color={colors.primary} />
-        </Pressable>
-        <Pressable
+        </AppPressable>
+        <AppPressable
           accessibilityRole="button"
+          accessibilityLabel={t('matches.actions.openSearch')}
           onPress={onPressSearch}
           testID="matches-header-search-button"
           style={styles.actionButton}
         >
           <MaterialCommunityIcons name="magnify" size={22} color={colors.text} />
-        </Pressable>
-        <Pressable
+        </AppPressable>
+        <AppPressable
           accessibilityRole="button"
+          accessibilityLabel={t('matches.actions.openNotifications')}
           onPress={onPressNotifications}
           testID="matches-header-notifications-button"
           style={styles.actionButton}
         >
           <MaterialCommunityIcons name="bell-outline" size={22} color={colors.text} />
-        </Pressable>
+        </AppPressable>
       </View>
     </View>
   );

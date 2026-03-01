@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
-import { StatusBar } from 'react-native';
+import { AppState, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { getAppVersion } from '@data/config/appMeta';
 import { appEnv } from '@data/config/env';
 import { registerBackgroundRefresh } from '@data/background/backgroundRefresh';
 import { requestInAppReviewWithFallback } from '@data/reviews/inAppReview';
+import { evaluateDeviceIntegrity } from '@data/security/deviceIntegrity';
+import { verifyMobileAttestationStartupHealth } from '@data/security/mobileSessionAuth';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import {
   incrementAppLaunchCount,
@@ -28,6 +30,7 @@ import '@ui/shared/i18n';
 
 function AppContent() {
   const { navigationTheme, statusBarStyle } = useAppTheme();
+  const [bootError, setBootError] = useState<Error | null>(null);
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const currentRouteNameRef = useRef<string | undefined>(undefined);
   const lastTrackedNavigationEventRef = useRef<{
@@ -49,6 +52,37 @@ function AppContent() {
     getMobileTelemetry().setUserContext({
       appVersion: getAppVersion(),
     });
+  }, []);
+
+  useEffect(() => {
+    try {
+      verifyMobileAttestationStartupHealth();
+    } catch (error) {
+      if (error instanceof Error) {
+        setBootError(error);
+        return;
+      }
+      setBootError(new Error('Unknown mobile attestation startup error.'));
+    }
+  }, []);
+
+  if (bootError) {
+    throw bootError;
+  }
+
+  useEffect(() => {
+    evaluateDeviceIntegrity()
+      .catch(() => undefined);
+
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') {
+        evaluateDeviceIntegrity(true).catch(() => undefined);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {

@@ -21,6 +21,10 @@ const DEFAULT_FOLLOWS_TRENDS_PLAYERS_LIMIT = 8;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_TEAMS = 30;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_PLAYERS = 30;
 const DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES = false;
+const DEFAULT_MOBILE_AUTH_ATTESTATION_MODE = 'provider';
+const DEFAULT_MOBILE_ATTESTATION_STRATEGY = 'strict';
+const DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS = 600_000;
+const DEFAULT_ASSET_CDN_REWRITE_ENABLED = false;
 
 function readRuntimeNodeEnv(): string | undefined {
   const runtimeProcess = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process;
@@ -32,11 +36,22 @@ const IS_DEV_RUNTIME =
 
 export type AppEnv = {
   mobileApiBaseUrl: string;
+  mobileApiHost: string;
   privacyPolicyUrl?: string;
   supportUrl?: string;
   followUsUrl?: string;
   appStoreUrl?: string;
   playStoreUrl?: string;
+  mobileAuthAttestationMode: 'mock' | 'provider';
+  mobileAttestationStrategy: 'strict' | 'best-effort' | 'disabled';
+  mobileSessionTokenTtlMs: number;
+  mobilePinningEnabled: boolean;
+  mobilePinningHost: string;
+  mobilePinningSpkiPrimary?: string;
+  mobilePinningSpkiBackup?: string;
+  mobilePinningKillSwitchAllow: boolean;
+  assetCdnRewriteEnabled: boolean;
+  assetCdnBaseUrl?: string;
   matchesQueryStaleTimeMs: number;
   matchesLiveRefreshIntervalMs: number;
   matchesSlowRefreshIntervalMs: number;
@@ -180,6 +195,13 @@ function readPlayStoreUrl(): string | undefined {
   });
 }
 
+function readAssetCdnBaseUrl(): string | undefined {
+  return resolveExternalUrl(Config.ASSET_CDN_BASE_URL, 'ASSET_CDN_BASE_URL', {
+    isDevRuntime: IS_DEV_RUNTIME,
+    requiredOutsideDev: false,
+  });
+}
+
 function readPositiveIntConfig(rawValue: string | undefined, defaultValue: number): number {
   const configuredValue = rawValue?.trim();
   if (!configuredValue) {
@@ -221,6 +243,74 @@ function readBooleanConfig(rawValue: string | undefined, defaultValue: boolean):
   return defaultValue;
 }
 
+export function resolveMobileAuthAttestationMode(
+  rawValue: string | undefined,
+  isDevRuntime: boolean = IS_DEV_RUNTIME,
+): 'mock' | 'provider' {
+  const configured = rawValue?.trim().toLowerCase();
+  if (configured === 'mock') {
+    if (!isDevRuntime) {
+      throw new Error(
+        'MOBILE_AUTH_ATTESTATION_MODE=mock is not allowed outside dev runtime.',
+      );
+    }
+    return 'mock';
+  }
+
+  if (configured === 'provider') {
+    return 'provider';
+  }
+
+  if (isDevRuntime) {
+    return 'mock';
+  }
+
+  return DEFAULT_MOBILE_AUTH_ATTESTATION_MODE as 'provider';
+}
+
+export function resolveMobileAttestationStrategy(
+  rawValue: string | undefined,
+  isDevRuntime: boolean = IS_DEV_RUNTIME,
+): 'strict' | 'best-effort' | 'disabled' {
+  const configured = rawValue?.trim().toLowerCase();
+
+  if (configured === 'strict') {
+    return 'strict';
+  }
+
+  if (configured === 'best-effort' || configured === 'best_effort') {
+    return 'best-effort';
+  }
+
+  if (configured === 'disabled') {
+    if (!isDevRuntime) {
+      throw new Error(
+        'MOBILE_ATTESTATION_STRATEGY=disabled is not allowed outside dev runtime.',
+      );
+    }
+    return 'disabled';
+  }
+
+  if (isDevRuntime) {
+    return 'disabled';
+  }
+
+  return DEFAULT_MOBILE_ATTESTATION_STRATEGY as 'strict';
+}
+
+function readSpkiPin(rawValue: string | undefined): string | undefined {
+  const pin = rawValue?.trim();
+  if (!pin) {
+    return undefined;
+  }
+
+  if (!pin.startsWith('sha256/')) {
+    throw new Error(`Invalid SPKI pin format "${pin}". Expected prefix "sha256/".`);
+  }
+
+  return pin;
+}
+
 const configuredLiveRefreshIntervalMs = readPositiveIntConfig(
   Config.MATCHES_LIVE_REFRESH_INTERVAL_MS,
   LIVE_REFRESH_INTERVAL_MS,
@@ -233,14 +323,63 @@ const configuredMaxRefreshBackoffMs = Math.max(
   readPositiveIntConfig(Config.MATCHES_MAX_REFRESH_BACKOFF_MS, MAX_REFRESH_BACKOFF_MS),
   configuredSlowRefreshIntervalMs,
 );
+const configuredMobileApiBaseUrl = readMobileApiBaseUrl();
+const configuredMobileApiHost = new URL(configuredMobileApiBaseUrl).host;
+const configuredPinningEnabled = readBooleanConfig(
+  Config.MOBILE_PINNING_ENABLED,
+  !IS_DEV_RUNTIME,
+);
+const configuredPinningHost = Config.MOBILE_PINNING_HOST?.trim() || configuredMobileApiHost;
+const configuredSpkiPrimary = readSpkiPin(Config.MOBILE_PINNING_SPKI_PRIMARY);
+const configuredSpkiBackup = readSpkiPin(Config.MOBILE_PINNING_SPKI_BACKUP);
+const configuredAssetCdnRewriteEnabled = readBooleanConfig(
+  Config.ASSET_CDN_REWRITE_ENABLED,
+  DEFAULT_ASSET_CDN_REWRITE_ENABLED,
+);
+const configuredAssetCdnBaseUrl = readAssetCdnBaseUrl();
+
+if (configuredPinningEnabled && !IS_DEV_RUNTIME && (!configuredSpkiPrimary || !configuredSpkiBackup)) {
+  throw new Error(
+    'MOBILE_PINNING_ENABLED=true requires MOBILE_PINNING_SPKI_PRIMARY and MOBILE_PINNING_SPKI_BACKUP outside dev.',
+  );
+}
+
+if (configuredAssetCdnRewriteEnabled && !configuredAssetCdnBaseUrl) {
+  throw new Error(
+    'ASSET_CDN_REWRITE_ENABLED=true requires ASSET_CDN_BASE_URL.',
+  );
+}
 
 export const appEnv: AppEnv = {
-  mobileApiBaseUrl: readMobileApiBaseUrl(),
+  mobileApiBaseUrl: configuredMobileApiBaseUrl,
+  mobileApiHost: configuredMobileApiHost,
   privacyPolicyUrl: readPrivacyPolicyUrl(),
   supportUrl: readSupportUrl(),
   followUsUrl: readFollowUsUrl(),
   appStoreUrl: readAppStoreUrl(),
   playStoreUrl: readPlayStoreUrl(),
+  mobileAuthAttestationMode: resolveMobileAuthAttestationMode(
+    Config.MOBILE_AUTH_ATTESTATION_MODE,
+    IS_DEV_RUNTIME,
+  ),
+  mobileAttestationStrategy: resolveMobileAttestationStrategy(
+    Config.MOBILE_ATTESTATION_STRATEGY,
+    IS_DEV_RUNTIME,
+  ),
+  mobileSessionTokenTtlMs: readPositiveIntConfig(
+    Config.MOBILE_SESSION_TOKEN_TTL_MS,
+    DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS,
+  ),
+  mobilePinningEnabled: configuredPinningEnabled,
+  mobilePinningHost: configuredPinningHost,
+  mobilePinningSpkiPrimary: configuredSpkiPrimary,
+  mobilePinningSpkiBackup: configuredSpkiBackup,
+  mobilePinningKillSwitchAllow: readBooleanConfig(
+    Config.MOBILE_PINNING_KILL_SWITCH_ALLOW,
+    false,
+  ),
+  assetCdnRewriteEnabled: configuredAssetCdnRewriteEnabled,
+  assetCdnBaseUrl: configuredAssetCdnBaseUrl,
   matchesQueryStaleTimeMs: readPositiveIntConfig(
     Config.MATCHES_QUERY_STALE_TIME_MS,
     DEFAULT_MATCHES_QUERY_STALE_TIME_MS,

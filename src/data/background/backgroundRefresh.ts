@@ -11,6 +11,9 @@ const BG_MIN_FETCH_INTERVAL_MINUTES = 15;
 
 let hasRegisteredBackgroundRefresh = false;
 
+export type BackgroundRefreshPolicy = 'ios-only';
+export const BACKGROUND_REFRESH_POLICY: BackgroundRefreshPolicy = 'ios-only';
+
 function toApiDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -41,7 +44,15 @@ async function runBackgroundRefresh(): Promise<void> {
 }
 
 export async function registerBackgroundRefresh(): Promise<void> {
-  if (Platform.OS !== 'ios' || hasRegisteredBackgroundRefresh) {
+  if (Platform.OS !== 'ios') {
+    getMobileTelemetry().addBreadcrumb('background.refresh.skipped', {
+      policy: BACKGROUND_REFRESH_POLICY,
+      platform: Platform.OS,
+    });
+    return;
+  }
+
+  if (hasRegisteredBackgroundRefresh) {
     return;
   }
 
@@ -84,6 +95,7 @@ export async function registerBackgroundRefresh(): Promise<void> {
     getMobileTelemetry().addBreadcrumb('background.refresh.registered', {
       status,
       taskId: BG_REFRESH_TASK_ID,
+      policy: BACKGROUND_REFRESH_POLICY,
     });
   } catch (error) {
     getMobileTelemetry().trackError(error, {

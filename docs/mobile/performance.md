@@ -7,6 +7,7 @@
 - Standardiser le rendu d'images distantes avec cache disque/mémoire.
 - Garder Hermes activé sur Android et iOS.
 - Surveiller le cold-start Android via CI.
+- Documenter et mesurer le cold-start iOS via instrumentation `simctl` + `xctrace`.
 - Adapter le rafraîchissement live au mode batterie faible.
 
 ## Lazy loading navigation
@@ -93,3 +94,28 @@ npm run perf:android:audit:slo
 npm run perf:android:audit:smoke
 npm run perf:android:audit:slo -- "" 750 1200 6
 ```
+
+## Cold-start iOS
+
+Script dédié:
+
+```bash
+npm run perf:ios:cold-start
+```
+
+Le script `scripts/perf/run-ios-cold-start.sh`:
+
+- build l’app iOS Debug pour simulateur,
+- boote un simulateur (`IOS_SIMULATOR_DEVICE` optionnel),
+- installe l’app puis lance plusieurs runs “cold start” via `xcrun simctl launch`,
+- tente une capture `xcrun xctrace` (template `App Launch`) à chaque run,
+- génère des artefacts dans `perf-results/ios/<date>/<label>/<time>/`:
+  - `summary.txt` (`count`, `min`, `p50`, `p95`, `max`),
+  - logs d’exécution,
+  - traces `xctrace` quand disponibles.
+
+Job CI:
+
+- `.github/workflows/mobile-quality.yml` -> `ios-perf-smoke`
+- mode non bloquant au démarrage (`continue-on-error: true`)
+- déclenchement `workflow_dispatch` et nightly (`schedule`)

@@ -11,7 +11,7 @@ import type {
   TeamStandingsData,
   TeamTopPlayer,
   TeamTopPlayersByCategory,
-} from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/teams.types';
 
 import {
   resolvePrimaryTeamPlayerStatistic,

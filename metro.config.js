@@ -27,6 +27,7 @@ const config = {
     extraNodeModules: {
       '@data': path.resolve(projectRoot, 'src/data'),
       '@ui': path.resolve(projectRoot, 'src/ui'),
+      '@domain': path.resolve(projectRoot, 'src/domain'),
       '@app-core': path.resolve(projectRoot, 'packages/app-core/src'),
       '@api-contract': path.resolve(projectRoot, 'packages/api-contract/generated'),
     },

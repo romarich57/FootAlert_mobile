@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import { IconActionButton } from '@ui/shared/components';
-import type { ThemeColors } from '@ui/shared/theme/theme';
+import { AppPressable, IconActionButton } from '@ui/shared/components';
+import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 import type { Competition } from '@ui/features/competitions/types/competitions.types';
 
 type CompetitionHeaderProps = {
@@ -93,6 +93,7 @@ function createStyles(colors: ThemeColors, topInset: number) {
             backgroundColor: colors.surface,
             paddingHorizontal: 14,
             paddingVertical: 7,
+            minHeight: MIN_TOUCH_TARGET,
             borderRadius: 18,
             gap: 6,
         },
@@ -166,10 +167,15 @@ export function CompetitionHeader({
                 </View>
 
                 {availableSeasons.length > 0 && (
-                    <Pressable
+                    <AppPressable
                         testID="competition-season-trigger"
                         style={styles.seasonSelector}
                         onPress={handleSeasonPress}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('competitionDetails.labels.season', {
+                            start: currentSeason,
+                            end: currentSeason + 1,
+                        })}
                     >
                         <Text style={styles.seasonText}>
                             {t('competitionDetails.labels.season', {
@@ -178,7 +184,7 @@ export function CompetitionHeader({
                             })}
                         </Text>
                         <MaterialCommunityIcons name="chevron-down" size={20} color={colors.text} />
-                    </Pressable>
+                    </AppPressable>
                 )}
             </View>
         </View>

@@ -1,4 +1,6 @@
 import { appEnv } from '@data/config/env';
+import { secureFetch } from '@data/api/http/secureTransport';
+import { buildSensitiveMobileAuthHeaders } from '@data/security/mobileSessionAuth';
 
 import type {
   TelemetryBatchEndpointPath,
@@ -24,19 +26,8 @@ type SecurityHeaderBuilder = (options: {
   method: string;
   url: string;
   body?: unknown;
-}) => Record<string, string>;
-
-let securityHeaderBuilderPromise: Promise<SecurityHeaderBuilder | null> | null = null;
-
-async function getSecurityHeaderBuilder(): Promise<SecurityHeaderBuilder | null> {
-  if (!securityHeaderBuilderPromise) {
-    securityHeaderBuilderPromise = import('@data/security/mobileRequestSignature')
-      .then(module => module.buildMobileRequestSecurityHeaders)
-      .catch(() => null);
-  }
-
-  return securityHeaderBuilderPromise;
-}
+  scope: 'telemetry:write';
+}) => Promise<Record<string, string>>;
 
 export function resolveTelemetryBatchPath(path: TelemetryEndpointPath): TelemetryBatchEndpointPath {
   if (path === '/telemetry/events') {
@@ -61,24 +52,31 @@ export async function postTelemetry(
   payload: unknown,
 ): Promise<void> {
   const endpoint = resolveTelemetryEndpoint(path);
-  const buildSecurityHeaders = await getSecurityHeaderBuilder();
-  const securityHeaders = buildSecurityHeaders
-    ? buildSecurityHeaders({
+  const buildSecurityHeaders: SecurityHeaderBuilder = buildSensitiveMobileAuthHeaders;
+  const securityHeaders = await buildSecurityHeaders({
+    method: 'POST',
+    url: endpoint,
+    body: payload,
+    scope: 'telemetry:write',
+  });
+
+  const response = await secureFetch(
+    {
       method: 'POST',
       url: endpoint,
+      headers: {
+        Accept: 'application/json',
+        ...securityHeaders,
+      },
       body: payload,
-    })
-    : {};
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...securityHeaders,
     },
-    body: JSON.stringify(payload),
-  });
+    {
+      feature: 'telemetry',
+      telemetryContext: {
+        path,
+      },
+    },
+  );
 
   if (!response.ok) {
     throw new TelemetryRequestError(response.status);

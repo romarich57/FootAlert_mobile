@@ -3,7 +3,8 @@ import type {
   TeamTransferDirection,
   TeamTransferItem,
   TeamTransfersData,
-} from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/teams.types';
+import { rewriteAssetUrl } from '@data/mappers/shared/assetCdn';
 
 import { toId, toSortableTimestamp, toText } from './shared';
 
@@ -111,17 +112,22 @@ export function mapTransfersToTeamTransfers(
       const commonPayload = {
         playerId,
         playerName,
-        playerPhoto: playerId ? `https://media.api-sports.io/football/players/${playerId}.png` : null,
+        playerPhoto: playerId
+          ? (rewriteAssetUrl(`https://media.api-sports.io/football/players/${playerId}.png`) ??
+            `https://media.api-sports.io/football/players/${playerId}.png`)
+          : null,
         position: null,
         date: transferDate,
         type: transferType,
         amount: null,
         fromTeamId: teamOutId,
         fromTeamName,
-        fromTeamLogo: toText(transfer.teams?.out?.logo),
+        fromTeamLogo:
+          rewriteAssetUrl(toText(transfer.teams?.out?.logo)) ?? toText(transfer.teams?.out?.logo),
         toTeamId: teamInId,
         toTeamName,
-        toTeamLogo: toText(transfer.teams?.in?.logo),
+        toTeamLogo:
+          rewriteAssetUrl(toText(transfer.teams?.in?.logo)) ?? toText(transfer.teams?.in?.logo),
       };
 
       if (teamInId === teamId) {

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type TeamTabsProps = {
@@ -52,7 +53,7 @@ export function TeamTabs({ activeTab, onChangeTab, tabs }: TeamTabsProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={styles.container}>
+    <View testID="team-tabs-tablist" style={styles.container} accessibilityRole="tablist">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -62,9 +63,9 @@ export function TeamTabs({ activeTab, onChangeTab, tabs }: TeamTabsProps) {
           const isActive = tab.key === activeTab;
 
           return (
-            <Pressable
+            <AppPressable
               key={tab.key}
-              accessibilityRole="button"
+              accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
               accessibilityLabel={tab.label}
               onPress={() => onChangeTab(tab.key)}
@@ -73,7 +74,7 @@ export function TeamTabs({ activeTab, onChangeTab, tabs }: TeamTabsProps) {
               <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null]}>
                 {tab.label}
               </Text>
-            </Pressable>
+            </AppPressable>
           );
         })}
       </ScrollView>

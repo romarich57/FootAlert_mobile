@@ -12,7 +12,8 @@ import type {
   FollowsSearchResultTeam,
   TrendPlayerItem,
   TrendTeamItem,
-} from '@ui/features/follows/types/follows.types';
+} from '@domain/contracts/follows.types';
+import { normalizeAssetImageUri } from '@data/mappers/shared/assetCdn';
 
 type PlayerSearchStat = NonNullable<FollowsApiPlayerSearchDto['statistics']>[number];
 type PlayerSeasonStat = NonNullable<FollowsApiPlayerSeasonDto['statistics']>[number];
@@ -41,12 +42,7 @@ function normalizeText(value: string | undefined | null, fallback = ''): string 
 }
 
 function normalizeImageUri(value: string | undefined | null): string {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : '';
+  return normalizeAssetImageUri(value);
 }
 
 function normalizeDateIso(value: string | undefined | null): string {

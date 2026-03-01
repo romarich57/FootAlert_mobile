@@ -38,6 +38,10 @@ function ResultPill({
   );
 }
 
+function formatLocaleNumber(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale).format(value);
+}
+
 export function MatchTeamLogo({
   styles,
   logo,
@@ -148,11 +152,13 @@ export function MatchVenueWeatherCard({
   styles,
   colors,
   t,
+  locale,
   payload,
 }: {
   styles: MatchDetailsTabStyles;
   colors: ThemeColors;
   t: TFunction;
+  locale: string;
   payload: MatchPreMatchVenueWeatherPayload;
 }) {
   const weatherLabel = payload.weather?.description ?? null;
@@ -198,7 +204,7 @@ export function MatchVenueWeatherCard({
               <MaterialCommunityIcons name="account-group" size={18} color={colors.primary} />
               <Text style={styles.preMatchGridLabel}>{t('matchDetails.labels.capacity')}</Text>
             </View>
-            <Text style={styles.preMatchGridValue}>{payload.capacity?.toLocaleString('fr-FR')}</Text>
+            <Text style={styles.preMatchGridValue}>{formatLocaleNumber(payload.capacity ?? 0, locale)}</Text>
           </View>
         ) : null}
 

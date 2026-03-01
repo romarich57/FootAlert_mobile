@@ -378,36 +378,44 @@ async function fetchAllTeamPlayers(
   season: number,
   signal?: AbortSignal,
 ): Promise<TeamApiPlayerDto[]> {
-  const firstPage = await fetchTeamPlayers(
-    {
-      teamId,
-      leagueId,
-      season,
-      page: 1,
-    },
-    signal,
-  );
+  const aggregated: TeamApiPlayerDto[] = [];
+  const limit = 50;
+  const maxRequests = 10;
+  const targetItems = 200;
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
 
-  const totalPages = Math.max(1, firstPage.paging?.total ?? 1);
-  if (totalPages <= 1) {
-    return firstPage.response ?? [];
+  for (let requestIndex = 0; requestIndex < maxRequests; requestIndex += 1) {
+    const page = await fetchTeamPlayers(
+      {
+        teamId,
+        leagueId,
+        season,
+        limit,
+        cursor,
+      },
+      signal,
+    );
+
+    if (Array.isArray(page.response) && page.response.length > 0) {
+      aggregated.push(...page.response);
+    }
+
+    const nextCursor = page.pageInfo?.nextCursor ?? undefined;
+    const hasMore = page.pageInfo?.hasMore ?? false;
+    if (!hasMore || !nextCursor || seenCursors.has(nextCursor)) {
+      break;
+    }
+
+    if (aggregated.length >= targetItems) {
+      break;
+    }
+
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
   }
 
-  const nextPages = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, index) =>
-      fetchTeamPlayers(
-        {
-          teamId,
-          leagueId,
-          season,
-          page: index + 2,
-        },
-        signal,
-      ),
-    ),
-  );
-
-  return [firstPage, ...nextPages].flatMap(page => page.response ?? []);
+  return aggregated;
 }
 
 export function useTeamOverview({

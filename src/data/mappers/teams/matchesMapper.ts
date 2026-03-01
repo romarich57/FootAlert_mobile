@@ -3,7 +3,7 @@ import type {
   TeamFormEntry,
   TeamMatchItem,
   TeamMatchesData,
-} from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/teams.types';
 
 import { classifyTeamMatchStatus } from './detailsMapper';
 import { toId, toNumber, toSortableTimestamp, toText } from './shared';

@@ -1,5 +1,5 @@
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
 type PlayersServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;

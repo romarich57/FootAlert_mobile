@@ -24,6 +24,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is degraded (strict cache backend not ready)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
+      - ops
 
   /v1/matches:
     get:
@@ -32,11 +43,17 @@ paths:
       parameters:
         - $ref: '#/components/parameters/DateQuery'
         - $ref: '#/components/parameters/TimezoneQuery'
+        - $ref: '#/components/parameters/OptionalLimitQuery'
+        - $ref: '#/components/parameters/OptionalCursorQuery'
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}:
     get:
@@ -52,6 +69,10 @@ paths:
           $ref: '#/components/responses/ProblemResponse'
         '404':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}/events:
     get:
@@ -64,6 +85,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}/statistics:
     get:
@@ -77,6 +102,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}/lineups:
     get:
@@ -89,6 +118,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}/head-to-head:
     get:
@@ -103,6 +136,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}/predictions:
     get:
@@ -115,6 +152,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}/players/{teamId}/stats:
     get:
@@ -128,6 +169,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/matches/{id}/absences:
     get:
@@ -141,6 +186,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/competitions:
     get:
@@ -149,6 +198,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/competitions/search:
     get:
@@ -161,6 +214,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/competitions/{id}:
     get:
@@ -173,6 +230,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/competitions/{id}/standings:
     get:
@@ -186,6 +247,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/competitions/{id}/matches:
     get:
@@ -194,9 +259,15 @@ paths:
       parameters:
         - $ref: '#/components/parameters/IdPath'
         - $ref: '#/components/parameters/SeasonQuery'
+        - $ref: '#/components/parameters/OptionalLimitQuery'
+        - $ref: '#/components/parameters/OptionalCursorQuery'
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/competitions/{id}/player-stats:
     get:
@@ -211,6 +282,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/competitions/{id}/transfers:
     get:
@@ -222,6 +297,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/standings:
     get:
@@ -235,6 +314,10 @@ paths:
           $ref: '#/components/responses/ListEnvelopeResponse'
         '400':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}:
     get:
@@ -245,6 +328,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/leagues:
     get:
@@ -255,6 +342,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/fixtures:
     get:
@@ -269,6 +360,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/next-fixture:
     get:
@@ -280,6 +375,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/advanced-stats:
     get:
@@ -292,6 +391,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/OptionalEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/stats:
     get:
@@ -304,6 +407,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/OptionalEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/players:
     get:
@@ -314,9 +421,15 @@ paths:
         - $ref: '#/components/parameters/LeagueIdQuery'
         - $ref: '#/components/parameters/SeasonQuery'
         - $ref: '#/components/parameters/OptionalPageQuery'
+        - $ref: '#/components/parameters/OptionalLimitQuery'
+        - $ref: '#/components/parameters/OptionalCursorQuery'
       responses:
         '200':
           $ref: '#/components/responses/PagedEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/squad:
     get:
@@ -327,6 +440,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/transfers:
     get:
@@ -337,6 +454,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/teams/{id}/trophies:
     get:
@@ -347,6 +468,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/players/{id}:
     get:
@@ -358,6 +483,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/players/{id}/seasons:
     get:
@@ -368,6 +497,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/players/{id}/trophies:
     get:
@@ -378,6 +511,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/players/{id}/career:
     get:
@@ -388,6 +525,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/CareerAggregateResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/players/team/{teamId}/fixtures:
     get:
@@ -400,6 +541,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/players/fixtures/{fixtureId}/team/{teamId}/stats:
     get:
@@ -411,6 +556,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/players/{id}/matches:
     get:
@@ -424,6 +573,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/follows/search/teams:
     get:
@@ -434,6 +587,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/follows/search/players:
     get:
@@ -444,6 +601,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/follows/teams/{teamId}:
     get:
@@ -454,6 +615,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/follows/teams/{teamId}/next-fixture:
     get:
@@ -465,6 +630,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/follows/players/{playerId}/season/{season}:
     get:
@@ -476,6 +645,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/follows/trends/teams:
     get:
@@ -487,6 +660,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
 
   /v1/follows/trends/players:
     get:
@@ -498,15 +675,63 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
+
+  /v1/mobile/session/challenge:
+    post:
+      summary: Create short-lived mobile attestation challenge
+      operationId: createMobileSessionChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileSessionChallengeRequest'
+      responses:
+        '200':
+          description: Challenge created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileSessionChallengeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/mobile/session/attest:
+    post:
+      summary: Verify mobile attestation and issue short-lived session token
+      operationId: attestMobileSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileSessionAttestRequest'
+      responses:
+        '200':
+          description: Session token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileSessionAttestResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/notifications/tokens:
     post:
-      summary: Register push token (signed request)
+      summary: Register push token (attested mobile session)
       operationId: registerPushToken
       security:
-        - MobileRequestTimestamp: []
-          MobileRequestNonce: []
-          MobileRequestSignature: []
+        - MobileSessionBearer: []
       requestBody:
         required: true
         content:
@@ -520,11 +745,11 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status, token]
+                required: [ status, token ]
                 properties:
                   status:
                     type: string
-                    enum: [registered]
+                    enum: [ registered ]
                   token:
                     type: string
         '400':
@@ -533,15 +758,15 @@ paths:
           $ref: '#/components/responses/ProblemResponse'
         '403':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/notifications/tokens/{token}:
     delete:
-      summary: Revoke push token (signed request)
+      summary: Revoke push token (attested mobile session)
       operationId: revokePushToken
       security:
-        - MobileRequestTimestamp: []
-          MobileRequestNonce: []
-          MobileRequestSignature: []
+        - MobileSessionBearer: []
       parameters:
         - $ref: '#/components/parameters/TokenPath'
       responses:
@@ -551,15 +776,15 @@ paths:
           $ref: '#/components/responses/ProblemResponse'
         '403':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/telemetry/events:
     post:
-      summary: Push telemetry event (signed request)
+      summary: Push telemetry event (attested mobile session)
       operationId: sendTelemetryEvent
       security:
-        - MobileRequestTimestamp: []
-          MobileRequestNonce: []
-          MobileRequestSignature: []
+        - MobileSessionBearer: []
       requestBody:
         required: true
         content:
@@ -575,15 +800,43 @@ paths:
           $ref: '#/components/responses/ProblemResponse'
         '403':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/telemetry/events/batch:
+    post:
+      summary: Push telemetry event batch (attested mobile session)
+      operationId: sendTelemetryEventBatch
+      security:
+        - MobileSessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 100
+              items:
+                $ref: '#/components/schemas/TelemetryEventPayload'
+      responses:
+        '200':
+          $ref: '#/components/responses/AcceptedTelemetryResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/telemetry/errors:
     post:
-      summary: Push telemetry error (signed request)
+      summary: Push telemetry error (attested mobile session)
       operationId: sendTelemetryError
       security:
-        - MobileRequestTimestamp: []
-          MobileRequestNonce: []
-          MobileRequestSignature: []
+        - MobileSessionBearer: []
       requestBody:
         required: true
         content:
@@ -599,15 +852,43 @@ paths:
           $ref: '#/components/responses/ProblemResponse'
         '403':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/telemetry/errors/batch:
+    post:
+      summary: Push telemetry error batch (attested mobile session)
+      operationId: sendTelemetryErrorBatch
+      security:
+        - MobileSessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 100
+              items:
+                $ref: '#/components/schemas/TelemetryErrorPayload'
+      responses:
+        '200':
+          $ref: '#/components/responses/AcceptedTelemetryResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/telemetry/breadcrumbs:
     post:
-      summary: Push telemetry breadcrumb (signed request)
+      summary: Push telemetry breadcrumb (attested mobile session)
       operationId: sendTelemetryBreadcrumb
       security:
-        - MobileRequestTimestamp: []
-          MobileRequestNonce: []
-          MobileRequestSignature: []
+        - MobileSessionBearer: []
       requestBody:
         required: true
         content:
@@ -623,21 +904,43 @@ paths:
           $ref: '#/components/responses/ProblemResponse'
         '403':
           $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/telemetry/breadcrumbs/batch:
+    post:
+      summary: Push telemetry breadcrumb batch (attested mobile session)
+      operationId: sendTelemetryBreadcrumbBatch
+      security:
+        - MobileSessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              maxItems: 100
+              items:
+                $ref: '#/components/schemas/TelemetryBreadcrumbPayload'
+      responses:
+        '200':
+          $ref: '#/components/responses/AcceptedTelemetryResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
 components:
   securitySchemes:
-    MobileRequestTimestamp:
-      type: apiKey
-      in: header
-      name: x-mobile-request-timestamp
-    MobileRequestNonce:
-      type: apiKey
-      in: header
-      name: x-mobile-request-nonce
-    MobileRequestSignature:
-      type: apiKey
-      in: header
-      name: x-mobile-request-signature
+    MobileSessionBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
   parameters:
     IdPath:
@@ -756,6 +1059,22 @@ components:
         type: integer
         minimum: 1
         maximum: 100
+    OptionalLimitQuery:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 10
+        maximum: 100
+    OptionalCursorQuery:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 2048
     OptionalNextQuery:
       name: next
       in: query
@@ -778,7 +1097,7 @@ components:
       required: false
       schema:
         type: string
-        enum: [all, first, second]
+        enum: [ all, first, second ]
     LeagueIdsQuery:
       name: leagueIds
       in: query
@@ -793,7 +1112,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [topscorers, topassists, topyellowcards, topredcards]
+        enum: [ topscorers, topassists, topyellowcards, topredcards ]
 
   responses:
     ListEnvelopeResponse:
@@ -820,7 +1139,7 @@ components:
         application/json:
           schema:
             type: object
-            required: [response]
+            required: [ response ]
             properties:
               response:
                 type: object
@@ -839,14 +1158,17 @@ components:
         application/json:
           schema:
             type: object
-            required: [status, type]
+            required: [ status, type ]
             properties:
               status:
                 type: string
-                enum: [accepted]
+                enum: [ accepted ]
               type:
                 type: string
-                enum: [event, error, breadcrumb]
+                enum: [ event, event_batch, error, error_batch, breadcrumb, breadcrumb_batch ]
+              count:
+                type: integer
+                minimum: 1
     ProblemResponse:
       description: Error payload
       content:
@@ -857,25 +1179,67 @@ components:
   schemas:
     HealthResponse:
       type: object
-      required: [status]
+      required: [ status, cache ]
       properties:
         status:
           type: string
-          enum: [ok]
+          enum: [ ok, degraded ]
+        cache:
+          type: object
+          required: [ backend, strictMode, redis, degraded ]
+          properties:
+            backend:
+              type: string
+              enum: [ memory, redis ]
+            strictMode:
+              type: boolean
+            redis:
+              type: object
+              required: [ configured, ready, prefix, lastError ]
+              properties:
+                configured:
+                  type: boolean
+                ready:
+                  type: boolean
+                prefix:
+                  type: string
+                lastError:
+                  oneOf:
+                    - type: string
+                    - type: 'null'
+            degraded:
+              type: boolean
     FlexibleObject:
       type: object
       additionalProperties: true
+    CursorPageInfo:
+      type: object
+      required: [ hasMore, nextCursor, returnedCount ]
+      properties:
+        hasMore:
+          type: boolean
+        nextCursor:
+          oneOf:
+            - type: string
+            - type: 'null'
+        returnedCount:
+          type: integer
+          minimum: 0
     ListEnvelope:
       type: object
-      required: [response]
+      required: [ response ]
       properties:
         response:
           type: array
           items:
             $ref: '#/components/schemas/FlexibleObject'
+        pageInfo:
+          oneOf:
+            - $ref: '#/components/schemas/CursorPageInfo'
+            - type: 'null'
     PagedEnvelope:
       type: object
-      required: [response]
+      required: [ response ]
       properties:
         response:
           type: array
@@ -885,6 +1249,10 @@ components:
           oneOf:
             - type: object
               additionalProperties: true
+            - type: 'null'
+        pageInfo:
+          oneOf:
+            - $ref: '#/components/schemas/CursorPageInfo'
             - type: 'null'
     OptionalEnvelope:
       type: object
@@ -901,7 +1269,7 @@ components:
             - type: 'null'
     ProblemResponse:
       type: object
-      required: [error, message]
+      required: [ error, message ]
       properties:
         error:
           type: string
@@ -916,11 +1284,88 @@ components:
                 type: object
                 additionalProperties: true
             - type: 'null'
+    MobileSessionChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [ platform, deviceIdHash, appVersion, buildNumber ]
+      properties:
+        platform:
+          type: string
+          enum: [ android, ios ]
+        deviceIdHash:
+          type: string
+          minLength: 8
+          maxLength: 256
+        appVersion:
+          type: string
+          minLength: 1
+          maxLength: 64
+        buildNumber:
+          type: string
+          minLength: 1
+          maxLength: 64
+    MobileSessionChallengeResponse:
+      type: object
+      additionalProperties: false
+      required: [ challengeId, challenge, expiresAtMs ]
+      properties:
+        challengeId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        challenge:
+          type: string
+          minLength: 1
+        expiresAtMs:
+          type: integer
+          minimum: 1
+    MobileSessionAttestation:
+      type: object
+      additionalProperties: false
+      required: [ type, token ]
+      properties:
+        type:
+          type: string
+          enum: [ play_integrity, app_attest ]
+        token:
+          type: string
+          minLength: 1
+    MobileSessionAttestRequest:
+      type: object
+      additionalProperties: false
+      required: [ challengeId, platform, deviceIdHash, attestation ]
+      properties:
+        challengeId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        platform:
+          type: string
+          enum: [ android, ios ]
+        deviceIdHash:
+          type: string
+          minLength: 8
+          maxLength: 256
+        attestation:
+          $ref: '#/components/schemas/MobileSessionAttestation'
+    MobileSessionAttestResponse:
+      type: object
+      additionalProperties: false
+      required: [ accessToken, expiresAtMs, integrity ]
+      properties:
+        accessToken:
+          type: string
+          minLength: 1
+        expiresAtMs:
+          type: integer
+          minimum: 1
+        integrity:
+          type: string
+          enum: [ strong, device, basic, unknown ]
     PushTokenPayload:
       type: object
       additionalProperties: false
-      required:
-        [token, deviceId, platform, provider, appVersion, locale, timezone]
+      required: [ token, deviceId, platform, provider, appVersion, locale, timezone ]
       properties:
         token:
           type: string
@@ -932,17 +1377,17 @@ components:
           maxLength: 256
         platform:
           type: string
-          enum: [ios, android]
+          enum: [ ios, android ]
         provider:
           type: string
-          enum: [apns, fcm]
+          enum: [ apns, fcm ]
         appVersion:
           type: string
           minLength: 1
           maxLength: 64
         locale:
           type: string
-          enum: [fr, en]
+          enum: [ fr, en ]
         timezone:
           type: string
           minLength: 1
@@ -960,7 +1405,7 @@ components:
     TelemetryEventPayload:
       type: object
       additionalProperties: false
-      required: [name]
+      required: [ name ]
       properties:
         name:
           type: string
@@ -995,7 +1440,7 @@ components:
     TelemetryErrorPayload:
       type: object
       additionalProperties: false
-      required: [name, message]
+      required: [ name, message ]
       properties:
         name:
           type: string
@@ -1018,7 +1463,7 @@ components:
     TelemetryBreadcrumbPayload:
       type: object
       additionalProperties: false
-      required: [name]
+      required: [ name ]
       properties:
         name:
           type: string

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { MatchDetailTabDefinition, MatchDetailsTabKey } from '@ui/features/matches/types/matches.types';
+import { AppPressable } from '@ui/shared/components';
 import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type MatchDetailsTabsProps = {
@@ -51,7 +52,7 @@ export function MatchDetailsTabs({ tabs, activeTab, onChangeTab }: MatchDetailsT
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={styles.container}>
+    <View testID="match-details-tablist" style={styles.container} accessibilityRole="tablist">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -61,10 +62,10 @@ export function MatchDetailsTabs({ tabs, activeTab, onChangeTab }: MatchDetailsT
           const isActive = tab.key === activeTab;
 
           return (
-            <Pressable
+            <AppPressable
               key={tab.key}
               testID={`match-details-tab-${tab.key}`}
-              accessibilityRole="button"
+              accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
               accessibilityLabel={tab.label}
               onPress={() => onChangeTab(tab.key)}
@@ -73,7 +74,7 @@ export function MatchDetailsTabs({ tabs, activeTab, onChangeTab }: MatchDetailsT
               <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null]}>
                 {tab.label}
               </Text>
-            </Pressable>
+            </AppPressable>
           );
         })}
       </ScrollView>

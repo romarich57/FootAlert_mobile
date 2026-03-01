@@ -99,9 +99,22 @@ jest.mock('react-native-localize', () => ({
 jest.mock('react-native-device-info', () => ({
   getVersion: () => '0.0.1',
   getBuildNumber: () => '1',
+  isEmulator: jest.fn(async () => false),
   usePowerState: () => ({
     lowPowerMode: false,
   }),
+}));
+
+jest.mock('jail-monkey', () => ({
+  isJailBroken: jest.fn(() => false),
+  hookDetected: jest.fn(() => false),
+  isDebuggedMode: jest.fn(async () => false),
+}));
+
+jest.mock('react-native-ssl-public-key-pinning', () => ({
+  initializeSslPinning: jest.fn(async () => undefined),
+  isSslPinningAvailable: jest.fn(() => false),
+  addSslPinningErrorListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 jest.mock('react-native-permissions', () => ({

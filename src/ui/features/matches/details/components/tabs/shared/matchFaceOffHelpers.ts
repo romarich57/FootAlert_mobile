@@ -113,9 +113,9 @@ export function parseH2HFixtures(
   return { fixtures, summary: { homeWins, draws, awayWins, total: fixtures.length } };
 }
 
-/** Formate une date ISO en texte court localisé (français). */
-export function formatH2HDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('fr-FR', {
+/** Formate une date ISO en texte court localisé. */
+export function formatH2HDate(isoDate: string, locale: string): string {
+  return new Date(isoDate).toLocaleDateString(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

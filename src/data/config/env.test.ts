@@ -1,4 +1,9 @@
-import { resolveExternalUrl, resolveMobileApiBaseUrl } from '@data/config/env';
+import {
+  resolveExternalUrl,
+  resolveMobileApiBaseUrl,
+  resolveMobileAttestationStrategy,
+  resolveMobileAuthAttestationMode,
+} from '@data/config/env';
 
 describe('resolveMobileApiBaseUrl', () => {
   it('allows localhost HTTP URLs in dev runtime', () => {
@@ -69,5 +74,45 @@ describe('resolveExternalUrl', () => {
         requiredOutsideDev: true,
       }),
     ).toBe('https://example.com/privacy');
+  });
+});
+
+describe('resolveMobileAuthAttestationMode', () => {
+  it('allows mock mode in dev runtime', () => {
+    expect(resolveMobileAuthAttestationMode('mock', true)).toBe('mock');
+  });
+
+  it('rejects mock mode outside dev runtime', () => {
+    expect(() => resolveMobileAuthAttestationMode('mock', false)).toThrow(
+      'MOBILE_AUTH_ATTESTATION_MODE=mock is not allowed outside dev runtime.',
+    );
+  });
+
+  it('defaults to provider outside dev runtime', () => {
+    expect(resolveMobileAuthAttestationMode(undefined, false)).toBe('provider');
+  });
+});
+
+describe('resolveMobileAttestationStrategy', () => {
+  it('supports explicit strict mode', () => {
+    expect(resolveMobileAttestationStrategy('strict', true)).toBe('strict');
+  });
+
+  it('supports explicit best-effort mode', () => {
+    expect(resolveMobileAttestationStrategy('best-effort', false)).toBe('best-effort');
+  });
+
+  it('rejects disabled mode outside dev runtime', () => {
+    expect(() => resolveMobileAttestationStrategy('disabled', false)).toThrow(
+      'MOBILE_ATTESTATION_STRATEGY=disabled is not allowed outside dev runtime.',
+    );
+  });
+
+  it('defaults to disabled in dev runtime', () => {
+    expect(resolveMobileAttestationStrategy(undefined, true)).toBe('disabled');
+  });
+
+  it('defaults to strict outside dev runtime', () => {
+    expect(resolveMobileAttestationStrategy(undefined, false)).toBe('strict');
   });
 });

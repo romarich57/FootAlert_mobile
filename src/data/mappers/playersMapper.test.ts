@@ -6,7 +6,7 @@ import {
   mapPlayerMatchPerformance,
   mapPlayerTrophies,
 } from '@data/mappers/playersMapper';
-import type { PlayerApiDetailsDto } from '@ui/features/players/types/players.types';
+import type { PlayerApiDetailsDto } from '@domain/contracts/players.types';
 
 function buildDetails(
   statistics: NonNullable<PlayerApiDetailsDto['statistics']>,

@@ -2,7 +2,7 @@ import { createMatchesReadService } from '@app-core/services/matchesService';
 import { mobileReadHttpAdapter, mobileReadTelemetryAdapter } from '@data/endpoints/sharedReadServiceAdapters';
 import type {
   ApiFootballFixtureDto,
-} from '@ui/features/matches/types/matches.types';
+} from '@domain/contracts/matches.types';
 
 const matchesReadService = createMatchesReadService({
   http: mobileReadHttpAdapter,
@@ -12,17 +12,23 @@ const matchesReadService = createMatchesReadService({
 type FetchFixturesByDateParams = {
   date: string;
   timezone: string;
+  limit?: number;
+  cursor?: string;
   signal?: AbortSignal;
 };
 
 export async function fetchFixturesByDate({
   date,
   timezone,
+  limit,
+  cursor,
   signal,
 }: FetchFixturesByDateParams): Promise<ApiFootballFixtureDto[]> {
   return matchesReadService.fetchFixturesByDate<ApiFootballFixtureDto>({
     date,
     timezone,
+    limit,
+    cursor,
     signal,
   });
 }

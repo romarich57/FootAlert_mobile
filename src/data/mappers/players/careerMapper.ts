@@ -4,7 +4,7 @@ import type {
   PlayerApiDetailsDto,
   PlayerCareerSeason,
   PlayerCareerTeam,
-} from '@ui/features/players/types/players.types';
+} from '@domain/contracts/players.types';
 
 import {
   normalizeNumber,

@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
-import type { ListEnvelope } from '../domain/network';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { ListEnvelope } from '../domain/network.js';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 
 const listResponseSchema = z
   .object({
@@ -42,8 +42,18 @@ export function createFollowsReadService({ http, telemetry }: FollowsServiceDepe
       return fetchList('/follows/search/teams', { q: query }, 'follows.search.teams', '/follows/search/teams', signal);
     },
 
-    searchPlayers<T = unknown>(query: string, signal?: AbortSignal): Promise<T[]> {
-      return fetchList('/follows/search/players', { q: query }, 'follows.search.players', '/follows/search/players', signal);
+    searchPlayers<T = unknown>(
+      query: string,
+      season?: number,
+      signal?: AbortSignal,
+    ): Promise<T[]> {
+      return fetchList(
+        '/follows/search/players',
+        { q: query, season },
+        'follows.search.players',
+        '/follows/search/players',
+        signal,
+      );
     },
 
     async fetchTeamDetails<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T | null> {

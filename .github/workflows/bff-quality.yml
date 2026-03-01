@@ -40,6 +40,15 @@ jobs:
       - name: Route suites
         run: npm run test:routes
 
+      - name: Pagination suites
+        run: npm run test:pagination
+
+      - name: Cache strict suites
+        run: npm run test:cache-strict
+
+      - name: Security auth suites
+        run: npm run test:security-auth
+
       - name: Route file-size gates
         run: npm run routes:line-limits
 

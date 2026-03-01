@@ -13,7 +13,11 @@ test('GET /health returns healthy status', async t => {
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.json(), { status: 'ok' });
+  const payload = response.json();
+  assert.equal(payload.status, 'ok');
+  assert.equal(payload.cache.backend, 'memory');
+  assert.equal(payload.cache.strictMode, false);
+  assert.equal(payload.cache.degraded, false);
 });
 
 test('GET /v1/capabilities returns match-details capabilities without upstream calls', async t => {

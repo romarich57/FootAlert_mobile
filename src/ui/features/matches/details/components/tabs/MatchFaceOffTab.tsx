@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
 import {
@@ -11,6 +12,7 @@ import {
 } from '@ui/features/matches/details/components/tabs/shared/matchFaceOffHelpers';
 import type { H2HFixture } from '@ui/features/matches/details/components/tabs/shared/matchFaceOffHelpers';
 import type { MatchDetailsDatasetErrorReason } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 
 // --- Types ---
 
@@ -104,10 +106,12 @@ function H2HMatchRow({
   fixture,
   styles,
   dynamicStyles,
+  locale,
 }: {
   fixture: H2HFixture;
   styles: MatchDetailsTabStyles;
   dynamicStyles: ReturnType<typeof createFaceOffDynamicStyles>;
+  locale: string;
 }) {
   const isHomeWinner = fixture.homeGoals !== null && fixture.awayGoals !== null && fixture.homeGoals > fixture.awayGoals;
   const isAwayWinner = fixture.homeGoals !== null && fixture.awayGoals !== null && fixture.awayGoals > fixture.homeGoals;
@@ -130,7 +134,7 @@ function H2HMatchRow({
   return (
     <View style={[localStyles.h2hRow, dynamicStyles.h2hRow]}>
       <View style={styles.inlineRow}>
-        <Text style={styles.newsText}>{formatH2HDate(fixture.date)}</Text>
+        <Text style={styles.newsText}>{formatH2HDate(fixture.date, locale)}</Text>
         <View style={styles.badge}>
           <Text style={styles.badgeText} numberOfLines={1}>
             {fixture.leagueName}
@@ -176,9 +180,10 @@ export function MatchFaceOffTab({
   hasDataError = false,
   dataErrorReason = 'none',
 }: MatchFaceOffTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
   const dynamicStyles = useMemo(() => createFaceOffDynamicStyles(colors), [colors]);
+  const locale = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
 
   const [activeLeague, setActiveLeague] = useState<string>('all');
   const [visibleCount, setVisibleCount] = useState<number>(INITIAL_VISIBLE_FIXTURES);
@@ -289,32 +294,35 @@ export function MatchFaceOffTab({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[styles.chipRow, localStyles.chipScroll]}
+          accessibilityRole='tablist'
         >
-          <Pressable
+          <AppPressable
             key='all'
             style={[styles.chip, activeLeague === 'all' ? styles.chipActive : null]}
             onPress={() => setActiveLeague('all')}
-            accessibilityRole='button'
+            accessibilityRole='tab'
+            accessibilityLabel={t('matchDetails.faceOff.allCompetitions')}
             accessibilityState={{ selected: activeLeague === 'all' }}
           >
             <Text style={[styles.chipText, activeLeague === 'all' ? styles.chipTextActive : null]}>
               {t('matchDetails.faceOff.allCompetitions')}
             </Text>
-          </Pressable>
+          </AppPressable>
           {leagues.map(league => {
-            const isActive = activeLeague === league.id;
-            return (
-              <Pressable
+              const isActive = activeLeague === league.id;
+              return (
+                <AppPressable
                 key={league.id}
                 style={[styles.chip, isActive ? styles.chipActive : null]}
                 onPress={() => setActiveLeague(league.id)}
-                accessibilityRole='button'
+                accessibilityRole='tab'
+                accessibilityLabel={league.name}
                 accessibilityState={{ selected: isActive }}
               >
                 <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
                   {league.name}
                 </Text>
-              </Pressable>
+              </AppPressable>
             );
           })}
         </ScrollView>
@@ -327,23 +335,33 @@ export function MatchFaceOffTab({
           <Text style={styles.emptyText}>{t(emptyStateKey)}</Text>
         ) : (
           <>
-            {visibleFixtures.map(fixture => (
-              <H2HMatchRow
-                key={fixture.fixtureId}
-                fixture={fixture}
-                styles={styles}
-                dynamicStyles={dynamicStyles}
-              />
-            ))}
+            <FlatList
+              data={visibleFixtures}
+              keyExtractor={fixture => fixture.fixtureId}
+              renderItem={({ item: fixture }) => (
+                <H2HMatchRow
+                  fixture={fixture}
+                  styles={styles}
+                  dynamicStyles={dynamicStyles}
+                  locale={locale}
+                />
+              )}
+              scrollEnabled={false}
+              removeClippedSubviews
+              initialNumToRender={visibleCount}
+              maxToRenderPerBatch={visibleCount}
+              windowSize={5}
+            />
             {canLoadMore ? (
               <View style={localStyles.loadMoreWrap}>
-                <Pressable
+                <AppPressable
                   style={[styles.chip, localStyles.loadMoreBtn]}
                   onPress={() => setVisibleCount(count => count + LOAD_MORE_STEP)}
                   accessibilityRole='button'
+                  accessibilityLabel={t('matchDetails.faceOff.loadMore')}
                 >
                   <Text style={styles.chipText}>{t('matchDetails.faceOff.loadMore')}</Text>
-                </Pressable>
+                </AppPressable>
               </View>
             ) : null}
           </>

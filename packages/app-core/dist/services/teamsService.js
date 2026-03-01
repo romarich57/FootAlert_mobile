@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 const listResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),
@@ -17,6 +17,14 @@ const pagedResponseSchema = z
         .object({
         current: z.number().optional(),
         total: z.number().optional(),
+    })
+        .passthrough()
+        .optional(),
+    pageInfo: z
+        .object({
+        hasMore: z.boolean(),
+        nextCursor: z.string().nullable(),
+        returnedCount: z.number(),
     })
         .passthrough()
         .optional(),
@@ -129,6 +137,8 @@ export function createTeamsReadService({ http, telemetry }) {
                 leagueId: params.leagueId,
                 season: params.season,
                 page: params.page,
+                limit: params.limit,
+                cursor: params.cursor,
             }, { signal });
             const payload = parseRuntimePayloadOrFallback({
                 schema: pagedResponseSchema,
@@ -141,6 +151,7 @@ export function createTeamsReadService({ http, telemetry }) {
             return {
                 response: payload.response,
                 paging: payload.paging,
+                pageInfo: payload.pageInfo,
             };
         },
         async fetchTeamSquad(teamId, signal) {

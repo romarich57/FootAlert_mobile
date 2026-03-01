@@ -37,6 +37,12 @@ export const fr = {
     topCompetitionBadge: 'TOP',
     followsSectionTitle: 'Suivis',
     followsEmpty: 'Aucun match lié à vos suivis pour le moment.',
+    actions: {
+      manageHiddenCompetitions: 'Gérer les compétitions masquées',
+      openCalendar: 'Ouvrir le calendrier',
+      openSearch: 'Ouvrir la recherche',
+      openNotifications: 'Ouvrir les notifications',
+    },
     filters: {
       all: 'Tous',
       live: 'Live',

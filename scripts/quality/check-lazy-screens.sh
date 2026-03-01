@@ -29,18 +29,21 @@ if rg -q "lazy:\\s*false" "$TARGET_FILE"; then
   exit 1
 fi
 
-required_lines=(
-  '<Stack.Screen name="MatchDetails" getComponent={getMatchDetailsScreen} />'
+required_patterns=(
+  'name="MatchDetails"'
+  'getComponent={getMatchDetailsScreen}'
   'name="CompetitionDetails"'
   'getComponent={getCompetitionDetailsScreen}'
-  'name="TeamDetails" getComponent={getTeamDetailsScreen}'
-  'name="PlayerDetails" getComponent={getPlayerDetailsScreen}'
+  'name="TeamDetails"'
+  'getComponent={getTeamDetailsScreen}'
+  'name="PlayerDetails"'
+  'getComponent={getPlayerDetailsScreen}'
   'name="SearchPlaceholder"'
   'getComponent={getSearchScreen}'
 )
 
-for required in "${required_lines[@]}"; do
-  if ! grep -Fq "$required" "$TARGET_FILE"; then
+for required in "${required_patterns[@]}"; do
+  if ! rg -Fq "$required" "$TARGET_FILE"; then
     echo "Missing lazy-loading marker in ${TARGET_FILE}: $required"
     exit 1
   fi

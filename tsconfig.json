@@ -15,6 +15,9 @@
       "@ui/*": [
         "src/ui/*"
       ],
+      "@domain/*": [
+        "src/domain/*"
+      ],
       "@app-core": [
         "packages/app-core/src/index"
       ],

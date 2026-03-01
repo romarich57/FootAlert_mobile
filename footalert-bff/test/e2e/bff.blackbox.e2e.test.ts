@@ -78,7 +78,6 @@ test('BFF black-box e2e validates happy path, validation errors and upstream nor
       {
         API_FOOTBALL_KEY: 'e2e-api-key',
         API_FOOTBALL_BASE_URL: apiStub.baseUrl,
-        MOBILE_REQUEST_SIGNING_KEY: 'e2e-mobile-signing-key',
         CORS_ALLOWED_ORIGINS: 'https://app.footalert.test',
       },
       async () => {

@@ -20,7 +20,14 @@ describe('TeamTabs', () => {
       />,
     );
 
-    fireEvent.press(screen.getByText('Matchs'));
+    const tablist = screen.getByTestId('team-tabs-tablist');
+    const matchesTab = screen.getByLabelText('Matchs');
+
+    expect(tablist.props.accessibilityRole).toBe('tablist');
+    expect(matchesTab.props.accessibilityRole).toBe('tab');
+    expect(matchesTab.props.accessibilityState).toEqual({ selected: false });
+
+    fireEvent.press(matchesTab);
 
     expect(onChangeTab).toHaveBeenCalledWith('matches');
   });

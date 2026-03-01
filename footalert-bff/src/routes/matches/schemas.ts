@@ -2,10 +2,14 @@ import { z } from 'zod';
 
 import { boundedPositiveIntSchema, numericStringSchema, timezoneSchema } from '../../lib/schemas.js';
 
+const paginationCursorSchema = z.string().trim().min(1).max(2048);
+
 export const matchesQuerySchema = z
   .object({
     date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/),
     timezone: timezoneSchema,
+    limit: boundedPositiveIntSchema(10, 100).optional(),
+    cursor: paginationCursorSchema.optional(),
   })
   .strict();
 

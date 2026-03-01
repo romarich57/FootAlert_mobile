@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 export type PlayerTabType = 'profil' | 'matchs' | 'stats' | 'carriere';
@@ -57,14 +58,15 @@ function TabItem({
     styles: ReturnType<typeof createStyles>;
 }) {
     return (
-        <Pressable
+        <AppPressable
             accessibilityRole="tab"
+            accessibilityLabel={label}
             accessibilityState={{ selected }}
             onPress={onPress}
             style={[styles.tabButton, selected && styles.tabButtonSelected]}
         >
             <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
-        </Pressable>
+        </AppPressable>
     );
 }
 
@@ -86,7 +88,7 @@ export function PlayerTabs({
   const resolvedCarriereLabel = carriereLabel ?? t('playerDetails.tabs.career');
 
     return (
-        <View style={styles.container}>
+        <View style={styles.container} accessibilityRole="tablist">
             <TabItem
                 label={resolvedProfilLabel}
                 selected={selectedTab === 'profil'}

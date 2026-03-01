@@ -16,6 +16,9 @@ type MatchDetailsHeaderProps = {
   kickoffLabel: string;
   countdownLabel: string;
   onBack: () => void;
+  onPressNotifications?: () => void;
+  onPressFavorite?: () => void;
+  onPressMenu?: () => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -37,6 +40,9 @@ function createStyles(colors: ThemeColors) {
     },
     actionButton: {
       // Remove bg and border
+    },
+    actionButtonDisabled: {
+      opacity: 0.45,
     },
     teamsRow: {
       flexDirection: 'row',
@@ -88,6 +94,30 @@ function createStyles(colors: ThemeColors) {
       fontSize: 13,
       fontWeight: '600',
     },
+    liveStatusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
+    liveBadge: {
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      backgroundColor: colors.primary,
+    },
+    liveBadgeText: {
+      color: colors.primaryContrast,
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    liveMinuteText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
     endedText: {
       color: colors.textMuted,
       fontSize: 13,
@@ -130,10 +160,13 @@ function TeamLogo({ logo, fallback, styles }: { logo: string; fallback: string; 
 export function MatchDetailsHeader({
   fixture,
   lifecycleState,
-  statusLabel: _statusLabel,
+  statusLabel,
   kickoffLabel,
   countdownLabel,
   onBack,
+  onPressNotifications,
+  onPressFavorite,
+  onPressMenu,
 }: MatchDetailsHeaderProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -141,6 +174,9 @@ export function MatchDetailsHeader({
 
   const homeTeam = fixture.teams.home;
   const awayTeam = fixture.teams.away;
+  const isNotificationsDisabled = typeof onPressNotifications !== 'function';
+  const isFavoriteDisabled = typeof onPressFavorite !== 'function';
+  const isMenuDisabled = typeof onPressMenu !== 'function';
 
   return (
     <View style={styles.container}>
@@ -156,22 +192,37 @@ export function MatchDetailsHeader({
         <View style={styles.rightActions}>
           <IconActionButton
             accessibilityLabel={t('matchDetails.actions.notifications')}
-            onPress={() => undefined}
-            style={styles.actionButton}
+            onPress={onPressNotifications}
+            disabled={isNotificationsDisabled}
+            accessibilityState={{ disabled: isNotificationsDisabled }}
+            style={[
+              styles.actionButton,
+              isNotificationsDisabled ? styles.actionButtonDisabled : null,
+            ]}
           >
             <MaterialCommunityIcons name="bell-outline" size={22} color={colors.text} />
           </IconActionButton>
           <IconActionButton
             accessibilityLabel={t('matchDetails.actions.favorite')}
-            onPress={() => undefined}
-            style={styles.actionButton}
+            onPress={onPressFavorite}
+            disabled={isFavoriteDisabled}
+            accessibilityState={{ disabled: isFavoriteDisabled }}
+            style={[
+              styles.actionButton,
+              isFavoriteDisabled ? styles.actionButtonDisabled : null,
+            ]}
           >
             <MaterialCommunityIcons name="star-outline" size={22} color={colors.text} />
           </IconActionButton>
           <IconActionButton
             accessibilityLabel={t('matchDetails.actions.menu')}
-            onPress={() => undefined}
-            style={styles.actionButton}
+            onPress={onPressMenu}
+            disabled={isMenuDisabled}
+            accessibilityState={{ disabled: isMenuDisabled }}
+            style={[
+              styles.actionButton,
+              isMenuDisabled ? styles.actionButtonDisabled : null,
+            ]}
           >
             <MaterialCommunityIcons name="dots-vertical" size={22} color={colors.text} />
           </IconActionButton>
@@ -197,13 +248,19 @@ export function MatchDetailsHeader({
           {lifecycleState === 'live' ? (
             <>
               <Text style={styles.scoreText}>{toDisplayScore(fixture)}</Text>
+              <View style={styles.liveStatusRow}>
+                <View style={styles.liveBadge}>
+                  <Text style={styles.liveBadgeText}>{t('matches.liveLabel')}</Text>
+                </View>
+                {statusLabel ? <Text style={styles.liveMinuteText}>{statusLabel}</Text> : null}
+              </View>
             </>
           ) : null}
 
           {lifecycleState === 'finished' ? (
             <>
               <Text style={styles.scoreText}>{toDisplayScore(fixture)}</Text>
-              <Text style={styles.endedText}>Fin du match</Text>
+              <Text style={styles.endedText}>{statusLabel || t('matchDetails.header.finished')}</Text>
             </>
           ) : null}
         </View>

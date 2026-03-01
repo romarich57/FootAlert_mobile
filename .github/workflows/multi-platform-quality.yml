@@ -33,9 +33,31 @@ jobs:
       - name: Validate API contract
         run: npm run contract:check
 
-  web-quality:
+  app-core-quality:
     runs-on: ubuntu-latest
     needs: contract-check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Install app-core dependencies
+        run: npm --prefix packages/app-core install --no-audit --no-fund
+
+      - name: Typecheck shared app-core
+        run: npm --prefix packages/app-core run typecheck
+
+      - name: Run shared app-core tests
+        run: npm --prefix packages/app-core run test:contract-runtime
+
+  web-quality:
+    runs-on: ubuntu-latest
+    needs: [contract-check, app-core-quality]
     defaults:
       run:
         working-directory: web
@@ -55,9 +77,34 @@ jobs:
       - name: Typecheck web
         run: npm run typecheck
 
+  web-parity-smoke:
+    runs-on: ubuntu-latest
+    needs: [web-quality, app-core-quality]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run web parity smoke journeys
+        run: npm run test:parity
+
   web-build:
     runs-on: ubuntu-latest
-    needs: web-quality
+    needs: [web-quality, web-parity-smoke]
     defaults:
       run:
         working-directory: web
@@ -86,7 +133,7 @@ jobs:
 
   desktop-build:
     runs-on: ubuntu-latest
-    needs: web-build
+    needs: [web-build, web-parity-smoke]
     defaults:
       run:
         working-directory: desktop
@@ -108,6 +155,9 @@ jobs:
 
       - name: Build desktop shell assets
         run: npm run build
+
+      - name: Desktop parity smoke checks
+        run: npm run smoke
 
       - name: Upload desktop bundle scaffold
         uses: actions/upload-artifact@v4

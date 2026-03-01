@@ -6,12 +6,12 @@ import {
   type HttpMutationOptions,
 } from '@data/api/http/client';
 import { getMobileApiEnvOrThrow } from '@data/config/env';
-import { buildMobileRequestSecurityHeaders } from '@data/security/mobileRequestSignature';
+import { buildSensitiveMobileAuthHeaders } from '@data/security/mobileSessionAuth';
 
 type QueryValue = string | number | boolean | null | undefined;
 
 type BffGetOptions = Omit<HttpGetOptions, 'headers'>;
-type BffMutationOptions = Omit<HttpMutationOptions, 'headers'>;
+type BffMutationOptions = HttpMutationOptions;
 
 function buildQueryString(query?: Record<string, QueryValue>): string {
   if (!query) {
@@ -51,14 +51,17 @@ export async function bffPost<TResponse, TBody = unknown>(
   options?: BffMutationOptions,
 ): Promise<TResponse> {
   const url = buildBffUrl(path);
+  const authHeaders = await buildSensitiveMobileAuthHeaders({
+    method: 'POST',
+    url,
+    body,
+    scope: path.startsWith('/telemetry') ? 'telemetry:write' : 'notifications:write',
+  });
   return httpPost<TResponse>(url, body, {
     ...options,
     headers: {
-      ...buildMobileRequestSecurityHeaders({
-        method: 'POST',
-        url,
-        body,
-      }),
+      ...options?.headers,
+      ...authHeaders,
     },
   });
 }
@@ -68,13 +71,16 @@ export async function bffDelete<TResponse = void>(
   options?: BffMutationOptions,
 ): Promise<TResponse> {
   const url = buildBffUrl(path);
+  const authHeaders = await buildSensitiveMobileAuthHeaders({
+    method: 'DELETE',
+    url,
+    scope: 'notifications:write',
+  });
   return httpDelete<TResponse>(url, {
     ...options,
     headers: {
-      ...buildMobileRequestSecurityHeaders({
-        method: 'DELETE',
-        url,
-      }),
+      ...options?.headers,
+      ...authHeaders,
     },
   });
 }

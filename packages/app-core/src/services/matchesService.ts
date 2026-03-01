@@ -1,13 +1,21 @@
 import { z } from 'zod';
 
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
-import type { ListEnvelope } from '../domain/network';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { ListEnvelope } from '../domain/network.js';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 
 const listResponseSchema = z
   .object({
     response: z.array(z.unknown()).default([]),
+    pageInfo: z
+      .object({
+        hasMore: z.boolean(),
+        nextCursor: z.string().nullable(),
+        returnedCount: z.number(),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 
@@ -21,6 +29,8 @@ export function createMatchesReadService({ http, telemetry }: MatchesServiceDepe
     async fetchFixturesByDate<T = unknown>(params: {
       date: string;
       timezone: string;
+      limit?: number;
+      cursor?: string;
       signal?: AbortSignal;
     }): Promise<T[]> {
       const rawPayload = await http.get<unknown>(
@@ -28,6 +38,8 @@ export function createMatchesReadService({ http, telemetry }: MatchesServiceDepe
         {
           date: params.date,
           timezone: params.timezone,
+          limit: params.limit,
+          cursor: params.cursor,
         },
         { signal: params.signal },
       );

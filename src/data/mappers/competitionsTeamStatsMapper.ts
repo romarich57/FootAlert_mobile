@@ -12,8 +12,8 @@ import type {
   CompetitionTeamStatsSortOrder,
   StandingGroup,
   StandingRow,
-} from '@ui/features/competitions/types/competitions.types';
-import type { TeamAdvancedStatsDto, TeamApiStatisticsDto } from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/competitions.types';
+import type { TeamAdvancedStatsDto, TeamApiStatisticsDto } from '@domain/contracts/teams.types';
 
 export type CompetitionTeamAdvancedPayload = {
   teamId: number;

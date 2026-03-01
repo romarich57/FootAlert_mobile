@@ -30,11 +30,11 @@ jobs:
       - name: Check index key usage
         run: npm run check:keys
 
-      - name: Check lazy-loaded screens
-        run: npm run check:lazy-screens
+      - name: Check pagination fan-out guards
+        run: npm run check:anti-fanout
 
-      - name: Check Hermes enabled
-        run: npm run check:hermes-enabled
+      - name: Check mobile architecture constraints
+        run: npm run check:architecture
 
       - name: API contract check
         run: npm run contract:check
@@ -48,10 +48,39 @@ jobs:
       - name: ASO metadata validation
         run: npm run aso:validate
 
+  mobile-security:
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check no shared mobile secret
+        run: npm run security:check:no-mobile-secret
+
+      - name: Check pinning config
+        run: npm run security:check:pinning-config
+
+      - name: Check release integrity configuration
+        run: npm run security:check:release-integrity
+
+      - name: Run mobile security tests
+        run: npm run security:test:mobile
+
   android-perf-smoke:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    needs: quality
+    needs: [quality, mobile-security]
     continue-on-error: true
     timeout-minutes: 120
 
@@ -130,7 +159,7 @@ jobs:
 
   android-build:
     runs-on: ubuntu-latest
-    needs: quality
+    needs: [quality, mobile-security]
 
     steps:
       - name: Checkout
@@ -152,6 +181,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify merged Android release manifest security policy
+        run: npm run security:check:android-release-manifest
+
       - name: Build Android debug and release
         run: ./gradlew :app:assembleDebug :app:assembleRelease
         working-directory: android
@@ -165,9 +197,53 @@ jobs:
             android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
+  ios-perf-smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: macos-14
+    needs: [quality, mobile-security]
+    continue-on-error: true
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+        working-directory: ios
+
+      - name: Run iOS cold-start smoke
+        run: bash scripts/perf/run-ios-cold-start.sh ci-smoke 5
+
+      - name: Resolve iOS perf artifact directory
+        id: ios_perf_dir
+        run: |
+          summary_file="$(find perf-results/ios -type f -name 'summary.txt' | sort | tail -n 1)"
+          if [[ -z "$summary_file" ]]; then
+            echo "No iOS perf summary found to upload"
+            exit 1
+          fi
+          echo "run_dir=$(dirname "$summary_file")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload iOS perf smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-perf-smoke
+          path: ${{ steps.ios_perf_dir.outputs.run_dir }}
+          if-no-files-found: error
+
   ios-build:
     runs-on: macos-14
-    needs: quality
+    needs: [quality, mobile-security]
 
     steps:
       - name: Checkout

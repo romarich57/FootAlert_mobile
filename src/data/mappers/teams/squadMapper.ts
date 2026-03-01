@@ -3,7 +3,7 @@ import type {
   TeamSquadData,
   TeamSquadPlayer,
   TeamSquadRole,
-} from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/teams.types';
 
 import { toId, toNumber, toText } from './shared';
 

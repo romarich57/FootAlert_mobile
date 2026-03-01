@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { env } from '../config/env.js';
-import { verifyMobileRequestAuth } from '../lib/mobileRequestAuth.js';
+import { verifySensitiveMobileAuth } from '../lib/mobileSessionAuth.js';
 import { parseOrThrow } from '../lib/validation.js';
 
 const pushTokenBodySchema = z
@@ -36,14 +36,15 @@ export function resetPushTokenStoreForTests(): void {
 
 export async function registerNotificationsRoutes(app: FastifyInstance): Promise<void> {
   app.post('/v1/notifications/tokens', async (request, reply) => {
-    const authFailure = verifyMobileRequestAuth(request, {
-      signingKey: env.mobileRequestSigningKey,
-      maxSkewMs: env.mobileRequestSignatureMaxSkewMs,
+    const authResult = verifySensitiveMobileAuth(request, {
+      requiredScope: 'notifications:write',
+      jwtSecret: env.mobileSessionJwtSecret,
+      minIntegrity: 'device',
     });
-    if (authFailure) {
-      reply.code(authFailure.statusCode).send({
-        error: authFailure.code,
-        message: authFailure.message,
+    if (!authResult.ok) {
+      reply.code(authResult.failure.statusCode).send({
+        error: authResult.failure.code,
+        message: authResult.failure.message,
       });
       return;
     }
@@ -68,14 +69,15 @@ export async function registerNotificationsRoutes(app: FastifyInstance): Promise
   });
 
   app.delete('/v1/notifications/tokens/:token', async (request, reply) => {
-    const authFailure = verifyMobileRequestAuth(request, {
-      signingKey: env.mobileRequestSigningKey,
-      maxSkewMs: env.mobileRequestSignatureMaxSkewMs,
+    const authResult = verifySensitiveMobileAuth(request, {
+      requiredScope: 'notifications:write',
+      jwtSecret: env.mobileSessionJwtSecret,
+      minIntegrity: 'device',
     });
-    if (authFailure) {
-      reply.code(authFailure.statusCode).send({
-        error: authFailure.code,
-        message: authFailure.message,
+    if (!authResult.ok) {
+      reply.code(authResult.failure.statusCode).send({
+        error: authResult.failure.code,
+        message: authResult.failure.message,
       });
       return;
     }

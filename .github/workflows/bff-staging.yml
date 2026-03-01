@@ -38,6 +38,9 @@ jobs:
       - name: Route suites
         run: npm run test:routes
 
+      - name: Security auth suites
+        run: npm run test:security-auth
+
       - name: Route file-size gates
         run: npm run routes:line-limits
 

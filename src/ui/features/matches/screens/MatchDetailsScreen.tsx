@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +14,9 @@ import { MatchDetailsHeader } from '@ui/features/matches/details/components/Matc
 import { MatchDetailsTabContent } from '@ui/features/matches/details/components/MatchDetailsTabContent';
 import { MatchDetailsTabs } from '@ui/features/matches/details/components/MatchDetailsTabs';
 import { useMatchDetailsScreenModel } from '@ui/features/matches/details/hooks/useMatchDetailsScreenModel';
+import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
+import { AppPressable } from '@ui/shared/components';
+import { useOfflineUiState } from '@ui/shared/hooks';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 function createStyles(colors: ThemeColors, topInset: number) {
@@ -51,6 +53,10 @@ function createStyles(colors: ThemeColors, topInset: number) {
     body: {
       backgroundColor: colors.background,
     },
+    stateWrap: {
+      paddingHorizontal: 12,
+      paddingTop: 8,
+    },
   });
 }
 
@@ -60,6 +66,14 @@ export function MatchDetailsScreen() {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const model = useMatchDetailsScreenModel();
+  const offlineUi = useOfflineUiState({
+    hasData: Boolean(model.fixture),
+    isLoading: model.isInitialLoading,
+    lastUpdatedAt: model.lastUpdatedAt,
+  });
+  const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
+    ? new Date(offlineUi.lastUpdatedAt).toISOString()
+    : null;
 
   if (!model.safeMatchId) {
     return (
@@ -79,12 +93,33 @@ export function MatchDetailsScreen() {
   }
 
   if (model.isInitialError && !model.fixture) {
+    if (offlineUi.showOfflineNoCache) {
+      return (
+        <View style={styles.loadingContainer} testID="match-details-offline-no-cache">
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.loadingContainer} testID="match-details-error">
         <Text style={styles.infoText}>{t('matchDetails.states.error')}</Text>
-        <Pressable testID="match-details-retry" onPress={model.onRetryAll}>
+        <AppPressable
+          testID="match-details-retry"
+          onPress={model.onRetryAll}
+          accessibilityRole="button"
+          accessibilityLabel={t('actions.retry')}
+        >
           <Text style={styles.retryText}>{t('actions.retry')}</Text>
-        </Pressable>
+        </AppPressable>
+      </View>
+    );
+  }
+
+  if (offlineUi.showOfflineNoCache) {
+    return (
+      <View style={styles.loadingContainer} testID="match-details-offline-no-cache">
+        <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
       </View>
     );
   }
@@ -120,6 +155,12 @@ export function MatchDetailsScreen() {
         activeTab={model.activeTab}
         onChangeTab={model.setActiveTab}
       />
+
+      {offlineUi.showOfflineBanner ? (
+        <View style={styles.stateWrap}>
+          <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
 
       <View style={styles.body}>
         <MatchDetailsTabContent

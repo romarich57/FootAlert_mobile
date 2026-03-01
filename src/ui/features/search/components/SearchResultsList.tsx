@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { appEnv } from '@data/config/env';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type {
   SearchEntityTab,
   SearchPlayerResult,
@@ -13,7 +14,7 @@ import type {
 } from '@ui/features/search/types/search.types';
 import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 import { AppImage } from '@ui/shared/media/AppImage';
-import { DEFAULT_HIT_SLOP, MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
+import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type SearchResultsListProps = {
   selectedTab: SearchEntityTab;
@@ -183,14 +184,15 @@ export function SearchResultsList({
     return (
       <View style={styles.stateContainer}>
         <Text style={styles.stateText}>{t('screens.search.error')}</Text>
-        <Pressable
+        <AppPressable
           style={styles.retryButton}
           onPress={onRetry}
-          hitSlop={DEFAULT_HIT_SLOP}
+          accessibilityRole="button"
+          accessibilityLabel={t('actions.retry')}
           testID="search-results-retry-button"
         >
           <Text style={styles.retryText}>{t('actions.retry')}</Text>
-        </Pressable>
+        </AppPressable>
       </View>
     );
   }
@@ -212,10 +214,11 @@ export function SearchResultsList({
       renderItem={({ item }) => {
         if (item.type === 'team') {
           return (
-            <Pressable
+            <AppPressable
               onPress={() => onPressTeam(item.item.teamId)}
               style={styles.resultCard}
-              hitSlop={DEFAULT_HIT_SLOP}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.item.teamName} ${item.item.country}`.trim()}
               testID={`search-result-team-${item.item.teamId}`}
             >
               <View style={styles.logoWrap}>
@@ -237,7 +240,7 @@ export function SearchResultsList({
                   {item.item.country}
                 </Text>
               </View>
-            </Pressable>
+            </AppPressable>
           );
         }
 
@@ -250,10 +253,11 @@ export function SearchResultsList({
           .join(' • ');
 
         return (
-          <Pressable
+          <AppPressable
             onPress={() => onPressPlayer(item.item.playerId)}
             style={styles.resultCard}
-            hitSlop={DEFAULT_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.item.playerName} ${subtitle}`.trim()}
             testID={`search-result-player-${item.item.playerId}`}
           >
             <View style={styles.logoWrap}>
@@ -271,7 +275,7 @@ export function SearchResultsList({
                 {subtitle}
               </Text>
             </View>
-          </Pressable>
+          </AppPressable>
         );
       }}
     />

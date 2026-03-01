@@ -1,8 +1,16 @@
 import { z } from 'zod';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 const listResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),
+    pageInfo: z
+        .object({
+        hasMore: z.boolean(),
+        nextCursor: z.string().nullable(),
+        returnedCount: z.number(),
+    })
+        .passthrough()
+        .optional(),
 })
     .passthrough();
 export function createMatchesReadService({ http, telemetry }) {
@@ -11,6 +19,8 @@ export function createMatchesReadService({ http, telemetry }) {
             const rawPayload = await http.get('/matches', {
                 date: params.date,
                 timezone: params.timezone,
+                limit: params.limit,
+                cursor: params.cursor,
             }, { signal: params.signal });
             const payload = parseRuntimePayloadOrFallback({
                 schema: listResponseSchema,

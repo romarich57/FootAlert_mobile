@@ -1,5 +1,5 @@
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
 type MatchesServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;
@@ -8,6 +8,8 @@ export declare function createMatchesReadService({ http, telemetry }: MatchesSer
     fetchFixturesByDate<T = unknown>(params: {
         date: string;
         timezone: string;
+        limit?: number;
+        cursor?: string;
         signal?: AbortSignal;
     }): Promise<T[]>;
     fetchFixtureById<T = unknown>(params: {

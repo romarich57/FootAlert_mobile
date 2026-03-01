@@ -36,6 +36,12 @@ export const en = {
     topCompetitionBadge: 'TOP',
     followsSectionTitle: 'Follows',
     followsEmpty: 'No followed match available yet.',
+    actions: {
+      manageHiddenCompetitions: 'Manage hidden competitions',
+      openCalendar: 'Open calendar',
+      openSearch: 'Open search',
+      openNotifications: 'Open notifications',
+    },
     filters: {
       all: 'All',
       live: 'Live',

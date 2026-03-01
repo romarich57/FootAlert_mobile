@@ -1,4 +1,4 @@
-import type { TeamApiPlayerDto } from '@ui/features/teams/types/teams.types';
+import type { TeamApiPlayerDto } from '@domain/contracts/teams.types';
 
 export type TeamPlayerStatistic = NonNullable<TeamApiPlayerDto['statistics']>[number];
 

@@ -12,6 +12,7 @@ type CacheConfig = {
   maxEntries: number;
   cleanupIntervalMs: number;
   backend: CacheBackend;
+  strictMode: boolean;
   redisUrl: string | null;
   redisPrefix: string;
 };
@@ -21,6 +22,8 @@ const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
 const DEFAULT_MAX_CACHE_KEY_LENGTH = 120;
 const DEFAULT_CACHE_BACKEND: CacheBackend = 'memory';
 const DEFAULT_REDIS_PREFIX = 'footalert:bff:';
+const DEFAULT_CACHE_STRICT_MODE = false;
+const REDIS_READY_TIMEOUT_MS = 3_000;
 
 function toPositiveInt(value: number, fallback: number): number {
   if (!Number.isFinite(value) || value <= 0) {
@@ -161,13 +164,18 @@ const memoryCache = new MemoryCache();
 const inFlight = new Map<string, Promise<unknown>>();
 
 let cacheBackend: CacheBackend = DEFAULT_CACHE_BACKEND;
+let cacheStrictMode = DEFAULT_CACHE_STRICT_MODE;
 let redisUrl: string | null = null;
 let redisPrefix = DEFAULT_REDIS_PREFIX;
 let redisClient: IORedis | null = null;
 let redisReady = false;
 let hasLoggedRedisFallback = false;
+let lastRedisError: unknown = null;
 
 function logRedisFallback(error?: unknown): void {
+  if (typeof error !== 'undefined') {
+    lastRedisError = error;
+  }
   if (hasLoggedRedisFallback) {
     return;
   }
@@ -211,6 +219,7 @@ function ensureRedisClient(): void {
 
     client.on('ready', () => {
       redisReady = true;
+      lastRedisError = null;
       hasLoggedRedisFallback = false;
     });
     client.on('error', (error: unknown) => {
@@ -227,6 +236,36 @@ function ensureRedisClient(): void {
     logRedisFallback(error);
     redisClient = null;
   }
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function ensureRedisReadyWithTimeout(timeoutMs = REDIS_READY_TIMEOUT_MS): Promise<void> {
+  ensureRedisClient();
+  if (!redisClient) {
+    throw new Error('Redis client initialization failed.');
+  }
+
+  if (redisReady) {
+    return;
+  }
+
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      await redisClient.ping();
+      redisReady = true;
+      lastRedisError = null;
+      return;
+    } catch (error) {
+      lastRedisError = error;
+      await wait(100);
+    }
+  }
+
+  throw new Error('Redis did not become ready before timeout.');
 }
 
 async function getFromRedis<T>(key: string): Promise<T | null> {
@@ -315,13 +354,17 @@ export function configureCache(config: Partial<CacheConfig>): void {
     typeof config.redisPrefix === 'string'
       ? normalizeRedisPrefix(config.redisPrefix)
       : redisPrefix;
+  const nextStrictMode =
+    typeof config.strictMode === 'boolean' ? config.strictMode : cacheStrictMode;
 
   const shouldReconnectRedis =
     nextBackend !== cacheBackend ||
     nextRedisUrl !== redisUrl ||
-    nextRedisPrefix !== redisPrefix;
+    nextRedisPrefix !== redisPrefix ||
+    nextStrictMode !== cacheStrictMode;
 
   cacheBackend = nextBackend;
+  cacheStrictMode = nextStrictMode;
   redisUrl = nextRedisUrl;
   redisPrefix = nextRedisPrefix;
 
@@ -331,6 +374,52 @@ export function configureCache(config: Partial<CacheConfig>): void {
   }
 
   ensureRedisClient();
+}
+
+export async function assertCacheReadyOrThrow(): Promise<void> {
+  if (!cacheStrictMode || cacheBackend !== 'redis') {
+    return;
+  }
+
+  if (!redisUrl) {
+    throw new Error('Redis strict mode requires REDIS_URL.');
+  }
+
+  try {
+    await ensureRedisReadyWithTimeout();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Redis strict mode validation failed: ${reason}`);
+  }
+}
+
+export type CacheHealthSnapshot = {
+  backend: CacheBackend;
+  strictMode: boolean;
+  redis: {
+    configured: boolean;
+    ready: boolean;
+    prefix: string;
+    lastError: string | null;
+  };
+  degraded: boolean;
+};
+
+export function getCacheHealthSnapshot(): CacheHealthSnapshot {
+  const redisConfigured = cacheBackend === 'redis' && Boolean(redisUrl);
+  const degraded = cacheStrictMode && cacheBackend === 'redis' && !redisReady;
+
+  return {
+    backend: cacheBackend,
+    strictMode: cacheStrictMode,
+    redis: {
+      configured: redisConfigured,
+      ready: redisReady,
+      prefix: redisPrefix,
+      lastError: lastRedisError ? String(lastRedisError) : null,
+    },
+    degraded,
+  };
 }
 
 export async function withCache<T>(
@@ -365,8 +454,10 @@ export function resetCacheForTests(): void {
   memoryCache.resetForTests();
   inFlight.clear();
   cacheBackend = DEFAULT_CACHE_BACKEND;
+  cacheStrictMode = DEFAULT_CACHE_STRICT_MODE;
   redisUrl = null;
   redisPrefix = DEFAULT_REDIS_PREFIX;
   hasLoggedRedisFallback = false;
+  lastRedisError = null;
   teardownRedisClient();
 }

@@ -1,123 +1,63 @@
-import { z } from 'zod';
-
-import { bffGet } from '@data/endpoints/bffClient';
-import { parseRuntimePayloadOrFallback } from '@data/endpoints/runtimeValidation';
-import {
-  mapPlayerCareerSeasonAggregate,
-  mapPlayerCareerTeamAggregate,
-  mapPlayerMatchPerformanceAggregate,
-} from '@data/mappers/playersMapper';
+import { createPlayersReadService } from '@app-core/services/playersService';
 import type {
   PlayerApiCareerSeasonAggregateDto,
   PlayerApiCareerTeamAggregateDto,
   PlayerApiDetailsDto,
   PlayerApiFixtureDto,
-  PlayerApiMatchesAggregateResponse,
   PlayerApiMatchPerformanceDto,
-  PlayerApiResponse,
+  PlayerApiMatchesAggregateResponse,
   PlayerApiTrophyDto,
   PlayerCareerSeason,
   PlayerCareerTeam,
   PlayerMatchPerformance,
-} from '@ui/features/players/types/players.types';
+} from '@domain/contracts/players.types';
+import {
+  mapPlayerCareerSeasonAggregate,
+  mapPlayerCareerTeamAggregate,
+  mapPlayerMatchPerformanceAggregate,
+} from '@data/mappers/playersMapper';
+import {
+  mobileReadHttpAdapter,
+  mobileReadTelemetryAdapter,
+} from '@data/endpoints/sharedReadServiceAdapters';
 
-const listResponseSchema = z
-  .object({
-    response: z.array(z.unknown()).default([]),
-  })
-  .passthrough();
-
-const careerAggregateResponseSchema = z
-  .object({
-    response: z
-      .object({
-        seasons: z.array(z.unknown()).optional(),
-        teams: z.array(z.unknown()).optional(),
-      })
-      .optional(),
-  })
-  .passthrough();
+const playersReadService = createPlayersReadService({
+  http: mobileReadHttpAdapter,
+  telemetry: mobileReadTelemetryAdapter,
+});
 
 export async function fetchPlayerDetails(
   playerId: string,
   season: number,
   signal?: AbortSignal,
 ): Promise<PlayerApiDetailsDto | null> {
-  const rawPayload = await bffGet<unknown>(
-    `/players/${encodeURIComponent(playerId)}`,
-    { season },
-    { signal },
-  );
-  const payload = parseRuntimePayloadOrFallback({
-    schema: listResponseSchema,
-    payload: rawPayload,
-    fallback: { response: [] },
-    feature: 'players.details',
-    endpoint: `/players/${playerId}`,
-  });
-
-  return (payload.response as PlayerApiResponse<PlayerApiDetailsDto>['response'])[0] ?? null;
+  return playersReadService.fetchPlayerDetails<PlayerApiDetailsDto>(playerId, season, signal);
 }
 
 export async function fetchPlayerSeasons(
   playerId: string,
   signal?: AbortSignal,
 ): Promise<number[]> {
-  const rawPayload = await bffGet<unknown>(
-    `/players/${encodeURIComponent(playerId)}/seasons`,
-    undefined,
-    { signal },
-  );
-  const payload = parseRuntimePayloadOrFallback({
-    schema: listResponseSchema,
-    payload: rawPayload,
-    fallback: { response: [] },
-    feature: 'players.seasons',
-    endpoint: `/players/${playerId}/seasons`,
-  });
-
-  return payload.response as PlayerApiResponse<number>['response'];
+  return playersReadService.fetchPlayerSeasons(playerId, signal);
 }
 
 export async function fetchPlayerTrophies(
   playerId: string,
   signal?: AbortSignal,
 ): Promise<PlayerApiTrophyDto[]> {
-  const rawPayload = await bffGet<unknown>(
-    `/players/${encodeURIComponent(playerId)}/trophies`,
-    undefined,
-    { signal },
-  );
-  const payload = parseRuntimePayloadOrFallback({
-    schema: listResponseSchema,
-    payload: rawPayload,
-    fallback: { response: [] },
-    feature: 'players.trophies',
-    endpoint: `/players/${playerId}/trophies`,
-  });
-
-  return payload.response as PlayerApiResponse<PlayerApiTrophyDto>['response'];
+  return playersReadService.fetchPlayerTrophies<PlayerApiTrophyDto>(playerId, signal);
 }
 
 export async function fetchPlayerCareerAggregate(
   playerId: string,
   signal?: AbortSignal,
 ): Promise<{ seasons: PlayerCareerSeason[]; teams: PlayerCareerTeam[] }> {
-  const rawPayload = await bffGet<unknown>(
-    `/players/${encodeURIComponent(playerId)}/career`,
-    undefined,
-    { signal },
-  );
-  const payload = parseRuntimePayloadOrFallback({
-    schema: careerAggregateResponseSchema,
-    payload: rawPayload,
-    fallback: { response: undefined },
-    feature: 'players.career',
-    endpoint: `/players/${playerId}/career`,
-  });
+  const payload = await playersReadService.fetchPlayerCareerAggregate<
+    PlayerApiCareerSeasonAggregateDto,
+    PlayerApiCareerTeamAggregateDto
+  >(playerId, signal);
 
-  const seasonsInput = (payload.response?.seasons ?? []) as PlayerApiCareerSeasonAggregateDto[];
-  const seasons = seasonsInput
+  const seasons = payload.seasons
     .map(mapPlayerCareerSeasonAggregate)
     .sort((a, b) => {
       const aYear = a.season ? Number.parseInt(a.season, 10) : Number.NEGATIVE_INFINITY;
@@ -125,8 +65,7 @@ export async function fetchPlayerCareerAggregate(
       return bYear - aYear;
     });
 
-  const teamsInput = (payload.response?.teams ?? []) as PlayerApiCareerTeamAggregateDto[];
-  const teams = teamsInput.map(mapPlayerCareerTeamAggregate);
+  const teams = payload.teams.map(mapPlayerCareerTeamAggregate);
 
   return { seasons, teams };
 }
@@ -137,23 +76,7 @@ export async function fetchTeamFixtures(
   amount: number = 10,
   signal?: AbortSignal,
 ): Promise<PlayerApiFixtureDto[]> {
-  const rawPayload = await bffGet<unknown>(
-    `/players/team/${encodeURIComponent(teamId)}/fixtures`,
-    {
-      season,
-      last: amount,
-    },
-    { signal },
-  );
-  const payload = parseRuntimePayloadOrFallback({
-    schema: listResponseSchema,
-    payload: rawPayload,
-    fallback: { response: [] },
-    feature: 'players.team_fixtures',
-    endpoint: `/players/team/${teamId}/fixtures`,
-  });
-
-  return payload.response as PlayerApiResponse<PlayerApiFixtureDto>['response'];
+  return playersReadService.fetchTeamFixtures<PlayerApiFixtureDto>(teamId, season, amount, signal);
 }
 
 export async function fetchFixturePlayerStats(
@@ -161,20 +84,11 @@ export async function fetchFixturePlayerStats(
   teamId: string,
   signal?: AbortSignal,
 ): Promise<PlayerApiMatchPerformanceDto | null> {
-  const rawPayload = await bffGet<unknown>(
-    `/players/fixtures/${encodeURIComponent(fixtureId)}/team/${encodeURIComponent(teamId)}/stats`,
-    undefined,
-    { signal },
+  return playersReadService.fetchFixturePlayerStats<PlayerApiMatchPerformanceDto>(
+    fixtureId,
+    teamId,
+    signal,
   );
-  const payload = parseRuntimePayloadOrFallback({
-    schema: listResponseSchema,
-    payload: rawPayload,
-    fallback: { response: [] },
-    feature: 'players.fixture_stats',
-    endpoint: `/players/fixtures/${fixtureId}/team/${teamId}/stats`,
-  });
-
-  return (payload.response as PlayerApiResponse<PlayerApiMatchPerformanceDto>['response'])[0] ?? null;
 }
 
 export async function fetchPlayerMatchesAggregate(
@@ -184,25 +98,9 @@ export async function fetchPlayerMatchesAggregate(
   amount: number = 15,
   signal?: AbortSignal,
 ): Promise<PlayerMatchPerformance[]> {
-  const rawPayload = await bffGet<unknown>(
-    `/players/${encodeURIComponent(playerId)}/matches`,
-    {
-      teamId,
-      season,
-      last: amount,
-    },
-    { signal },
-  );
-  const payload = parseRuntimePayloadOrFallback({
-    schema: listResponseSchema,
-    payload: rawPayload,
-    fallback: { response: [] },
-    feature: 'players.matches_aggregate',
-    endpoint: `/players/${playerId}/matches`,
-  });
-
-  const aggregateResponse =
-    (payload.response as PlayerApiMatchesAggregateResponse['response']) ?? [];
+  const aggregateResponse = await playersReadService.fetchPlayerMatchesAggregate<
+    NonNullable<PlayerApiMatchesAggregateResponse['response']>[number]
+  >(playerId, teamId, season, amount, signal);
 
   return aggregateResponse
     .map(mapPlayerMatchPerformanceAggregate)

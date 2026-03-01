@@ -8,14 +8,18 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_TRUST_PROXY_HOPS = 0;
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
-const DEFAULT_CACHE_BACKEND = 'memory';
 const DEFAULT_REDIS_CACHE_PREFIX = 'footalert:bff:';
 const DEFAULT_BFF_EXPOSE_ERROR_DETAILS = false;
-const DEFAULT_MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS = 5 * 60_000;
+const DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS = 10 * 60_000;
+const DEFAULT_MOBILE_AUTH_CHALLENGE_TTL_MS = 2 * 60_000;
+const DEFAULT_MOBILE_ATTESTATION_ACCEPT_MOCK = false;
+const DEFAULT_PAGINATION_CURSOR_TTL_MS = 15 * 60_000;
 
 type CacheBackend = 'memory' | 'redis';
+type AppEnv = 'development' | 'test' | 'staging' | 'production';
 
 type BffEnv = {
+  appEnv: AppEnv;
   port: number;
   host: string;
   apiFootballBaseUrl: string;
@@ -30,11 +34,16 @@ type BffEnv = {
   cacheMaxEntries: number;
   cacheCleanupIntervalMs: number;
   cacheBackend: CacheBackend;
+  cacheStrictMode: boolean;
   redisUrl: string | null;
   redisCachePrefix: string;
   bffExposeErrorDetails: boolean;
-  mobileRequestSigningKey: string | null;
-  mobileRequestSignatureMaxSkewMs: number;
+  mobileSessionJwtSecret: string | null;
+  mobileSessionTokenTtlMs: number;
+  mobileAuthChallengeTtlMs: number;
+  mobileAttestationAcceptMock: boolean;
+  paginationCursorSecret: string;
+  paginationCursorTtlMs: number;
 };
 
 function normalizeUrl(value: string): string {
@@ -63,11 +72,6 @@ function readApiFootballKey(): string {
   return apiFootballKey;
 }
 
-function readOptionalSigningKey(rawValue: string | undefined): string | null {
-  const signingKey = rawValue?.trim();
-  return signingKey ? signingKey : null;
-}
-
 function readBoolean(rawValue: string | undefined, fallback: boolean): boolean {
   if (!rawValue) {
     return fallback;
@@ -85,13 +89,16 @@ function readBoolean(rawValue: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
-function readCacheBackend(rawValue: string | undefined): CacheBackend {
+function readCacheBackend(rawValue: string | undefined, fallback: CacheBackend): CacheBackend {
   const normalized = rawValue?.trim().toLowerCase();
   if (normalized === 'redis') {
     return 'redis';
   }
+  if (normalized === 'memory') {
+    return 'memory';
+  }
 
-  return 'memory';
+  return fallback;
 }
 
 function readOptionalValue(rawValue: string | undefined): string | null {
@@ -143,7 +150,8 @@ function buildCorsAllowedOrigins(rawOrigins: string | undefined, webAppOrigin: s
 }
 
 function isProxyLikeEnvironment(trustProxyHops: number): boolean {
-  const runtimeEnv = process.env.APP_ENV?.trim().toLowerCase() || process.env.NODE_ENV?.trim().toLowerCase();
+  const runtimeEnv =
+    process.env.APP_ENV?.trim().toLowerCase() || process.env.NODE_ENV?.trim().toLowerCase();
   if (runtimeEnv === 'production' || runtimeEnv === 'staging') {
     return true;
   }
@@ -151,7 +159,29 @@ function isProxyLikeEnvironment(trustProxyHops: number): boolean {
   return trustProxyHops > 0;
 }
 
+function readAppEnv(rawValue: string | undefined): AppEnv {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (normalized === 'production' || normalized === 'staging' || normalized === 'test') {
+    return normalized;
+  }
+
+  return 'development';
+}
+
+function defaultCacheBackendForEnv(appEnv: AppEnv): CacheBackend {
+  if (appEnv === 'production' || appEnv === 'staging') {
+    return 'redis';
+  }
+
+  return 'memory';
+}
+
+const resolvedAppEnv = readAppEnv(process.env.APP_ENV || process.env.NODE_ENV);
+const defaultCacheBackend = defaultCacheBackendForEnv(resolvedAppEnv);
+const defaultCacheStrictMode = resolvedAppEnv === 'production' || resolvedAppEnv === 'staging';
+
 export const env: BffEnv = {
+  appEnv: resolvedAppEnv,
   port: readPositiveInt(process.env.PORT, DEFAULT_PORT),
   host: process.env.HOST?.trim() || DEFAULT_HOST,
   apiFootballBaseUrl: normalizeUrl(
@@ -176,17 +206,31 @@ export const env: BffEnv = {
     process.env.CACHE_CLEANUP_INTERVAL_MS,
     DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
   ),
-  cacheBackend: readCacheBackend(process.env.CACHE_BACKEND || DEFAULT_CACHE_BACKEND),
+  cacheBackend: readCacheBackend(process.env.CACHE_BACKEND, defaultCacheBackend),
+  cacheStrictMode: readBoolean(process.env.CACHE_STRICT_MODE, defaultCacheStrictMode),
   redisUrl: readOptionalValue(process.env.REDIS_URL),
   redisCachePrefix: readRedisCachePrefix(process.env.REDIS_CACHE_PREFIX),
   bffExposeErrorDetails: readBoolean(
     process.env.BFF_EXPOSE_ERROR_DETAILS,
     DEFAULT_BFF_EXPOSE_ERROR_DETAILS,
   ),
-  mobileRequestSigningKey: readOptionalSigningKey(process.env.MOBILE_REQUEST_SIGNING_KEY),
-  mobileRequestSignatureMaxSkewMs: readPositiveInt(
-    process.env.MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS,
-    DEFAULT_MOBILE_REQUEST_SIGNATURE_MAX_SKEW_MS,
+  mobileSessionJwtSecret: readOptionalValue(process.env.MOBILE_SESSION_JWT_SECRET),
+  mobileSessionTokenTtlMs: readPositiveInt(
+    process.env.MOBILE_SESSION_TOKEN_TTL_MS,
+    DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS,
+  ),
+  mobileAuthChallengeTtlMs: readPositiveInt(
+    process.env.MOBILE_AUTH_CHALLENGE_TTL_MS,
+    DEFAULT_MOBILE_AUTH_CHALLENGE_TTL_MS,
+  ),
+  mobileAttestationAcceptMock: readBoolean(
+    process.env.MOBILE_ATTESTATION_ACCEPT_MOCK,
+    DEFAULT_MOBILE_ATTESTATION_ACCEPT_MOCK,
+  ),
+  paginationCursorSecret: '',
+  paginationCursorTtlMs: readPositiveInt(
+    process.env.PAGINATION_CURSOR_TTL_MS,
+    DEFAULT_PAGINATION_CURSOR_TTL_MS,
   ),
 };
 
@@ -199,3 +243,26 @@ if (isProxyLikeEnvironment(env.trustProxyHops) && env.corsAllowedOrigins.length 
     'Missing CORS_ALLOWED_ORIGINS in proxy/staging/production mode.',
   );
 }
+
+if (!env.mobileSessionJwtSecret) {
+  throw new Error(
+    'Missing MOBILE_SESSION_JWT_SECRET.',
+  );
+}
+
+if ((env.appEnv === 'staging' || env.appEnv === 'production') && env.mobileAttestationAcceptMock) {
+  throw new Error(
+    'MOBILE_ATTESTATION_ACCEPT_MOCK must be false in staging/production.',
+  );
+}
+
+if (env.cacheStrictMode && env.cacheBackend !== 'redis') {
+  throw new Error('CACHE_STRICT_MODE=true requires CACHE_BACKEND=redis.');
+}
+
+if (env.cacheBackend === 'redis' && !env.redisUrl) {
+  throw new Error('CACHE_BACKEND=redis requires REDIS_URL.');
+}
+
+env.paginationCursorSecret =
+  readOptionalValue(process.env.PAGINATION_CURSOR_SECRET) ?? env.mobileSessionJwtSecret;

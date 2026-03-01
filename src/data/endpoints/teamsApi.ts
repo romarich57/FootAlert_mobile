@@ -13,7 +13,7 @@ import type {
   TeamApiTeamDetailsDto,
   TeamApiTrophyDto,
   TeamApiTransferDto,
-} from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/teams.types';
 
 const teamsReadService = createTeamsReadService({
   http: mobileReadHttpAdapter,
@@ -98,6 +98,8 @@ type FetchTeamPlayersParams = {
   leagueId: string;
   season: number;
   page?: number;
+  limit?: number;
+  cursor?: string;
 };
 
 export async function fetchTeamPlayers(
@@ -108,6 +110,7 @@ export async function fetchTeamPlayers(
   return {
     response: payload.response,
     paging: payload.paging,
+    pageInfo: payload.pageInfo,
   };
 }
 

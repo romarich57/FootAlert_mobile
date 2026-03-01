@@ -1,0 +1,103 @@
+{
+  "version": "2.0.0",
+  "scope": "read-flows",
+  "platforms": ["mobile", "web", "desktop"],
+  "journeys": [
+    {
+      "id": "matches-list-and-details",
+      "name": "Matches list + match details",
+      "endpoints": [
+        "/v1/matches",
+        "/v1/matches/{id}",
+        "/v1/matches/{id}/events",
+        "/v1/matches/{id}/statistics",
+        "/v1/matches/{id}/lineups",
+        "/v1/matches/{id}/head-to-head",
+        "/v1/matches/{id}/predictions",
+        "/v1/matches/{id}/players/{teamId}/stats",
+        "/v1/matches/{id}/absences"
+      ],
+      "acceptance": {
+        "dataCorrectness": "Payload shape and key fields match OpenAPI contract.",
+        "states": "Loading, empty and error states are user-visible and non-blocking.",
+        "offlineWarmCache": "Cached data is rendered when offline and revalidates on reconnect."
+      }
+    },
+    {
+      "id": "team-details-fixtures-standings",
+      "name": "Team details + fixtures + standings",
+      "endpoints": [
+        "/v1/teams/{id}",
+        "/v1/teams/{id}/leagues",
+        "/v1/teams/{id}/fixtures",
+        "/v1/teams/{id}/next-fixture",
+        "/v1/teams/{id}/advanced-stats",
+        "/v1/teams/{id}/stats",
+        "/v1/teams/{id}/players",
+        "/v1/teams/{id}/squad",
+        "/v1/teams/{id}/transfers",
+        "/v1/teams/{id}/trophies",
+        "/v1/teams/standings"
+      ],
+      "acceptance": {
+        "dataCorrectness": "Team and league views resolve from contract-compliant responses.",
+        "states": "Missing optional blocks degrade gracefully without crashes.",
+        "offlineWarmCache": "Most recent team snapshot remains available offline."
+      }
+    },
+    {
+      "id": "player-details-trophies-matches",
+      "name": "Player details + trophies + matches",
+      "endpoints": [
+        "/v1/players/{id}",
+        "/v1/players/{id}/seasons",
+        "/v1/players/{id}/trophies",
+        "/v1/players/{id}/career",
+        "/v1/players/team/{teamId}/fixtures",
+        "/v1/players/fixtures/{fixtureId}/team/{teamId}/stats",
+        "/v1/players/{id}/matches"
+      ],
+      "acceptance": {
+        "dataCorrectness": "Career and match aggregates are contract-aligned.",
+        "states": "Fallback content appears when partial player data is unavailable.",
+        "offlineWarmCache": "Last viewed player context is shown offline."
+      }
+    },
+    {
+      "id": "competition-standings-matches",
+      "name": "Competition standings + matches",
+      "endpoints": [
+        "/v1/competitions",
+        "/v1/competitions/search",
+        "/v1/competitions/{id}",
+        "/v1/competitions/{id}/standings",
+        "/v1/competitions/{id}/matches",
+        "/v1/competitions/{id}/player-stats",
+        "/v1/competitions/{id}/transfers"
+      ],
+      "acceptance": {
+        "dataCorrectness": "Standings and fixtures remain consistent across platforms.",
+        "states": "Competition page supports loading/error/empty states.",
+        "offlineWarmCache": "Last queried competition can be opened while offline."
+      }
+    },
+    {
+      "id": "follows-search-trends",
+      "name": "Follows search + trends",
+      "endpoints": [
+        "/v1/follows/search/teams",
+        "/v1/follows/search/players",
+        "/v1/follows/teams/{teamId}",
+        "/v1/follows/teams/{teamId}/next-fixture",
+        "/v1/follows/players/{playerId}/season/{season}",
+        "/v1/follows/trends/teams",
+        "/v1/follows/trends/players"
+      ],
+      "acceptance": {
+        "dataCorrectness": "Search and trend results use the same contract fields everywhere.",
+        "states": "Debounced search behaves consistently for empty/no-result/error responses.",
+        "offlineWarmCache": "Trend views display cached response when offline."
+      }
+    }
+  ]
+}

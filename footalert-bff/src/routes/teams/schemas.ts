@@ -7,6 +7,8 @@ import {
   timezoneSchema,
 } from '../../lib/schemas.js';
 
+const paginationCursorSchema = z.string().trim().min(1).max(2048);
+
 export const teamIdParamsSchema = z
   .object({
     id: numericStringSchema,
@@ -36,5 +38,7 @@ export const teamPlayersQuerySchema = z
     leagueId: numericStringSchema,
     season: seasonSchema,
     page: boundedPositiveIntSchema(1, 10).optional(),
+    limit: boundedPositiveIntSchema(10, 100).optional(),
+    cursor: paginationCursorSchema.optional(),
   })
   .strict();

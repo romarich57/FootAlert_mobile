@@ -1,5 +1,5 @@
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
 type CompetitionsServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;
@@ -9,7 +9,10 @@ export declare function createCompetitionsReadService({ http, telemetry }: Compe
     searchLeaguesByName<T = unknown>(query: string, signal?: AbortSignal): Promise<T[]>;
     fetchLeagueById<T = unknown>(id: string, signal?: AbortSignal): Promise<T | null>;
     fetchLeagueStandings<T = unknown>(leagueId: number, season: number, signal?: AbortSignal): Promise<T | null>;
-    fetchLeagueFixtures<T = unknown>(leagueId: number, season: number, signal?: AbortSignal): Promise<T[]>;
+    fetchLeagueFixtures<T = unknown>(leagueId: number, season: number, signal?: AbortSignal, options?: {
+        limit?: number;
+        cursor?: string;
+    }): Promise<T[]>;
     fetchLeaguePlayerStats<T = unknown>(leagueId: number, season: number, type: "topscorers" | "topassists" | "topyellowcards" | "topredcards", signal?: AbortSignal): Promise<T[]>;
     fetchLeagueTransfers<T = unknown>(leagueId: number, season?: number, signal?: AbortSignal): Promise<T[]>;
 };

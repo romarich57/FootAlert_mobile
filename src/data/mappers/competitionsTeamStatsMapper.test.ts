@@ -6,8 +6,8 @@ import {
 import type {
   StandingGroup,
   StandingRow,
-} from '@ui/features/competitions/types/competitions.types';
-import type { TeamApiStatisticsDto } from '@ui/features/teams/types/teams.types';
+} from '@domain/contracts/competitions.types';
+import type { TeamApiStatisticsDto } from '@domain/contracts/teams.types';
 
 function createStandingRow(overrides: Partial<StandingRow> = {}): StandingRow {
   return {

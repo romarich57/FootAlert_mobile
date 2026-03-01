@@ -3,7 +3,7 @@ import type {
   PlayerCareerSeason,
   PlayerTrophiesByClub,
   PlayerTrophyEntry,
-} from '@ui/features/players/types/players.types';
+} from '@domain/contracts/players.types';
 
 import { normalizeString, toId } from './shared';
 

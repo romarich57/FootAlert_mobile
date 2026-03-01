@@ -1,8 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { env } from '../../config/env.js';
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
 import { withCache } from '../../lib/cache.js';
+import {
+  PaginationCursorCodec,
+  computePaginationFiltersHash,
+} from '../../lib/pagination/cursor.js';
+import { buildCursorPageInfo } from '../../lib/pagination/slice.js';
 import { timezoneSchema } from '../../lib/schemas.js';
 import { parseOrThrow } from '../../lib/validation.js';
 
@@ -49,6 +55,107 @@ type TeamCoachDto = {
     end?: string | null;
   }>;
 };
+
+type TeamPlayersEnvelope = {
+  response?: unknown[];
+  paging?: {
+    current?: number;
+    total?: number;
+  };
+} & Record<string, unknown>;
+
+type TeamPlayersCursorChunk = {
+  response: unknown[];
+  hasMore: boolean;
+  upstreamPageTotal?: number;
+};
+
+const TEAM_PLAYERS_ROUTE_PATH = '/v1/teams/:id/players';
+const TEAM_PLAYERS_DEFAULT_CURSOR_LIMIT = 50;
+const TEAM_PLAYERS_UPSTREAM_PAGE_SIZE_HINT = 20;
+const TEAM_PLAYERS_CURSOR_FETCH_MAX_PAGES = 12;
+const teamPlayersCursorCodec = new PaginationCursorCodec(
+  env.paginationCursorSecret,
+  env.paginationCursorTtlMs,
+);
+
+async function fetchTeamPlayersCursorChunk(input: {
+  teamId: string;
+  leagueId: string;
+  season: number;
+  startPosition: number;
+  limit: number;
+}): Promise<TeamPlayersCursorChunk> {
+  const normalizedStart = Math.max(0, Math.floor(input.startPosition));
+  const normalizedLimit = Math.max(1, Math.floor(input.limit));
+  const startPage = Math.floor(normalizedStart / TEAM_PLAYERS_UPSTREAM_PAGE_SIZE_HINT) + 1;
+  const startOffsetInPage =
+    normalizedStart - (startPage - 1) * TEAM_PLAYERS_UPSTREAM_PAGE_SIZE_HINT;
+
+  const aggregated: unknown[] = [];
+  let page = startPage;
+  let pagesFetched = 0;
+  let hasMore = true;
+  let upstreamPageTotal: number | undefined;
+
+  while (
+    aggregated.length < normalizedLimit &&
+    hasMore &&
+    pagesFetched < TEAM_PLAYERS_CURSOR_FETCH_MAX_PAGES
+  ) {
+    const searchParams = new URLSearchParams({
+      team: input.teamId,
+      league: input.leagueId,
+      season: String(input.season),
+      page: String(page),
+    });
+
+    const payload = await withCache(
+      `team:players:${input.teamId}:${input.leagueId}:${input.season}:page:${page}`,
+      60_000,
+      () => apiFootballGet<TeamPlayersEnvelope>(`/players?${searchParams.toString()}`),
+    );
+    const pageItems = Array.isArray(payload.response) ? payload.response : [];
+    const pageCurrent = typeof payload.paging?.current === 'number' ? payload.paging.current : page;
+    const pageTotal = typeof payload.paging?.total === 'number' ? payload.paging.total : undefined;
+    if (typeof pageTotal === 'number') {
+      upstreamPageTotal = pageTotal;
+    }
+
+    const effectiveItems = page === startPage ? pageItems.slice(startOffsetInPage) : pageItems;
+    const remaining = normalizedLimit - aggregated.length;
+    const consumedInThisPage = Math.min(remaining, effectiveItems.length);
+    if (consumedInThisPage > 0) {
+      aggregated.push(...effectiveItems.slice(0, consumedInThisPage));
+    }
+
+    const hasUnconsumedItemsInCurrentPage = consumedInThisPage < effectiveItems.length;
+    if (hasUnconsumedItemsInCurrentPage) {
+      hasMore = true;
+      break;
+    }
+
+    if (pageItems.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    if (typeof pageTotal === 'number') {
+      hasMore = pageCurrent < pageTotal;
+    } else {
+      hasMore = pageItems.length > 0;
+    }
+
+    page += 1;
+    pagesFetched += 1;
+  }
+
+  return {
+    response: aggregated,
+    hasMore,
+    upstreamPageTotal,
+  };
+}
 
 export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -189,20 +296,64 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/v1/teams/:id/players', async request => {
     const params = parseOrThrow(teamIdParamsSchema, request.params);
     const query = parseOrThrow(teamPlayersQuerySchema, request.query);
+    const isCursorPagination = typeof query.limit === 'number' || typeof query.cursor === 'string';
 
-    const searchParams = new URLSearchParams({
-      team: params.id,
-      league: query.leagueId,
-      season: String(query.season),
-    });
+    if (!isCursorPagination) {
+      const searchParams = new URLSearchParams({
+        team: params.id,
+        league: query.leagueId,
+        season: String(query.season),
+      });
 
-    if (typeof query.page === 'number') {
-      searchParams.set('page', String(query.page));
+      if (typeof query.page === 'number') {
+        searchParams.set('page', String(query.page));
+      }
+
+      return withCache(`team:players:${request.url}`, 60_000, () =>
+        apiFootballGet(`/players?${searchParams.toString()}`),
+      );
     }
 
-    return withCache(`team:players:${request.url}`, 60_000, () =>
-      apiFootballGet(`/players?${searchParams.toString()}`),
-    );
+    const limit = query.limit ?? TEAM_PLAYERS_DEFAULT_CURSOR_LIMIT;
+    const filtersHash = computePaginationFiltersHash({
+      teamId: params.id,
+      leagueId: query.leagueId,
+      season: query.season,
+    });
+    const startPositionFromPage =
+      typeof query.page === 'number' ? Math.max(0, (query.page - 1) * limit) : 0;
+    const startPosition = query.cursor
+      ? teamPlayersCursorCodec.decode(query.cursor, {
+        route: TEAM_PLAYERS_ROUTE_PATH,
+        filtersHash,
+      }).position
+      : startPositionFromPage;
+    const paginatedPayload = await fetchTeamPlayersCursorChunk({
+      teamId: params.id,
+      leagueId: query.leagueId,
+      season: query.season,
+      startPosition,
+      limit,
+    });
+    const pageInfo = buildCursorPageInfo({
+      route: TEAM_PLAYERS_ROUTE_PATH,
+      filtersHash,
+      startPosition,
+      returnedCount: paginatedPayload.response.length,
+      hasMore: paginatedPayload.hasMore,
+      cursorCodec: teamPlayersCursorCodec,
+    });
+    const syntheticCurrentPage =
+      typeof query.page === 'number' ? query.page : Math.floor(startPosition / limit) + 1;
+
+    return {
+      response: paginatedPayload.response,
+      paging: {
+        current: syntheticCurrentPage,
+        total: paginatedPayload.upstreamPageTotal,
+      },
+      pageInfo,
+    };
   });
 
   app.get('/v1/teams/:id/squad', async request => {

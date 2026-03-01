@@ -6,7 +6,7 @@ import {
 import type {
   CompetitionPlayerStat,
   CompetitionsApiTransferDto,
-} from '@ui/features/competitions/types/competitions.types';
+} from '@domain/contracts/competitions.types';
 
 describe('competitionsMapper transfers', () => {
   it('maps, deduplicates and sorts transfers with direction flags', () => {

@@ -1,4 +1,5 @@
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
+import { secureFetch } from '@data/api/http/secureTransport';
 
 const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
 
@@ -9,6 +10,13 @@ export class ApiError extends Error {
     public readonly payload: string,
   ) {
     super(message);
+  }
+}
+
+export class NetworkSecurityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NetworkSecurityError';
   }
 }
 
@@ -39,64 +47,30 @@ export function isNetworkRequestFailedError(error: unknown): boolean {
   );
 }
 
-function withTimeout(
-  signal: AbortSignal | undefined,
-  timeoutMs: number,
-): {
-  signal: AbortSignal;
-  cleanup: () => void;
-} {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  const abortFromParent = () => controller.abort();
-  signal?.addEventListener('abort', abortFromParent, { once: true });
-
-  return {
-    signal: controller.signal,
-    cleanup: () => {
-      clearTimeout(timeout);
-      signal?.removeEventListener('abort', abortFromParent);
-    },
-  };
-}
-
 async function httpRequest<T>(
   method: HttpMethod,
   url: string,
   options: HttpRequestOptions = {},
 ): Promise<T> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS;
-  const hasJsonBody = typeof options.body !== 'undefined';
   const requestHeaders: Record<string, string> = {
     Accept: 'application/json',
     ...options.headers,
   };
 
-  if (hasJsonBody) {
-    requestHeaders['Content-Type'] = 'application/json';
-  }
-
-  let response: Response;
-  const timeoutController = withTimeout(options.signal, timeoutMs);
-
-  try {
-    response = await fetch(url, {
-      method,
-      headers: requestHeaders,
-      body: hasJsonBody ? JSON.stringify(options.body) : undefined,
-      signal: timeoutController.signal,
-    });
-  } catch (error) {
-    getMobileTelemetry().trackError(error, {
-      feature: 'network',
+  const response = await secureFetch(
+    {
       method,
       url,
-    });
-    throw error;
-  } finally {
-    timeoutController.cleanup();
-  }
+      headers: requestHeaders,
+      body: options.body,
+      signal: options.signal,
+      timeoutMs,
+    },
+    {
+      feature: 'network',
+    },
+  );
 
   if (!response.ok) {
     const body = await response.text();

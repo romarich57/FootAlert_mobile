@@ -72,6 +72,14 @@
     "path": "/v1/matches/:id/absences"
   },
   {
+    "method": "POST",
+    "path": "/v1/mobile/session/challenge"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/mobile/session/attest"
+  },
+  {
     "method": "GET",
     "path": "/v1/teams/standings"
   },

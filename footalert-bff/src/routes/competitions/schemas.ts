@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-import { numericStringSchema, seasonSchema } from '../../lib/schemas.js';
+import { boundedPositiveIntSchema, numericStringSchema, seasonSchema } from '../../lib/schemas.js';
+
+const paginationCursorSchema = z.string().trim().min(1).max(2048);
 
 export const competitionIdParamsSchema = z
   .object({
@@ -17,6 +19,8 @@ export const searchQuerySchema = z
 export const seasonQuerySchema = z
   .object({
     season: seasonSchema,
+    limit: boundedPositiveIntSchema(10, 100).optional(),
+    cursor: paginationCursorSchema.optional(),
   })
   .strict();
 
