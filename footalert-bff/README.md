@@ -23,6 +23,23 @@ npm run dev
 
 Default base URL: `http://localhost:3001`.
 
+## Environnements BFF
+
+Profils recommandés dans `footalert-bff/`:
+
+- `.env` (dev)
+- `.env.staging` (préprod)
+- `.env.production` (prod)
+- `.env.example`, `.env.staging.example`, `.env.production.example` (templates)
+
+Initialisation:
+
+```bash
+cp .env.example .env
+cp .env.staging.example .env.staging
+cp .env.production.example .env.production
+```
+
 Security-related env vars:
 
 - `TRUST_PROXY_HOPS` (default `0` local, `1` behind trusted proxy/CDN)

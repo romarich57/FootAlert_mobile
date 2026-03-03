@@ -62,7 +62,10 @@
     "aso:validate": "npm run aso:validate:metadata && npm run aso:validate:assets && npm run aso:validate:icon-ios",
     "start:staging": "ENVFILE=.env.staging react-native start --reset-cache",
     "ios:staging": "ENVFILE=.env.staging react-native run-ios",
-    "android:staging": "ENVFILE=.env.staging react-native run-android"
+    "android:staging": "ENVFILE=.env.staging react-native run-android",
+    "start:production": "ENVFILE=.env.production react-native start --reset-cache",
+    "ios:production": "ENVFILE=.env.production react-native run-ios",
+    "android:production": "ENVFILE=.env.production react-native run-android"
   },
   "dependencies": {
     "@noble/hashes": "^1.8.0",

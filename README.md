@@ -45,56 +45,64 @@ npm install
 
 ## Variables d'environnement mobile
 
-Créer un fichier `.env` à la racine de `Mobile_Foot` (à partir de `.env.example`) :
+Profils à conserver dans `Mobile_Foot/` :
+
+- `.env` -> local/dev
+- `.env.staging` -> préproduction
+- `.env.production` -> production
+- `.env.example`, `.env.staging.example`, `.env.production.example` -> templates versionnés
+
+Initialisation rapide :
 
 ```bash
 cp .env.example .env
+cp .env.staging.example .env.staging
+cp .env.production.example .env.production
 ```
 
-Puis renseigner au minimum :
+Nettoyage des fichiers env non standards (optionnel) :
 
-```env
-MOBILE_API_BASE_URL=http://localhost:3001/v1
-MOBILE_PRIVACY_POLICY_URL=https://example.com/privacy
-MOBILE_TERMS_OF_USE_URL=https://example.com/terms
-MOBILE_SUPPORT_URL=https://example.com/support
-MOBILE_FOLLOW_US_URL=https://example.com/social
-MOBILE_PUSH_TOKEN=optional-test-token
-WEB_API_BASE_URL=http://localhost:3001/v1
-DESKTOP_API_BASE_URL=http://localhost:3001/v1
-WEB_APP_ORIGIN=http://localhost:5173
+```bash
+find . -maxdepth 1 -type f -name '.env*' \
+  ! -name '.env' \
+  ! -name '.env.staging' \
+  ! -name '.env.production' \
+  ! -name '.env.example' \
+  ! -name '.env.staging.example' \
+  ! -name '.env.production.example' \
+  -delete
 ```
 
-Notes sécurité:
+Minimum obligatoire et règles de sécurité :
 
-- En dev, `http://localhost`, `http://127.0.0.1` et `http://10.0.2.2` sont acceptés.
-- En non-dev (staging/prod), `MOBILE_API_BASE_URL` doit être présent et en `https://`.
-- En non-dev (staging/prod), `MOBILE_PRIVACY_POLICY_URL`, `MOBILE_TERMS_OF_USE_URL`, `MOBILE_SUPPORT_URL` et `MOBILE_FOLLOW_US_URL` sont obligatoires et doivent être en `https://`.
-- `MOBILE_APP_STORE_URL` et `MOBILE_PLAY_STORE_URL` sont optionnelles (fallback pour l'action "Rate app").
-- `MOBILE_PUSH_TOKEN` est optionnelle (utile en QA/staging pour forcer un token push explicite).
-- `NOTIFICATIONS_MATCH_BACKEND_ENABLED` pilote le rollout match-notifications côté mobile (canary par appVersion).
-- `WEB_API_BASE_URL` et `DESKTOP_API_BASE_URL` pilotent les clients web/desktop.
-- `WEB_APP_ORIGIN` doit être ajouté à `CORS_ALLOWED_ORIGINS` côté BFF.
+- En dev, `MOBILE_API_BASE_URL` peut être en `http://localhost`, `http://127.0.0.1` ou `http://10.0.2.2`.
+- En staging/prod, `MOBILE_API_BASE_URL` doit être en `https://`.
+- En staging/prod, `MOBILE_PRIVACY_POLICY_URL`, `MOBILE_TERMS_OF_USE_URL`, `MOBILE_SUPPORT_URL`, `MOBILE_FOLLOW_US_URL` sont obligatoires et en `https://`.
+- En staging/prod, `MOBILE_AUTH_ATTESTATION_MODE=provider` et `MOBILE_ATTESTATION_STRATEGY=strict`.
+- Si `MOBILE_PINNING_ENABLED=true` hors dev, `MOBILE_PINNING_SPKI_PRIMARY` et `MOBILE_PINNING_SPKI_BACKUP` sont obligatoires.
+- `NOTIFICATIONS_MATCH_BACKEND_ENABLED` active la consommation des notifications match côté mobile.
+- `MOBILE_PUSH_TOKEN` reste optionnelle (utile en QA/staging pour forcer un token explicite).
 
-Variables utiles pour la cadence et les limites UI :
+Lancement par profil :
 
-```env
-MATCHES_QUERY_STALE_TIME_MS=60000
-MATCHES_LIVE_REFRESH_INTERVAL_MS=60000
-MATCHES_SLOW_REFRESH_INTERVAL_MS=120000
-MATCHES_MAX_REFRESH_BACKOFF_MS=300000
-FOLLOWS_SEARCH_DEBOUNCE_MS=500
-FOLLOWS_SEARCH_MIN_CHARS=2
-FOLLOWS_SEARCH_RESULTS_LIMIT=20
-FOLLOWS_TEAM_NEXT_FIXTURE_TTL_MS=3600000
-FOLLOWS_PLAYER_STATS_TTL_MS=3600000
-FOLLOWS_TRENDS_TTL_MS=21600000
-FOLLOWS_TRENDS_LEAGUE_COUNT=7
-FOLLOWS_TRENDS_TEAMS_LIMIT=8
-FOLLOWS_TRENDS_PLAYERS_LIMIT=8
-FOLLOWS_MAX_FOLLOWED_TEAMS=30
-FOLLOWS_MAX_FOLLOWED_PLAYERS=30
+```bash
+# dev
+npm start
+npm run ios
+npm run android
+
+# staging
+npm run start:staging
+npm run ios:staging
+npm run android:staging
+
+# production
+npm run start:production
+npm run ios:production
+npm run android:production
 ```
+
+Note Android émulateur : utiliser `MOBILE_API_BASE_URL=http://10.0.2.2:3001/v1`.
 
 ## URLs légales publiques (web)
 
@@ -138,19 +146,35 @@ API_FOOTBALL_KEY=your_server_side_api_football_key
 MOBILE_API_BASE_URL=https://your-staging-domain/v1 npm run staging:bff:smoke
 ```
 
-3. Tester l'app mobile en pointant `MOBILE_API_BASE_URL` vers staging (ex: `.env.staging`), puis lancer:
+3. Tester l'app mobile avec le profil staging :
 
 ```bash
 cp .env.staging.example .env.staging
-# puis utiliser ENVFILE=.env.staging selon votre setup react-native-config
-npm run ios
+npm run ios:staging
 # ou
-npm run android
+npm run android:staging
 ```
 
-4. Pour la production, utiliser le workflow manuel `.github/workflows/bff-production.yml`
-   (gates qualité + déploiement + smoke checks), avec migration DB notifications exécutée manuellement
-   avant restart des process PM2, puis lancer le workflow avec `migration_confirmed=yes`.
+4. Avant les tests mobile en production (notifications incluses), vérifier côté BFF:
+
+- `NOTIFICATIONS_BACKEND_ENABLED=true`
+- `NOTIFICATIONS_EVENT_INGEST_ENABLED=true`
+- `NOTIFICATIONS_PERSISTENCE_BACKEND=postgres`
+- `DATABASE_URL`, `REDIS_URL`
+- `NOTIFICATIONS_INGEST_TOKEN`, `PUSH_TOKEN_ENCRYPTION_KEY`
+- `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+
+5. Pour la prod BFF, lancer le workflow manuel `.github/workflows/bff-production.yml`
+   après migration notifications (`npm run db:migrate:notifications`) avec `migration_confirmed=yes`.
+
+6. Tester l'app mobile avec le profil production :
+
+```bash
+cp .env.production.example .env.production
+npm run ios:production
+# ou
+npm run android:production
+```
 
 Référence détaillée: `docs/infra/notifications-prod-rollout.md`.
 
@@ -186,6 +210,10 @@ npm run lint
 npm run contract:check
 npm run typecheck
 npm test
+npm run ios:staging
+npm run android:staging
+npm run ios:production
+npm run android:production
 npm run qa:competitions:team-stats:preflight
 npm run aso:validate:metadata
 npm run aso:validate:assets

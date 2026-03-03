@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #071122;
+  --bg-alt: #101f38;
+  --surface: rgba(16, 29, 53, 0.68);
+  --surface-strong: rgba(10, 21, 40, 0.92);
+  --line: rgba(111, 165, 255, 0.22);
+  --text-main: #edf3ff;
+  --text-muted: #b0c0df;
+  --accent: #14d9c4;
+  --accent-strong: #0db9a7;
+  --accent-warm: #ff8a53;
+  --danger: #ff5f75;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.22);
+  --font-display: 'Outfit', 'Segoe UI', sans-serif;
+  --font-text: 'Manrope', 'Segoe UI', sans-serif;
+  --max-width: 1160px;
+  --anim-fast: 180ms;
+  --anim-mid: 320ms;
+  --anim-slow: 560ms;
+}

@@ -43,6 +43,9 @@ yarn-error.log
 .env
 .env.*
 !.env.example
+!.env.*.example
+!**/.env.example
+!**/.env.*.example
 
 # fastlane
 #
@@ -76,3 +79,8 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Local secrets (never commit)
+ops/secrets/*
+!ops/secrets/.gitkeep
+android/app/google-services.json

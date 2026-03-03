@@ -5,6 +5,8 @@ import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
+const ITEM_GAP = 14;
+
 type FollowedCarouselProps<T> = {
   items: T[];
   keyExtractor: (item: T) => string;
@@ -20,10 +22,12 @@ function createStyles(colors: ThemeColors) {
     },
     content: {
       paddingHorizontal: 20,
-      gap: 14,
     },
     emptyContainer: {
       paddingHorizontal: 20,
+    },
+    separator: {
+      width: ITEM_GAP,
     },
     track: {
       borderTopWidth: 1,
@@ -32,6 +36,10 @@ function createStyles(colors: ThemeColors) {
       paddingTop: 14,
     },
   });
+}
+
+function ItemSeparator({ width }: { width: number }) {
+  return <View style={{ width }} />;
 }
 
 export const FollowedCarousel = memo(function FollowedCarousel<T>({
@@ -47,6 +55,11 @@ export const FollowedCarousel = memo(function FollowedCarousel<T>({
     [renderItem],
   );
 
+  const renderSeparator = useCallback(
+    () => <ItemSeparator width={ITEM_GAP} />,
+    [],
+  );
+
   return (
     <View style={styles.container}>
       {items.length === 0 ? (
@@ -57,9 +70,10 @@ export const FollowedCarousel = memo(function FollowedCarousel<T>({
           horizontal
           keyExtractor={keyExtractor}
           renderItem={renderCarouselItem}
-          estimatedItemSize={140}
+          estimatedItemSize={144}
           contentContainerStyle={styles.content}
           showsHorizontalScrollIndicator={false}
+          ItemSeparatorComponent={renderSeparator}
         />
       )}
     </View>

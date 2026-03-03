@@ -1,0 +1,9 @@
+services:
+  footalert-site-vitrine:
+    container_name: footalert-site-vitrine
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
