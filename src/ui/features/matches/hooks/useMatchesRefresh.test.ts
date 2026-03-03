@@ -5,6 +5,7 @@ import {
   MAX_REFRESH_BACKOFF_MS,
   SLOW_REFRESH_INTERVAL_MS,
 } from '@/shared/constants';
+import { appEnv } from '@data/config/env';
 import { useMatchesRefresh } from './useMatchesRefresh';
 
 async function advance(ms: number): Promise<void> {
@@ -85,6 +86,7 @@ describe('useMatchesRefresh', () => {
 
   it('enforces battery-saver minimum cadence when low power mode is on', async () => {
     const refetch = jest.fn(async () => ({ isError: false }));
+    const batterySaverIntervalMs = appEnv.matchesBatterySaverRefreshIntervalMs;
 
     renderHook(() =>
       useMatchesRefresh({
@@ -96,7 +98,7 @@ describe('useMatchesRefresh', () => {
       }),
     );
 
-    await advance(300_000 - 1);
+    await advance(batterySaverIntervalMs - 1);
     expect(refetch).toHaveBeenCalledTimes(0);
 
     await advance(1);

@@ -445,7 +445,10 @@ describe('TeamOverviewTab', () => {
         selectedSeason={2025}
         data={baseData}
         isLoading={false}
+        isFetching={false}
         isError={false}
+        hasFetched
+        hasFetchedAfterMount
         onRetry={jest.fn()}
         onPressMatch={jest.fn()}
         onPressTeam={jest.fn()}
@@ -483,7 +486,10 @@ describe('TeamOverviewTab', () => {
         selectedSeason={2025}
         data={undefined}
         isLoading={false}
+        isFetching={false}
         isError
+        hasFetched
+        hasFetchedAfterMount
         onRetry={onRetry}
         onPressMatch={jest.fn()}
         onPressTeam={jest.fn()}
@@ -502,7 +508,10 @@ describe('TeamOverviewTab', () => {
         selectedSeason={2030}
         data={baseData}
         isLoading={false}
+        isFetching={false}
         isError={false}
+        hasFetched
+        hasFetchedAfterMount
         onRetry={jest.fn()}
         onPressMatch={jest.fn()}
         onPressTeam={jest.fn()}
@@ -521,7 +530,10 @@ describe('TeamOverviewTab', () => {
         selectedSeason={2025}
         data={baseData}
         isLoading={false}
+        isFetching={false}
         isError={false}
+        hasFetched
+        hasFetchedAfterMount
         onRetry={jest.fn()}
         onPressMatch={jest.fn()}
         onPressTeam={jest.fn()}
@@ -537,5 +549,54 @@ describe('TeamOverviewTab', () => {
     expect(screen.queryByText('⭐')).toBeNull();
     expect(screen.queryByText('🗓️')).toBeNull();
     expect(screen.queryByText('⚽')).toBeNull();
+  });
+
+  it('keeps overview content when refetch fails after data has been loaded', () => {
+    renderWithAppProviders(
+      <TeamOverviewTab
+        team={team}
+        competitions={competitions}
+        selectedSeason={2025}
+        data={baseData}
+        isLoading={false}
+        isFetching={false}
+        isError
+        hasFetched
+        hasFetchedAfterMount
+        onRetry={jest.fn()}
+        onPressMatch={jest.fn()}
+        onPressTeam={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(i18n.t('teamDetails.overview.nextMatch'))).toBeTruthy();
+    expect(screen.queryByText(i18n.t('teamDetails.states.error'))).toBeNull();
+  });
+
+  it('does not render dash placeholders for standing history when ranks are missing', () => {
+    renderWithAppProviders(
+      <TeamOverviewTab
+        team={team}
+        competitions={competitions}
+        selectedSeason={2025}
+        data={{
+          ...baseData,
+          standingHistory: [
+            { season: 2025, rank: null },
+            { season: 2024, rank: null },
+          ],
+        }}
+        isLoading={false}
+        isFetching={false}
+        isError={false}
+        hasFetched
+        hasFetchedAfterMount
+        onRetry={jest.fn()}
+        onPressMatch={jest.fn()}
+        onPressTeam={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('-')).toBeNull();
   });
 });

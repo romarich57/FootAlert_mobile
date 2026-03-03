@@ -50,6 +50,10 @@ export function MatchDetailsTabContent({
   statsAvailablePeriods,
   preMatchTab,
   postMatchTab,
+  onPressMatch,
+  onPressTeam,
+  onPressPlayer,
+  onPressCompetition,
 }: MatchDetailsTabContentProps) {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -133,6 +137,10 @@ export function MatchDetailsTabContent({
             styles={styles}
             sections={preMatchTab.sectionsOrdered}
             isLoading={preMatchTab.isLoading}
+            onPressMatch={onPressMatch}
+            onPressTeam={onPressTeam}
+            onPressPlayer={onPressPlayer}
+            onPressCompetition={onPressCompetition}
           />
         );
       }
@@ -160,6 +168,10 @@ export function MatchDetailsTabContent({
           predictionsErrorReason={datasetErrorReasons?.predictions}
           finalScorers={finalScorers}
           postMatchTab={postMatchTab}
+          onPressMatch={onPressMatch}
+          onPressTeam={onPressTeam}
+          onPressPlayer={onPressPlayer}
+          onPressCompetition={onPressCompetition}
         />
       );
 
@@ -171,6 +183,7 @@ export function MatchDetailsTabContent({
           eventRows={eventRows}
           hasDataError={datasetErrors?.events === true}
           dataErrorReason={datasetErrorReasons?.events}
+          onPressPlayer={onPressPlayer}
         />
       );
 
@@ -185,6 +198,8 @@ export function MatchDetailsTabContent({
           hasLineupsError={datasetErrors?.lineups === true}
           lineupsErrorReason={datasetErrorReasons?.lineups}
           lineupsDataSource={dataSources?.lineups}
+          onPressPlayer={onPressPlayer}
+          onPressTeam={onPressTeam}
         />
       );
 
@@ -215,6 +230,9 @@ export function MatchDetailsTabContent({
           awayTeamLogo={fixture.teams.away.logo}
           hasDataError={datasetErrors?.faceOff === true}
           dataErrorReason={datasetErrorReasons?.faceOff}
+          onPressMatch={onPressMatch}
+          onPressTeam={onPressTeam}
+          onPressCompetition={onPressCompetition}
         />
       );
 

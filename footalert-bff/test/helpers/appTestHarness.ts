@@ -23,17 +23,44 @@ const BASE_ENV: Record<string, string> = {
   CORS_ALLOWED_ORIGINS: 'https://app.footalert.test',
   CACHE_MAX_ENTRIES: '1000',
   CACHE_CLEANUP_INTERVAL_MS: '60000',
+  CACHE_TTL_JITTER_PCT: '15',
+  CACHE_LOCK_TTL_MS: '3000',
+  CACHE_COALESCE_WAIT_MS: '750',
+  UPSTREAM_GLOBAL_RPM_LIMIT: '600',
+  UPSTREAM_CIRCUIT_BREAKER_WINDOW_MS: '30000',
   CACHE_BACKEND: 'memory',
   CACHE_STRICT_MODE: 'false',
   REDIS_URL: '',
   REDIS_CACHE_PREFIX: 'footalert:bff:',
   BFF_EXPOSE_ERROR_DETAILS: 'false',
   MOBILE_SESSION_JWT_SECRET: 'test-mobile-session-secret',
-  MOBILE_SESSION_TOKEN_TTL_MS: '600000',
+  MOBILE_SESSION_TOKEN_TTL_MS: '900000',
+  MOBILE_REFRESH_TOKEN_TTL_MS: '2592000000',
   MOBILE_AUTH_CHALLENGE_TTL_MS: '120000',
   MOBILE_ATTESTATION_ACCEPT_MOCK: 'true',
+  MOBILE_ATTESTATION_ENFORCEMENT_MODE: 'strict',
+  MOBILE_AUTH_ENFORCED_HOSTS: 'api-mobile.footalert.com',
+  MOBILE_PLAY_INTEGRITY_PACKAGE_NAME: 'com.footalert.app',
+  MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_EMAIL: '',
+  MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_PRIVATE_KEY: '',
+  MOBILE_APP_ATTEST_BUNDLE_ID: 'com.footalert.app',
+  MOBILE_APP_ATTEST_TEAM_ID: '',
+  MOBILE_APP_ATTEST_VERIFICATION_URL: '',
+  MOBILE_APP_ATTEST_VERIFICATION_SECRET: '',
   PAGINATION_CURSOR_SECRET: 'test-pagination-cursor-secret',
   PAGINATION_CURSOR_TTL_MS: '900000',
+  NOTIFICATIONS_BACKEND_ENABLED: 'true',
+  NOTIFICATIONS_EVENT_INGEST_ENABLED: 'true',
+  NOTIFICATIONS_PERSISTENCE_BACKEND: 'memory',
+  NOTIFICATIONS_FANOUT_MAX_PER_EVENT: '10000',
+  NOTIFICATIONS_DEFERRED_PROMOTION_BATCH: '1000',
+  NOTIFICATIONS_DEFERRED_DELAY_MS: '15000',
+  DATABASE_URL: '',
+  NOTIFICATIONS_INGEST_TOKEN: 'test-notifications-ingest-token',
+  PUSH_TOKEN_ENCRYPTION_KEY: 'test-notifications-encryption-key',
+  FIREBASE_PROJECT_ID: '',
+  FIREBASE_CLIENT_EMAIL: '',
+  FIREBASE_PRIVATE_KEY: '',
   NODE_ENV: 'test',
 };
 
@@ -71,7 +98,7 @@ export function buildMobileSessionAuthorizationHeader(options?: {
     subject: options?.subject ?? 'device-hash-test',
     platform: options?.platform ?? 'android',
     integrity: options?.integrity ?? 'strong',
-    scope: options?.scope ?? ['notifications:write', 'telemetry:write'],
+    scope: options?.scope ?? ['api:read', 'notifications:write', 'telemetry:write', 'privacy:erase'],
     ttlMs: options?.ttlMs ?? 600_000,
     secret: BASE_ENV.MOBILE_SESSION_JWT_SECRET,
   }).token;
@@ -124,10 +151,20 @@ export async function buildApp(
     '../../src/lib/mobileSessionChallengeStore.ts'
   );
   const { resetMobileAuthMetricsForTests } = await import('../../src/lib/mobileAuthMetrics.ts');
+  const { resetApiFootballClientGuardsForTests } = await import('../../src/lib/apiFootballClient.ts');
+  const { resetMobileSessionRefreshRuntimeForTests } = await import(
+    '../../src/lib/mobileSessionRefreshRuntime.ts'
+  );
+  const { resetNotificationsRuntimeForTests } = await import('../../src/lib/notifications/runtime.ts');
+  const { resetNotificationsMetricsForTests } = await import('../../src/lib/notifications/metrics.ts');
   resetCacheForTests();
-  resetPushTokenStoreForTests();
+  await resetPushTokenStoreForTests();
   resetMobileSessionChallengeStoreForTests();
   resetMobileAuthMetricsForTests();
+  resetApiFootballClientGuardsForTests();
+  await resetMobileSessionRefreshRuntimeForTests();
+  await resetNotificationsRuntimeForTests();
+  resetNotificationsMetricsForTests();
   const { buildServer } = await import(`../../src/server.ts?case=${Math.random().toString(36).slice(2)}`);
   const app = await buildServer();
 

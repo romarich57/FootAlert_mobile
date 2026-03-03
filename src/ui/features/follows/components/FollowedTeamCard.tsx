@@ -39,28 +39,20 @@ function formatMatchDate(dateIso: string): string {
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     card: {
-      width: 200,
-      minHeight: 200,
+      width: 120,
+      minHeight: 120,
       borderRadius: 16,
       backgroundColor: colors.surfaceElevated,
-      padding: 16,
+      padding: 12,
       justifyContent: 'space-between',
     },
     contentPressable: {
-      gap: 12,
+      gap: 8,
     },
     topRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-    },
-    teamLogoContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.surface,
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     teamLogo: {
       width: 32,
@@ -68,11 +60,11 @@ function createStyles(colors: ThemeColors) {
     },
     teamName: {
       color: colors.text,
-      fontSize: 22,
+      fontSize: 13,
       fontWeight: '700',
       flexShrink: 1,
-      marginTop: 12,
-      marginBottom: 16,
+      marginTop: 8,
+      marginBottom: 10,
     },
     nextRow: {
       gap: 4,
@@ -84,17 +76,17 @@ function createStyles(colors: ThemeColors) {
     },
     nextMatchLabel: {
       color: colors.textMuted,
-      fontSize: 14,
+      fontSize: 11,
       fontWeight: '600',
     },
     nextMatchDate: {
       color: colors.text,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: '600',
     },
     noMatch: {
       color: colors.textMuted,
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: '500',
     },
     removeButton: {

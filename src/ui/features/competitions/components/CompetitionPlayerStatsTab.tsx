@@ -15,6 +15,8 @@ import type { CompetitionPlayerStat } from '../types/competitions.types';
 type CompetitionPlayerStatsTabProps = {
     competitionId: number;
     season: number;
+    onPressPlayer?: (playerId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
 const STAT_TYPE_KEYS: PlayerStatType[] = ['goals', 'assists', 'yellowCards', 'redCards'];
@@ -100,7 +102,12 @@ function getStatLabel(type: PlayerStatType, translate: (key: string) => string):
     }
 }
 
-export function CompetitionPlayerStatsTab({ competitionId, season }: CompetitionPlayerStatsTabProps) {
+export function CompetitionPlayerStatsTab({
+    competitionId,
+    season,
+    onPressPlayer,
+    onPressTeam,
+}: CompetitionPlayerStatsTabProps) {
     const { colors } = useAppTheme();
     const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -130,6 +137,8 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
         maxValue: maxValue,
         photoUrl: stat.playerPhoto,
         rank: index + 2, // starts at 2 because leader is 1
+        playerId: String(stat.playerId),
+        teamId: String(stat.teamId),
     }));
 
     return (
@@ -170,6 +179,8 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
                             statValue={getStatValue(leader, activeStatType)}
                             statLabel={getStatLabel(activeStatType, t)}
                             rank={1}
+                            onPressPlayer={onPressPlayer}
+                            onPressTeam={onPressTeam}
                         />
                     </View>
 
@@ -178,6 +189,8 @@ export function CompetitionPlayerStatsTab({ competitionId, season }: Competition
                             label: statTypes.find(type => type.key === activeStatType)?.label ?? '',
                         })}
                         data={chartData}
+                        onPressPlayer={onPressPlayer}
+                        onPressTeam={onPressTeam}
                     />
                 </ScrollView>
             )}

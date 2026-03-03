@@ -1,12 +1,16 @@
 import type {
   MobileAttestationType,
+  MobileIntegrityLevel,
   MobilePlatform,
   VerifyMobileAttestationInput,
   VerifyMobileAttestationResult,
 } from './types.js';
+import { verifyAppAttestToken } from './appAttestVerifier.js';
+import { verifyPlayIntegrityToken } from './playIntegrityVerifier.js';
 
 type VerifyMobileAttestationOptions = {
   acceptMock: boolean;
+  enforcementMode: 'strict' | 'report_only';
 };
 
 function isTypeCompatibleWithPlatform(type: MobileAttestationType, platform: MobilePlatform): boolean {
@@ -90,13 +94,41 @@ export async function verifyMobileAttestation(
     return verifyMockAttestation(input);
   }
 
-  // Provider-side verification should be wired here (Play Integrity / App Attest).
-  return {
-    ok: false,
-    code: 'MOBILE_ATTESTATION_INVALID',
-    message: 'Attestation provider verification is not configured.',
-  };
+  if (!isTypeCompatibleWithPlatform(input.type, input.platform)) {
+    return {
+      ok: false,
+      code: 'MOBILE_ATTESTATION_INVALID',
+      message: 'Attestation type is incompatible with platform.',
+    };
+  }
+
+  let providerResult: VerifyMobileAttestationResult;
+  if (input.type === 'play_integrity') {
+    providerResult = await verifyPlayIntegrityToken(input);
+  } else {
+    providerResult = await verifyAppAttestToken(input);
+  }
+
+  if (providerResult.ok) {
+    return providerResult;
+  }
+
+  if (options.enforcementMode === 'report_only') {
+    return {
+      ok: true,
+      integrity: fallbackIntegrityFromPlatform(input.platform),
+    };
+  }
+
+  return providerResult;
 }
 
 export type { MobileIntegrityLevel, MobilePlatform } from './types.js';
 
+function fallbackIntegrityFromPlatform(platform: MobilePlatform): MobileIntegrityLevel {
+  if (platform === 'ios') {
+    return 'device';
+  }
+
+  return 'basic';
+}

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,7 +14,34 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { SearchResultsList } from '@ui/features/search/components/SearchResultsList';
 import { useSearchScreenModel } from '@ui/features/search/hooks/useSearchScreenModel';
+import type { SearchEntityTab } from '@ui/features/search/types/search.types';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+
+type SearchTabItem = {
+  id: SearchEntityTab;
+  testId: string;
+  translationKey: string;
+};
+
+const SEARCH_TABS: SearchTabItem[] = [
+  { id: 'all', testId: 'search-screen-tab-all', translationKey: 'screens.search.tabs.all' },
+  { id: 'teams', testId: 'search-screen-tab-teams', translationKey: 'screens.search.tabs.teams' },
+  {
+    id: 'competitions',
+    testId: 'search-screen-tab-competitions',
+    translationKey: 'screens.search.tabs.competitions',
+  },
+  {
+    id: 'players',
+    testId: 'search-screen-tab-players',
+    translationKey: 'screens.search.tabs.players',
+  },
+  {
+    id: 'matches',
+    testId: 'search-screen-tab-matches',
+    translationKey: 'screens.search.tabs.matches',
+  },
+];
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -51,20 +79,14 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'center',
     },
     segmentedControl: {
-      flexDirection: 'row',
       marginHorizontal: 16,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      padding: 4,
     },
     segment: {
-      flex: 1,
       borderRadius: 18,
       minHeight: 36,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingHorizontal: 18,
     },
     segmentActive: {
       backgroundColor: colors.surfaceElevated,
@@ -77,7 +99,41 @@ function createStyles(colors: ThemeColors) {
     segmentTextActive: {
       color: colors.text,
     },
+    segmentedContentContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 4,
+      paddingRight: 10,
+    },
+    segmentedTrack: {
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: 4,
+    },
   });
+}
+
+function getSearchPlaceholder(selectedTab: SearchEntityTab, t: (key: string) => string): string {
+  if (selectedTab === 'teams') {
+    return t('screens.search.placeholderTeams');
+  }
+
+  if (selectedTab === 'competitions') {
+    return t('screens.search.placeholderCompetitions');
+  }
+
+  if (selectedTab === 'players') {
+    return t('screens.search.placeholderPlayers');
+  }
+
+  if (selectedTab === 'matches') {
+    return t('screens.search.placeholderMatches');
+  }
+
+  return t('screens.search.placeholderAll');
 }
 
 export function SearchScreen() {
@@ -94,11 +150,7 @@ export function SearchScreen() {
           <TextInput
             testID="search-screen-input"
             style={styles.searchInput}
-            placeholder={
-              model.selectedTab === 'teams'
-                ? t('screens.search.placeholderTeams')
-                : t('screens.search.placeholderPlayers')
-            }
+            placeholder={getSearchPlaceholder(model.selectedTab, t)}
             placeholderTextColor={colors.textMuted}
             value={model.query}
             onChangeText={model.setQuery}
@@ -119,38 +171,30 @@ export function SearchScreen() {
         </View>
 
         <View style={styles.segmentedControl} accessibilityRole="tablist">
-          <Pressable
-            testID="search-screen-tab-teams"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: model.selectedTab === 'teams' }}
-            onPress={() => model.handleSelectTab('teams')}
-            style={[styles.segment, model.selectedTab === 'teams' ? styles.segmentActive : null]}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.segmentedContentContainer}
           >
-            <Text
-              style={[
-                styles.segmentText,
-                model.selectedTab === 'teams' ? styles.segmentTextActive : null,
-              ]}
-            >
-              {t('screens.search.tabs.teams')}
-            </Text>
-          </Pressable>
-          <Pressable
-            testID="search-screen-tab-players"
-            accessibilityRole="tab"
-            accessibilityState={{ selected: model.selectedTab === 'players' }}
-            onPress={() => model.handleSelectTab('players')}
-            style={[styles.segment, model.selectedTab === 'players' ? styles.segmentActive : null]}
-          >
-            <Text
-              style={[
-                styles.segmentText,
-                model.selectedTab === 'players' ? styles.segmentTextActive : null,
-              ]}
-            >
-              {t('screens.search.tabs.players')}
-            </Text>
-          </Pressable>
+            {SEARCH_TABS.map(tab => {
+              const isSelected = model.selectedTab === tab.id;
+              return (
+                <View key={tab.id} style={styles.segmentedTrack}>
+                  <Pressable
+                    testID={tab.testId}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: isSelected }}
+                    onPress={() => model.handleSelectTab(tab.id)}
+                    style={[styles.segment, isSelected ? styles.segmentActive : null]}
+                  >
+                    <Text style={[styles.segmentText, isSelected ? styles.segmentTextActive : null]}>
+                      {t(tab.translationKey)}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </ScrollView>
         </View>
 
         <SearchResultsList
@@ -159,6 +203,8 @@ export function SearchScreen() {
           query={model.query}
           teamResults={model.teamResults}
           playerResults={model.playerResults}
+          competitionResults={model.competitionResults}
+          matchResults={model.matchResults}
           isLoading={model.isLoading}
           isError={model.isError}
           onRetry={() => {
@@ -166,6 +212,8 @@ export function SearchScreen() {
           }}
           onPressTeam={model.handlePressTeam}
           onPressPlayer={model.handlePressPlayer}
+          onPressCompetition={model.handlePressCompetition}
+          onPressMatch={model.handlePressMatch}
         />
       </View>
     </SafeAreaView>

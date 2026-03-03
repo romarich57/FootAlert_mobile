@@ -15,7 +15,7 @@ type FollowedCarouselProps<T> = {
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
-      minHeight: 246,
+      minHeight: 140,
       paddingTop: 18,
     },
     content: {
@@ -57,7 +57,7 @@ export const FollowedCarousel = memo(function FollowedCarousel<T>({
           horizontal
           keyExtractor={keyExtractor}
           renderItem={renderCarouselItem}
-          estimatedItemSize={180}
+          estimatedItemSize={140}
           contentContainerStyle={styles.content}
           showsHorizontalScrollIndicator={false}
         />

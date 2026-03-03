@@ -124,24 +124,40 @@ export function PermissionWarningCard({ styles, onOpenSettings }: PermissionWarn
 type InformationSectionCardProps = {
   appVersion: string;
   hasPrivacyPolicyUrl: boolean;
+  hasTermsOfUseUrl: boolean;
   hasSupportUrl: boolean;
   hasFollowUsUrl: boolean;
   hasRateAppUrl: boolean;
+  privacyConsentValue: string;
+  eraseDataValue?: string;
+  isErasingData: boolean;
+  isUpdatingConsent: boolean;
   onOpenFollowUs: () => void;
   onOpenSupport: () => void;
   onOpenPrivacyPolicy: () => void;
+  onOpenTermsOfUse: () => void;
+  onOpenPrivacyPreferences: () => void;
+  onDeleteMyData: () => void;
   onOpenRateApp: () => void;
 };
 
 export function InformationSectionCard({
   appVersion,
   hasPrivacyPolicyUrl,
+  hasTermsOfUseUrl,
   hasSupportUrl,
   hasFollowUsUrl,
   hasRateAppUrl,
+  privacyConsentValue,
+  eraseDataValue,
+  isErasingData,
+  isUpdatingConsent,
   onOpenFollowUs,
   onOpenSupport,
   onOpenPrivacyPolicy,
+  onOpenTermsOfUse,
+  onOpenPrivacyPreferences,
+  onDeleteMyData,
   onOpenRateApp,
 }: InformationSectionCardProps) {
   const { t } = useTranslation();
@@ -170,11 +186,39 @@ export function InformationSectionCard({
         accessibilityLabel={t('more.rows.privacyPolicy')}
       />
       <SettingsRow
+        iconName="file-document-outline"
+        label={t('more.rows.termsOfUse')}
+        onPress={onOpenTermsOfUse}
+        disabled={!hasTermsOfUseUrl}
+        accessibilityLabel={t('more.rows.termsOfUse')}
+      />
+      <SettingsRow
+        iconName="shield-account-outline"
+        label={t('more.rows.privacyPreferences')}
+        value={privacyConsentValue}
+        onPress={onOpenPrivacyPreferences}
+        disabled={isUpdatingConsent}
+        accessibilityLabel={t('more.rows.privacyPreferences')}
+      />
+      <SettingsRow
+        iconName="delete-alert-outline"
+        label={t('more.rows.deleteData')}
+        value={eraseDataValue}
+        onPress={onDeleteMyData}
+        disabled={isErasingData}
+        accessibilityLabel={t('more.rows.deleteData')}
+      />
+      <SettingsRow
         iconName="star-circle-outline"
         label={t('more.rows.rateApp')}
         onPress={onOpenRateApp}
         disabled={!hasRateAppUrl}
         accessibilityLabel={t('more.rows.rateApp')}
+      />
+      <SettingsRow
+        iconName="alert-circle-outline"
+        label={t('more.rows.informationalDisclaimer')}
+        showChevron={false}
       />
       <SettingsRow
         iconName="information-outline"

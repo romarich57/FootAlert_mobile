@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { PlayerCareerTeamLogo } from '@ui/features/players/components/career/PlayerCareerTeamLogo';
+import { AppPressable } from '@ui/shared/components';
 import type { PlayerCareerTabStyles } from '@ui/features/players/components/career/PlayerCareerTab.styles';
 import {
   formatLabelValue,
@@ -14,6 +15,7 @@ type PlayerCareerTeamSectionCardProps = {
   sectionTeams: PlayerCareerTeam[];
   styles: PlayerCareerTabStyles;
   iconColor: string;
+  onPressTeam?: (teamId: string) => void;
 };
 
 export function PlayerCareerTeamSectionCard({
@@ -21,6 +23,7 @@ export function PlayerCareerTeamSectionCard({
   sectionTeams,
   styles,
   iconColor,
+  onPressTeam,
 }: PlayerCareerTeamSectionCardProps) {
   if (sectionTeams.length === 0) {
     return null;
@@ -44,7 +47,7 @@ export function PlayerCareerTeamSectionCard({
         const matches = formatStatValue(team.matches);
         const goals = formatStatValue(team.goals);
 
-        return (
+        const rowContent = (
           <View
             key={`team-${team.team.id ?? team.team.name ?? 'unknown'}-${team.period ?? index}`}
             style={[styles.teamRow, index > 0 ? styles.rowSeparator : null]}
@@ -73,6 +76,21 @@ export function PlayerCareerTeamSectionCard({
             </View>
           </View>
         );
+
+        if (team.team.id && onPressTeam) {
+          return (
+            <AppPressable
+              key={`team-press-${team.team.id}-${index}`}
+              onPress={() => onPressTeam(team.team.id ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={formatLabelValue(team.team.name) ?? ''}
+            >
+              {rowContent}
+            </AppPressable>
+          );
+        }
+
+        return rowContent;
       })}
     </View>
   );

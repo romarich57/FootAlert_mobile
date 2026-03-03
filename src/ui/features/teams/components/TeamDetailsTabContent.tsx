@@ -112,7 +112,10 @@ export function TeamDetailsTabContent({
         selectedSeason={selectedSeason}
         data={overviewQuery.data}
         isLoading={overviewQuery.isLoading}
+        isFetching={overviewQuery.isFetching}
         isError={overviewQuery.isError}
+        hasFetched={overviewQuery.isFetched}
+        hasFetchedAfterMount={overviewQuery.isFetchedAfterMount}
         onRetry={() => overviewQuery.refetch().catch(() => undefined)}
         onPressMatch={onPressMatch}
         onPressTeam={onPressTeam}
@@ -131,6 +134,7 @@ export function TeamDetailsTabContent({
         data={matchesQuery.data}
         isLoading={matchesQuery.isLoading}
         isError={matchesQuery.isError}
+        hasFetched={matchesQuery.isFetched}
         onRetry={() => matchesQuery.refetch().catch(() => undefined)}
         onPressMatch={onPressMatch}
         onPressTeam={onPressTeam}
@@ -164,6 +168,7 @@ export function TeamDetailsTabContent({
         data={statsQuery.data}
         isLoading={statsQuery.isLoading}
         isError={statsQuery.isError}
+        hasFetched={statsQuery.isFetched}
         onRetry={() => statsQuery.refetch().catch(() => undefined)}
         onPressPlayer={onPressPlayer}
       />
@@ -176,6 +181,7 @@ export function TeamDetailsTabContent({
         data={transfersQuery.data}
         isLoading={transfersQuery.isLoading}
         isError={transfersQuery.isError}
+        hasFetched={transfersQuery.isFetched}
         onRetry={() => transfersQuery.refetch().catch(() => undefined)}
       />
     );
@@ -187,6 +193,7 @@ export function TeamDetailsTabContent({
         data={squadQuery.data}
         isLoading={squadQuery.isLoading}
         isError={squadQuery.isError}
+        hasFetched={squadQuery.isFetched}
         onRetry={() => squadQuery.refetch().catch(() => undefined)}
       />
     );

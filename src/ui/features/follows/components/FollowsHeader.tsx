@@ -26,9 +26,9 @@ function createStyles(colors: ThemeColors) {
     },
     title: {
       color: colors.text,
-      fontSize: 32,
+      fontSize: 24,
       fontWeight: '800',
-      letterSpacing: -1.0,
+      letterSpacing: -0.5,
       flex: 1,
     },
     searchButton: {

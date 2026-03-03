@@ -100,6 +100,35 @@ Optional smoke overrides:
 - `SMOKE_MATCH_ID` to force a fixture id for match detail checks.
 - `SMOKE_TEAM_ID` to force the team id used for `/players/:teamId/stats`.
 
+## Notifications production readiness
+
+Required BFF runtime env for notifications in staging/production:
+
+- `NOTIFICATIONS_BACKEND_ENABLED=true`
+- `NOTIFICATIONS_EVENT_INGEST_ENABLED=true`
+- `NOTIFICATIONS_PERSISTENCE_BACKEND=postgres`
+- `DATABASE_URL`
+- `REDIS_URL`
+- `NOTIFICATIONS_INGEST_TOKEN`
+- `PUSH_TOKEN_ENCRYPTION_KEY`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+
+Required PM2 processes on VPS:
+
+- `footalert-bff` -> `node dist/index.js`
+- `footalert-bff-worker` -> `node dist/worker.js`
+
+Manual migration policy (before restart/deploy):
+
+```bash
+cd ~/foot_mobile/FootAlert_mobile/footalert-bff
+DATABASE_URL='***' npm run db:migrate:notifications
+```
+
+If migration fails, do not restart `footalert-bff` or `footalert-bff-worker`.
+
 ## CI staging gate
 
 Workflow: `.github/workflows/bff-staging.yml`.
@@ -110,6 +139,20 @@ Required GitHub secrets:
 - `VPS_SSH_USERNAME`
 - `VPS_SSH_KEY`
 - `MOBILE_API_BASE_URL_STAGING`
+
+## CI production gate
+
+Workflow: `.github/workflows/bff-production.yml` (manual dispatch only).
+Mandatory dispatch input:
+
+- `migration_confirmed=yes` (set only after running `npm run db:migrate:notifications` on production DB)
+
+Required GitHub secrets:
+
+- `PROD_VPS_SSH_HOST`
+- `PROD_VPS_SSH_USERNAME`
+- `PROD_VPS_SSH_KEY`
+- `MOBILE_API_BASE_URL_PRODUCTION`
 
 ## Exposed Routes
 

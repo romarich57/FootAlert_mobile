@@ -4,6 +4,12 @@ import {
   createNoopMobileTelemetry,
 } from '@data/telemetry/mobileTelemetry';
 
+jest.mock('@data/security/mobileSessionAuth', () => ({
+  buildSensitiveMobileAuthHeaders: jest.fn(async () => ({
+    Authorization: 'Bearer test-session',
+  })),
+}));
+
 describe('mobileTelemetry', () => {
   const originalFetch = globalThis.fetch;
 

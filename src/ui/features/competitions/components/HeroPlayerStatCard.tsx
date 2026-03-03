@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { CompetitionPlayerStat } from '../types/competitions.types';
 
@@ -9,6 +10,8 @@ type HeroPlayerStatCardProps = {
     statValue: string | number;
     statLabel: string;
     rank?: number;
+    onPressPlayer?: (playerId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
 function displayValue(value: string | number | null | undefined): string | number {
@@ -108,7 +111,14 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
-export function HeroPlayerStatCard({ playerStat, statValue, statLabel, rank = 1 }: HeroPlayerStatCardProps) {
+export function HeroPlayerStatCard({
+    playerStat,
+    statValue,
+    statLabel,
+    rank = 1,
+    onPressPlayer,
+    onPressTeam,
+}: HeroPlayerStatCardProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -121,15 +131,39 @@ export function HeroPlayerStatCard({ playerStat, statValue, statLabel, rank = 1 
             )}
 
             <View style={styles.photoContainer}>
-                <Image
-                    source={{ uri: playerStat.playerPhoto ?? undefined }}
-                    style={styles.photo}
-                    resizeMode="cover"
-                />
+                {onPressPlayer ? (
+                    <AppPressable
+                        onPress={() => onPressPlayer(String(playerStat.playerId))}
+                        accessibilityRole="button"
+                        accessibilityLabel={String(displayValue(playerStat.playerName))}
+                    >
+                        <Image
+                            source={{ uri: playerStat.playerPhoto ?? undefined }}
+                            style={styles.photo}
+                            resizeMode="cover"
+                        />
+                    </AppPressable>
+                ) : (
+                    <Image
+                        source={{ uri: playerStat.playerPhoto ?? undefined }}
+                        style={styles.photo}
+                        resizeMode="cover"
+                    />
+                )}
             </View>
 
             <View style={styles.detailsContainer}>
-                <Text style={styles.name} numberOfLines={1}>{displayValue(playerStat.playerName)}</Text>
+                {onPressPlayer ? (
+                    <AppPressable
+                        onPress={() => onPressPlayer(String(playerStat.playerId))}
+                        accessibilityRole="button"
+                        accessibilityLabel={String(displayValue(playerStat.playerName))}
+                    >
+                        <Text style={styles.name} numberOfLines={1}>{displayValue(playerStat.playerName)}</Text>
+                    </AppPressable>
+                ) : (
+                    <Text style={styles.name} numberOfLines={1}>{displayValue(playerStat.playerName)}</Text>
+                )}
                 <View style={styles.teamRow}>
                     {playerStat.teamLogo && (
                         <Image
@@ -138,7 +172,17 @@ export function HeroPlayerStatCard({ playerStat, statValue, statLabel, rank = 1 
                             resizeMode="contain"
                         />
                     )}
-                    <Text style={styles.teamName} numberOfLines={1}>{displayValue(playerStat.teamName)}</Text>
+                    {onPressTeam ? (
+                        <AppPressable
+                            onPress={() => onPressTeam(String(playerStat.teamId))}
+                            accessibilityRole="button"
+                            accessibilityLabel={String(displayValue(playerStat.teamName))}
+                        >
+                            <Text style={styles.teamName} numberOfLines={1}>{displayValue(playerStat.teamName)}</Text>
+                        </AppPressable>
+                    ) : (
+                        <Text style={styles.teamName} numberOfLines={1}>{displayValue(playerStat.teamName)}</Text>
+                    )}
                 </View>
             </View>
 

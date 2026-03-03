@@ -7,13 +7,14 @@ import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamIdentity } from '@ui/features/teams/types/teams.types';
 import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import { IconActionButton } from '@ui/shared/components';
-import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
+import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type TeamHeaderProps = {
   team: TeamIdentity;
   isFollowed: boolean;
   onBack: () => void;
   onToggleFollow: () => void;
+  onOpenNotificationModal: () => void;
   backLabel: string;
   followLabel: string;
   unfollowLabel: string;
@@ -41,35 +42,34 @@ function createStyles(colors: ThemeColors, topInset: number) {
       borderColor: colors.chipBorder,
       backgroundColor: colors.surface,
     },
-    title: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '700',
-      flex: 1,
-      textAlign: 'center',
-    },
     followButton: {
-      minWidth: 90,
-      height: MIN_TOUCH_TARGET,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: isFollowedColor(colors, false),
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.surface,
+      backgroundColor: colors.text,
       paddingHorizontal: 16,
+      height: 40,
+      borderRadius: 20,
     },
     followButtonActive: {
-      borderColor: colors.primary,
-      backgroundColor: 'rgba(21,248,106,0.14)',
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     followText: {
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: '600',
+      color: colors.background,
+      fontSize: 15,
+      fontWeight: '700',
     },
     followTextActive: {
-      color: colors.primary,
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    rightActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
     },
     profileRow: {
       flexDirection: 'row',
@@ -109,15 +109,12 @@ function createStyles(colors: ThemeColors, topInset: number) {
   });
 }
 
-function isFollowedColor(colors: ThemeColors, isFollowed: boolean): string {
-  return isFollowed ? colors.primary : colors.chipBorder;
-}
-
 export function TeamHeader({
   team,
   isFollowed,
   onBack,
   onToggleFollow,
+  onOpenNotificationModal,
   backLabel,
   followLabel,
   unfollowLabel,
@@ -139,20 +136,30 @@ export function TeamHeader({
           <MaterialCommunityIcons name="arrow-left" size={20} color={colors.text} />
         </IconActionButton>
 
-        <Text numberOfLines={1} style={styles.title}>
-          {toDisplayValue(team.name)}
-        </Text>
+        <View style={styles.rightActions}>
+          <IconActionButton
+            accessibilityLabel="Notifications"
+            onPress={onOpenNotificationModal}
+            style={styles.iconButton}
+          >
+            <MaterialCommunityIcons
+              name={isFollowed ? "bell-ring" : "bell-outline"}
+              size={20}
+              color={isFollowed ? colors.primary : colors.text}
+            />
+          </IconActionButton>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isFollowed ? unfollowLabel : followLabel}
-          onPress={onToggleFollow}
-          style={[styles.followButton, isFollowed ? styles.followButtonActive : null]}
-        >
-          <Text style={[styles.followText, isFollowed ? styles.followTextActive : null]}>
-            {isFollowed ? unfollowLabel : followLabel}
-          </Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isFollowed ? unfollowLabel : followLabel}
+            onPress={onToggleFollow}
+            style={[styles.followButton, isFollowed && styles.followButtonActive]}
+          >
+            <Text style={[styles.followText, isFollowed && styles.followTextActive]}>
+              {isFollowed ? unfollowLabel : followLabel}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.profileRow}>

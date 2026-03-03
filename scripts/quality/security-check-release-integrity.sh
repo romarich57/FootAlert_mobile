@@ -68,4 +68,12 @@ assert_contains .env.staging.example \
   "MOBILE_ATTESTATION_STRATEGY=strict" \
   "strict staging attestation strategy"
 
+if rg -n \
+  "MOBILE_REQUEST_SIGNING_KEY|MOBILE_REQUEST_SIGNING_SECRET|x-mobile-signature|X-Mobile-Signature" \
+  --glob '!footalert-bff/src/config/env.ts' \
+  footalert-bff/src footalert-bff/.env.example footalert-bff/.env.staging.example src .env.example .env.staging.example >/dev/null; then
+  echo "Detected deprecated legacy HMAC mobile signing configuration or headers."
+  exit 1
+fi
+
 echo "Release integrity checks passed."

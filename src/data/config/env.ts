@@ -20,7 +20,9 @@ const DEFAULT_FOLLOWS_TRENDS_TEAMS_LIMIT = 8;
 const DEFAULT_FOLLOWS_TRENDS_PLAYERS_LIMIT = 8;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_TEAMS = 30;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_PLAYERS = 30;
+const DEFAULT_FOLLOWS_MAX_FOLLOWED_LEAGUES = 30;
 const DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES = false;
+const DEFAULT_NOTIFICATIONS_MATCH_BACKEND_ENABLED = true;
 const DEFAULT_MOBILE_AUTH_ATTESTATION_MODE = 'provider';
 const DEFAULT_MOBILE_ATTESTATION_STRATEGY = 'strict';
 const DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS = 600_000;
@@ -38,6 +40,7 @@ export type AppEnv = {
   mobileApiBaseUrl: string;
   mobileApiHost: string;
   privacyPolicyUrl?: string;
+  termsOfUseUrl?: string;
   supportUrl?: string;
   followUsUrl?: string;
   appStoreUrl?: string;
@@ -68,7 +71,9 @@ export type AppEnv = {
   followsTrendsPlayersLimit: number;
   followsMaxFollowedTeams: number;
   followsMaxFollowedPlayers: number;
+  followsMaxFollowedLeagues: number;
   mobileEnableBffPlayerAggregates: boolean;
+  notificationsMatchBackendEnabled: boolean;
 };
 
 function normalizeUrl(url: string): string {
@@ -162,6 +167,13 @@ function readMobileApiBaseUrl(): string {
 
 function readPrivacyPolicyUrl(): string | undefined {
   return resolveExternalUrl(Config.MOBILE_PRIVACY_POLICY_URL, 'MOBILE_PRIVACY_POLICY_URL', {
+    isDevRuntime: IS_DEV_RUNTIME,
+    requiredOutsideDev: true,
+  });
+}
+
+function readTermsOfUseUrl(): string | undefined {
+  return resolveExternalUrl(Config.MOBILE_TERMS_OF_USE_URL, 'MOBILE_TERMS_OF_USE_URL', {
     isDevRuntime: IS_DEV_RUNTIME,
     requiredOutsideDev: true,
   });
@@ -354,6 +366,7 @@ export const appEnv: AppEnv = {
   mobileApiBaseUrl: configuredMobileApiBaseUrl,
   mobileApiHost: configuredMobileApiHost,
   privacyPolicyUrl: readPrivacyPolicyUrl(),
+  termsOfUseUrl: readTermsOfUseUrl(),
   supportUrl: readSupportUrl(),
   followUsUrl: readFollowUsUrl(),
   appStoreUrl: readAppStoreUrl(),
@@ -451,9 +464,19 @@ export const appEnv: AppEnv = {
     1,
     200,
   ),
+  followsMaxFollowedLeagues: readPositiveIntInRangeConfig(
+    Config.FOLLOWS_MAX_FOLLOWED_LEAGUES,
+    DEFAULT_FOLLOWS_MAX_FOLLOWED_LEAGUES,
+    1,
+    200,
+  ),
   mobileEnableBffPlayerAggregates: readBooleanConfig(
     Config.MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
     DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
+  ),
+  notificationsMatchBackendEnabled: readBooleanConfig(
+    Config.NOTIFICATIONS_MATCH_BACKEND_ENABLED,
+    DEFAULT_NOTIFICATIONS_MATCH_BACKEND_ENABLED,
   ),
 };
 

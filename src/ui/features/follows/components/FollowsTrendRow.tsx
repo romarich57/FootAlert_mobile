@@ -12,6 +12,7 @@ type FollowsTrendRowProps = {
   isFollowing: boolean;
   onToggleFollow: () => void;
   onPressItem?: () => void;
+  imageType?: 'team' | 'player';
   itemAccessibilityLabel?: string;
   followLabel: string;
   unfollowLabel: string;
@@ -36,25 +37,35 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
     },
     avatarContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.surfaceElevated,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       justifyContent: 'center',
       alignItems: 'center',
+      overflow: 'hidden',
     },
-    avatar: {
-      width: 32,
-      height: 32,
+    avatarContainerPlayer: {
+      backgroundColor: colors.surfaceElevated,
+    },
+    avatarContainerTeam: {
+      backgroundColor: 'transparent',
+    },
+    avatarTeam: {
+      width: 40,
+      height: 40,
+    },
+    avatarPlayer: {
+      width: 40,
+      height: 40,
     },
     title: {
       color: colors.text,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '700',
     },
     subtitle: {
       color: colors.textMuted,
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
       marginTop: 2,
     },
@@ -68,6 +79,7 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
   isFollowing,
   onToggleFollow,
   onPressItem,
+  imageType = 'team',
   itemAccessibilityLabel,
   followLabel,
   unfollowLabel,
@@ -85,8 +97,12 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
           style={styles.left}
           onPress={onPressItem}
         >
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="contain" />
+          <View style={[styles.avatarContainer, imageType === 'player' ? styles.avatarContainerPlayer : styles.avatarContainerTeam]}>
+            <Image
+              source={{ uri: avatarUrl }}
+              style={imageType === 'player' ? styles.avatarPlayer : styles.avatarTeam}
+              resizeMode={imageType === 'player' ? 'cover' : 'contain'}
+            />
           </View>
           <View>
             <Text numberOfLines={1} style={styles.title}>
@@ -99,8 +115,12 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
         </Pressable>
       ) : (
         <View style={styles.left}>
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="contain" />
+          <View style={[styles.avatarContainer, imageType === 'player' ? styles.avatarContainerPlayer : styles.avatarContainerTeam]}>
+            <Image
+              source={{ uri: avatarUrl }}
+              style={imageType === 'player' ? styles.avatarPlayer : styles.avatarTeam}
+              resizeMode={imageType === 'player' ? 'cover' : 'contain'}
+            />
           </View>
           <View>
             <Text numberOfLines={1} style={styles.title}>

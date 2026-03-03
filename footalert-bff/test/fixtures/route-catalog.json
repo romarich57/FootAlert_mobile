@@ -80,6 +80,18 @@
     "path": "/v1/mobile/session/attest"
   },
   {
+    "method": "POST",
+    "path": "/v1/mobile/session/refresh"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/mobile/session/revoke"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/mobile/privacy/erase"
+  },
+  {
     "method": "GET",
     "path": "/v1/teams/standings"
   },
@@ -208,11 +220,35 @@
     "path": "/v1/follows/players/:playerId/season/:season"
   },
   {
+    "method": "GET",
+    "path": "/v1/search/global"
+  },
+  {
     "method": "POST",
     "path": "/v1/notifications/tokens"
   },
   {
     "method": "DELETE",
     "path": "/v1/notifications/tokens/:token"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/subscriptions"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/notifications/subscriptions"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/opened"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/events"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/notifications/metrics"
   }
 ]

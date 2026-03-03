@@ -9,6 +9,7 @@ export const fr = {
     back: 'Retour',
     share: 'Partager',
     openNotifications: 'Ouvrir les notifications',
+    show: 'Afficher',
     retry: 'Réessayer',
     cancel: 'Annuler',
     save: 'Enregistrer',
@@ -31,16 +32,54 @@ export const fr = {
         end: 'Fin de match',
       },
     },
+    competition: {
+      title: 'Définir les alertes',
+    },
+    player: {
+      title: 'Définir les alertes',
+    },
+    team: {
+      title: 'Définir les alertes',
+    },
+    options: {
+      enabled: 'Notifications activées',
+      matchStart: 'Début du match',
+      halftime: 'Mi-temps',
+      matchEnd: 'Fin du match',
+      goals: 'Buts',
+      redCards: 'Cartons rouges',
+      missedPenalty: 'Pénalty manqué',
+      transfers: 'Transferts',
+      lineups: 'Compositions',
+      matchReminder: 'Rappel de match',
+      startingLineup: 'Est dans la composition de départ',
+      assists: 'Passes décisives',
+      yellowCards: 'Cartons jaunes',
+      substitution: 'Remplacement',
+      matchRating: 'Note du match',
+    },
   },
   matches: {
     liveLabel: 'EN DIRECT',
     topCompetitionBadge: 'TOP',
     followsSectionTitle: 'Suivis',
     followsEmpty: 'Aucun match lié à vos suivis pour le moment.',
+    hiddenCompetitions_hidden: 'Compétitions masquées',
+    hiddenCompetitions_empty: 'Aucune compétition masquée',
     actions: {
       manageHiddenCompetitions: 'Gérer les compétitions masquées',
       openCalendar: 'Ouvrir le calendrier',
       openSearch: 'Ouvrir la recherche',
+      openNotifications: 'Ouvrir les notifications',
+      openMenu: 'Ouvrir le menu',
+      toggleFollowMatch: 'Suivre ou ne plus suivre ce match',
+    },
+    calendar: {
+      today: "Revenir à aujourd'hui",
+    },
+    menu: {
+      title: 'Actions matchs',
+      manageHiddenCompetitions: 'Gérer les compétitions masquées',
       openNotifications: 'Ouvrir les notifications',
     },
     filters: {
@@ -48,6 +87,7 @@ export const fr = {
       live: 'Live',
       upcoming: 'À venir',
       finished: 'Terminé',
+      followed: 'Suivis',
     },
     status: {
       upcoming: 'À venir',
@@ -232,6 +272,14 @@ export const fr = {
       reserves: 'Réservistes',
       absences: 'Blessés / Suspendus',
       absencesDetailedTitle: 'Joueurs absents, blessés ou suspendus',
+      absenceTags: {
+        injured: 'Blessé',
+        suspended: 'Suspendu',
+        doubtful: 'Incertain',
+        questionable: 'À confirmer',
+        illness: 'Maladie',
+        out: 'Absent',
+      },
       legend: {
         savedPenalties: 'Penalties arrêtés',
         assist: 'Passe décisive',
@@ -389,6 +437,7 @@ export const fr = {
       },
     },
     standings: {
+      defaultGroup: 'Classement',
       displayModes: {
         simple: 'Simple',
         detailed: 'Détaillé',
@@ -850,7 +899,11 @@ export const fr = {
       followUs: 'Suivez-nous',
       tipsSupport: 'Astuces et assistance',
       privacyPolicy: 'Politique de confidentialité',
+      termsOfUse: "Conditions d'utilisation",
+      privacyPreferences: 'Préférences de confidentialité',
+      deleteData: 'Supprimer mes données',
       rateApp: "Noter l'application",
+      informationalDisclaimer: 'Contenu informatif 13+ uniquement. Les prédictions ne sont pas un conseil de pari.',
       appVersion: "Version de l'application",
     },
     values: {
@@ -871,6 +924,16 @@ export const fr = {
         on: 'Activées',
         off: 'Désactivées',
       },
+      consent: {
+        unknown: 'Inconnu',
+        required: 'Action requise',
+        granted: 'Accord donné',
+        denied: 'Refusé',
+        not_required: 'Non requis',
+      },
+      delete: {
+        inProgress: 'Suppression en cours',
+      },
     },
     badges: {
       comingSoon: 'Bientôt disponible',
@@ -888,6 +951,16 @@ export const fr = {
       permissionDenied:
         "Les notifications ne sont pas autorisées. Activez-les dans les réglages système.",
       openSettings: 'Ouvrir les réglages',
+    },
+    deleteData: {
+      confirmTitle: 'Supprimer mes données',
+      confirmMessage:
+        'Cette action supprime définitivement les données liées à cet appareil et ses préférences de notifications.',
+      confirmAction: 'Supprimer maintenant',
+      successTitle: 'Données supprimées',
+      successMessage: 'Vos données liées à cet appareil ont été supprimées.',
+      errorTitle: 'Échec de suppression',
+      errorMessage: 'Impossible de supprimer vos données pour le moment. Réessayez plus tard.',
     },
   },
   screens: {
@@ -918,18 +991,72 @@ export const fr = {
     },
     search: {
       title: 'Recherche',
-      hint: 'Recherchez une équipe ou un joueur.',
+      hint: 'Recherchez des équipes, ligues, joueurs ou matchs.',
       tabs: {
+        all: 'Tous',
         teams: 'Équipes',
+        competitions: 'Ligues',
         players: 'Joueurs',
+        matches: 'Matchs',
       },
+      placeholderAll: 'Rechercher dans toute l’application',
       placeholderTeams: 'Rechercher une équipe',
+      placeholderCompetitions: 'Rechercher une ligue',
       placeholderPlayers: 'Rechercher un joueur',
+      placeholderMatches: 'Rechercher un match',
       minChars: 'Saisissez au moins {{count}} caractères.',
       loading: 'Recherche en cours...',
       empty: 'Aucun résultat trouvé.',
       error: 'Impossible de lancer la recherche.',
       clear: 'Effacer la recherche',
     },
+  },
+  onboarding: {
+    teams: {
+      title: 'Suivre des équipes',
+      subtitle: 'Recevez les dernières infos sur vos équipes favorites.',
+    },
+    competitions: {
+      title: 'Suivre des compétitions',
+      subtitle: 'Restez informé sur les ligues et tournois qui vous passionnent.',
+    },
+    players: {
+      title: 'Suivre des joueurs',
+      subtitle: 'Gardez un œil sur les performances de vos joueurs préférés.',
+    },
+    tabs: {
+      trending: 'Tendances',
+      search: 'Rechercher',
+    },
+    skip: 'Ignorer',
+    continue: 'Continuer',
+    finish: 'Terminer',
+    search: {
+      placeholder: {
+        teams: 'Rechercher une équipe',
+        competitions: 'Rechercher une compétition',
+        players: 'Rechercher un joueur',
+      },
+    },
+    empty: {
+      trending: 'Aucune tendance disponible.',
+      search: 'Aucun résultat trouvé.',
+    },
+  },
+  countries: {
+    England: 'Angleterre',
+    Spain: 'Espagne',
+    Italy: 'Italie',
+    Germany: 'Allemagne',
+    France: 'France',
+    Netherlands: 'Pays-Bas',
+    Portugal: 'Portugal',
+    Belgium: 'Belgique',
+    Brazil: 'Brésil',
+    Argentina: 'Argentine',
+    World: 'Monde',
+    Europe: 'Europe',
+    India: 'Inde',
+    USA: 'États-Unis',
   },
 } as const;

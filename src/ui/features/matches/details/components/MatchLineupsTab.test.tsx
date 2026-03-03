@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import { MatchDetailsTabContent } from '@ui/features/matches/details/components/MatchDetailsTabContent';
 import type { ApiFootballFixtureDto } from '@ui/features/matches/types/matches.types';
@@ -102,6 +102,114 @@ describe('MatchLineupsTab', () => {
     expect(screen.getByText(i18n.t('matchDetails.lineups.substitutes'))).toBeTruthy();
     expect(screen.getByText(i18n.t('matchDetails.lineups.absencesDetailedTitle'))).toBeTruthy();
     expect(screen.getByText(/Injured One/)).toBeTruthy();
+  });
+
+  it('localizes absence reason/status labels in french', async () => {
+    await act(async () => {
+      await i18n.changeLanguage('fr');
+    });
+    try {
+      renderWithAppProviders(
+        <MatchDetailsTabContent
+          activeTab="lineups"
+          lifecycleState="finished"
+          fixture={fixture}
+          events={[]}
+          statistics={[]}
+          lineupTeams={[
+            {
+              teamId: '1',
+              teamName: 'Home',
+              teamLogo: '',
+              coach: 'Coach A',
+              formation: '4-3-3',
+              startingXI: [
+                { id: '10', name: 'Starter One', number: 9, position: 'F', grid: '1:1' },
+              ],
+              substitutes: [],
+              reserves: [],
+              absences: [
+                {
+                  id: '99',
+                  name: 'Player Absent',
+                  photo: null,
+                  reason: 'Knee Injury',
+                  status: 'Suspended',
+                  type: null,
+                },
+              ],
+            },
+          ]}
+          predictions={null}
+          winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+          homePlayersStats={[]}
+          awayPlayersStats={[]}
+          standings={null}
+          homeTeamId="1"
+          awayTeamId="2"
+          headToHead={[]}
+          isLiveRefreshing={false}
+        />,
+      );
+
+      expect(screen.getByText('Player Absent')).toBeTruthy();
+      expect(screen.getAllByText(i18n.t('matchDetails.lineups.absenceTags.injured')).length).toBeGreaterThan(0);
+      expect(screen.getByText(i18n.t('matchDetails.lineups.absenceTags.suspended'))).toBeTruthy();
+      expect(screen.queryByText('Knee Injury')).toBeNull();
+      expect(screen.queryByText('Suspended')).toBeNull();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('en');
+      });
+    }
+  });
+
+  it('does not display raw i18n keys or technical placeholder strings in absences', () => {
+    renderWithAppProviders(
+      <MatchDetailsTabContent
+        activeTab="lineups"
+        lifecycleState="finished"
+        fixture={fixture}
+        events={[]}
+        statistics={[]}
+        lineupTeams={[
+          {
+            teamId: '1',
+            teamName: 'Home',
+            teamLogo: '',
+            coach: 'Coach A',
+            formation: '4-3-3',
+            startingXI: [{ id: '10', name: 'Starter One', number: 9, position: 'F', grid: '1:1' }],
+            substitutes: [],
+            reserves: [],
+            absences: [
+              {
+                id: '99',
+                name: 'Player Absent',
+                photo: null,
+                reason: 'matchsDetails.lineups.absenceTags.injured',
+                status: 'Missing fixture',
+                type: null,
+              },
+            ],
+          },
+        ]}
+        predictions={null}
+        winPercent={{ home: '40%', draw: '30%', away: '30%' }}
+        homePlayersStats={[]}
+        awayPlayersStats={[]}
+        standings={null}
+        homeTeamId="1"
+        awayTeamId="2"
+        headToHead={[]}
+        isLiveRefreshing={false}
+      />,
+    );
+
+    expect(screen.getByText('Player Absent')).toBeTruthy();
+    expect(screen.getAllByText(i18n.t('matchDetails.lineups.absenceTags.injured')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('matchsDetails.lineups.absenceTags.injured')).toBeNull();
+    expect(screen.queryByText('Missing fixture')).toBeNull();
   });
 
   it('shows retry action on finished state when lineups are unavailable', () => {

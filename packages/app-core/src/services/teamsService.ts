@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import type { HttpAdapter } from '../adapters/http.js';
-import type { TelemetryAdapter } from '../adapters/telemetry.js';
-import type { ListEnvelope, OptionalEnvelope, PagedEnvelope } from '../domain/network.js';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
+import type { HttpAdapter } from '../adapters/http';
+import type { TelemetryAdapter } from '../adapters/telemetry';
+import type { ListEnvelope, OptionalEnvelope, PagedEnvelope } from '../domain/network';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation';
 
 const listResponseSchema = z
   .object({

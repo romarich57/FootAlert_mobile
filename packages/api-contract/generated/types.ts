@@ -155,6 +155,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/follows/search/competitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search competitions for follows feature */
+        get: operations["searchFollowCompetitions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/follows/search/players": {
         parameters: {
             query?: never;
@@ -215,6 +232,23 @@ export type paths = {
         };
         /** Get next fixture for followed team */
         get: operations["getFollowTeamNextFixture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/follows/trends/competitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get curated list of top competitions for onboarding */
+        get: operations["getFollowCompetitionsTrends"];
         put?: never;
         post?: never;
         delete?: never;
@@ -410,6 +444,160 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/mobile/privacy/erase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Erase device-bound personal data after fresh attestation proof */
+        post: operations["eraseMobilePrivacyData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/session/attest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify mobile attestation and issue short-lived session token */
+        post: operations["attestMobileSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/session/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create short-lived mobile attestation challenge */
+        post: operations["createMobileSessionChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/session/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rotate refresh token and issue a new short-lived session token */
+        post: operations["refreshMobileSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mobile/session/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke refresh-token family */
+        post: operations["revokeMobileSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest notification business event (internal service-to-service) */
+        post: operations["ingestNotificationEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get in-process notifications metrics snapshot */
+        get: operations["getNotificationMetricsSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/opened": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Track push notification open (attested mobile session) */
+        post: operations["trackNotificationOpened"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get notification preferences for a scope (attested mobile session) */
+        get: operations["getNotificationSubscriptions"];
+        put?: never;
+        /** Upsert notification preferences for a scope (attested mobile session) */
+        post: operations["upsertNotificationSubscriptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/notifications/tokens": {
         parameters: {
             query?: never;
@@ -419,7 +607,7 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Register push token (signed request) */
+        /** Register push token (attested mobile session) */
         post: operations["registerPushToken"];
         delete?: never;
         options?: never;
@@ -437,7 +625,7 @@ export type paths = {
         get?: never;
         put?: never;
         post?: never;
-        /** Revoke push token (signed request) */
+        /** Revoke push token (attested mobile session) */
         delete: operations["revokePushToken"];
         options?: never;
         head?: never;
@@ -555,6 +743,23 @@ export type paths = {
         };
         /** Get fixtures for a team (players context) */
         get: operations["getPlayerTeamFixtures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/search/global": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Global search for teams, competitions, players and matches */
+        get: operations["searchGlobal"];
         put?: never;
         post?: never;
         delete?: never;
@@ -759,8 +964,25 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Push telemetry breadcrumb (signed request) */
+        /** Push telemetry breadcrumb (attested mobile session) */
         post: operations["sendTelemetryBreadcrumb"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/telemetry/breadcrumbs/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push telemetry breadcrumb batch (attested mobile session) */
+        post: operations["sendTelemetryBreadcrumbBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -776,8 +998,25 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Push telemetry error (signed request) */
+        /** Push telemetry error (attested mobile session) */
         post: operations["sendTelemetryError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/telemetry/errors/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push telemetry error batch (attested mobile session) */
+        post: operations["sendTelemetryErrorBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -793,8 +1032,25 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Push telemetry event (signed request) */
+        /** Push telemetry event (attested mobile session) */
         post: operations["sendTelemetryEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/telemetry/events/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Push telemetry event batch (attested mobile session) */
+        post: operations["sendTelemetryEventBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -805,20 +1061,163 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        CursorPageInfo: {
+            hasMore: boolean;
+            nextCursor: string | null;
+            returnedCount: number;
+        };
         FlexibleObject: {
             [key: string]: unknown;
         };
         HealthResponse: {
+            cache: {
+                /** @enum {string} */
+                backend: "memory" | "redis";
+                degraded: boolean;
+                redis: {
+                    configured: boolean;
+                    lastError: string | null;
+                    prefix: string;
+                    ready: boolean;
+                };
+                strictMode: boolean;
+            };
+            /** @enum {string} */
+            status: "ok" | "degraded";
+        };
+        ListEnvelope: {
+            pageInfo?: components["schemas"]["CursorPageInfo"] | null;
+            response: components["schemas"]["FlexibleObject"][];
+        };
+        MobilePrivacyEraseRequest: {
+            attestation: components["schemas"]["MobileSessionAttestation"];
+            challengeId: string;
+            deviceIdHash: string;
+            /** @enum {string} */
+            platform: "android" | "ios";
+        };
+        MobilePrivacyEraseResponse: {
+            erasedAtMs: number;
+            requestId: string;
+            /** @enum {string} */
+            status: "erased";
+        };
+        MobileSessionAttestation: {
+            token: string;
+            /** @enum {string} */
+            type: "play_integrity" | "app_attest";
+        };
+        MobileSessionAttestRequest: {
+            attestation: components["schemas"]["MobileSessionAttestation"];
+            challengeId: string;
+            deviceIdHash: string;
+            /** @enum {string} */
+            platform: "android" | "ios";
+        };
+        MobileSessionAttestResponse: {
+            accessToken: string;
+            expiresAtMs: number;
+            /** @enum {string} */
+            integrity: "strong" | "device" | "basic" | "unknown";
+            refreshExpiresAtMs: number;
+            refreshToken: string;
+        };
+        MobileSessionChallengeRequest: {
+            appVersion: string;
+            buildNumber: string;
+            deviceIdHash: string;
+            /** @enum {string} */
+            platform: "android" | "ios";
+        };
+        MobileSessionChallengeResponse: {
+            challenge: string;
+            challengeId: string;
+            expiresAtMs: number;
+        };
+        MobileSessionRefreshRequest: {
+            refreshToken: string;
+        };
+        MobileSessionRevokeRequest: {
+            refreshToken: string;
+        };
+        /** @enum {string} */
+        NotificationAlertType: "match_start" | "halftime" | "match_end" | "goal" | "red_card" | "yellow_card" | "assist" | "missed_penalty" | "transfer" | "lineup" | "starting_lineup" | "substitution" | "match_rating" | "match_reminder";
+        NotificationEventIngestRequest: {
+            alertType: components["schemas"]["NotificationAlertType"];
+            body: string;
+            competitionId?: string | null;
+            externalEventId: string;
+            fixtureId?: string | null;
+            /** Format: date-time */
+            occurredAt?: string;
+            payload?: {
+                [key: string]: unknown;
+            };
+            playerIds?: string[];
+            source: string;
+            teamIds?: string[];
+            title: string;
+        };
+        NotificationEventIngestResponse: {
+            deduplicated: boolean;
+            eventId: string;
+            /** @enum {string} */
+            status: "accepted";
+        };
+        NotificationMetricsSnapshot: {
+            counters: {
+                [key: string]: number;
+            };
+            gauges: {
+                [key: string]: number;
+            };
+        };
+        NotificationOpenedRequest: {
+            deviceId: string;
+            eventId: string;
+        };
+        NotificationOpenedResponse: {
+            openedCount: number;
             /** @enum {string} */
             status: "ok";
         };
-        ListEnvelope: {
-            response: components["schemas"]["FlexibleObject"][];
+        /** @enum {string} */
+        NotificationScopeKind: "match" | "team" | "player" | "competition";
+        NotificationSubscriptionInput: {
+            alertType: components["schemas"]["NotificationAlertType"];
+            enabled: boolean;
+        };
+        NotificationSubscriptionRecord: {
+            alertType: components["schemas"]["NotificationAlertType"];
+            /** Format: date-time */
+            createdAt: string;
+            deviceId: string;
+            enabled: boolean;
+            id: string;
+            scopeId: string;
+            scopeKind: components["schemas"]["NotificationScopeKind"];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        NotificationSubscriptionsListResponse: {
+            subscriptions: components["schemas"]["NotificationSubscriptionRecord"][];
+        };
+        NotificationSubscriptionUpsertRequest: {
+            deviceId: string;
+            scopeId: string;
+            scopeKind: components["schemas"]["NotificationScopeKind"];
+            subscriptions: components["schemas"]["NotificationSubscriptionInput"][];
+        };
+        NotificationSubscriptionUpsertResponse: {
+            /** @enum {string} */
+            status: "ok";
+            subscriptions: components["schemas"]["NotificationSubscriptionRecord"][];
         };
         OptionalEnvelope: {
             response?: components["schemas"]["FlexibleObject"] | components["schemas"]["FlexibleObject"][] | number | string | boolean | null;
         };
         PagedEnvelope: {
+            pageInfo?: components["schemas"]["CursorPageInfo"] | null;
             paging?: {
                 [key: string]: unknown;
             } | null;
@@ -844,6 +1243,53 @@ export type components = {
             provider: "apns" | "fcm";
             timezone: string;
             token: string;
+        };
+        SearchCompetitionResult: {
+            country: string;
+            id: string;
+            logo: string;
+            name: string;
+            type: string;
+        };
+        SearchGlobalResponse: {
+            competitions: components["schemas"]["SearchCompetitionResult"][];
+            matches: components["schemas"]["SearchMatchResult"][];
+            players: components["schemas"]["SearchPlayerResult"][];
+            teams: components["schemas"]["SearchTeamResult"][];
+        };
+        SearchMatchResult: {
+            awayGoals: number | null;
+            awayTeamId: string;
+            awayTeamLogo: string;
+            awayTeamName: string;
+            competitionCountry: string;
+            competitionId: string;
+            competitionLogo: string;
+            competitionName: string;
+            fixtureId: string;
+            homeGoals: number | null;
+            homeTeamId: string;
+            homeTeamLogo: string;
+            homeTeamName: string;
+            /** Format: date-time */
+            startDate: string;
+            statusLong: string;
+            statusShort: string;
+        };
+        SearchPlayerResult: {
+            id: string;
+            leagueName: string;
+            name: string;
+            photo: string;
+            position: string;
+            teamLogo: string;
+            teamName: string;
+        };
+        SearchTeamResult: {
+            country: string;
+            id: string;
+            logo: string;
+            name: string;
         };
         TelemetryAttributes: {
             [key: string]: components["schemas"]["TelemetryScalar"];
@@ -879,6 +1325,16 @@ export type components = {
             userContext?: components["schemas"]["TelemetryAttributes"];
         };
         TelemetryScalar: string | number | boolean | null;
+        TrendCompetitionItem: {
+            competitionId: string;
+            competitionLogo: string;
+            competitionName: string;
+            country: string;
+            type: string;
+        };
+        TrendCompetitionsResponse: {
+            competitions: components["schemas"]["TrendCompetitionItem"][];
+        };
     };
     responses: {
         /** @description Telemetry payload accepted */
@@ -888,10 +1344,11 @@ export type components = {
             };
             content: {
                 "application/json": {
+                    count?: number;
                     /** @enum {string} */
                     status: "accepted";
                     /** @enum {string} */
-                    type: "event" | "error" | "breadcrumb";
+                    type: "event" | "event_batch" | "error" | "error_batch" | "breadcrumb" | "breadcrumb_batch";
                 };
             };
         };
@@ -945,6 +1402,15 @@ export type components = {
                 "application/json": components["schemas"]["ProblemResponse"];
             };
         };
+        /** @description Normalized global search payload */
+        SearchGlobalResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["SearchGlobalResponse"];
+            };
+        };
     };
     parameters: {
         DateQuery: string;
@@ -952,8 +1418,13 @@ export type components = {
         IdPath: string;
         LeagueIdQuery: string;
         LeagueIdsQuery: string;
+        NotificationDeviceIdQuery: string;
+        NotificationScopeIdQuery: string;
+        NotificationScopeKindQuery: components["schemas"]["NotificationScopeKind"];
+        OptionalCursorQuery: string;
         OptionalLastQuery: number;
         OptionalLeagueIdQuery: string;
+        OptionalLimitQuery: number;
         OptionalNextQuery: number;
         OptionalPageQuery: number;
         OptionalSeasonQuery: number;
@@ -962,6 +1433,7 @@ export type components = {
         PlayerIdPath: string;
         PlayerStatsTypeQuery: "topscorers" | "topassists" | "topyellowcards" | "topredcards";
         QQuery: string;
+        SearchLimitQuery: number;
         SeasonPath: number;
         SeasonQuery: number;
         TeamIdPath: string;
@@ -986,6 +1458,15 @@ export interface operations {
         responses: {
             /** @description Service is healthy */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description Service is degraded (strict cache backend not ready) */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1025,6 +1506,8 @@ export interface operations {
     getCompetitionMatches: {
         parameters: {
             query: {
+                cursor?: components["parameters"]["OptionalCursorQuery"];
+                limit?: components["parameters"]["OptionalLimitQuery"];
                 season: components["parameters"]["SeasonQuery"];
             };
             header?: never;
@@ -1119,6 +1602,21 @@ export interface operations {
             200: components["responses"]["ListEnvelopeResponse"];
         };
     };
+    searchFollowCompetitions: {
+        parameters: {
+            query: {
+                q: components["parameters"]["QQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
     searchFollowPlayers: {
         parameters: {
             query: {
@@ -1177,6 +1675,26 @@ export interface operations {
             200: components["responses"]["ListEnvelopeResponse"];
         };
     };
+    getFollowCompetitionsTrends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Top competitions list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrendCompetitionsResponse"];
+                };
+            };
+        };
+    };
     getFollowPlayersTrends: {
         parameters: {
             query: {
@@ -1210,7 +1728,9 @@ export interface operations {
     getMatchesByDate: {
         parameters: {
             query: {
+                cursor?: components["parameters"]["OptionalCursorQuery"];
                 date: components["parameters"]["DateQuery"];
+                limit?: components["parameters"]["OptionalLimitQuery"];
                 timezone: components["parameters"]["TimezoneQuery"];
             };
             header?: never;
@@ -1352,6 +1872,261 @@ export interface operations {
         responses: {
             200: components["responses"]["ListEnvelopeResponse"];
             400: components["responses"]["ProblemResponse"];
+        };
+    };
+    eraseMobilePrivacyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobilePrivacyEraseRequest"];
+            };
+        };
+        responses: {
+            /** @description Device-bound data erased */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobilePrivacyEraseResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            403: components["responses"]["ProblemResponse"];
+        };
+    };
+    attestMobileSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobileSessionAttestRequest"];
+            };
+        };
+        responses: {
+            /** @description Session token issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileSessionAttestResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+        };
+    };
+    createMobileSessionChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobileSessionChallengeRequest"];
+            };
+        };
+        responses: {
+            /** @description Challenge created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileSessionChallengeResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    refreshMobileSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobileSessionRefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description Session token refreshed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MobileSessionAttestResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+        };
+    };
+    revokeMobileSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MobileSessionRevokeRequest"];
+            };
+        };
+        responses: {
+            /** @description Session family revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    ingestNotificationEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationEventIngestRequest"];
+            };
+        };
+        responses: {
+            /** @description Event accepted and queued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationEventIngestResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            404: components["responses"]["ProblemResponse"];
+        };
+    };
+    getNotificationMetricsSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notifications metrics snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationMetricsSnapshot"];
+                };
+            };
+        };
+    };
+    trackNotificationOpened: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationOpenedRequest"];
+            };
+        };
+        responses: {
+            /** @description Open tracking accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOpenedResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            403: components["responses"]["ProblemResponse"];
+        };
+    };
+    getNotificationSubscriptions: {
+        parameters: {
+            query: {
+                deviceId: components["parameters"]["NotificationDeviceIdQuery"];
+                scopeId: components["parameters"]["NotificationScopeIdQuery"];
+                scopeKind: components["parameters"]["NotificationScopeKindQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scope subscriptions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSubscriptionsListResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            403: components["responses"]["ProblemResponse"];
+        };
+    };
+    upsertNotificationSubscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSubscriptionUpsertRequest"];
+            };
+        };
+        responses: {
+            /** @description Scope subscriptions upserted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSubscriptionUpsertResponse"];
+                };
+            };
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            403: components["responses"]["ProblemResponse"];
         };
     };
     registerPushToken: {
@@ -1515,6 +2290,24 @@ export interface operations {
             200: components["responses"]["ListEnvelopeResponse"];
         };
     };
+    searchGlobal: {
+        parameters: {
+            query: {
+                limit?: components["parameters"]["SearchLimitQuery"];
+                q: components["parameters"]["QQuery"];
+                season?: components["parameters"]["OptionalSeasonQuery"];
+                timezone: components["parameters"]["TimezoneQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SearchGlobalResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
     getTeamById: {
         parameters: {
             query?: never;
@@ -1598,7 +2391,9 @@ export interface operations {
     getTeamPlayers: {
         parameters: {
             query: {
+                cursor?: components["parameters"]["OptionalCursorQuery"];
                 leagueId: components["parameters"]["LeagueIdQuery"];
+                limit?: components["parameters"]["OptionalLimitQuery"];
                 page?: components["parameters"]["OptionalPageQuery"];
                 season: components["parameters"]["SeasonQuery"];
             };
@@ -1707,6 +2502,25 @@ export interface operations {
             403: components["responses"]["ProblemResponse"];
         };
     };
+    sendTelemetryBreadcrumbBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryBreadcrumbPayload"][];
+            };
+        };
+        responses: {
+            200: components["responses"]["AcceptedTelemetryResponse"];
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            403: components["responses"]["ProblemResponse"];
+        };
+    };
     sendTelemetryError: {
         parameters: {
             query?: never;
@@ -1717,6 +2531,25 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TelemetryErrorPayload"];
+            };
+        };
+        responses: {
+            200: components["responses"]["AcceptedTelemetryResponse"];
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            403: components["responses"]["ProblemResponse"];
+        };
+    };
+    sendTelemetryErrorBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryErrorPayload"][];
             };
         };
         responses: {
@@ -1745,4 +2578,24 @@ export interface operations {
             403: components["responses"]["ProblemResponse"];
         };
     };
+    sendTelemetryEventBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryEventPayload"][];
+            };
+        };
+        responses: {
+            200: components["responses"]["AcceptedTelemetryResponse"];
+            400: components["responses"]["ProblemResponse"];
+            401: components["responses"]["ProblemResponse"];
+            403: components["responses"]["ProblemResponse"];
+        };
+    };
 }
+

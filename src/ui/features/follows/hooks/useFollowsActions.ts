@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
 import {
+  loadFollowedLeagueIds,
   loadFollowedPlayerIds,
   loadFollowedTeamIds,
   loadHideTrends,
   saveHideTrends,
+  toggleFollowedLeague,
   toggleFollowedPlayer,
   toggleFollowedTeam,
 } from '@data/storage/followsStorage';
@@ -41,6 +43,12 @@ export function useFollowsActions() {
   const followedPlayerIdsQuery = useQuery({
     queryKey: queryKeys.follows.followedPlayerIds(),
     queryFn: loadFollowedPlayerIds,
+    staleTime: Infinity,
+  });
+
+  const followedLeagueIdsQuery = useQuery({
+    queryKey: queryKeys.follows.followedLeagueIds(),
+    queryFn: loadFollowedLeagueIds,
     staleTime: Infinity,
   });
 
@@ -120,6 +128,38 @@ export function useFollowsActions() {
     },
   });
 
+  const toggleLeagueMutation = useMutation({
+    mutationFn: (leagueId: string) =>
+      toggleFollowedLeague(leagueId, appEnv.followsMaxFollowedLeagues),
+    onMutate: async leagueId => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.follows.followedLeagueIds(),
+      });
+
+      const previousIds =
+        queryClient.getQueryData<string[]>(queryKeys.follows.followedLeagueIds()) ?? [];
+
+      queryClient.setQueryData(
+        queryKeys.follows.followedLeagueIds(),
+        computeNextIds(previousIds, leagueId, appEnv.followsMaxFollowedLeagues),
+      );
+
+      return { previousIds };
+    },
+    onError: (_error, _leagueId, context) => {
+      queryClient.setQueryData(queryKeys.follows.followedLeagueIds(), context?.previousIds ?? []);
+    },
+    onSuccess: (result, leagueId, context) => {
+      queryClient.setQueryData(queryKeys.follows.followedLeagueIds(), result.ids);
+      setLastToggleError(result.reason ?? null);
+      const wasAlreadyFollowed = context?.previousIds?.includes(leagueId) ?? false;
+      const isNowFollowed = result.ids.includes(leagueId);
+      if (result.changed && !wasAlreadyFollowed && isNowFollowed) {
+        incrementPositiveEventCount().catch(() => undefined);
+      }
+    },
+  });
+
   const hideTrendsMutation = useMutation({
     mutationFn: ({ tab, value }: { tab: FollowEntityTab; value: boolean }) =>
       saveHideTrends(tab, value),
@@ -161,6 +201,13 @@ export function useFollowsActions() {
     [togglePlayerMutation],
   );
 
+  const toggleLeagueFollow = useCallback(
+    async (leagueId: string) => {
+      return toggleLeagueMutation.mutateAsync(leagueId);
+    },
+    [toggleLeagueMutation],
+  );
+
   const updateHideTrends = useCallback(
     async (tab: FollowEntityTab, value: boolean) => {
       await hideTrendsMutation.mutateAsync({ tab, value });
@@ -175,16 +222,19 @@ export function useFollowsActions() {
   return {
     followedTeamIds: followedTeamIdsQuery.data ?? [],
     followedPlayerIds: followedPlayerIdsQuery.data ?? [],
+    followedLeagueIds: followedLeagueIdsQuery.data ?? [],
     hideTrendsTeams: hideTrendsTeamsQuery.data ?? false,
     hideTrendsPlayers: hideTrendsPlayersQuery.data ?? false,
     isLoading:
       followedTeamIdsQuery.isLoading ||
       followedPlayerIdsQuery.isLoading ||
+      followedLeagueIdsQuery.isLoading ||
       hideTrendsTeamsQuery.isLoading ||
       hideTrendsPlayersQuery.isLoading,
     lastToggleError,
     toggleTeamFollow,
     togglePlayerFollow,
+    toggleLeagueFollow,
     updateHideTrends,
     clearToggleError,
   };

@@ -2,7 +2,7 @@ import { getJsonValue, removeValue } from '@data/storage/asyncStorage';
 import type {
   PushTokenPlatform,
   PushTokenProvider,
-} from '@data/endpoints/notificationsApi';
+} from '@data/notifications/pushTokenTypes';
 import {
   getSecureString,
   removeSecureString,
@@ -108,4 +108,9 @@ export async function getOrCreatePushDeviceId(): Promise<string> {
   await setSecureString(PUSH_DEVICE_ID_SECURE_KEY, nextDeviceId);
   await removeValue(LEGACY_PUSH_DEVICE_ID_STORAGE_KEY);
   return nextDeviceId;
+}
+
+export async function clearPushDeviceId(): Promise<void> {
+  await removeSecureString(PUSH_DEVICE_ID_SECURE_KEY);
+  await removeValue(LEGACY_PUSH_DEVICE_ID_STORAGE_KEY);
 }

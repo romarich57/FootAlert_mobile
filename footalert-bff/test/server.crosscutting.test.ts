@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildApp, installFetchMock, jsonResponse, withManagedEnv } from './helpers/appTestHarness.ts';
+import {
+  buildApp,
+  buildMobileSessionAuthorizationHeader,
+  installFetchMock,
+  jsonResponse,
+  withManagedEnv,
+} from './helpers/appTestHarness.ts';
 
 test('GET /health returns healthy status', async t => {
   installFetchMock(async () => jsonResponse({ response: [] }));
@@ -106,4 +112,34 @@ test('trustProxy is disabled by default and bounded when configured', async () =
   );
 
   assert.equal(enabledHops, 1);
+});
+
+test('host-scoped mobile auth enforces bearer token on read routes', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t, {
+    MOBILE_AUTH_ENFORCED_HOSTS: 'api-mobile.footalert.com',
+  });
+
+  const unauthorized = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions',
+    headers: {
+      host: 'api-mobile.footalert.com',
+    },
+  });
+  assert.equal(unauthorized.statusCode, 401);
+  assert.equal(unauthorized.json().error, 'MOBILE_ATTESTATION_REQUIRED');
+
+  const authorized = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions',
+    headers: {
+      host: 'api-mobile.footalert.com',
+      ...buildMobileSessionAuthorizationHeader({
+        scope: ['api:read'],
+        integrity: 'device',
+      }),
+    },
+  });
+  assert.equal(authorized.statusCode, 200);
 });

@@ -16,7 +16,11 @@ import {
   MobileAttestationProviderUnavailableError,
   type MobileAttestationProvider,
 } from '@data/security/mobileAttestationProvider';
-import { getOrCreatePushDeviceId } from '@data/storage/pushTokenStorage';
+import {
+  clearPushDeviceId,
+  clearPushRegistrationSnapshot,
+  getOrCreatePushDeviceId,
+} from '@data/storage/pushTokenStorage';
 import {
   getSecureString,
   removeSecureString,
@@ -24,11 +28,13 @@ import {
 } from '@data/storage/secureStorage';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 
-type MobileSessionScope = 'notifications:write' | 'telemetry:write';
+type MobileSessionScope = 'api:read' | 'notifications:write' | 'telemetry:write' | 'privacy:erase';
 
 type MobileSessionTokenSnapshot = {
   accessToken: string;
   expiresAtMs: number;
+  refreshToken: string;
+  refreshExpiresAtMs: number;
   integrity: DeviceIntegrityLevel;
   obtainedAtMs: number;
 };
@@ -42,7 +48,29 @@ type MobileSessionChallengeResponse = {
 type MobileSessionAttestResponse = {
   accessToken: string;
   expiresAtMs: number;
+  refreshToken: string;
+  refreshExpiresAtMs: number;
   integrity: DeviceIntegrityLevel;
+};
+
+type MobileSessionRefreshResponse = {
+  accessToken: string;
+  expiresAtMs: number;
+  refreshToken: string;
+  refreshExpiresAtMs: number;
+  integrity: DeviceIntegrityLevel;
+};
+
+type MobilePrivacyEraseResponse = {
+  status: 'erased';
+  requestId: string;
+  erasedAtMs: number;
+};
+
+type MobileAttestationProof = {
+  platform: 'android' | 'ios';
+  type: 'play_integrity' | 'app_attest';
+  token: string;
 };
 
 export type MobileAttestationStartupHealth = {
@@ -72,7 +100,14 @@ function hashDeviceId(value: string): string {
   return bytesToHex(sha256(utf8ToBytes(value)));
 }
 
-function resolveSessionEndpoint(path: '/mobile/session/challenge' | '/mobile/session/attest'): string {
+function resolveSessionEndpoint(
+  path:
+  | '/mobile/session/challenge'
+  | '/mobile/session/attest'
+  | '/mobile/session/refresh'
+  | '/mobile/session/revoke'
+  | '/mobile/privacy/erase',
+): string {
   return `${appEnv.mobileApiBaseUrl}${path}`;
 }
 
@@ -95,6 +130,8 @@ async function loadSessionSnapshot(): Promise<MobileSessionTokenSnapshot | null>
     if (
       typeof parsed.accessToken !== 'string'
       || typeof parsed.expiresAtMs !== 'number'
+      || typeof parsed.refreshToken !== 'string'
+      || typeof parsed.refreshExpiresAtMs !== 'number'
       || typeof parsed.obtainedAtMs !== 'number'
       || (parsed.integrity !== 'strong'
         && parsed.integrity !== 'device'
@@ -143,11 +180,11 @@ function shouldUseMockAttestationToken(): boolean {
   );
 }
 
-async function requestAttestationToken(input: {
+async function resolveAttestationProof(input: {
   challenge: MobileSessionChallengeResponse;
   deviceIdHash: string;
   integrity: DeviceIntegrityLevel;
-}): Promise<MobileSessionAttestResponse> {
+}): Promise<MobileAttestationProof> {
   const platform = resolvePlatform();
   const type = resolveAttestationType(platform);
 
@@ -158,8 +195,10 @@ async function requestAttestationToken(input: {
     deviceIdHash: input.deviceIdHash,
   });
 
-  let token = fallbackToken;
-  if (!shouldUseMockAttestationToken()) {
+  let token: string;
+  if (shouldUseMockAttestationToken()) {
+    token = fallbackToken;
+  } else {
     try {
       token = await getProviderAttestationProvider().getAttestationToken({
         platform,
@@ -178,25 +217,79 @@ async function requestAttestationToken(input: {
         details: {
           strategy: appEnv.mobileAttestationStrategy,
           mode: appEnv.mobileAuthAttestationMode,
-          fallback: 'mock',
         },
       });
-      getMobileTelemetry().addBreadcrumb('security.mobile_attestation.fallback_to_mock', {
+      getMobileTelemetry().addBreadcrumb('security.mobile_attestation.provider_unavailable', {
         strategy: appEnv.mobileAttestationStrategy,
       });
+      throw error;
     }
   }
+
+  return {
+    platform,
+    type,
+    token,
+  };
+}
+
+async function requestSessionAttestation(input: {
+  challenge: MobileSessionChallengeResponse;
+  deviceIdHash: string;
+  integrity: DeviceIntegrityLevel;
+}): Promise<MobileSessionAttestResponse> {
+  const proof = await resolveAttestationProof(input);
 
   return httpPost<MobileSessionAttestResponse>(
     resolveSessionEndpoint('/mobile/session/attest'),
     {
       challengeId: input.challenge.challengeId,
-      platform,
+      platform: proof.platform,
       deviceIdHash: input.deviceIdHash,
       attestation: {
-        type,
-        token,
+        type: proof.type,
+        token: proof.token,
       },
+    },
+  );
+}
+
+async function requestPrivacyErase(input: {
+  challenge: MobileSessionChallengeResponse;
+  deviceIdHash: string;
+  integrity: DeviceIntegrityLevel;
+  accessToken: string;
+}): Promise<MobilePrivacyEraseResponse> {
+  const proof = await resolveAttestationProof({
+    challenge: input.challenge,
+    deviceIdHash: input.deviceIdHash,
+    integrity: input.integrity,
+  });
+
+  return httpPost<MobilePrivacyEraseResponse>(
+    resolveSessionEndpoint('/mobile/privacy/erase'),
+    {
+      challengeId: input.challenge.challengeId,
+      platform: proof.platform,
+      deviceIdHash: input.deviceIdHash,
+      attestation: {
+        type: proof.type,
+        token: proof.token,
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${input.accessToken}`,
+      },
+    },
+  );
+}
+
+async function requestRefreshToken(refreshToken: string): Promise<MobileSessionRefreshResponse> {
+  return httpPost<MobileSessionRefreshResponse>(
+    resolveSessionEndpoint('/mobile/session/refresh'),
+    {
+      refreshToken,
     },
   );
 }
@@ -272,7 +365,7 @@ async function refreshSessionToken(): Promise<MobileSessionTokenSnapshot> {
   const deviceIdHash = hashDeviceId(deviceId);
 
   const challenge = await requestChallenge(deviceIdHash);
-  const attested = await requestAttestationToken({
+  const attested = await requestSessionAttestation({
     challenge,
     deviceIdHash,
     integrity: integritySnapshot.integrity,
@@ -281,7 +374,33 @@ async function refreshSessionToken(): Promise<MobileSessionTokenSnapshot> {
   const nextSnapshot: MobileSessionTokenSnapshot = {
     accessToken: attested.accessToken,
     expiresAtMs: attested.expiresAtMs,
+    refreshToken: attested.refreshToken,
+    refreshExpiresAtMs: attested.refreshExpiresAtMs,
     integrity: attested.integrity,
+    obtainedAtMs: Date.now(),
+  };
+  await saveSessionSnapshot(nextSnapshot);
+  return nextSnapshot;
+}
+
+function isRefreshTokenUsable(snapshot: MobileSessionTokenSnapshot | null): boolean {
+  if (!snapshot) {
+    return false;
+  }
+
+  return snapshot.refreshExpiresAtMs - TOKEN_SAFETY_WINDOW_MS > Date.now();
+}
+
+async function refreshFromStoredRefreshToken(
+  snapshot: MobileSessionTokenSnapshot,
+): Promise<MobileSessionTokenSnapshot> {
+  const refreshed = await requestRefreshToken(snapshot.refreshToken);
+  const nextSnapshot: MobileSessionTokenSnapshot = {
+    accessToken: refreshed.accessToken,
+    expiresAtMs: refreshed.expiresAtMs,
+    refreshToken: refreshed.refreshToken,
+    refreshExpiresAtMs: refreshed.refreshExpiresAtMs,
+    integrity: refreshed.integrity,
     obtainedAtMs: Date.now(),
   };
   await saveSessionSnapshot(nextSnapshot);
@@ -295,7 +414,17 @@ export async function getMobileSessionToken(): Promise<MobileSessionTokenSnapsho
   }
 
   if (!inFlightTokenRefresh) {
-    inFlightTokenRefresh = refreshSessionToken().finally(() => {
+    inFlightTokenRefresh = (async () => {
+      if (existingSnapshot && isRefreshTokenUsable(existingSnapshot)) {
+        try {
+          return await refreshFromStoredRefreshToken(existingSnapshot);
+        } catch {
+          await clearStoredSessionToken();
+        }
+      }
+
+      return refreshSessionToken();
+    })().finally(() => {
       inFlightTokenRefresh = null;
     });
   }
@@ -321,8 +450,40 @@ export async function buildSensitiveMobileAuthHeaders(options: {
   };
 }
 
-export async function clearMobileSessionTokenForTests(): Promise<void> {
+export async function eraseMobilePrivacyData(): Promise<MobilePrivacyEraseResponse> {
+  const session = await getMobileSessionToken();
+  const integritySnapshot = await assertSensitiveDeviceIntegrity();
+  const deviceId = await getOrCreatePushDeviceId();
+  const deviceIdHash = hashDeviceId(deviceId);
+  const challenge = await requestChallenge(deviceIdHash);
+
+  const response = await requestPrivacyErase({
+    challenge,
+    deviceIdHash,
+    integrity: integritySnapshot.integrity,
+    accessToken: session.accessToken,
+  });
+
+  await Promise.all([
+    clearPushRegistrationSnapshot(),
+    clearPushDeviceId(),
+    clearStoredSessionToken(),
+  ]);
+
+  getMobileTelemetry().addBreadcrumb('security.mobile_privacy.erased', {
+    requestId: response.requestId,
+    erasedAtMs: response.erasedAtMs,
+  });
+
+  return response;
+}
+
+async function clearStoredSessionToken(): Promise<void> {
   await removeSecureString(MOBILE_SESSION_SECURE_KEY);
+}
+
+export async function clearMobileSessionTokenForTests(): Promise<void> {
+  await clearStoredSessionToken();
 }
 
 export function resetMobileSessionAuthStateForTests(): void {

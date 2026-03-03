@@ -56,6 +56,7 @@ Puis renseigner au minimum :
 ```env
 MOBILE_API_BASE_URL=http://localhost:3001/v1
 MOBILE_PRIVACY_POLICY_URL=https://example.com/privacy
+MOBILE_TERMS_OF_USE_URL=https://example.com/terms
 MOBILE_SUPPORT_URL=https://example.com/support
 MOBILE_FOLLOW_US_URL=https://example.com/social
 MOBILE_PUSH_TOKEN=optional-test-token
@@ -68,9 +69,10 @@ Notes sécurité:
 
 - En dev, `http://localhost`, `http://127.0.0.1` et `http://10.0.2.2` sont acceptés.
 - En non-dev (staging/prod), `MOBILE_API_BASE_URL` doit être présent et en `https://`.
-- En non-dev (staging/prod), `MOBILE_PRIVACY_POLICY_URL`, `MOBILE_SUPPORT_URL` et `MOBILE_FOLLOW_US_URL` sont obligatoires et doivent être en `https://`.
+- En non-dev (staging/prod), `MOBILE_PRIVACY_POLICY_URL`, `MOBILE_TERMS_OF_USE_URL`, `MOBILE_SUPPORT_URL` et `MOBILE_FOLLOW_US_URL` sont obligatoires et doivent être en `https://`.
 - `MOBILE_APP_STORE_URL` et `MOBILE_PLAY_STORE_URL` sont optionnelles (fallback pour l'action "Rate app").
 - `MOBILE_PUSH_TOKEN` est optionnelle (utile en QA/staging pour forcer un token push explicite).
+- `NOTIFICATIONS_MATCH_BACKEND_ENABLED` pilote le rollout match-notifications côté mobile (canary par appVersion).
 - `WEB_API_BASE_URL` et `DESKTOP_API_BASE_URL` pilotent les clients web/desktop.
 - `WEB_APP_ORIGIN` doit être ajouté à `CORS_ALLOWED_ORIGINS` côté BFF.
 
@@ -93,6 +95,22 @@ FOLLOWS_TRENDS_PLAYERS_LIMIT=8
 FOLLOWS_MAX_FOLLOWED_TEAMS=30
 FOLLOWS_MAX_FOLLOWED_PLAYERS=30
 ```
+
+## URLs légales publiques (web)
+
+- `/legal/privacy`
+- `/legal/terms`
+- `/legal/cookies`
+- `/legal/data-deletion`
+
+Ces routes doivent rester stables, avec `policyVersion` et `lastUpdated` visibles.
+
+## Politique âge & positionnement contenu
+
+- Positionnement produit: contenu football **informatif**.
+- Public cible: **13+**.
+- Les prédictions affichées ne constituent **pas** un conseil de pari.
+- Référence conformité stores: `docs/compliance/store-age-rating.md`.
 
 ## BFF (footalert-bff)
 
@@ -129,6 +147,12 @@ npm run ios
 # ou
 npm run android
 ```
+
+4. Pour la production, utiliser le workflow manuel `.github/workflows/bff-production.yml`
+   (gates qualité + déploiement + smoke checks), avec migration DB notifications exécutée manuellement
+   avant restart des process PM2, puis lancer le workflow avec `migration_confirmed=yes`.
+
+Référence détaillée: `docs/infra/notifications-prod-rollout.md`.
 
 ## iOS uniquement
 

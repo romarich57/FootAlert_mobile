@@ -200,3 +200,67 @@ a {
   background: #f0f5f8;
   font-size: 0.78rem;
 }
+
+.legal-footer {
+  margin: 1.1rem 0 0.4rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.legal-footer a {
+  text-decoration: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.legal-disclaimer {
+  flex-basis: 100%;
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.legal-document h2 {
+  margin-bottom: 0.3rem;
+}
+
+.legal-meta {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.legal-section {
+  margin-top: 1rem;
+}
+
+.legal-section h3 {
+  margin-bottom: 0.4rem;
+  font-size: 0.98rem;
+}
+
+.legal-section p {
+  margin-bottom: 0.5rem;
+}
+
+.legal-section ul {
+  margin-top: 0.45rem;
+  padding-left: 1.15rem;
+  color: var(--text-muted);
+}
+
+.legal-note {
+  margin-top: 1.2rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--line);
+  padding-top: 0.7rem;
+}

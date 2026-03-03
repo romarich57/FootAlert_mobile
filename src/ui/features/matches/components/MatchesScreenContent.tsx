@@ -4,6 +4,7 @@ import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 
 import { CompetitionSection } from '@ui/features/matches/components/CompetitionSection';
 import { DateChipsRow } from '@ui/features/matches/components/DateChipsRow';
+import { FullScreenCalendarModal } from '@ui/features/matches/components/FullScreenCalendarModal';
 import { MatchNotificationModal } from '@ui/features/matches/components/MatchNotificationModal';
 import { MatchesHeader } from '@ui/features/matches/components/MatchesHeader';
 import { HiddenCompetitionsModal } from '@ui/features/matches/components/HiddenCompetitionsModal';
@@ -28,6 +29,11 @@ type MatchesFeedItem =
     key: string;
   };
 
+type HiddenCompetitionItem = {
+  id: string;
+  name: string;
+};
+
 type MatchesScreenContentProps = {
   styles: {
     listContent: StyleProp<ViewStyle>;
@@ -36,7 +42,9 @@ type MatchesScreenContentProps = {
   listData: MatchesFeedItem[];
   selectedDate: Date;
   statusFilter: MatchStatusFilter;
+  followedOnly: boolean;
   collapsedSections: Record<string, boolean>;
+  isCalendarModalVisible: boolean;
   isRefetching: boolean;
   showLoading: boolean;
   showError: boolean;
@@ -50,20 +58,22 @@ type MatchesScreenContentProps = {
   notificationPrefs: MatchNotificationPrefs;
   onSelectDate: (date: Date) => void;
   onFilterChange: (filter: MatchStatusFilter) => void;
+  onToggleFollowedOnly: () => void;
   onToggleSection: (sectionId: string) => void;
   onPressMatch: (match: MatchItem) => void;
+  onToggleMatchFollow: (match: MatchItem) => void;
+  isMatchFollowed: (fixtureId: string) => boolean;
   onPressTeam: (teamId: string) => void;
   onPressNotification: (match: MatchItem) => void;
   onPressCalendar: () => void;
   onPressSearch: () => void;
-  onPressNotifications: () => void;
-  onPressManageHidden: () => void;
   onRetry: () => void;
+  onCloseCalendarModal: () => void;
   onCloseNotificationModal: () => void;
   onSaveNotificationPrefs: (prefs: MatchNotificationPrefs) => void;
   onHideCompetition: (competitionId: string) => void;
   onUnhideCompetition: (competitionId: string) => void;
-  hiddenCompetitionsIds: string[];
+  hiddenCompetitions: HiddenCompetitionItem[];
   isManageHiddenModalVisible: boolean;
   onCloseManageHiddenModal: () => void;
 };
@@ -73,7 +83,9 @@ export function MatchesScreenContent({
   listData,
   selectedDate,
   statusFilter,
+  followedOnly,
   collapsedSections,
+  isCalendarModalVisible,
   isRefetching,
   showLoading,
   showError,
@@ -87,20 +99,22 @@ export function MatchesScreenContent({
   notificationPrefs,
   onSelectDate,
   onFilterChange,
+  onToggleFollowedOnly,
   onToggleSection,
   onPressMatch,
+  onToggleMatchFollow,
+  isMatchFollowed,
   onPressTeam,
   onPressNotification,
   onPressCalendar,
   onPressSearch,
-  onPressNotifications,
-  onPressManageHidden,
   onRetry,
+  onCloseCalendarModal,
   onCloseNotificationModal,
   onSaveNotificationPrefs,
-  onHideCompetition,
+
   onUnhideCompetition,
-  hiddenCompetitionsIds,
+  hiddenCompetitions,
   isManageHiddenModalVisible,
   onCloseManageHiddenModal,
 }: MatchesScreenContentProps) {
@@ -117,14 +131,23 @@ export function MatchesScreenContent({
           collapsed={Boolean(collapsedSections[item.section.id])}
           onToggle={onToggleSection}
           onPressMatch={onPressMatch}
+          onToggleMatchFollow={onToggleMatchFollow}
+          isMatchFollowed={isMatchFollowed}
           onPressNotification={onPressNotification}
           onPressHomeTeam={onPressTeam}
           onPressAwayTeam={onPressTeam}
-          onHide={() => onHideCompetition(item.section.id)}
         />
       );
     },
-    [collapsedSections, onPressMatch, onPressNotification, onPressTeam, onToggleSection, onHideCompetition],
+    [
+      collapsedSections,
+      isMatchFollowed,
+      onPressMatch,
+      onPressNotification,
+      onPressTeam,
+      onToggleMatchFollow,
+      onToggleSection,
+    ],
   );
   const listHeaderComponent = useMemo(
     () => (
@@ -132,11 +155,14 @@ export function MatchesScreenContent({
         <MatchesHeader
           onPressCalendar={onPressCalendar}
           onPressSearch={onPressSearch}
-          onPressNotifications={onPressNotifications}
-          onPressManageHidden={onPressManageHidden}
         />
         <DateChipsRow selectedDate={selectedDate} onSelectDate={onSelectDate} />
-        <StatusFiltersRow filter={statusFilter} onFilterChange={onFilterChange} />
+        <StatusFiltersRow
+          filter={statusFilter}
+          onFilterChange={onFilterChange}
+          followedOnly={followedOnly}
+          onToggleFollowedOnly={onToggleFollowedOnly}
+        />
 
         {showLoading ? <ScreenStateView state="loading" /> : null}
         {showError ? <ScreenStateView state="error" onRetry={onRetry} /> : null}
@@ -156,11 +182,10 @@ export function MatchesScreenContent({
       lastUpdatedAt,
       onFilterChange,
       onPressCalendar,
-      onPressNotifications,
-      onPressManageHidden,
       onPressSearch,
       onRetry,
       onSelectDate,
+      onToggleFollowedOnly,
       selectedDate,
       showEmpty,
       showError,
@@ -169,6 +194,7 @@ export function MatchesScreenContent({
       showOfflineBanner,
       showOfflineWithoutCache,
       statusFilter,
+      followedOnly,
       styles.listHeader,
     ],
   );
@@ -194,10 +220,17 @@ export function MatchesScreenContent({
         onSave={onSaveNotificationPrefs}
       />
 
+      <FullScreenCalendarModal
+        visible={isCalendarModalVisible}
+        selectedDate={selectedDate}
+        onSelectDate={onSelectDate}
+        onClose={onCloseCalendarModal}
+      />
+
       <HiddenCompetitionsModal
         visible={isManageHiddenModalVisible}
         onClose={onCloseManageHiddenModal}
-        hiddenIds={hiddenCompetitionsIds}
+        hiddenCompetitions={hiddenCompetitions}
         onUnhide={onUnhideCompetition}
       />
     </>

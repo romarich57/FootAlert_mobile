@@ -37,7 +37,7 @@ function createStyles(colors: ThemeColors) {
         },
         label: {
             color: colors.textMuted,
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: '600',
         },
         labelSelected: {
@@ -71,21 +71,21 @@ function TabItem({
 }
 
 export function PlayerTabs({
-  selectedTab,
-  onChangeTab,
-  profilLabel,
-  matchsLabel,
-  statsLabel,
-  carriereLabel,
+    selectedTab,
+    onChangeTab,
+    profilLabel,
+    matchsLabel,
+    statsLabel,
+    carriereLabel,
 }: PlayerTabsProps) {
-  const { colors } = useAppTheme();
-  const { t } = useTranslation();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+    const { colors } = useAppTheme();
+    const { t } = useTranslation();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const resolvedProfilLabel = profilLabel ?? t('playerDetails.tabs.profile');
-  const resolvedMatchsLabel = matchsLabel ?? t('playerDetails.tabs.matches');
-  const resolvedStatsLabel = statsLabel ?? t('playerDetails.tabs.stats');
-  const resolvedCarriereLabel = carriereLabel ?? t('playerDetails.tabs.career');
+    const resolvedProfilLabel = profilLabel ?? t('playerDetails.tabs.profile');
+    const resolvedMatchsLabel = matchsLabel ?? t('playerDetails.tabs.matches');
+    const resolvedStatsLabel = statsLabel ?? t('playerDetails.tabs.stats');
+    const resolvedCarriereLabel = carriereLabel ?? t('playerDetails.tabs.career');
 
     return (
         <View style={styles.container} accessibilityRole="tablist">

@@ -28,7 +28,7 @@ type QueryTimingOptions = Pick<QueryObserverOptions, 'staleTime' | 'retry'>;
 export const featureQueryOptions = {
   teams: {
     matches: { staleTime: 30_000, retry: 1 },
-    overview: { staleTime: 45_000, retry: 1 },
+    overview: { staleTime: 45_000, retry: 2 },
     standings: { staleTime: 60_000, retry: 2 },
     stats: { staleTime: 60_000, retry: 2 },
     transfers: { staleTime: 2 * 60_000, retry: 2 },

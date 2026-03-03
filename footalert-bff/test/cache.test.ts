@@ -7,6 +7,7 @@ import {
   resetCacheForTests,
   withCache,
 } from '../src/lib/cache.ts';
+import { UpstreamBffError } from '../src/lib/errors.ts';
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -112,4 +113,66 @@ test('withCache falls back to memory backend when redis is selected without url'
   assert.equal(second, 1);
   assert.equal(producerCalls, 1);
   resetCacheForTests();
+});
+
+test('withCache serves stale value when upstream quota guard rejects fresh fetch', async () => {
+  resetCacheForTests();
+  configureCache({
+    ttlJitterPct: 0,
+  });
+
+  let producerCalls = 0;
+  const warmProducer = async (): Promise<number> => {
+    producerCalls += 1;
+    return producerCalls;
+  };
+
+  const firstValue = await withCache('stale-on-quota', 10, warmProducer);
+  await sleep(20);
+
+  const staleValue = await withCache('stale-on-quota', 10, async () => {
+    throw new UpstreamBffError(
+      429,
+      'UPSTREAM_QUOTA_EXCEEDED',
+      'quota exceeded',
+    );
+  });
+
+  assert.equal(firstValue, 1);
+  assert.equal(staleValue, 1);
+  assert.equal(producerCalls, 1);
+  resetCacheForTests();
+});
+
+test('withCache applies TTL jitter to spread expirations', async () => {
+  resetCacheForTests();
+  configureCache({
+    ttlJitterPct: 50,
+  });
+
+  const originalRandom = Math.random;
+  let producerCalls = 0;
+  const producer = async (): Promise<number> => {
+    producerCalls += 1;
+    return producerCalls;
+  };
+
+  try {
+    Math.random = () => 0.999999;
+    const longJitterFirst = await withCache('jitter-long', 20, producer);
+    await sleep(25);
+    const longJitterSecond = await withCache('jitter-long', 20, producer);
+    assert.equal(longJitterFirst, 1);
+    assert.equal(longJitterSecond, 1);
+
+    Math.random = () => 0;
+    const shortJitterFirst = await withCache('jitter-short', 20, producer);
+    await sleep(15);
+    const shortJitterSecond = await withCache('jitter-short', 20, producer);
+    assert.equal(shortJitterFirst, 2);
+    assert.equal(shortJitterSecond, 3);
+  } finally {
+    Math.random = originalRandom;
+    resetCacheForTests();
+  }
 });

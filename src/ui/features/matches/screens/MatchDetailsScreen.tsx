@@ -188,6 +188,10 @@ export function MatchDetailsScreen() {
           statsAvailablePeriods={model.statsAvailablePeriods}
           preMatchTab={model.preMatchTab}
           postMatchTab={model.postMatchTab}
+          onPressMatch={model.handlePressMatch}
+          onPressTeam={model.handlePressTeam}
+          onPressPlayer={model.handlePressPlayer}
+          onPressCompetition={model.handlePressCompetition}
         />
       </View>
     </ScrollView>

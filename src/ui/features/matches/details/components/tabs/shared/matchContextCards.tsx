@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next';
 
 import { formatMatchRound } from '@ui/shared/utils/formatMatchRound';
 import { AppImage } from '@ui/shared/media/AppImage';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type {
   MatchPostMatchUpcomingMatchesPayload,
@@ -65,35 +66,93 @@ export function MatchTeamLogo({
 function TeamRecentColumn({
   styles,
   teamName,
+  teamId,
   teamLogo,
   matches,
+  onPressMatch,
+  onPressTeam,
 }: {
   styles: MatchDetailsTabStyles;
   teamName: string;
+  teamId: string | null;
   teamLogo: string | null;
   matches: MatchPreMatchRecentResult[];
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
 }) {
   return (
     <View style={styles.preMatchRecentColumn}>
-      <View style={styles.preMatchRecentTeamHeader}>
-        <MatchTeamLogo styles={styles} logo={teamLogo} fallback={teamName} />
-        <Text style={styles.preMatchRecentTeamTitle} numberOfLines={1}>
-          {teamName}
-        </Text>
-      </View>
+      {teamId && onPressTeam ? (
+        <AppPressable
+          style={styles.preMatchRecentTeamHeader}
+          onPress={() => onPressTeam(teamId)}
+          accessibilityRole='button'
+          accessibilityLabel={teamName}
+        >
+          <MatchTeamLogo styles={styles} logo={teamLogo} fallback={teamName} />
+          <Text style={styles.preMatchRecentTeamTitle} numberOfLines={1}>
+            {teamName}
+          </Text>
+        </AppPressable>
+      ) : (
+        <View style={styles.preMatchRecentTeamHeader}>
+          <MatchTeamLogo styles={styles} logo={teamLogo} fallback={teamName} />
+          <Text style={styles.preMatchRecentTeamTitle} numberOfLines={1}>
+            {teamName}
+          </Text>
+        </View>
+      )}
       {matches.map(match => (
         <View key={match.fixtureId} style={styles.preMatchRecentMatchRow}>
-          <MatchTeamLogo
-            styles={styles}
-            logo={match.homeTeamLogo}
-            fallback={match.homeTeamName ?? ''}
-          />
-          <ResultPill styles={styles} result={match.result} score={match.score} />
-          <MatchTeamLogo
-            styles={styles}
-            logo={match.awayTeamLogo}
-            fallback={match.awayTeamName ?? ''}
-          />
+          {match.homeTeamId && onPressTeam ? (
+            <AppPressable
+              onPress={() => onPressTeam(match.homeTeamId ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={match.homeTeamName ?? teamName}
+            >
+              <MatchTeamLogo
+                styles={styles}
+                logo={match.homeTeamLogo}
+                fallback={match.homeTeamName ?? ''}
+              />
+            </AppPressable>
+          ) : (
+            <MatchTeamLogo
+              styles={styles}
+              logo={match.homeTeamLogo}
+              fallback={match.homeTeamName ?? ''}
+            />
+          )}
+          {onPressMatch ? (
+            <AppPressable
+              onPress={() => onPressMatch(match.fixtureId)}
+              accessibilityRole='button'
+              accessibilityLabel={match.score ?? match.fixtureId}
+            >
+              <ResultPill styles={styles} result={match.result} score={match.score} />
+            </AppPressable>
+          ) : (
+            <ResultPill styles={styles} result={match.result} score={match.score} />
+          )}
+          {match.awayTeamId && onPressTeam ? (
+            <AppPressable
+              onPress={() => onPressTeam(match.awayTeamId ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={match.awayTeamName ?? teamName}
+            >
+              <MatchTeamLogo
+                styles={styles}
+                logo={match.awayTeamLogo}
+                fallback={match.awayTeamName ?? ''}
+              />
+            </AppPressable>
+          ) : (
+            <MatchTeamLogo
+              styles={styles}
+              logo={match.awayTeamLogo}
+              fallback={match.awayTeamName ?? ''}
+            />
+          )}
         </View>
       ))}
     </View>
@@ -104,44 +163,108 @@ function TeamUpcomingColumn({
   styles,
   t,
   teamName,
+  teamId,
   teamLogo,
   matches,
+  onPressMatch,
+  onPressTeam,
 }: {
   styles: MatchDetailsTabStyles;
   t: TFunction;
   teamName: string;
+  teamId: string | null;
   teamLogo: string | null;
   matches: MatchPostMatchUpcomingMatchesPayload['home']['matches'];
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
 }) {
   return (
     <View style={styles.preMatchRecentColumn}>
-      <View style={styles.preMatchRecentTeamHeader}>
-        <MatchTeamLogo styles={styles} logo={teamLogo} fallback={teamName} />
-        <Text style={styles.preMatchRecentTeamTitle} numberOfLines={1}>
-          {teamName}
-        </Text>
-      </View>
+      {teamId && onPressTeam ? (
+        <AppPressable
+          style={styles.preMatchRecentTeamHeader}
+          onPress={() => onPressTeam(teamId)}
+          accessibilityRole='button'
+          accessibilityLabel={teamName}
+        >
+          <MatchTeamLogo styles={styles} logo={teamLogo} fallback={teamName} />
+          <Text style={styles.preMatchRecentTeamTitle} numberOfLines={1}>
+            {teamName}
+          </Text>
+        </AppPressable>
+      ) : (
+        <View style={styles.preMatchRecentTeamHeader}>
+          <MatchTeamLogo styles={styles} logo={teamLogo} fallback={teamName} />
+          <Text style={styles.preMatchRecentTeamTitle} numberOfLines={1}>
+            {teamName}
+          </Text>
+        </View>
+      )}
 
       {matches.map(match => (
         <View key={match.fixtureId} style={styles.preMatchRecentMatchRow}>
-          <MatchTeamLogo
-            styles={styles}
-            logo={match.homeTeamLogo}
-            fallback={match.homeTeamName ?? ''}
-          />
-          <View style={styles.postMatchUpcomingInfo}>
-            <Text numberOfLines={1} style={styles.newsText}>
-              {match.homeTeamName ?? '—'} vs {match.awayTeamName ?? '—'}
-            </Text>
-            <Text numberOfLines={1} style={styles.postMatchUpcomingMeta}>
-              {match.kickoffDisplay ?? t('matchDetails.values.unavailable')}
-            </Text>
-          </View>
-          <MatchTeamLogo
-            styles={styles}
-            logo={match.awayTeamLogo}
-            fallback={match.awayTeamName ?? ''}
-          />
+          {match.homeTeamId && onPressTeam ? (
+            <AppPressable
+              onPress={() => onPressTeam(match.homeTeamId ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={match.homeTeamName ?? teamName}
+            >
+              <MatchTeamLogo
+                styles={styles}
+                logo={match.homeTeamLogo}
+                fallback={match.homeTeamName ?? ''}
+              />
+            </AppPressable>
+          ) : (
+            <MatchTeamLogo
+              styles={styles}
+              logo={match.homeTeamLogo}
+              fallback={match.homeTeamName ?? ''}
+            />
+          )}
+          {onPressMatch ? (
+            <AppPressable
+              style={styles.postMatchUpcomingInfo}
+              onPress={() => onPressMatch(match.fixtureId)}
+              accessibilityRole='button'
+              accessibilityLabel={`${match.homeTeamName ?? '—'} vs ${match.awayTeamName ?? '—'}`}
+            >
+              <Text numberOfLines={1} style={styles.newsText}>
+                {match.homeTeamName ?? '—'} vs {match.awayTeamName ?? '—'}
+              </Text>
+              <Text numberOfLines={1} style={styles.postMatchUpcomingMeta}>
+                {match.kickoffDisplay ?? t('matchDetails.values.unavailable')}
+              </Text>
+            </AppPressable>
+          ) : (
+            <View style={styles.postMatchUpcomingInfo}>
+              <Text numberOfLines={1} style={styles.newsText}>
+                {match.homeTeamName ?? '—'} vs {match.awayTeamName ?? '—'}
+              </Text>
+              <Text numberOfLines={1} style={styles.postMatchUpcomingMeta}>
+                {match.kickoffDisplay ?? t('matchDetails.values.unavailable')}
+              </Text>
+            </View>
+          )}
+          {match.awayTeamId && onPressTeam ? (
+            <AppPressable
+              onPress={() => onPressTeam(match.awayTeamId ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={match.awayTeamName ?? teamName}
+            >
+              <MatchTeamLogo
+                styles={styles}
+                logo={match.awayTeamLogo}
+                fallback={match.awayTeamName ?? ''}
+              />
+            </AppPressable>
+          ) : (
+            <MatchTeamLogo
+              styles={styles}
+              logo={match.awayTeamLogo}
+              fallback={match.awayTeamName ?? ''}
+            />
+          )}
         </View>
       ))}
     </View>
@@ -237,11 +360,13 @@ export function MatchCompetitionMetaCard({
   colors,
   t,
   payload,
+  onPressCompetition,
 }: {
   styles: MatchDetailsTabStyles;
   colors: ThemeColors;
   t: TFunction;
   payload: MatchPreMatchCompetitionMetaPayload;
+  onPressCompetition?: (competitionId: string) => void;
 }) {
   const roundLabel = payload.competitionRound
     ? formatMatchRound(payload.competitionRound, t)
@@ -252,16 +377,34 @@ export function MatchCompetitionMetaCard({
       <Text style={styles.cardTitle}>{t('matchDetails.preMatch.competitionMeta.title')}</Text>
 
       <View style={styles.preMatchGridContainer}>
-        <View style={[styles.preMatchGridItem, styles.preMatchGridItemFull]}>
-          <View style={styles.preMatchGridIconRow}>
-            <MaterialCommunityIcons name="trophy-outline" size={18} color={colors.primary} />
-            <Text style={styles.preMatchGridLabel}>{t('matchDetails.labels.league')}</Text>
+        {payload.competitionId && onPressCompetition ? (
+          <AppPressable
+            style={[styles.preMatchGridItem, styles.preMatchGridItemFull]}
+            onPress={() => onPressCompetition(payload.competitionId ?? '')}
+            accessibilityRole='button'
+            accessibilityLabel={payload.competitionName ?? t('matchDetails.values.unavailable')}
+          >
+            <View style={styles.preMatchGridIconRow}>
+              <MaterialCommunityIcons name="trophy-outline" size={18} color={colors.primary} />
+              <Text style={styles.preMatchGridLabel}>{t('matchDetails.labels.league')}</Text>
+            </View>
+            <Text style={styles.preMatchGridValue}>
+              {payload.competitionName ?? t('matchDetails.values.unavailable')}
+              {payload.competitionType ? ` · ${payload.competitionType}` : ''}
+            </Text>
+          </AppPressable>
+        ) : (
+          <View style={[styles.preMatchGridItem, styles.preMatchGridItemFull]}>
+            <View style={styles.preMatchGridIconRow}>
+              <MaterialCommunityIcons name="trophy-outline" size={18} color={colors.primary} />
+              <Text style={styles.preMatchGridLabel}>{t('matchDetails.labels.league')}</Text>
+            </View>
+            <Text style={styles.preMatchGridValue}>
+              {payload.competitionName ?? t('matchDetails.values.unavailable')}
+              {payload.competitionType ? ` · ${payload.competitionType}` : ''}
+            </Text>
           </View>
-          <Text style={styles.preMatchGridValue}>
-            {payload.competitionName ?? t('matchDetails.values.unavailable')}
-            {payload.competitionType ? ` · ${payload.competitionType}` : ''}
-          </Text>
-        </View>
+        )}
 
         {roundLabel ? (
           <View style={styles.preMatchGridItem}>
@@ -301,10 +444,12 @@ export function MatchStandingsCard({
   styles,
   t,
   payload,
+  onPressTeam,
 }: {
   styles: MatchDetailsTabStyles;
   t: TFunction;
   payload: MatchPreMatchStandingsPayload;
+  onPressTeam?: (teamId: string) => void;
 }) {
   return (
     <View style={styles.card}>
@@ -322,7 +467,7 @@ export function MatchStandingsCard({
         <Text style={styles.preMatchStandingsCell}>{t('teamDetails.standings.headers.win')}</Text>
         <Text style={styles.preMatchStandingsCell}>{t('teamDetails.standings.headers.draw')}</Text>
         <Text style={styles.preMatchStandingsCell}>{t('teamDetails.standings.headers.loss')}</Text>
-        <Text style={styles.preMatchStandingsCell}>DB</Text>
+        <Text style={styles.preMatchStandingsCell}>{t('teamDetails.standings.headers.goalDiff')}</Text>
         <Text style={[styles.preMatchStandingsCell, styles.preMatchStandingsCellPoints]}>
           {t('teamDetails.standings.headers.points')}
         </Text>
@@ -333,12 +478,26 @@ export function MatchStandingsCard({
           <Text style={[styles.preMatchStandingsCellValue, styles.preMatchStandingsCellRank]}>
             {row.rank ?? '—'}
           </Text>
-          <View style={[styles.preMatchStandingsTeamCell, styles.preMatchStandingsCellTeam]}>
-            <MatchTeamLogo styles={styles} logo={row.teamLogo} fallback={row.teamName ?? ''} />
-            <Text style={styles.preMatchStandingsTeamName} numberOfLines={1}>
-              {row.teamName ?? t('matchDetails.values.unavailable')}
-            </Text>
-          </View>
+          {row.teamId && onPressTeam ? (
+            <AppPressable
+              style={[styles.preMatchStandingsTeamCell, styles.preMatchStandingsCellTeam]}
+              onPress={() => onPressTeam(row.teamId ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={row.teamName ?? t('matchDetails.values.unavailable')}
+            >
+              <MatchTeamLogo styles={styles} logo={row.teamLogo} fallback={row.teamName ?? ''} />
+              <Text style={styles.preMatchStandingsTeamName} numberOfLines={1}>
+                {row.teamName ?? t('matchDetails.values.unavailable')}
+              </Text>
+            </AppPressable>
+          ) : (
+            <View style={[styles.preMatchStandingsTeamCell, styles.preMatchStandingsCellTeam]}>
+              <MatchTeamLogo styles={styles} logo={row.teamLogo} fallback={row.teamName ?? ''} />
+              <Text style={styles.preMatchStandingsTeamName} numberOfLines={1}>
+                {row.teamName ?? t('matchDetails.values.unavailable')}
+              </Text>
+            </View>
+          )}
           <Text style={styles.preMatchStandingsCellValue}>{row.played ?? '—'}</Text>
           <Text style={styles.preMatchStandingsCellValue}>{row.win ?? '—'}</Text>
           <Text style={styles.preMatchStandingsCellValue}>{row.draw ?? '—'}</Text>
@@ -357,10 +516,14 @@ export function MatchRecentResultsCard({
   styles,
   t,
   payload,
+  onPressMatch,
+  onPressTeam,
 }: {
   styles: MatchDetailsTabStyles;
   t: TFunction;
   payload: MatchPreMatchRecentResultsPayload;
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
 }) {
   return (
     <View style={styles.card}>
@@ -369,14 +532,20 @@ export function MatchRecentResultsCard({
         <TeamRecentColumn
           styles={styles}
           teamName={payload.home.teamName}
+          teamId={payload.home.teamId}
           teamLogo={payload.home.teamLogo}
           matches={payload.home.matches}
+          onPressMatch={onPressMatch}
+          onPressTeam={onPressTeam}
         />
         <TeamRecentColumn
           styles={styles}
           teamName={payload.away.teamName}
+          teamId={payload.away.teamId}
           teamLogo={payload.away.teamLogo}
           matches={payload.away.matches}
+          onPressMatch={onPressMatch}
+          onPressTeam={onPressTeam}
         />
       </View>
     </View>
@@ -387,10 +556,14 @@ export function MatchUpcomingMatchesCard({
   styles,
   t,
   payload,
+  onPressMatch,
+  onPressTeam,
 }: {
   styles: MatchDetailsTabStyles;
   t: TFunction;
   payload: MatchPostMatchUpcomingMatchesPayload;
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
 }) {
   return (
     <View style={styles.card}>
@@ -400,15 +573,21 @@ export function MatchUpcomingMatchesCard({
           styles={styles}
           t={t}
           teamName={payload.home.teamName}
+          teamId={payload.home.teamId}
           teamLogo={payload.home.teamLogo}
           matches={payload.home.matches}
+          onPressMatch={onPressMatch}
+          onPressTeam={onPressTeam}
         />
         <TeamUpcomingColumn
           styles={styles}
           t={t}
           teamName={payload.away.teamName}
+          teamId={payload.away.teamId}
           teamLogo={payload.away.teamLogo}
           matches={payload.away.matches}
+          onPressMatch={onPressMatch}
+          onPressTeam={onPressTeam}
         />
       </View>
     </View>

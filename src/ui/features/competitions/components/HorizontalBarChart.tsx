@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 export type HorizontalBarChartItem = {
@@ -11,6 +12,8 @@ export type HorizontalBarChartItem = {
     maxValue: number;
     photoUrl?: string;
     rank: number;
+    playerId?: string;
+    teamId?: string;
 };
 
 type HorizontalBarChartProps = {
@@ -18,6 +21,8 @@ type HorizontalBarChartProps = {
     title?: string;
     valueSuffix?: string;
     valueFormatter?: (value: number, item: HorizontalBarChartItem) => string;
+    onPressPlayer?: (playerId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -138,6 +143,8 @@ export function HorizontalBarChart({
     title,
     valueSuffix,
     valueFormatter,
+    onPressPlayer,
+    onPressTeam,
 }: HorizontalBarChartProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -167,27 +174,73 @@ export function HorizontalBarChart({
                     <View key={item.id} style={styles.itemRow}>
                         <Text style={styles.rankText}>{item.rank}</Text>
 
-                        <View style={styles.photoContainer}>
-                            {showImage ? (
-                                <Image
-                                    source={{ uri: item.photoUrl }}
-                                    style={styles.photo}
-                                    resizeMode="contain"
-                                    onError={() => {
-                                        setFailedImageIds(previous => ({ ...previous, [item.id]: true }));
-                                    }}
-                                />
-                            ) : (
-                                <Text style={styles.photoFallback}>{toInitials(item.label)}</Text>
-                            )}
-                        </View>
+                        {item.playerId && onPressPlayer ? (
+                            <AppPressable
+                                style={styles.photoContainer}
+                                onPress={() => onPressPlayer(item.playerId ?? '')}
+                                accessibilityRole="button"
+                                accessibilityLabel={item.label}
+                            >
+                                {showImage ? (
+                                    <Image
+                                        source={{ uri: item.photoUrl }}
+                                        style={styles.photo}
+                                        resizeMode="contain"
+                                        onError={() => {
+                                            setFailedImageIds(previous => ({ ...previous, [item.id]: true }));
+                                        }}
+                                    />
+                                ) : (
+                                    <Text style={styles.photoFallback}>{toInitials(item.label)}</Text>
+                                )}
+                            </AppPressable>
+                        ) : (
+                            <View style={styles.photoContainer}>
+                                {showImage ? (
+                                    <Image
+                                        source={{ uri: item.photoUrl }}
+                                        style={styles.photo}
+                                        resizeMode="contain"
+                                        onError={() => {
+                                            setFailedImageIds(previous => ({ ...previous, [item.id]: true }));
+                                        }}
+                                    />
+                                ) : (
+                                    <Text style={styles.photoFallback}>{toInitials(item.label)}</Text>
+                                )}
+                            </View>
+                        )}
 
                         <View style={styles.chartInfoContent}>
                             <View style={styles.labelRow}>
-                                <Text style={styles.labelText} numberOfLines={1}>
-                                    {item.label}
-                                    {item.subLabel ? <Text style={styles.subLabelText}> • {item.subLabel}</Text> : null}
-                                </Text>
+                                {item.playerId && onPressPlayer ? (
+                                    <AppPressable
+                                        onPress={() => onPressPlayer(item.playerId ?? '')}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={item.label}
+                                    >
+                                        <Text style={styles.labelText} numberOfLines={1}>
+                                            {item.label}
+                                        </Text>
+                                    </AppPressable>
+                                ) : (
+                                    <Text style={styles.labelText} numberOfLines={1}>
+                                        {item.label}
+                                    </Text>
+                                )}
+                                {item.subLabel ? (
+                                    item.teamId && onPressTeam ? (
+                                        <AppPressable
+                                            onPress={() => onPressTeam(item.teamId ?? '')}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={item.subLabel}
+                                        >
+                                            <Text style={styles.subLabelText}> • {item.subLabel}</Text>
+                                        </AppPressable>
+                                    ) : (
+                                        <Text style={styles.subLabelText}> • {item.subLabel}</Text>
+                                    )
+                                ) : null}
                                 <Text style={styles.valueText}>{renderedValue}</Text>
                             </View>
 

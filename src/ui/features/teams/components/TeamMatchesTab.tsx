@@ -22,6 +22,7 @@ type TeamMatchesTabProps = {
   data: TeamMatchesData | undefined;
   isLoading: boolean;
   isError: boolean;
+  hasFetched?: boolean;
   onRetry: () => void;
   onPressMatch: (matchId: string) => void;
   onPressTeam: (teamId: string) => void;
@@ -195,6 +196,7 @@ export function TeamMatchesTab({
   data,
   isLoading,
   isError,
+  hasFetched = true,
   onRetry,
   onPressMatch,
   onPressTeam,
@@ -214,6 +216,9 @@ export function TeamMatchesTab({
     [data, teamId, t, venueFilter],
   );
   const keyExtractor = useCallback((item: MatchFeedItem) => item.key, []);
+  const hasRows = feedItems.length > 0;
+  const shouldShowLoadingState = (isLoading || !hasFetched) && !hasRows;
+  const shouldShowErrorState = isError && !hasRows;
 
   const renderItem = useCallback<ListRenderItem<MatchFeedItem>>(
     ({ item }) => {
@@ -253,13 +258,13 @@ export function TeamMatchesTab({
         })}
       </View>
 
-      {isLoading ? (
+      {shouldShowLoadingState ? (
         <View style={styles.stateCard}>
           <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
         </View>
       ) : null}
 
-      {isError ? (
+      {shouldShowErrorState ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
           <Pressable onPress={onRetry} hitSlop={DEFAULT_HIT_SLOP}>
@@ -268,13 +273,15 @@ export function TeamMatchesTab({
         </View>
       ) : null}
 
-      {!isLoading && !isError ? (
+      {!shouldShowLoadingState && !shouldShowErrorState ? (
         <FlashList
           data={feedItems}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           estimatedItemSize={120}
-          ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
+          ListEmptyComponent={
+            hasFetched ? <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text> : null
+          }
         />
       ) : null}
     </View>

@@ -8,6 +8,10 @@ import { MatchesPage } from '@/pages/MatchesPage';
 import { PlayersPage } from '@/pages/PlayersPage';
 import { SearchPage } from '@/pages/SearchPage';
 import { TeamsPage } from '@/pages/TeamsPage';
+import { CookiesPolicyPage } from '@/pages/legal/CookiesPolicyPage';
+import { DataDeletionPage } from '@/pages/legal/DataDeletionPage';
+import { PrivacyPolicyPage } from '@/pages/legal/PrivacyPolicyPage';
+import { TermsOfUsePage } from '@/pages/legal/TermsOfUsePage';
 
 const routes = [
   { to: '/', key: 'home' },
@@ -17,6 +21,13 @@ const routes = [
   { to: '/competitions', key: 'competitions' },
   { to: '/search', key: 'search' },
   { to: '/follows', key: 'follows' },
+] as const;
+
+const legalRoutes = [
+  { to: '/legal/privacy', key: 'privacy' },
+  { to: '/legal/terms', key: 'terms' },
+  { to: '/legal/cookies', key: 'cookies' },
+  { to: '/legal/data-deletion', key: 'dataDeletion' },
 ] as const;
 
 export function App() {
@@ -73,7 +84,21 @@ export function App() {
         <Route path="/competitions" element={<CompetitionsPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/follows" element={<FollowsPage />} />
+        <Route path="/legal/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/legal/terms" element={<TermsOfUsePage />} />
+        <Route path="/legal/cookies" element={<CookiesPolicyPage />} />
+        <Route path="/legal/data-deletion" element={<DataDeletionPage />} />
       </Routes>
+
+      <footer className="legal-footer">
+        <span>{t('app.legal.footerTitle')}</span>
+        {legalRoutes.map(route => (
+          <NavLink key={route.key} to={route.to}>
+            {t(`app.legal.routes.${route.key}`)}
+          </NavLink>
+        ))}
+        <p className="legal-disclaimer">{t('app.legal.disclaimer')}</p>
+      </footer>
     </div>
   );
 }

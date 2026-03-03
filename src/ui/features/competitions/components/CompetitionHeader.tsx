@@ -16,6 +16,7 @@ type CompetitionHeaderProps = {
     isFollowed: boolean;
     onBack: () => void;
     onToggleFollow: () => void;
+    onOpenNotificationModal: () => void;
     onOpenSeasonPicker: () => void;
 };
 
@@ -37,12 +38,45 @@ function createStyles(colors: ThemeColors, topInset: number) {
             alignItems: 'center',
             marginBottom: 10,
         },
-        topBarSpacer: {
-            width: 44,
-            height: 44,
+        topBarRightActions: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
         },
         iconButton: {
-            backgroundColor: colors.surface,
+            backgroundColor: colors.surfaceElevated,
+            width: 40,
+            height: 40,
+        },
+        followButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.text,
+            paddingHorizontal: 16,
+            height: 40,
+            borderRadius: 20,
+        },
+        followButtonOutline: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            borderColor: colors.border,
+            paddingHorizontal: 16,
+            height: 40,
+            borderRadius: 20,
+        },
+        followButtonText: {
+            color: colors.background,
+            fontSize: 15,
+            fontWeight: '700',
+        },
+        followButtonTextOutline: {
+            color: colors.text,
+            fontSize: 15,
+            fontWeight: '700',
         },
         profileSection: {
             alignItems: 'center',
@@ -112,6 +146,7 @@ export function CompetitionHeader({
     isFollowed,
     onBack,
     onToggleFollow,
+    onOpenNotificationModal,
     onOpenSeasonPicker
 }: CompetitionHeaderProps) {
     const { colors } = useAppTheme();
@@ -134,19 +169,30 @@ export function CompetitionHeader({
                     <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
                 </IconActionButton>
 
-                <View style={styles.topBarSpacer} />
+                <View style={styles.topBarRightActions}>
+                    <IconActionButton
+                        accessibilityLabel={t('actions.openNotifications')}
+                        onPress={onOpenNotificationModal}
+                        style={styles.iconButton}
+                    >
+                        <MaterialCommunityIcons
+                            name={isFollowed ? "bell-ring" : "bell-outline"}
+                            size={20}
+                            color={isFollowed ? colors.primary : colors.text}
+                        />
+                    </IconActionButton>
 
-                <IconActionButton
-                    accessibilityLabel={t('actions.openNotifications')}
-                    onPress={onToggleFollow}
-                    style={styles.iconButton}
-                >
-                    <MaterialCommunityIcons
-                        name={isFollowed ? "bell-ring" : "bell-outline"}
-                        size={24}
-                        color={isFollowed ? colors.primary : colors.text}
-                    />
-                </IconActionButton>
+                    <AppPressable
+                        style={isFollowed ? styles.followButtonOutline : styles.followButton}
+                        onPress={onToggleFollow}
+                        accessibilityRole="button"
+                        accessibilityLabel={isFollowed ? t('actions.following', { defaultValue: 'Suivi' }) : t('actions.follow', { defaultValue: 'Suivre' })}
+                    >
+                        <Text style={isFollowed ? styles.followButtonTextOutline : styles.followButtonText}>
+                            {isFollowed ? t('actions.following', { defaultValue: 'Suivi' }) : t('actions.follow', { defaultValue: 'Suivre' })}
+                        </Text>
+                    </AppPressable>
+                </View>
             </View>
 
             <View style={styles.profileSection}>

@@ -96,7 +96,7 @@ export function TeamStandingsTab({
           <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.win')}</Text></View>
           <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.draw')}</Text></View>
           <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.loss')}</Text></View>
-          <View style={styles.colStatLarge}><Text style={styles.tableHeaderText}>+/-</Text></View>
+          <View style={styles.colStatLarge}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalsForAgainst')}</Text></View>
           <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
           <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
         </>

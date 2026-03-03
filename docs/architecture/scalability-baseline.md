@@ -1,54 +1,69 @@
-# Scalability Baseline (BFF + Clients)
+# Scalability Baseline (FootAlert BFF 10K -> 1M)
 
-Date: 2026-02-28  
-Scope: `/v1/matches`, `/v1/competitions/{id}/matches`, `/v1/teams/{id}/players`
+Date: 2026-03-02  
+Scope: cache/read routes, API-Football protection, notifications dispatch/send pipeline
 
-## Baseline Snapshot
+## SLO Targets
 
-| Metric | `/v1/matches` | `/v1/competitions/{id}/matches` | `/v1/teams/{id}/players` |
-| --- | --- | --- | --- |
-| p95 latency (origin) | pending capture | pending capture | pending capture |
-| avg payload size (bytes) | pending capture | pending capture | pending capture |
-| upstream fan-out per screen | pending capture | pending capture | pending capture |
-| cache hit ratio (BFF) | pending capture | pending capture | pending capture |
+| Domain | SLI | Target |
+| --- | --- | --- |
+| Read API | p95 latency on critical routes | <= 1200 ms |
+| Upstream API-Football | uncontrolled expiration burst | 0 stampede burst |
+| Notifications queue | `notifications_queue_lag_ms` p95 | < 60 000 ms |
+| Notifications delivery | failure ratio over 15 min | < 5% |
+| Fanout policy | immediate sends per event | max 10 000 |
 
-## Release Gate Thresholds
+## Implemented Controls (P2 + P3)
 
-These thresholds become blocking once baseline values are captured.
+1. Cache anti-stampede:
+   - process-local coalescing (`inFlight`) kept.
+   - Redis distributed lock added (`SET NX PX`) in `withCache`.
+   - bounded wait/re-check (`CACHE_COALESCE_WAIT_MS`).
+   - stale fallback when upstream is degraded.
+2. Cache expiration smoothing:
+   - TTL jitter added (`CACHE_TTL_JITTER_PCT`, default 15%).
+3. Upstream quota protection:
+   - global token bucket guard per minute (`UPSTREAM_GLOBAL_RPM_LIMIT`).
+   - explicit 429 `UPSTREAM_QUOTA_EXCEEDED`.
+4. Upstream circuit breaker:
+   - opens on upstream 429/5xx for `UPSTREAM_CIRCUIT_BREAKER_WINDOW_MS`.
+   - explicit 429 `UPSTREAM_CIRCUIT_OPEN`.
+5. Notifications persistence scaling:
+   - migration `004_notifications_scaling.sql` indexes for event/device/status/time filters.
+   - bulk delivery insert via `UNNEST` (no per-device insert loop).
+   - pending delivery pagination cursor API in store.
+6. Fanout throttling:
+   - cap `NOTIFICATIONS_FANOUT_MAX_PER_EVENT` (default 10 000 immediate).
+   - overflow in `deferred`.
+   - deferred promotion worker (`NOTIFICATIONS_DEFERRED_PROMOTION_BATCH`, `NOTIFICATIONS_DEFERRED_DELAY_MS`).
 
-| Gate | Threshold |
-| --- | --- |
-| p95 latency | <= 1200ms per scoped route |
-| avg payload size drift | <= +20% vs previous release baseline |
-| upstream fan-out | no regression vs previous release baseline |
-| contract drift | 0 undocumented endpoint/query changes |
+## k6 Benchmark Profiles
 
-## Capture Protocol
+Planned profiles for staging baselines:
 
-1. Enable request timing logs on staging BFF for 24h window.
-2. Run smoke traffic with and without cursor params:
-   - `GET /v1/matches?date&timezone`
-   - `GET /v1/matches?date&timezone&limit=50`
-   - `GET /v1/competitions/{id}/matches?season`
-   - `GET /v1/competitions/{id}/matches?season&limit=50`
-   - `GET /v1/teams/{id}/players?leagueId&season&page=1`
-   - `GET /v1/teams/{id}/players?leagueId&season&limit=50`
-3. Collect:
-   - p50/p95/p99 latency per route,
-   - payload size distribution,
-   - number of upstream API-Football calls per mobile screen load.
-4. Store the captured values in this file and keep one row per release cut.
+1. 10K profile (steady):
+   - read-heavy on `/v1/matches`, `/v1/competitions/{id}/matches`.
+2. 100K profile (burst + expiry):
+   - synchronized cache expiry simulation.
+   - upstream 429 simulation and breaker open/close validation.
+3. 1M model (extrapolated + queue pressure):
+   - large notifications fanout events (12K+ recipients).
+   - deferred backlog drain observation.
 
-## CI/Operational Enforcement (v2)
+## Reporting Format (to populate after run)
 
-1. Contract check must include platform-scope validation (`x-platform-scope`).
-2. App-core shared service tests must pass before web/desktop jobs.
-3. Web parity smoke journeys must pass in CI.
-4. Desktop smoke checks must keep tauri shell aligned with web route manifest.
+| Profile | p95 read latency | queue lag p95 | send failure ratio | deferred backlog max | status |
+| --- | --- | --- | --- | --- | --- |
+| 10K | pending | pending | pending | pending | pending |
+| 100K | pending | pending | pending | pending | pending |
+| 1M | pending | pending | pending | pending | pending |
 
-## Current Architecture Flags
+## Gate Conditions
 
-- Cursor pagination available on the 3 scoped list routes.
-- Legacy behavior preserved when `cursor` and `limit` are omitted.
-- Redis strict mode is enforced for `APP_ENV in {staging, production}`.
-- Health endpoint reports cache degradation and returns `503` when strict cache is degraded.
+Release gate passes only when:
+
+1. Read p95 <= 1200 ms on target routes.
+2. No uncontrolled upstream burst during cache expiry tests.
+3. `notifications_queue_lag_ms` p95 < 60 s.
+4. Delivery failures < 5% over 15 minutes.
+5. Immediate fanout never exceeds configured cap (default 10 000/event).

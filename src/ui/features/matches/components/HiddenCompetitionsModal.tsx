@@ -7,18 +7,17 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
+type HiddenCompetitionItem = {
+    id: string;
+    name: string;
+};
+
 type HiddenCompetitionsModalProps = {
     visible: boolean;
     onClose: () => void;
-    hiddenIds: string[];
+    hiddenCompetitions: HiddenCompetitionItem[];
     onUnhide: (id: string) => void;
 };
-
-// We will attempt to get competition names from the cached matches query
-function getCompetitionName(id: string): string {
-    // Simplistic fallback while name lookup is not wired to cache yet.
-    return `Competition ${id}`;
-}
 
 function createStyles(colors: ThemeColors) {
     return StyleSheet.create({
@@ -106,7 +105,7 @@ function createStyles(colors: ThemeColors) {
 export function HiddenCompetitionsModal({
     visible,
     onClose,
-    hiddenIds,
+    hiddenCompetitions,
     onUnhide,
 }: HiddenCompetitionsModalProps) {
     const { colors } = useAppTheme();
@@ -123,22 +122,24 @@ export function HiddenCompetitionsModal({
             <View style={styles.overlay}>
                 <SafeAreaView style={styles.modalContainer} edges={['bottom']}>
                     <View style={styles.header}>
-                        <Text style={styles.title}>{t('matches.hiddenCompetitions_hidden', { defaultValue: 'Hidden Competitions' })}</Text>
+                        <Text style={styles.title}>{t('matches.hiddenCompetitions_hidden')}</Text>
                         <Pressable onPress={onClose} style={styles.closeButton}>
                             <MaterialCommunityIcons name="close" size={24} color={colors.text} />
                         </Pressable>
                     </View>
 
                     <FlatList
-                        data={hiddenIds}
-                        keyExtractor={id => id}
+                        data={hiddenCompetitions}
+                        keyExtractor={item => item.id}
                         contentContainerStyle={styles.listContent}
                         renderItem={({ item }) => (
                             <View style={styles.item}>
-                                <Text style={styles.itemName}>{getCompetitionName(item)}</Text>
-                                <Pressable onPress={() => onUnhide(item)} style={styles.unhideButton}>
+                                <Text style={styles.itemName}>
+                                    {item.name || t('matchDetails.values.unavailable')}
+                                </Text>
+                                <Pressable onPress={() => onUnhide(item.id)} style={styles.unhideButton}>
                                     <MaterialCommunityIcons name="eye-outline" size={16} color={colors.primary} />
-                                    <Text style={styles.unhideButtonText}>{t('actions.show', { defaultValue: 'Show' })}</Text>
+                                    <Text style={styles.unhideButtonText}>{t('actions.show')}</Text>
                                 </Pressable>
                             </View>
                         )}
@@ -146,7 +147,7 @@ export function HiddenCompetitionsModal({
                             <View style={styles.emptyState}>
                                 <MaterialCommunityIcons name="eye-check-outline" size={48} color={colors.textMuted} />
                                 <Text style={styles.emptyStateText}>
-                                    {t('matches.hiddenCompetitions_empty', { defaultValue: 'No hidden competitions' })}
+                                    {t('matches.hiddenCompetitions_empty')}
                                 </Text>
                             </View>
                         }

@@ -16,12 +16,19 @@ import type { Transfer } from '../types/competitions.types';
 type CompetitionTransfersTabProps = {
     competitionId: number;
     season: number;
+    onPressPlayer?: (playerId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
 type TransfersFilter = 'all' | 'arrivals' | 'departures';
 type TransfersSort = 'latest' | 'oldest';
 
-export function CompetitionTransfersTab({ competitionId, season }: CompetitionTransfersTabProps) {
+export function CompetitionTransfersTab({
+    competitionId,
+    season,
+    onPressPlayer,
+    onPressTeam,
+}: CompetitionTransfersTabProps) {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -54,8 +61,14 @@ export function CompetitionTransfersTab({ competitionId, season }: CompetitionTr
     }, [activeSort, filteredTransfers]);
 
     const renderItem = useCallback(({ item }: { item: Transfer }) => {
-        return <TransferCard transfer={item} />;
-    }, []);
+        return (
+            <TransferCard
+                transfer={item}
+                onPressPlayer={onPressPlayer}
+                onPressTeam={onPressTeam}
+            />
+        );
+    }, [onPressPlayer, onPressTeam]);
 
     if (isLoading) {
         return (

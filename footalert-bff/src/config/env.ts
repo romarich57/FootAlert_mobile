@@ -8,14 +8,27 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_TRUST_PROXY_HOPS = 0;
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
+const DEFAULT_CACHE_TTL_JITTER_PCT = 15;
+const DEFAULT_CACHE_LOCK_TTL_MS = 3_000;
+const DEFAULT_CACHE_COALESCE_WAIT_MS = 750;
+const DEFAULT_UPSTREAM_GLOBAL_RPM_LIMIT = 600;
+const DEFAULT_UPSTREAM_CIRCUIT_BREAKER_WINDOW_MS = 30_000;
 const DEFAULT_REDIS_CACHE_PREFIX = 'footalert:bff:';
 const DEFAULT_BFF_EXPOSE_ERROR_DETAILS = false;
-const DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS = 10 * 60_000;
+const DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS = 15 * 60_000;
+const DEFAULT_MOBILE_REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60_000;
 const DEFAULT_MOBILE_AUTH_CHALLENGE_TTL_MS = 2 * 60_000;
 const DEFAULT_MOBILE_ATTESTATION_ACCEPT_MOCK = false;
+const DEFAULT_MOBILE_ATTESTATION_ENFORCEMENT_MODE = 'strict';
 const DEFAULT_PAGINATION_CURSOR_TTL_MS = 15 * 60_000;
+const DEFAULT_NOTIFICATIONS_BACKEND_ENABLED = true;
+const DEFAULT_NOTIFICATIONS_EVENT_INGEST_ENABLED = true;
+const DEFAULT_NOTIFICATIONS_FANOUT_MAX_PER_EVENT = 10_000;
+const DEFAULT_NOTIFICATIONS_DEFERRED_PROMOTION_BATCH = 1_000;
+const DEFAULT_NOTIFICATIONS_DEFERRED_DELAY_MS = 15_000;
 
 type CacheBackend = 'memory' | 'redis';
+type NotificationsPersistenceBackend = 'memory' | 'postgres';
 type AppEnv = 'development' | 'test' | 'staging' | 'production';
 
 type BffEnv = {
@@ -33,6 +46,11 @@ type BffEnv = {
   webAppOrigin: string | null;
   cacheMaxEntries: number;
   cacheCleanupIntervalMs: number;
+  cacheTtlJitterPct: number;
+  cacheLockTtlMs: number;
+  cacheCoalesceWaitMs: number;
+  upstreamGlobalRpmLimit: number;
+  upstreamCircuitBreakerWindowMs: number;
   cacheBackend: CacheBackend;
   cacheStrictMode: boolean;
   redisUrl: string | null;
@@ -40,11 +58,39 @@ type BffEnv = {
   bffExposeErrorDetails: boolean;
   mobileSessionJwtSecret: string | null;
   mobileSessionTokenTtlMs: number;
+  mobileRefreshTokenTtlMs: number;
   mobileAuthChallengeTtlMs: number;
   mobileAttestationAcceptMock: boolean;
+  mobileAttestationEnforcementMode: 'strict' | 'report_only';
+  mobileAuthEnforcedHosts: string[];
+  mobilePlayIntegrityPackageName: string | null;
+  mobilePlayIntegrityServiceAccountEmail: string | null;
+  mobilePlayIntegrityServiceAccountPrivateKey: string | null;
+  mobileAppAttestBundleId: string | null;
+  mobileAppAttestTeamId: string | null;
+  mobileAppAttestVerificationUrl: string | null;
+  mobileAppAttestVerificationSecret: string | null;
   paginationCursorSecret: string;
   paginationCursorTtlMs: number;
+  notificationsBackendEnabled: boolean;
+  notificationsEventIngestEnabled: boolean;
+  notificationsPersistenceBackend: NotificationsPersistenceBackend;
+  notificationsFanoutMaxPerEvent: number;
+  notificationsDeferredPromotionBatch: number;
+  notificationsDeferredDelayMs: number;
+  databaseUrl: string | null;
+  notificationsIngestToken: string | null;
+  pushTokenEncryptionKey: string | null;
+  firebaseProjectId: string | null;
+  firebaseClientEmail: string | null;
+  firebasePrivateKey: string | null;
 };
+
+const LEGACY_HMAC_ENV_KEYS = [
+  'MOBILE_REQUEST_SIGNING_KEY',
+  'MOBILE_REQUEST_SIGNING_SECRET',
+  'MOBILE_REQUEST_SIGNATURE_HEADER',
+] as const;
 
 function normalizeUrl(value: string): string {
   return value.replace(/\/+$/, '');
@@ -57,6 +103,19 @@ function readPositiveInt(rawValue: string | undefined, fallback: number): number
 
   const parsed = Number.parseInt(rawValue, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function readNonNegativeInt(rawValue: string | undefined, fallback: number): number {
+  if (!rawValue) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
     return fallback;
   }
 
@@ -101,6 +160,21 @@ function readCacheBackend(rawValue: string | undefined, fallback: CacheBackend):
   return fallback;
 }
 
+function readNotificationsPersistenceBackend(
+  rawValue: string | undefined,
+  fallback: NotificationsPersistenceBackend,
+): NotificationsPersistenceBackend {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (normalized === 'postgres') {
+    return 'postgres';
+  }
+  if (normalized === 'memory') {
+    return 'memory';
+  }
+
+  return fallback;
+}
+
 function readOptionalValue(rawValue: string | undefined): string | null {
   const value = rawValue?.trim();
   return value ? value : null;
@@ -124,6 +198,19 @@ function readCsvList(rawValue: string | undefined): string[] {
     .split(',')
     .map(value => value.trim())
     .filter(Boolean);
+}
+
+function readAttestationEnforcementMode(rawValue: string | undefined): 'strict' | 'report_only' {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (normalized === 'report_only' || normalized === 'report-only') {
+    return 'report_only';
+  }
+
+  return DEFAULT_MOBILE_ATTESTATION_ENFORCEMENT_MODE;
+}
+
+function readHostList(rawValue: string | undefined): string[] {
+  return readCsvList(rawValue).map(host => host.toLowerCase());
 }
 
 function readOptionalOrigin(rawValue: string | undefined): string | null {
@@ -176,9 +263,18 @@ function defaultCacheBackendForEnv(appEnv: AppEnv): CacheBackend {
   return 'memory';
 }
 
+function defaultNotificationsPersistenceBackendForEnv(appEnv: AppEnv): NotificationsPersistenceBackend {
+  if (appEnv === 'production' || appEnv === 'staging') {
+    return 'postgres';
+  }
+
+  return 'memory';
+}
+
 const resolvedAppEnv = readAppEnv(process.env.APP_ENV || process.env.NODE_ENV);
 const defaultCacheBackend = defaultCacheBackendForEnv(resolvedAppEnv);
 const defaultCacheStrictMode = resolvedAppEnv === 'production' || resolvedAppEnv === 'staging';
+const defaultNotificationsPersistenceBackend = defaultNotificationsPersistenceBackendForEnv(resolvedAppEnv);
 
 export const env: BffEnv = {
   appEnv: resolvedAppEnv,
@@ -206,6 +302,26 @@ export const env: BffEnv = {
     process.env.CACHE_CLEANUP_INTERVAL_MS,
     DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
   ),
+  cacheTtlJitterPct: readNonNegativeInt(
+    process.env.CACHE_TTL_JITTER_PCT,
+    DEFAULT_CACHE_TTL_JITTER_PCT,
+  ),
+  cacheLockTtlMs: readPositiveInt(
+    process.env.CACHE_LOCK_TTL_MS,
+    DEFAULT_CACHE_LOCK_TTL_MS,
+  ),
+  cacheCoalesceWaitMs: readPositiveInt(
+    process.env.CACHE_COALESCE_WAIT_MS,
+    DEFAULT_CACHE_COALESCE_WAIT_MS,
+  ),
+  upstreamGlobalRpmLimit: readNonNegativeInt(
+    process.env.UPSTREAM_GLOBAL_RPM_LIMIT,
+    DEFAULT_UPSTREAM_GLOBAL_RPM_LIMIT,
+  ),
+  upstreamCircuitBreakerWindowMs: readPositiveInt(
+    process.env.UPSTREAM_CIRCUIT_BREAKER_WINDOW_MS,
+    DEFAULT_UPSTREAM_CIRCUIT_BREAKER_WINDOW_MS,
+  ),
   cacheBackend: readCacheBackend(process.env.CACHE_BACKEND, defaultCacheBackend),
   cacheStrictMode: readBoolean(process.env.CACHE_STRICT_MODE, defaultCacheStrictMode),
   redisUrl: readOptionalValue(process.env.REDIS_URL),
@@ -219,6 +335,10 @@ export const env: BffEnv = {
     process.env.MOBILE_SESSION_TOKEN_TTL_MS,
     DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS,
   ),
+  mobileRefreshTokenTtlMs: readPositiveInt(
+    process.env.MOBILE_REFRESH_TOKEN_TTL_MS,
+    DEFAULT_MOBILE_REFRESH_TOKEN_TTL_MS,
+  ),
   mobileAuthChallengeTtlMs: readPositiveInt(
     process.env.MOBILE_AUTH_CHALLENGE_TTL_MS,
     DEFAULT_MOBILE_AUTH_CHALLENGE_TTL_MS,
@@ -227,11 +347,58 @@ export const env: BffEnv = {
     process.env.MOBILE_ATTESTATION_ACCEPT_MOCK,
     DEFAULT_MOBILE_ATTESTATION_ACCEPT_MOCK,
   ),
+  mobileAttestationEnforcementMode: readAttestationEnforcementMode(
+    process.env.MOBILE_ATTESTATION_ENFORCEMENT_MODE,
+  ),
+  mobileAuthEnforcedHosts: readHostList(process.env.MOBILE_AUTH_ENFORCED_HOSTS),
+  mobilePlayIntegrityPackageName: readOptionalValue(process.env.MOBILE_PLAY_INTEGRITY_PACKAGE_NAME),
+  mobilePlayIntegrityServiceAccountEmail: readOptionalValue(
+    process.env.MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_EMAIL,
+  ),
+  mobilePlayIntegrityServiceAccountPrivateKey: readOptionalValue(
+    process.env.MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_PRIVATE_KEY,
+  ),
+  mobileAppAttestBundleId: readOptionalValue(process.env.MOBILE_APP_ATTEST_BUNDLE_ID),
+  mobileAppAttestTeamId: readOptionalValue(process.env.MOBILE_APP_ATTEST_TEAM_ID),
+  mobileAppAttestVerificationUrl: readOptionalValue(process.env.MOBILE_APP_ATTEST_VERIFICATION_URL),
+  mobileAppAttestVerificationSecret: readOptionalValue(
+    process.env.MOBILE_APP_ATTEST_VERIFICATION_SECRET,
+  ),
   paginationCursorSecret: '',
   paginationCursorTtlMs: readPositiveInt(
     process.env.PAGINATION_CURSOR_TTL_MS,
     DEFAULT_PAGINATION_CURSOR_TTL_MS,
   ),
+  notificationsBackendEnabled: readBoolean(
+    process.env.NOTIFICATIONS_BACKEND_ENABLED,
+    DEFAULT_NOTIFICATIONS_BACKEND_ENABLED,
+  ),
+  notificationsEventIngestEnabled: readBoolean(
+    process.env.NOTIFICATIONS_EVENT_INGEST_ENABLED,
+    DEFAULT_NOTIFICATIONS_EVENT_INGEST_ENABLED,
+  ),
+  notificationsPersistenceBackend: readNotificationsPersistenceBackend(
+    process.env.NOTIFICATIONS_PERSISTENCE_BACKEND,
+    defaultNotificationsPersistenceBackend,
+  ),
+  notificationsFanoutMaxPerEvent: readPositiveInt(
+    process.env.NOTIFICATIONS_FANOUT_MAX_PER_EVENT,
+    DEFAULT_NOTIFICATIONS_FANOUT_MAX_PER_EVENT,
+  ),
+  notificationsDeferredPromotionBatch: readPositiveInt(
+    process.env.NOTIFICATIONS_DEFERRED_PROMOTION_BATCH,
+    DEFAULT_NOTIFICATIONS_DEFERRED_PROMOTION_BATCH,
+  ),
+  notificationsDeferredDelayMs: readPositiveInt(
+    process.env.NOTIFICATIONS_DEFERRED_DELAY_MS,
+    DEFAULT_NOTIFICATIONS_DEFERRED_DELAY_MS,
+  ),
+  databaseUrl: readOptionalValue(process.env.DATABASE_URL),
+  notificationsIngestToken: readOptionalValue(process.env.NOTIFICATIONS_INGEST_TOKEN),
+  pushTokenEncryptionKey: readOptionalValue(process.env.PUSH_TOKEN_ENCRYPTION_KEY),
+  firebaseProjectId: readOptionalValue(process.env.FIREBASE_PROJECT_ID),
+  firebaseClientEmail: readOptionalValue(process.env.FIREBASE_CLIENT_EMAIL),
+  firebasePrivateKey: readOptionalValue(process.env.FIREBASE_PRIVATE_KEY),
 };
 
 env.corsAllowedOrigins = buildCorsAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS, env.webAppOrigin);
@@ -250,10 +417,46 @@ if (!env.mobileSessionJwtSecret) {
   );
 }
 
+for (const key of LEGACY_HMAC_ENV_KEYS) {
+  if (readOptionalValue(process.env[key])) {
+    throw new Error(
+      `Deprecated legacy HMAC configuration "${key}" is forbidden. Use mobile attestation + session tokens.`,
+    );
+  }
+}
+
 if ((env.appEnv === 'staging' || env.appEnv === 'production') && env.mobileAttestationAcceptMock) {
   throw new Error(
     'MOBILE_ATTESTATION_ACCEPT_MOCK must be false in staging/production.',
   );
+}
+
+if (env.mobileAttestationEnforcementMode !== 'strict' && env.mobileAttestationEnforcementMode !== 'report_only') {
+  throw new Error('MOBILE_ATTESTATION_ENFORCEMENT_MODE must be "strict" or "report_only".');
+}
+
+if ((env.appEnv === 'staging' || env.appEnv === 'production') && !env.mobilePlayIntegrityPackageName) {
+  throw new Error('Missing MOBILE_PLAY_INTEGRITY_PACKAGE_NAME in staging/production.');
+}
+
+if (
+  (env.appEnv === 'staging' || env.appEnv === 'production')
+  && (!env.mobilePlayIntegrityServiceAccountEmail || !env.mobilePlayIntegrityServiceAccountPrivateKey)
+) {
+  throw new Error(
+    'Missing MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_EMAIL/MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_PRIVATE_KEY in staging/production.',
+  );
+}
+
+if ((env.appEnv === 'staging' || env.appEnv === 'production') && !env.mobileAppAttestBundleId) {
+  throw new Error('Missing MOBILE_APP_ATTEST_BUNDLE_ID in staging/production.');
+}
+
+if (
+  (env.appEnv === 'staging' || env.appEnv === 'production')
+  && !env.mobileAppAttestVerificationUrl
+) {
+  throw new Error('Missing MOBILE_APP_ATTEST_VERIFICATION_URL in staging/production.');
 }
 
 if (env.cacheStrictMode && env.cacheBackend !== 'redis') {
@@ -262,6 +465,24 @@ if (env.cacheStrictMode && env.cacheBackend !== 'redis') {
 
 if (env.cacheBackend === 'redis' && !env.redisUrl) {
   throw new Error('CACHE_BACKEND=redis requires REDIS_URL.');
+}
+
+if (env.notificationsPersistenceBackend === 'postgres' && !env.databaseUrl) {
+  throw new Error('NOTIFICATIONS_PERSISTENCE_BACKEND=postgres requires DATABASE_URL.');
+}
+
+if (env.notificationsBackendEnabled && !env.pushTokenEncryptionKey) {
+  throw new Error('NOTIFICATIONS_BACKEND_ENABLED=true requires PUSH_TOKEN_ENCRYPTION_KEY.');
+}
+
+if (env.notificationsEventIngestEnabled && !env.notificationsIngestToken) {
+  throw new Error('NOTIFICATIONS_EVENT_INGEST_ENABLED=true requires NOTIFICATIONS_INGEST_TOKEN.');
+}
+
+if (env.appEnv === 'staging' || env.appEnv === 'production') {
+  if (env.notificationsPersistenceBackend !== 'postgres') {
+    throw new Error('Staging/production requires NOTIFICATIONS_PERSISTENCE_BACKEND=postgres.');
+  }
 }
 
 env.paginationCursorSecret =

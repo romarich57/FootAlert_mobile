@@ -4,7 +4,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { appEnv } from '@data/config/env';
+import { searchLeaguesByName } from '@data/endpoints/competitionsApi';
 import { searchPlayersByName, searchTeamsByName } from '@data/endpoints/followsApi';
+import { searchGlobal } from '@data/endpoints/searchApi';
 import { useSearchScreenModel } from '@ui/features/search/hooks/useSearchScreenModel';
 
 jest.mock('@react-navigation/native', () => {
@@ -20,9 +22,24 @@ jest.mock('@data/endpoints/followsApi', () => ({
   searchPlayersByName: jest.fn(async () => []),
 }));
 
+jest.mock('@data/endpoints/competitionsApi', () => ({
+  searchLeaguesByName: jest.fn(async () => []),
+}));
+
+jest.mock('@data/endpoints/searchApi', () => ({
+  searchGlobal: jest.fn(async () => ({
+    teams: [],
+    players: [],
+    competitions: [],
+    matches: [],
+  })),
+}));
+
 const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedSearchTeamsByName = jest.mocked(searchTeamsByName);
 const mockedSearchPlayersByName = jest.mocked(searchPlayersByName);
+const mockedSearchLeaguesByName = jest.mocked(searchLeaguesByName);
+const mockedSearchGlobal = jest.mocked(searchGlobal);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -63,7 +80,12 @@ describe('useSearchScreenModel', () => {
   });
 
   it('debounces query and supports empty results', async () => {
-    mockedSearchTeamsByName.mockResolvedValueOnce([]);
+    mockedSearchGlobal.mockResolvedValueOnce({
+      teams: [],
+      players: [],
+      competitions: [],
+      matches: [],
+    });
 
     const { result } = renderHook(() => useSearchScreenModel(), {
       wrapper: createWrapper(),
@@ -73,27 +95,35 @@ describe('useSearchScreenModel', () => {
       result.current.setQuery('Barca');
     });
 
-    expect(mockedSearchTeamsByName).not.toHaveBeenCalled();
+    expect(mockedSearchGlobal).not.toHaveBeenCalled();
 
     act(() => {
       jest.advanceTimersByTime(appEnv.followsSearchDebounceMs + 10);
     });
 
     await waitFor(() => {
-      expect(mockedSearchTeamsByName).toHaveBeenCalledWith('Barca', expect.anything());
+      expect(mockedSearchGlobal).toHaveBeenCalledWith(
+        'Barca',
+        expect.any(String),
+        expect.any(Number),
+        appEnv.followsSearchResultsLimit,
+        expect.anything(),
+      );
     });
 
     await waitFor(() => {
       expect(result.current.hasEnoughChars).toBe(true);
       expect(result.current.teamResults).toEqual([]);
+      expect(result.current.competitionResults).toEqual([]);
+      expect(result.current.matchResults).toEqual([]);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.isError).toBe(false);
     });
   });
 
   it('exposes loading while request is pending', async () => {
-    const deferred = createDeferred<Awaited<ReturnType<typeof searchTeamsByName>>>();
-    mockedSearchTeamsByName.mockImplementationOnce(() => deferred.promise);
+    const deferred = createDeferred<Awaited<ReturnType<typeof searchGlobal>>>();
+    mockedSearchGlobal.mockImplementationOnce(() => deferred.promise);
 
     const { result } = renderHook(() => useSearchScreenModel(), {
       wrapper: createWrapper(),
@@ -105,21 +135,24 @@ describe('useSearchScreenModel', () => {
     });
 
     await waitFor(() => {
-      expect(mockedSearchTeamsByName).toHaveBeenCalledWith('Barcelona', expect.anything());
+      expect(mockedSearchGlobal).toHaveBeenCalled();
       expect(result.current.isLoading).toBe(true);
     });
 
     act(() => {
-      deferred.resolve([
-        {
-          team: {
-            id: 529,
+      deferred.resolve({
+        teams: [
+          {
+            id: '529',
             name: 'Barcelona',
             logo: 'barca.png',
             country: 'Spain',
           },
-        },
-      ]);
+        ],
+        players: [],
+        competitions: [],
+        matches: [],
+      });
     });
 
     await waitFor(() => {
@@ -132,21 +165,24 @@ describe('useSearchScreenModel', () => {
     });
   });
 
-  it('exposes error state when API fails', async () => {
-    mockedSearchPlayersByName.mockRejectedValueOnce(new Error('network'));
+  it('exposes error state when global search and fallback fail', async () => {
+    mockedSearchGlobal.mockRejectedValueOnce(new Error('global failed'));
+    mockedSearchTeamsByName.mockRejectedValueOnce(new Error('fallback failed'));
+    mockedSearchPlayersByName.mockResolvedValueOnce([]);
+    mockedSearchLeaguesByName.mockResolvedValueOnce([]);
 
     const { result } = renderHook(() => useSearchScreenModel(), {
       wrapper: createWrapper(),
     });
 
     act(() => {
-      result.current.handleSelectTab('players');
       result.current.setQuery('Mbappe');
       jest.advanceTimersByTime(appEnv.followsSearchDebounceMs + 10);
     });
 
     await waitFor(() => {
-      expect(mockedSearchPlayersByName).toHaveBeenCalled();
+      expect(mockedSearchGlobal).toHaveBeenCalled();
+      expect(mockedSearchTeamsByName).toHaveBeenCalled();
     });
 
     await waitFor(() => {

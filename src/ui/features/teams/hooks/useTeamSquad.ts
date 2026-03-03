@@ -16,6 +16,11 @@ const EMPTY_TEAM_SQUAD: TeamSquadData = {
   players: [],
 };
 
+type FetchTeamSquadDataParams = {
+  teamId: string;
+  signal?: AbortSignal;
+};
+
 function mergeTeamSquadData(
   previousData: TeamSquadData | undefined,
   nextData: TeamSquadData,
@@ -30,21 +35,31 @@ function mergeTeamSquadData(
   };
 }
 
+export async function fetchTeamSquadData({
+  teamId,
+  signal,
+}: FetchTeamSquadDataParams): Promise<TeamSquadData> {
+  if (!teamId) {
+    return EMPTY_TEAM_SQUAD;
+  }
+
+  const payload = await fetchTeamSquad(teamId, signal);
+  return mapSquadToTeamSquad(payload);
+}
+
 export function useTeamSquad({ teamId, enabled = true }: UseTeamSquadParams) {
   return useQuery<TeamSquadData>({
     queryKey: queryKeys.teams.squad(teamId),
     enabled: enabled && Boolean(teamId),
+    refetchOnMount: 'always',
     placeholderData: previousData => previousData,
     structuralSharing: (oldData, newData) =>
       mergeTeamSquadData(oldData as TeamSquadData | undefined, newData as TeamSquadData),
     ...featureQueryOptions.teams.squad,
-    queryFn: async ({ signal }): Promise<TeamSquadData> => {
-      if (!teamId) {
-        return EMPTY_TEAM_SQUAD;
-      }
-
-      const payload = await fetchTeamSquad(teamId, signal);
-      return mapSquadToTeamSquad(payload);
-    },
+    queryFn: ({ signal }) =>
+      fetchTeamSquadData({
+        teamId,
+        signal,
+      }),
   });
 }

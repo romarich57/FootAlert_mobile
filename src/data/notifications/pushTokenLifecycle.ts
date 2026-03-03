@@ -6,10 +6,13 @@ import { isNetworkRequestFailedError } from '@data/api/http/client';
 import {
   registerPushToken,
   revokePushToken,
+  trackNotificationOpened,
   type PushTokenPayload,
-  type PushTokenPlatform,
-  type PushTokenProvider,
 } from '@data/endpoints/notificationsApi';
+import type {
+  PushTokenPlatform,
+  PushTokenProvider,
+} from '@data/notifications/pushTokenTypes';
 import {
   clearPushRegistrationSnapshot,
   getOrCreatePushDeviceId,
@@ -19,6 +22,18 @@ import {
 import { isSecureStorageUnavailableError } from '@data/storage/secureStorage';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import type { AppLanguage } from '@/shared/types/preferences.types';
+
+type FirebaseMessagingClient = {
+  getToken?: () => Promise<string>;
+  onTokenRefresh?: (listener: (token: string) => void) => () => void;
+  onNotificationOpenedApp?: (
+    listener: (message: { data?: Record<string, unknown> | null | undefined }) => void,
+  ) => () => void;
+  getInitialNotification?: () => Promise<{ data?: Record<string, unknown> | null | undefined } | null>;
+};
+
+let pushRuntimeStarted = false;
+const pushRuntimeUnsubscribers: Array<() => void> = [];
 
 function resolvePushPlatform(): PushTokenPlatform {
   return Platform.OS === 'ios' ? 'ios' : 'android';
@@ -105,6 +120,11 @@ async function resolveCurrentPushToken(
   platform: PushTokenPlatform,
   deviceId: string,
 ): Promise<string | null> {
+  const firebaseToken = await resolveFirebasePushToken();
+  if (firebaseToken) {
+    return firebaseToken;
+  }
+
   const configuredToken = resolveConfiguredPushToken();
   if (configuredToken) {
     return configuredToken;
@@ -115,6 +135,81 @@ async function resolveCurrentPushToken(
   }
 
   return null;
+}
+
+async function getFirebaseMessagingClient(): Promise<FirebaseMessagingClient | null> {
+  const moduleName = '@react-native-firebase/messaging';
+
+  try {
+    const imported = await import(moduleName);
+    const factory = (imported as { default?: (() => FirebaseMessagingClient) }).default;
+    if (typeof factory !== 'function') {
+      return null;
+    }
+    return factory();
+  } catch {
+    return null;
+  }
+}
+
+async function resolveFirebasePushToken(): Promise<string | null> {
+  const messagingClient = await getFirebaseMessagingClient();
+  if (!messagingClient?.getToken) {
+    return null;
+  }
+
+  try {
+    const token = await messagingClient.getToken();
+    if (typeof token !== 'string' || token.trim().length === 0) {
+      return null;
+    }
+    return token.trim();
+  } catch {
+    return null;
+  }
+}
+
+function extractEventIdFromNotificationData(data: unknown): string | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const eventId = (data as Record<string, unknown>).eventId;
+  if (typeof eventId !== 'string' || eventId.trim().length === 0) {
+    return null;
+  }
+
+  return eventId.trim();
+}
+
+async function trackOpenedEventIfPresent(data: unknown): Promise<void> {
+  const eventId = extractEventIdFromNotificationData(data);
+  if (!eventId) {
+    return;
+  }
+
+  try {
+    const openedCount = await trackNotificationOpened({ eventId });
+    getMobileTelemetry().addBreadcrumb('notifications.push.opened_tracked', {
+      eventId,
+      openedCount,
+    });
+  } catch (error) {
+    if (isNetworkRequestFailedError(error)) {
+      getMobileTelemetry().addBreadcrumb('notifications.push.opened_deferred', {
+        eventId,
+        reason: 'network_unavailable',
+      });
+      return;
+    }
+
+    getMobileTelemetry().trackError(error, {
+      feature: 'notifications.opened',
+      details: {
+        eventId,
+      },
+    });
+  }
 }
 
 function isRegistrationUpToDate(
@@ -232,6 +327,94 @@ export async function syncPushTokenRegistration(options: {
     platform,
     provider,
   });
+}
+
+export async function startPushNotificationRuntime(options: {
+  notificationsEnabled: boolean;
+  locale: AppLanguage;
+}): Promise<void> {
+  if (!options.notificationsEnabled) {
+    stopPushNotificationRuntime();
+    return;
+  }
+
+  if (pushRuntimeStarted) {
+    return;
+  }
+  pushRuntimeStarted = true;
+
+  const messagingClient = await getFirebaseMessagingClient();
+  if (messagingClient?.onTokenRefresh) {
+    const unsubscribeTokenRefresh = messagingClient.onTokenRefresh(() => {
+      void syncPushTokenRegistration({
+        notificationsEnabled: true,
+        locale: options.locale,
+      }).catch(error => {
+        if (isNetworkRequestFailedError(error)) {
+          getMobileTelemetry().addBreadcrumb('notifications.push.refresh_deferred', {
+            reason: 'network_unavailable',
+          });
+          return;
+        }
+
+        getMobileTelemetry().trackError(error, {
+          feature: 'notifications.refresh',
+        });
+      });
+    });
+    pushRuntimeUnsubscribers.push(unsubscribeTokenRefresh);
+  }
+
+  if (messagingClient?.onNotificationOpenedApp) {
+    const unsubscribeOpened = messagingClient.onNotificationOpenedApp(remoteMessage => {
+      void trackOpenedEventIfPresent(remoteMessage?.data);
+    });
+    pushRuntimeUnsubscribers.push(unsubscribeOpened);
+  }
+
+  if (messagingClient?.getInitialNotification) {
+    const initialNotification = await messagingClient.getInitialNotification().catch(() => null);
+    if (initialNotification) {
+      await trackOpenedEventIfPresent(initialNotification.data);
+    }
+  }
+
+  const notifeeModuleName = '@notifee/react-native';
+  try {
+    const imported = await import(notifeeModuleName);
+    const notifee = (imported as { default?: { onForegroundEvent?: (listener: (event: {
+      type: number;
+      detail?: { notification?: { data?: Record<string, unknown> | null } };
+    }) => void) => () => void } }).default;
+    const eventType = (imported as { EventType?: { PRESS?: number } }).EventType;
+    if (notifee?.onForegroundEvent && typeof eventType?.PRESS === 'number') {
+      const unsubscribeNotifee = notifee.onForegroundEvent(event => {
+        if (event.type !== eventType.PRESS) {
+          return;
+        }
+
+        void trackOpenedEventIfPresent(event.detail?.notification?.data);
+      });
+      pushRuntimeUnsubscribers.push(unsubscribeNotifee);
+    }
+  } catch {
+    // Optional dependency; silently ignore when not installed.
+  }
+}
+
+export function stopPushNotificationRuntime(): void {
+  while (pushRuntimeUnsubscribers.length > 0) {
+    const unsubscribe = pushRuntimeUnsubscribers.pop();
+    if (unsubscribe) {
+      try {
+        unsubscribe();
+      } catch {
+        // Ignore unsubscribe errors to keep shutdown resilient.
+      }
+    }
+  }
+
+  pushRuntimeStarted = false;
 }
 
 export async function revokeRegisteredPushToken(): Promise<void> {

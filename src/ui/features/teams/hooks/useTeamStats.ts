@@ -229,6 +229,7 @@ export function useTeamStats({
   return useQuery<TeamStatsData>({
     queryKey: queryKeys.teams.stats(teamId, leagueId, season),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
+    refetchOnMount: 'always',
     placeholderData: previousData => previousData,
     structuralSharing: (oldData, newData) =>
       mergeTeamStatsData(oldData as TeamStatsData | undefined, newData as TeamStatsData),

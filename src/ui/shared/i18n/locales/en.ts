@@ -9,6 +9,7 @@ export const en = {
     back: 'Back',
     share: 'Share',
     openNotifications: 'Open notifications',
+    show: 'Show',
     retry: 'Retry',
     cancel: 'Cancel',
     save: 'Save',
@@ -30,16 +31,54 @@ export const en = {
         end: 'Match end',
       },
     },
+    competition: {
+      title: 'Define alerts',
+    },
+    player: {
+      title: 'Define alerts',
+    },
+    team: {
+      title: 'Define alerts',
+    },
+    options: {
+      enabled: 'Notifications enabled',
+      matchStart: 'Match start',
+      halftime: 'Halftime',
+      matchEnd: 'Match end',
+      goals: 'Goals',
+      redCards: 'Red cards',
+      missedPenalty: 'Missed penalty',
+      transfers: 'Transfers',
+      lineups: 'Lineups',
+      matchReminder: 'Match reminder',
+      startingLineup: 'In starting lineup',
+      assists: 'Assists',
+      yellowCards: 'Yellow cards',
+      substitution: 'Substitution',
+      matchRating: 'Match rating',
+    },
   },
   matches: {
     liveLabel: 'LIVE',
     topCompetitionBadge: 'TOP',
     followsSectionTitle: 'Follows',
     followsEmpty: 'No followed match available yet.',
+    hiddenCompetitions_hidden: 'Hidden competitions',
+    hiddenCompetitions_empty: 'No hidden competitions',
     actions: {
       manageHiddenCompetitions: 'Manage hidden competitions',
       openCalendar: 'Open calendar',
       openSearch: 'Open search',
+      openNotifications: 'Open notifications',
+      openMenu: 'Open menu',
+      toggleFollowMatch: 'Follow or unfollow this match',
+    },
+    calendar: {
+      today: 'Go to today',
+    },
+    menu: {
+      title: 'Match actions',
+      manageHiddenCompetitions: 'Manage hidden competitions',
       openNotifications: 'Open notifications',
     },
     filters: {
@@ -47,6 +86,7 @@ export const en = {
       live: 'Live',
       upcoming: 'Upcoming',
       finished: 'Finished',
+      followed: 'Followed',
     },
     status: {
       upcoming: 'Upcoming',
@@ -231,6 +271,14 @@ export const en = {
       reserves: 'Reserves',
       absences: 'Injured / suspended',
       absencesDetailedTitle: 'Absent, injured or suspended players',
+      absenceTags: {
+        injured: 'Injured',
+        suspended: 'Suspended',
+        doubtful: 'Doubtful',
+        questionable: 'Questionable',
+        illness: 'Illness',
+        out: 'Out',
+      },
       legend: {
         savedPenalties: 'Saved penalties',
         assist: 'Assist',
@@ -388,6 +436,7 @@ export const en = {
       },
     },
     standings: {
+      defaultGroup: 'Standings',
       displayModes: {
         simple: 'Simple',
         detailed: 'Detailed',
@@ -849,7 +898,11 @@ export const en = {
       followUs: 'Follow us',
       tipsSupport: 'Tips & support',
       privacyPolicy: 'Privacy policy',
+      termsOfUse: 'Terms of use',
+      privacyPreferences: 'Privacy preferences',
+      deleteData: 'Delete my data',
       rateApp: 'Rate app',
+      informationalDisclaimer: '13+ informational content only. Predictions are not betting advice.',
       appVersion: 'App version',
     },
     values: {
@@ -870,6 +923,16 @@ export const en = {
         on: 'Enabled',
         off: 'Disabled',
       },
+      consent: {
+        unknown: 'Unknown',
+        required: 'Action required',
+        granted: 'Granted',
+        denied: 'Denied',
+        not_required: 'Not required',
+      },
+      delete: {
+        inProgress: 'Deletion in progress',
+      },
     },
     badges: {
       comingSoon: 'Coming soon',
@@ -887,6 +950,16 @@ export const en = {
       permissionDenied:
         'Notifications are not allowed. Enable them in system settings.',
       openSettings: 'Open settings',
+    },
+    deleteData: {
+      confirmTitle: 'Delete my data',
+      confirmMessage:
+        'This action permanently deletes device-bound data and notification settings for this device.',
+      confirmAction: 'Delete now',
+      successTitle: 'Data deleted',
+      successMessage: 'Your device-bound data has been deleted.',
+      errorTitle: 'Deletion failed',
+      errorMessage: 'Unable to delete your data right now. Please try again.',
     },
   },
   screens: {
@@ -917,18 +990,72 @@ export const en = {
     },
     search: {
       title: 'Search',
-      hint: 'Search for a team or player.',
+      hint: 'Search teams, leagues, players or matches.',
       tabs: {
+        all: 'All',
         teams: 'Teams',
+        competitions: 'Leagues',
         players: 'Players',
+        matches: 'Matches',
       },
+      placeholderAll: 'Search across the app',
       placeholderTeams: 'Search teams',
+      placeholderCompetitions: 'Search leagues',
       placeholderPlayers: 'Search players',
+      placeholderMatches: 'Search matches',
       minChars: 'Type at least {{count}} characters.',
       loading: 'Searching...',
       empty: 'No result found.',
       error: 'Unable to run search.',
       clear: 'Clear search',
     },
+  },
+  onboarding: {
+    teams: {
+      title: 'Follow teams',
+      subtitle: 'Get the latest news about your favorite teams.',
+    },
+    competitions: {
+      title: 'Follow competitions',
+      subtitle: 'Stay up to date with the leagues and tournaments you love.',
+    },
+    players: {
+      title: 'Follow players',
+      subtitle: 'Keep track of your favorite players\u2019 performances.',
+    },
+    tabs: {
+      trending: 'Trending',
+      search: 'Search',
+    },
+    skip: 'Skip',
+    continue: 'Continue',
+    finish: 'Finish',
+    search: {
+      placeholder: {
+        teams: 'Search a team',
+        competitions: 'Search a competition',
+        players: 'Search a player',
+      },
+    },
+    empty: {
+      trending: 'No trending items available.',
+      search: 'No results found.',
+    },
+  },
+  countries: {
+    England: 'England',
+    Spain: 'Spain',
+    Italy: 'Italy',
+    Germany: 'Germany',
+    France: 'France',
+    Netherlands: 'Netherlands',
+    Portugal: 'Portugal',
+    Belgium: 'Belgium',
+    Brazil: 'Brazil',
+    Argentina: 'Argentina',
+    World: 'World',
+    Europe: 'Europe',
+    India: 'India',
+    USA: 'USA',
   },
 } as const;

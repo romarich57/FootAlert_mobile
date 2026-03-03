@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SplashScreen } from '@ui/features/onboarding/screens/SplashScreen';
+import { OnboardingScreen } from '@ui/features/onboarding/screens/OnboardingScreen';
 
 import type { MainTabParamList, RootStackParamList } from '@ui/app/navigation/types';
 import { useMainTabsPrefetch } from '@ui/app/navigation/useMainTabsPrefetch';
@@ -113,7 +115,17 @@ export function RootNavigator() {
   const { t } = useTranslation();
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator initialRouteName="Splash">
+      <Stack.Screen
+        name="Splash"
+        component={SplashScreen}
+        options={{ headerShown: false, animation: 'none' }}
+      />
+      <Stack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{ headerShown: false, animation: 'fade' }}
+      />
       <Stack.Screen
         name="MainTabs"
         component={TabsNavigator}

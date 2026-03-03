@@ -170,6 +170,7 @@ export type MatchPreMatchVenueWeatherPayload = {
 };
 
 export type MatchPreMatchCompetitionMetaPayload = {
+  competitionId?: string | null;
   competitionName: string | null;
   competitionType: string | null;
   competitionRound: string | null;
@@ -180,8 +181,10 @@ export type MatchPreMatchCompetitionMetaPayload = {
 
 export type MatchPreMatchRecentResult = {
   fixtureId: string;
+  homeTeamId?: string | null;
   homeTeamName: string | null;
   homeTeamLogo: string | null;
+  awayTeamId?: string | null;
   awayTeamName: string | null;
   awayTeamLogo: string | null;
   homeGoals: number | null;
@@ -303,8 +306,10 @@ export type MatchPostMatchUpcomingMatch = {
   leagueLogo: string | null;
   dateIso: string | null;
   kickoffDisplay: string | null;
+  homeTeamId?: string | null;
   homeTeamName: string | null;
   homeTeamLogo: string | null;
+  awayTeamId?: string | null;
   awayTeamName: string | null;
   awayTeamLogo: string | null;
   homeGoals: number | null;

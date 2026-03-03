@@ -11,6 +11,16 @@ export const en = {
       search: 'Search',
       follows: 'Follows',
     },
+    legal: {
+      footerTitle: 'Legal:',
+      disclaimer: '13+ informational content. Predictions are not betting advice.',
+      routes: {
+        privacy: 'Privacy policy',
+        terms: 'Terms of use',
+        cookies: 'Cookies',
+        dataDeletion: 'Data deletion',
+      },
+    },
     states: {
       loading: 'Loading…',
       empty: 'No data for current parameters.',

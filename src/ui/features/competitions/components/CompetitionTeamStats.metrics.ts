@@ -104,5 +104,6 @@ export function toChartData(leaderboard: CompetitionTeamStatsLeaderboard<string>
     maxValue,
     photoUrl: item.teamLogo,
     rank: index + 1,
+    teamId: String(item.teamId),
   }));
 }

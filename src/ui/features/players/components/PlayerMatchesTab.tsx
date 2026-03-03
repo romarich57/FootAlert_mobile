@@ -5,6 +5,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { PlayerMatchPerformance } from '@ui/features/players/types/players.types';
 import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
@@ -12,6 +13,8 @@ import { toDisplayValue } from '@ui/features/players/utils/playerDisplay';
 type PlayerMatchesTabProps = {
     matches: PlayerMatchPerformance[];
     onPressMatch?: (fixtureId: string) => void;
+    onPressCompetition?: (competitionId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -163,7 +166,7 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
-export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProps) {
+export function PlayerMatchesTab({ matches, onPressMatch, onPressCompetition, onPressTeam }: PlayerMatchesTabProps) {
     const { colors } = useAppTheme();
     const { i18n } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -251,25 +254,57 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                 >
                     <View style={styles.headerRow}>
                         <Text style={styles.dateText}>{dateString}</Text>
-                        <View style={styles.competitionRow}>
-                            <Text style={styles.compName}>{toDisplayValue(competition.name)}</Text>
-                        </View>
+                        {competition.id && onPressCompetition ? (
+                            <AppPressable
+                                style={styles.competitionRow}
+                                onPress={() => onPressCompetition(competition.id ?? '')}
+                                accessibilityRole="button"
+                                accessibilityLabel={toDisplayValue(competition.name)}
+                            >
+                                <Text style={styles.compName}>{toDisplayValue(competition.name)}</Text>
+                            </AppPressable>
+                        ) : (
+                            <View style={styles.competitionRow}>
+                                <Text style={styles.compName}>{toDisplayValue(competition.name)}</Text>
+                            </View>
+                        )}
                     </View>
 
                     <View style={styles.mainContentRow}>
-                        <View style={styles.opponentCol}>
-                            {opponentTeam.logo ? (
-                                <Image source={{ uri: opponentTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
-                            ) : (
-                                <View style={[styles.teamLogo, { backgroundColor: colors.surfaceElevated }]} />
-                            )}
-                            <View style={styles.opponentInfo}>
-                                <Text style={styles.teamName} numberOfLines={1}>
-                                    {toDisplayValue(opponentTeam.name)}
-                                </Text>
-                                <Text style={styles.scoreText}>{scoreDisplay}</Text>
+                        {opponentTeam.id && onPressTeam ? (
+                            <AppPressable
+                                style={styles.opponentCol}
+                                onPress={() => onPressTeam(opponentTeam.id ?? '')}
+                                accessibilityRole="button"
+                                accessibilityLabel={toDisplayValue(opponentTeam.name)}
+                            >
+                                {opponentTeam.logo ? (
+                                    <Image source={{ uri: opponentTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
+                                ) : (
+                                    <View style={[styles.teamLogo, { backgroundColor: colors.surfaceElevated }]} />
+                                )}
+                                <View style={styles.opponentInfo}>
+                                    <Text style={styles.teamName} numberOfLines={1}>
+                                        {toDisplayValue(opponentTeam.name)}
+                                    </Text>
+                                    <Text style={styles.scoreText}>{scoreDisplay}</Text>
+                                </View>
+                            </AppPressable>
+                        ) : (
+                            <View style={styles.opponentCol}>
+                                {opponentTeam.logo ? (
+                                    <Image source={{ uri: opponentTeam.logo }} style={styles.teamLogo} resizeMode="contain" />
+                                ) : (
+                                    <View style={[styles.teamLogo, { backgroundColor: colors.surfaceElevated }]} />
+                                )}
+                                <View style={styles.opponentInfo}>
+                                    <Text style={styles.teamName} numberOfLines={1}>
+                                        {toDisplayValue(opponentTeam.name)}
+                                    </Text>
+                                    <Text style={styles.scoreText}>{scoreDisplay}</Text>
+                                </View>
                             </View>
-                        </View>
+                        )}
 
                         <View style={styles.statsCol}>
                             {matchIcons.length > 0 && (
@@ -294,7 +329,7 @@ export function PlayerMatchesTab({ matches, onPressMatch }: PlayerMatchesTabProp
                 </Pressable>
             );
         },
-        [colors, locale, onPressMatch, styles]
+        [colors, locale, onPressCompetition, onPressMatch, onPressTeam, styles]
     );
 
     return (

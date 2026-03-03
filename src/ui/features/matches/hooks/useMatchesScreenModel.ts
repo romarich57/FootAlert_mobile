@@ -8,9 +8,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { usePowerState } from 'react-native-device-info';
 import { useTranslation } from 'react-i18next';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
+import { fetchAllLeagues } from '@data/endpoints/competitionsApi';
 import { hasLiveMatches } from '@data/mappers/fixturesMapper';
 import { useMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
@@ -21,6 +23,12 @@ import {
   loadMatchNotificationPrefs,
   saveMatchNotificationPrefs,
 } from '@data/storage/matchPreferencesStorage';
+import {
+  loadFollowedMatchIds,
+  toggleFollowedMatch,
+} from '@data/storage/followsStorage';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import type { CompetitionsApiLeagueDto } from '@domain/contracts/competitions.types';
 import type {
   CompetitionSection,
   MatchItem,
@@ -38,6 +46,12 @@ type MatchesFeedItem =
     type: 'ad';
     key: string;
   };
+
+type CompetitionCatalogEntry = {
+  name: string;
+  country: string;
+  logo: string;
+};
 
 function toApiDateString(date: Date): string {
   const year = date.getFullYear();
@@ -62,12 +76,20 @@ function filterSectionsByStatus(
     .filter(section => section.matches.length > 0);
 }
 
+function sortMatchesByKickoff(matches: MatchItem[]): MatchItem[] {
+  return [...matches].sort(
+    (firstMatch, secondMatch) =>
+      new Date(firstMatch.startDate).getTime() - new Date(secondMatch.startDate).getTime(),
+  );
+}
+
 function buildFollowsSection(
   sections: CompetitionSection[],
   followedTeamIds: string[],
+  followedMatchIds: string[],
   label: string,
 ): CompetitionSection {
-  if (followedTeamIds.length === 0) {
+  if (followedTeamIds.length === 0 && followedMatchIds.length === 0) {
     return {
       id: 'follows',
       name: label,
@@ -78,12 +100,21 @@ function buildFollowsSection(
     };
   }
 
-  const followedMatches = sections
-    .flatMap(section => section.matches)
-    .filter(
+  const followedTeamIdSet = new Set(followedTeamIds);
+  const followedMatchIdSet = new Set(followedMatchIds);
+  const allMatches = sections.flatMap(section => section.matches);
+
+  const starredMatches = sortMatchesByKickoff(
+    allMatches.filter(match => followedMatchIdSet.has(match.fixtureId)),
+  );
+
+  const teamMatches = sortMatchesByKickoff(
+    allMatches.filter(
       match =>
-        followedTeamIds.includes(match.homeTeamId) || followedTeamIds.includes(match.awayTeamId),
-    );
+        !followedMatchIdSet.has(match.fixtureId) &&
+        (followedTeamIdSet.has(match.homeTeamId) || followedTeamIdSet.has(match.awayTeamId)),
+    ),
+  );
 
   return {
     id: 'follows',
@@ -91,7 +122,7 @@ function buildFollowsSection(
     logo: '',
     country: '',
     isFollowSection: true,
-    matches: followedMatches,
+    matches: [...starredMatches, ...teamMatches],
   };
 }
 
@@ -123,9 +154,55 @@ function buildFeedItems(sections: CompetitionSection[]): MatchesFeedItem[] {
   });
 }
 
+function computeNextIds(ids: string[], id: string): string[] {
+  return ids.includes(id) ? ids.filter(value => value !== id) : [id, ...ids.filter(value => value !== id)];
+}
+
+function buildCompetitionCatalogMap(catalog: CompetitionsApiLeagueDto[]): Map<string, CompetitionCatalogEntry> {
+  const map = new Map<string, CompetitionCatalogEntry>();
+  catalog.forEach(item => {
+    map.set(String(item.league.id), {
+      name: item.league.name,
+      country: item.country.name,
+      logo: item.league.logo,
+    });
+  });
+  return map;
+}
+
+function applyCompetitionCatalog(
+  sections: CompetitionSection[],
+  catalogMap: Map<string, CompetitionCatalogEntry>,
+): CompetitionSection[] {
+  return sections.map(section => {
+    if (section.isFollowSection) {
+      return section;
+    }
+
+    const catalogEntry = catalogMap.get(section.id);
+    if (!catalogEntry) {
+      return section;
+    }
+
+    return {
+      ...section,
+      name: catalogEntry.name,
+      country: catalogEntry.country,
+      logo: catalogEntry.logo || section.logo,
+      matches: section.matches.map(match => ({
+        ...match,
+        competitionName: catalogEntry.name,
+        competitionCountry: catalogEntry.country,
+        competitionLogo: catalogEntry.logo || match.competitionLogo,
+      })),
+    };
+  });
+}
+
 export function useMatchesScreenModel() {
   const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const queryClient = useQueryClient();
   const isFocused = useIsFocused();
   const netInfo = useNetInfo();
   const powerState = usePowerState();
@@ -135,6 +212,7 @@ export function useMatchesScreenModel() {
     return today;
   });
   const [statusFilter, setStatusFilter] = useState<MatchStatusFilter>('all');
+  const [followedOnly, setFollowedOnly] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const [notificationModalMatch, setNotificationModalMatch] = useState<MatchItem | null>(null);
@@ -143,6 +221,7 @@ export function useMatchesScreenModel() {
   );
   const [consecutiveSlowSamples, setConsecutiveSlowSamples] = useState(0);
   const [isManageHiddenModalVisible, setIsManageHiddenModalVisible] = useState(false);
+  const [isCalendarModalVisible, setIsCalendarModalVisible] = useState(false);
 
   const { hiddenIds, hideCompetition, unhideCompetition } = useHiddenCompetitions();
 
@@ -160,11 +239,49 @@ export function useMatchesScreenModel() {
     enabled: !isOffline,
   });
   const followedTeamIdsQuery = useFollowedTeamIdsQuery();
+  const followedMatchIdsQuery = useQuery({
+    queryKey: queryKeys.followedMatchIds(),
+    queryFn: loadFollowedMatchIds,
+    staleTime: Infinity,
+  });
+  const competitionsCatalogQuery = useQuery({
+    queryKey: queryKeys.competitions.catalog(),
+    queryFn: ({ signal }) => fetchAllLeagues(signal),
+    staleTime: 6 * 60 * 60 * 1000,
+  });
+
   const followedTeamIds = useMemo(
     () => followedTeamIdsQuery.data ?? [],
     [followedTeamIdsQuery.data],
   );
+  const followedMatchIds = useMemo(
+    () => followedMatchIdsQuery.data ?? [],
+    [followedMatchIdsQuery.data],
+  );
   const lastUpdatedAt = matchesQuery.data?.fetchedAt ?? null;
+
+  const toggleFollowedMatchMutation = useMutation({
+    mutationFn: (fixtureId: string) => toggleFollowedMatch(fixtureId),
+    onMutate: async fixtureId => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.followedMatchIds(),
+      });
+
+      const previousIds =
+        queryClient.getQueryData<string[]>(queryKeys.followedMatchIds()) ?? [];
+      queryClient.setQueryData(queryKeys.followedMatchIds(), computeNextIds(previousIds, fixtureId));
+      return { previousIds };
+    },
+    onError: (_error, _fixtureId, context) => {
+      queryClient.setQueryData(
+        queryKeys.followedMatchIds(),
+        context?.previousIds ?? [],
+      );
+    },
+    onSuccess: ids => {
+      queryClient.setQueryData(queryKeys.followedMatchIds(), ids);
+    },
+  });
 
   useEffect(() => {
     if (!matchesQuery.data && !matchesQuery.error) {
@@ -190,25 +307,68 @@ export function useMatchesScreenModel() {
     };
   }, []);
 
-  const baseSections = useMemo(() => matchesQuery.data?.sections ?? [], [matchesQuery.data?.sections]);
+  const baseSections = useMemo(
+    () => matchesQuery.data?.sections ?? [],
+    [matchesQuery.data?.sections],
+  );
+  const competitionCatalogMap = useMemo(
+    () => buildCompetitionCatalogMap(competitionsCatalogQuery.data ?? []),
+    [competitionsCatalogQuery.data],
+  );
+  const normalizedBaseSections = useMemo(
+    () => applyCompetitionCatalog(baseSections, competitionCatalogMap),
+    [baseSections, competitionCatalogMap],
+  );
   const filteredSections = useMemo(
-    () => filterSectionsByStatus(baseSections, statusFilter),
-    [baseSections, statusFilter],
+    () => filterSectionsByStatus(normalizedBaseSections, statusFilter),
+    [normalizedBaseSections, statusFilter],
   );
   const followsSection = useMemo(
-    () => buildFollowsSection(filteredSections, followedTeamIds, t('matches.followsSectionTitle')),
-    [filteredSections, followedTeamIds, t],
+    () =>
+      buildFollowsSection(
+        filteredSections,
+        followedTeamIds,
+        followedMatchIds,
+        t('matches.followsSectionTitle'),
+      ),
+    [filteredSections, followedMatchIds, followedTeamIds, t],
   );
 
   const sectionsForFeed = useMemo<CompetitionSection[]>(() => {
-    return [followsSection, ...filteredSections].filter(
-      section => section.isFollowSection || !hiddenIds.includes(section.id)
+    if (followedOnly) {
+      return [followsSection];
+    }
+
+    const visibleCompetitionSections = filteredSections.filter(
+      section => !hiddenIds.includes(section.id),
     );
-  }, [filteredSections, followsSection, hiddenIds]);
+    return [followsSection, ...visibleCompetitionSections];
+  }, [filteredSections, followedOnly, followsSection, hiddenIds]);
+
+  const hiddenCompetitionNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    normalizedBaseSections.forEach(section => {
+      if (!section.isFollowSection) {
+        map.set(section.id, section.country ? `${section.country} - ${section.name}` : section.name);
+      }
+    });
+    return map;
+  }, [normalizedBaseSections]);
+
+  const hiddenCompetitions = useMemo(
+    () =>
+      hiddenIds.map(id => ({
+        id,
+        name: hiddenCompetitionNameById.get(id) ?? '',
+      })),
+    [hiddenCompetitionNameById, hiddenIds],
+  );
 
   const feedItems = useMemo(() => buildFeedItems(sectionsForFeed), [sectionsForFeed]);
-  const hasVisibleMatches = filteredSections.some(section => section.matches.length > 0);
-  const hasLive = useMemo(() => hasLiveMatches(baseSections), [baseSections]);
+  const hasVisibleMatches = followedOnly
+    ? followsSection.matches.length > 0
+    : filteredSections.some(section => section.matches.length > 0);
+  const hasLive = useMemo(() => hasLiveMatches(normalizedBaseSections), [normalizedBaseSections]);
   const refreshEnabled = isFocused && appState === 'active' && !isOffline;
   const networkLiteMode =
     isOffline ||
@@ -246,6 +406,18 @@ export function useMatchesScreenModel() {
     [navigation],
   );
 
+  const handleToggleMatchFollow = useCallback(
+    (match: MatchItem) => {
+      toggleFollowedMatchMutation.mutate(match.fixtureId);
+    },
+    [toggleFollowedMatchMutation],
+  );
+
+  const isMatchFollowed = useCallback(
+    (fixtureId: string) => followedMatchIds.includes(fixtureId),
+    [followedMatchIds],
+  );
+
   const handlePressNotification = useCallback((match: MatchItem) => {
     setNotificationModalMatch(match);
 
@@ -278,17 +450,11 @@ export function useMatchesScreenModel() {
   );
 
   const handlePressCalendar = useCallback(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    setSelectedDate(today);
+    setIsCalendarModalVisible(true);
   }, []);
 
   const handlePressSearch = useCallback(() => {
     navigation.navigate('SearchPlaceholder');
-  }, [navigation]);
-
-  const handlePressNotifications = useCallback(() => {
-    navigation.navigate('MainTabs', { screen: 'More' });
   }, [navigation]);
 
   const hasCachedData = Boolean(matchesQuery.data);
@@ -305,8 +471,11 @@ export function useMatchesScreenModel() {
     setSelectedDate,
     statusFilter,
     setStatusFilter,
+    followedOnly,
+    toggleFollowedOnly: () => setFollowedOnly(current => !current),
     collapsedSections,
     listData,
+    isCalendarModalVisible,
     showLoading,
     showError,
     showOfflineWithoutCache,
@@ -320,17 +489,18 @@ export function useMatchesScreenModel() {
     notificationPrefs,
     handleToggleSection,
     handlePressMatch,
+    handleToggleMatchFollow,
+    isMatchFollowed,
     handlePressTeam,
     handlePressNotification,
     closeNotificationModal,
     handleSaveNotificationPrefs,
     handlePressCalendar,
+    closeCalendarModal: () => setIsCalendarModalVisible(false),
     handlePressSearch,
-    handlePressNotifications,
-    handlePressManageHidden: () => setIsManageHiddenModalVisible(true),
     handleHideCompetition: hideCompetition,
     handleUnhideCompetition: unhideCompetition,
-    hiddenCompetitionsIds: hiddenIds,
+    hiddenCompetitions,
     isManageHiddenModalVisible,
     closeManageHiddenModal: () => setIsManageHiddenModalVisible(false),
     refetch: () =>

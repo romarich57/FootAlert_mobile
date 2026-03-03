@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation';
 const listResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),

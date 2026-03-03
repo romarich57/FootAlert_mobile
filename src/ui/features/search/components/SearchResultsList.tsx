@@ -3,12 +3,14 @@ import { FlashList } from '@shopify/flash-list';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-
 import { appEnv } from '@data/config/env';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { buildSearchItems, formatMatchKickoff } from '@ui/features/search/components/searchResultsItems';
 import { AppPressable } from '@ui/shared/components';
 import type {
+  SearchCompetitionResult,
   SearchEntityTab,
+  SearchMatchResult,
   SearchPlayerResult,
   SearchTeamResult,
 } from '@ui/features/search/types/search.types';
@@ -22,31 +24,33 @@ type SearchResultsListProps = {
   query: string;
   teamResults: SearchTeamResult[];
   playerResults: SearchPlayerResult[];
+  competitionResults: SearchCompetitionResult[];
+  matchResults: SearchMatchResult[];
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
   onPressTeam: (teamId: string) => void;
   onPressPlayer: (playerId: string) => void;
+  onPressCompetition: (competitionId: string) => void;
+  onPressMatch: (fixtureId: string) => void;
 };
-
-type SearchListItem =
-  | {
-    type: 'team';
-    key: string;
-    item: SearchTeamResult;
-  }
-  | {
-    type: 'player';
-    key: string;
-    item: SearchPlayerResult;
-  };
-
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     listContent: {
       paddingHorizontal: 16,
       paddingBottom: 32,
       gap: 10,
+    },
+    sectionHeader: {
+      paddingTop: 8,
+      paddingBottom: 6,
+    },
+    sectionHeaderText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
     resultCard: {
       flexDirection: 'row',
@@ -113,45 +117,42 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function buildItems(
-  selectedTab: SearchEntityTab,
-  teamResults: SearchTeamResult[],
-  playerResults: SearchPlayerResult[],
-): SearchListItem[] {
-  if (selectedTab === 'teams') {
-    return teamResults.map(item => ({
-      type: 'team',
-      key: `team-${item.teamId}`,
-      item,
-    }));
-  }
-
-  return playerResults.map(item => ({
-    type: 'player',
-    key: `player-${item.playerId}`,
-    item,
-  }));
-}
-
 export function SearchResultsList({
   selectedTab,
   hasEnoughChars,
   query,
   teamResults,
   playerResults,
+  competitionResults,
+  matchResults,
   isLoading,
   isError,
   onRetry,
   onPressTeam,
   onPressPlayer,
+  onPressCompetition,
+  onPressMatch,
 }: SearchResultsListProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const items = useMemo(
-    () => buildItems(selectedTab, teamResults, playerResults),
-    [playerResults, selectedTab, teamResults],
+    () =>
+      buildSearchItems(
+        selectedTab,
+        {
+          teams: t('screens.search.tabs.teams'),
+          competitions: t('screens.search.tabs.competitions'),
+          players: t('screens.search.tabs.players'),
+          matches: t('screens.search.tabs.matches'),
+        },
+        teamResults,
+        competitionResults,
+        playerResults,
+        matchResults,
+      ),
+    [competitionResults, matchResults, playerResults, selectedTab, t, teamResults],
   );
 
   if (!query.trim().length) {
@@ -209,9 +210,17 @@ export function SearchResultsList({
     <FlashList
       data={items}
       keyExtractor={item => item.key}
-      estimatedItemSize={76}
+      estimatedItemSize={74}
       contentContainerStyle={styles.listContent}
       renderItem={({ item }) => {
+        if (item.type === 'section-header') {
+          return (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>{item.title}</Text>
+            </View>
+          );
+        }
+
         if (item.type === 'team') {
           return (
             <AppPressable
@@ -223,11 +232,7 @@ export function SearchResultsList({
             >
               <View style={styles.logoWrap}>
                 {item.item.teamLogo ? (
-                  <AppImage
-                    source={{ uri: item.item.teamLogo }}
-                    style={styles.logo}
-                    resizeMode="contain"
-                  />
+                  <AppImage source={{ uri: item.item.teamLogo }} style={styles.logo} resizeMode="contain" />
                 ) : (
                   <MaterialCommunityIcons name="shield-outline" size={18} color={colors.textMuted} />
                 )}
@@ -244,32 +249,91 @@ export function SearchResultsList({
           );
         }
 
-        const subtitle = [
-          localizePlayerPosition(item.item.position, t),
-          item.item.teamName,
-          item.item.leagueName,
-        ]
+        if (item.type === 'player') {
+          const subtitle = [
+            localizePlayerPosition(item.item.position, t),
+            item.item.teamName,
+            item.item.leagueName,
+          ]
+            .filter(Boolean)
+            .join(' • ');
+
+          return (
+            <AppPressable
+              onPress={() => onPressPlayer(item.item.playerId)}
+              style={styles.resultCard}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.item.playerName} ${subtitle}`.trim()}
+              testID={`search-result-player-${item.item.playerId}`}
+            >
+              <View style={styles.logoWrap}>
+                {item.item.playerPhoto ? (
+                  <AppImage source={{ uri: item.item.playerPhoto }} style={styles.logo} resizeMode="cover" />
+                ) : (
+                  <MaterialCommunityIcons name="account-outline" size={18} color={colors.textMuted} />
+                )}
+              </View>
+              <View style={styles.textWrap}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {item.item.playerName}
+                </Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              </View>
+            </AppPressable>
+          );
+        }
+
+        if (item.type === 'competition') {
+          const subtitle = [item.item.country, item.item.type].filter(Boolean).join(' • ');
+          return (
+            <AppPressable
+              onPress={() => onPressCompetition(item.item.competitionId)}
+              style={styles.resultCard}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.item.competitionName} ${subtitle}`.trim()}
+              testID={`search-result-competition-${item.item.competitionId}`}
+            >
+              <View style={styles.logoWrap}>
+                {item.item.competitionLogo ? (
+                  <AppImage source={{ uri: item.item.competitionLogo }} style={styles.logo} resizeMode="contain" />
+                ) : (
+                  <MaterialCommunityIcons name="trophy-outline" size={18} color={colors.textMuted} />
+                )}
+              </View>
+              <View style={styles.textWrap}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {item.item.competitionName}
+                </Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              </View>
+            </AppPressable>
+          );
+        }
+
+        const kickoff = formatMatchKickoff(item.item.kickoffAt, i18n.language.startsWith('fr') ? 'fr' : 'en');
+        const title = `${item.item.homeTeamName} vs ${item.item.awayTeamName}`;
+        const subtitle = [item.item.competitionName, kickoff || item.item.statusShort]
           .filter(Boolean)
           .join(' • ');
 
         return (
           <AppPressable
-            onPress={() => onPressPlayer(item.item.playerId)}
+            onPress={() => onPressMatch(item.item.fixtureId)}
             style={styles.resultCard}
             accessibilityRole="button"
-            accessibilityLabel={`${item.item.playerName} ${subtitle}`.trim()}
-            testID={`search-result-player-${item.item.playerId}`}
+            accessibilityLabel={`${title} ${subtitle}`.trim()}
+            testID={`search-result-match-${item.item.fixtureId}`}
           >
             <View style={styles.logoWrap}>
-              {item.item.playerPhoto ? (
-                <AppImage source={{ uri: item.item.playerPhoto }} style={styles.logo} resizeMode="cover" />
-              ) : (
-                <MaterialCommunityIcons name="account-outline" size={18} color={colors.textMuted} />
-              )}
+              <MaterialCommunityIcons name="soccer" size={18} color={colors.textMuted} />
             </View>
             <View style={styles.textWrap}>
               <Text style={styles.title} numberOfLines={1}>
-                {item.item.playerName}
+                {title}
               </Text>
               <Text style={styles.subtitle} numberOfLines={1}>
                 {subtitle}

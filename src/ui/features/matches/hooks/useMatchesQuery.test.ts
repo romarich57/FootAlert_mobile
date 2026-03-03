@@ -1,4 +1,5 @@
 import { ApiError } from '@data/api/http/client';
+import { MobileAttestationProviderUnavailableError } from '@data/security/mobileAttestationProvider';
 
 import {
   MATCHES_QUERY_STALE_TIME_MS,
@@ -33,6 +34,14 @@ describe('useMatchesQuery retry strategy', () => {
     const shouldRetry = shouldRetryMatchesQuery(
       0,
       new TypeError('Network request failed'),
+    );
+    expect(shouldRetry).toBe(false);
+  });
+
+  it('does not retry when the mobile attestation provider bridge is unavailable', () => {
+    const shouldRetry = shouldRetryMatchesQuery(
+      0,
+      new MobileAttestationProviderUnavailableError(),
     );
     expect(shouldRetry).toBe(false);
   });

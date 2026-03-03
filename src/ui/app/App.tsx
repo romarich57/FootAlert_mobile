@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getAppVersion } from '@data/config/appMeta';
 import { appEnv } from '@data/config/env';
 import { registerBackgroundRefresh } from '@data/background/backgroundRefresh';
+import { requestMobileConsentIfNeeded } from '@data/privacy/mobileConsent';
 import { requestInAppReviewWithFallback } from '@data/reviews/inAppReview';
 import { evaluateDeviceIntegrity } from '@data/security/deviceIntegrity';
 import { verifyMobileAttestationStartupHealth } from '@data/security/mobileSessionAuth';
@@ -30,6 +31,7 @@ import '@ui/shared/i18n';
 
 function AppContent() {
   const { navigationTheme, statusBarStyle } = useAppTheme();
+  const isDevRuntime = typeof __DEV__ === 'boolean' && __DEV__;
   const [bootError, setBootError] = useState<Error | null>(null);
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const currentRouteNameRef = useRef<string | undefined>(undefined);
@@ -42,11 +44,11 @@ function AppContent() {
   });
 
   useEffect(() => {
-    if (typeof __DEV__ === 'boolean' && __DEV__) {
+    if (isDevRuntime) {
       // Helpful when switching ENVFILE (.env / .env.staging) to confirm active API target.
       console.info(`[FootAlert] MOBILE_API_BASE_URL=${appEnv.mobileApiBaseUrl}`);
     }
-  }, []);
+  }, [isDevRuntime]);
 
   useEffect(() => {
     getMobileTelemetry().setUserContext({
@@ -55,16 +57,38 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    requestMobileConsentIfNeeded()
+      .then(snapshot => {
+        getMobileTelemetry().addBreadcrumb('privacy.mobile_consent.synced', {
+          status: snapshot.status,
+          source: snapshot.source,
+        });
+      })
+      .catch(error => {
+        getMobileTelemetry().trackError(error, {
+          feature: 'privacy.mobile_consent.sync',
+        });
+      });
+  }, []);
+
+  useEffect(() => {
     try {
       verifyMobileAttestationStartupHealth();
     } catch (error) {
-      if (error instanceof Error) {
-        setBootError(error);
+      const normalizedError =
+        error instanceof Error
+          ? error
+          : new Error('Unknown mobile attestation startup error.');
+
+      if (isDevRuntime) {
+        // Keep dev sessions usable when native attestation bridge modules are not linked yet.
+        console.info(`[FootAlert] ${normalizedError.message}`);
         return;
       }
-      setBootError(new Error('Unknown mobile attestation startup error.'));
+
+      setBootError(normalizedError);
     }
-  }, []);
+  }, [isDevRuntime]);
 
   if (bootError) {
     throw bootError;
@@ -140,7 +164,7 @@ function AppContent() {
     incrementAppLaunchCount()
       .then(async state => {
         const isEligible = isReviewPromptEligible(state, {
-          isDevRuntime: typeof __DEV__ === 'boolean' ? __DEV__ : false,
+          isDevRuntime,
           appVersion,
         });
         if (!isEligible) {
@@ -156,7 +180,7 @@ function AppContent() {
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [isDevRuntime]);
 
   return (
     <NavigationContainer

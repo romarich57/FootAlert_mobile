@@ -11,6 +11,11 @@ import {
   getCacheHealthSnapshot,
 } from './lib/cache.js';
 import { BffError } from './lib/errors.js';
+import {
+  requiresGlobalMobileReadAuth,
+  shouldEnforceHostScopedMobileAuth,
+} from './lib/mobileApiRouteAuth.js';
+import { verifySensitiveMobileAuth } from './lib/mobileSessionAuth.js';
 import { registerCapabilitiesRoutes } from './routes/capabilities.js';
 import { registerCompetitionsRoutes } from './routes/competitions.js';
 import { registerFollowsRoutes } from './routes/follows.js';
@@ -18,6 +23,8 @@ import { registerMatchesRoutes } from './routes/matches.js';
 import { registerMobileSessionRoutes } from './routes/mobileSession.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
 import { registerPlayersRoutes } from './routes/players.js';
+import { registerPrivacyRoutes } from './routes/privacy.js';
+import { registerSearchRoutes } from './routes/search.js';
 import { registerTeamsRoutes } from './routes/teams.js';
 import { registerTelemetryRoutes } from './routes/telemetry.js';
 
@@ -49,6 +56,7 @@ const CACHE_CONTROL_BY_ROUTE: Record<string, string> = {
   '/v1/competitions/search': CACHE_CONTROL_MEDIUM,
   '/v1/follows/search/teams': CACHE_CONTROL_MEDIUM,
   '/v1/follows/search/players': CACHE_CONTROL_MEDIUM,
+  '/v1/search/global': CACHE_CONTROL_MEDIUM,
   '/v1/follows/trends/teams': CACHE_CONTROL_MEDIUM,
   '/v1/follows/trends/players': CACHE_CONTROL_MEDIUM,
   '/v1/follows/teams/:teamId': CACHE_CONTROL_MEDIUM,
@@ -172,6 +180,9 @@ export async function buildServer(): Promise<FastifyInstance> {
   configureCache({
     maxEntries: env.cacheMaxEntries,
     cleanupIntervalMs: env.cacheCleanupIntervalMs,
+    ttlJitterPct: env.cacheTtlJitterPct,
+    lockTtlMs: env.cacheLockTtlMs,
+    coalesceWaitMs: env.cacheCoalesceWaitMs,
     backend: env.cacheBackend,
     strictMode: env.cacheStrictMode,
     redisUrl: env.redisUrl,
@@ -212,6 +223,29 @@ export async function buildServer(): Promise<FastifyInstance> {
     keyGenerator: request => request.ip,
   });
 
+  app.addHook('preHandler', async (request, reply) => {
+    if (!shouldEnforceHostScopedMobileAuth(request, env.mobileAuthEnforcedHosts)) {
+      return;
+    }
+
+    if (!requiresGlobalMobileReadAuth(request)) {
+      return;
+    }
+
+    const authResult = verifySensitiveMobileAuth(request, {
+      requiredScope: 'api:read',
+      jwtSecret: env.mobileSessionJwtSecret,
+      minIntegrity: 'device',
+    });
+    if (!authResult.ok) {
+      reply.code(authResult.failure.statusCode).send({
+        error: authResult.failure.code,
+        message: authResult.failure.message,
+      });
+      return;
+    }
+  });
+
   await registerCompression(app);
 
   app.addHook('onSend', (request, reply, payload, done) => {
@@ -249,7 +283,9 @@ export async function buildServer(): Promise<FastifyInstance> {
   await registerTeamsRoutes(app);
   await registerPlayersRoutes(app);
   await registerFollowsRoutes(app);
+  await registerSearchRoutes(app);
   await registerMobileSessionRoutes(app);
+  await registerPrivacyRoutes(app);
   await registerNotificationsRoutes(app);
   await registerTelemetryRoutes(app);
 

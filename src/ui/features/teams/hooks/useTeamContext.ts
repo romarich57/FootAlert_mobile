@@ -24,6 +24,7 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     queryKey: queryKeys.teams.details(teamId),
     enabled: Boolean(teamId),
     staleTime: 60_000,
+    refetchOnMount: 'always',
     queryFn: ({ signal }) => fetchTeamDetails(teamId, signal),
   });
 
@@ -31,6 +32,7 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     queryKey: queryKeys.teams.leagues(teamId),
     enabled: Boolean(teamId),
     staleTime: 10 * 60_000,
+    refetchOnMount: 'always',
     queryFn: ({ signal }) => fetchTeamLeagues(teamId, signal),
   });
 

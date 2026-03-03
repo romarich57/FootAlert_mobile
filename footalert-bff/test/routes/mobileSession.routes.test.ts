@@ -91,11 +91,15 @@ test('POST /v1/mobile/session/attest issues bearer token for valid mock attestat
   const body = attestResponse.json() as {
     accessToken: string;
     expiresAtMs: number;
+    refreshToken: string;
+    refreshExpiresAtMs: number;
     integrity: string;
   };
   assert.equal(typeof body.accessToken, 'string');
+  assert.equal(typeof body.refreshToken, 'string');
   assert.equal(body.integrity, 'device');
   assert.ok(body.expiresAtMs > Date.now());
+  assert.ok(body.refreshExpiresAtMs > body.expiresAtMs);
 });
 
 test('POST /v1/mobile/session/attest rejects replayed challenge', async t => {
@@ -189,4 +193,140 @@ test('POST /v1/mobile/session/attest rejects malformed mock attestation token', 
 
   assert.equal(response.statusCode, 401);
   assert.equal(response.json().error, 'MOBILE_ATTESTATION_INVALID');
+});
+
+test('POST /v1/mobile/session/refresh rotates refresh token and returns new access token', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t, {
+    MOBILE_ATTESTATION_ACCEPT_MOCK: 'true',
+  });
+
+  const challengeResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/challenge',
+    payload: {
+      platform: 'android',
+      deviceIdHash: 'device-hash-abc',
+      appVersion: '1.0.0',
+      buildNumber: '100',
+    },
+  });
+  const challengeBody = challengeResponse.json() as {
+    challengeId: string;
+    challenge: string;
+  };
+  const attestationToken = buildMockAttestationToken({
+    type: 'play_integrity',
+    integrity: 'strong',
+    challengeId: challengeBody.challengeId,
+    deviceIdHash: 'device-hash-abc',
+    challenge: challengeBody.challenge,
+  });
+  const attestResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/attest',
+    payload: {
+      challengeId: challengeBody.challengeId,
+      platform: 'android',
+      deviceIdHash: 'device-hash-abc',
+      attestation: {
+        type: 'play_integrity',
+        token: attestationToken,
+      },
+    },
+  });
+  assert.equal(attestResponse.statusCode, 200);
+  const attestBody = attestResponse.json() as {
+    refreshToken: string;
+    accessToken: string;
+  };
+
+  const refreshResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/refresh',
+    payload: {
+      refreshToken: attestBody.refreshToken,
+    },
+  });
+  assert.equal(refreshResponse.statusCode, 200);
+  const refreshBody = refreshResponse.json() as {
+    accessToken: string;
+    refreshToken: string;
+  };
+  assert.equal(typeof refreshBody.accessToken, 'string');
+  assert.equal(typeof refreshBody.refreshToken, 'string');
+  assert.notEqual(refreshBody.refreshToken, attestBody.refreshToken);
+
+  const replayResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/refresh',
+    payload: {
+      refreshToken: attestBody.refreshToken,
+    },
+  });
+  assert.equal(replayResponse.statusCode, 401);
+  assert.equal(replayResponse.json().error, 'MOBILE_SESSION_TOKEN_INVALID');
+});
+
+test('POST /v1/mobile/session/revoke revokes refresh family', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t, {
+    MOBILE_ATTESTATION_ACCEPT_MOCK: 'true',
+  });
+
+  const challengeResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/challenge',
+    payload: {
+      platform: 'android',
+      deviceIdHash: 'device-hash-abc',
+      appVersion: '1.0.0',
+      buildNumber: '100',
+    },
+  });
+  const challengeBody = challengeResponse.json() as {
+    challengeId: string;
+    challenge: string;
+  };
+  const attestationToken = buildMockAttestationToken({
+    type: 'play_integrity',
+    integrity: 'strong',
+    challengeId: challengeBody.challengeId,
+    deviceIdHash: 'device-hash-abc',
+    challenge: challengeBody.challenge,
+  });
+  const attestResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/attest',
+    payload: {
+      challengeId: challengeBody.challengeId,
+      platform: 'android',
+      deviceIdHash: 'device-hash-abc',
+      attestation: {
+        type: 'play_integrity',
+        token: attestationToken,
+      },
+    },
+  });
+  const attestBody = attestResponse.json() as {
+    refreshToken: string;
+  };
+
+  const revokeResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/revoke',
+    payload: {
+      refreshToken: attestBody.refreshToken,
+    },
+  });
+  assert.equal(revokeResponse.statusCode, 204);
+
+  const refreshAfterRevoke = await app.inject({
+    method: 'POST',
+    url: '/v1/mobile/session/refresh',
+    payload: {
+      refreshToken: attestBody.refreshToken,
+    },
+  });
+  assert.equal(refreshAfterRevoke.statusCode, 401);
 });

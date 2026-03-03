@@ -71,7 +71,10 @@ export function MatchStatsTab({
     if (statsAvailablePeriods.includes(statsPeriodFilter)) {
       return;
     }
-    setStatsPeriodFilter(defaultPeriod);
+
+    if (statsPeriodFilter !== defaultPeriod) {
+      setStatsPeriodFilter(defaultPeriod);
+    }
   }, [defaultPeriod, statsAvailablePeriods, statsPeriodFilter]);
 
   const visibleStats = useMemo(
@@ -128,7 +131,7 @@ export function MatchStatsTab({
               <View key={row.key} style={styles.statRow}>
                 <View style={styles.statHeaderRow}>
                   <Text style={styles.statValue}>{row.homeValue}</Text>
-                  <Text style={styles.statLabel}>{t(row.labelKey, { defaultValue: row.label })}</Text>
+                  <Text style={styles.statLabel}>{t(row.labelKey)}</Text>
                   <Text style={styles.statValue}>{row.awayValue}</Text>
                 </View>
                 <View style={styles.statBarRail}>

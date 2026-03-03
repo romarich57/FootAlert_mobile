@@ -17,18 +17,36 @@ const EMPTY_TEAM_TRANSFERS: TeamTransfersData = {
   departures: [],
 };
 
+type FetchTeamTransfersDataParams = {
+  teamId: string;
+  season: number | null;
+  signal?: AbortSignal;
+};
+
+export async function fetchTeamTransfersData({
+  teamId,
+  season,
+  signal,
+}: FetchTeamTransfersDataParams): Promise<TeamTransfersData> {
+  if (!teamId) {
+    return EMPTY_TEAM_TRANSFERS;
+  }
+
+  const payload = await fetchTeamTransfers(teamId, signal);
+  return mapTransfersToTeamTransfers(payload, teamId, season);
+}
+
 export function useTeamTransfers({ teamId, season, enabled = true }: UseTeamTransfersParams) {
   return useQuery<TeamTransfersData>({
     queryKey: queryKeys.teams.transfers(teamId, season),
     enabled: enabled && Boolean(teamId),
+    refetchOnMount: 'always',
     ...featureQueryOptions.teams.transfers,
-    queryFn: async ({ signal }): Promise<TeamTransfersData> => {
-      if (!teamId) {
-        return EMPTY_TEAM_TRANSFERS;
-      }
-
-      const payload = await fetchTeamTransfers(teamId, signal);
-      return mapTransfersToTeamTransfers(payload, teamId, season);
-    },
+    queryFn: ({ signal }) =>
+      fetchTeamTransfersData({
+        teamId,
+        season,
+        signal,
+      }),
   });
 }

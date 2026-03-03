@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import type { UseQueryResult } from '@tanstack/react-query';
 import {
   useNavigation,
   useRoute,
@@ -14,17 +14,13 @@ import { useTeamContext } from '@ui/features/teams/hooks/useTeamContext';
 import { useTeamMatches } from '@ui/features/teams/hooks/useTeamMatches';
 import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
-import {
-  fetchTeamStandingsData,
-  useTeamStandings,
-} from '@ui/features/teams/hooks/useTeamStandings';
+import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
 import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
 import { useTeamTrophies } from '@ui/features/teams/hooks/useTeamTrophies';
 import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
+import { resolveTeamStatsVisibility } from '@ui/features/teams/components/stats/teamStatsSelectors';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
@@ -33,24 +29,43 @@ function isLeagueCompetition(type: string | null | undefined): boolean {
   return (type ?? '').trim().toLowerCase() === 'league';
 }
 
+type QueryStateLike = Pick<
+  UseQueryResult<unknown>,
+  'isLoading' | 'isFetching' | 'isError' | 'isFetched' | 'isFetchedAfterMount'
+>;
+
+function shouldDisplayDataTab({
+  hasData,
+  query,
+}: {
+  hasData: boolean;
+  query: QueryStateLike;
+}): boolean {
+  if (query.isError) {
+    return true;
+  }
+
+  if (query.isLoading || query.isFetching) {
+    return true;
+  }
+
+  const hasFetchedAfterMount = query.isFetchedAfterMount ?? query.isFetched;
+  if (!hasFetchedAfterMount) {
+    return true;
+  }
+
+  return hasData;
+}
+
 export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const navigation = useNavigation<TeamDetailsNavigation>();
   const route = useRoute<TeamDetailsRoute>();
   const safeTeamId = sanitizeNumericEntityId(route.params.teamId);
   const teamId = safeTeamId ?? '';
 
   const [activeTab, setActiveTab] = useState<TeamDetailsTab>('overview');
-  const [visitedTabs, setVisitedTabs] = useState<Record<TeamDetailsTab, boolean>>({
-    overview: true,
-    matches: false,
-    standings: false,
-    stats: false,
-    transfers: false,
-    squad: false,
-    trophies: false,
-  });
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
   const { followedTeamIds, toggleTeamFollow } = useFollowsActions();
   const isFollowed = Boolean(safeTeamId) && followedTeamIds.includes(teamId);
@@ -117,7 +132,7 @@ export function useTeamDetailsScreenModel() {
     season: selectedSeason,
     timezone,
     competitionSeasons: selectedCompetitionSeasons,
-    enabled: visitedTabs.overview && hasLeagueSelection,
+    enabled: hasLeagueSelection,
   });
 
   const matchesQuery = useTeamMatches({
@@ -125,32 +140,32 @@ export function useTeamDetailsScreenModel() {
     leagueId: selectedLeagueId,
     season: selectedSeason,
     timezone,
-    enabled: visitedTabs.matches && hasLeagueSelection,
+    enabled: hasLeagueSelection,
   });
 
   const standingsQuery = useTeamStandings({
     teamId,
     leagueId: selectedLeagueId,
     season: selectedSeason,
-    enabled: visitedTabs.standings && hasLeagueSelection,
+    enabled: hasLeagueSelection,
   });
 
   const statsQuery = useTeamStats({
     teamId,
     leagueId: selectedLeagueId,
     season: selectedSeason,
-    enabled: visitedTabs.stats && hasLeagueSelection,
+    enabled: hasLeagueSelection,
   });
 
   const transfersQuery = useTeamTransfers({
     teamId,
     season: selectedSeason,
-    enabled: visitedTabs.transfers,
+    enabled: Boolean(safeTeamId),
   });
 
   const squadQuery = useTeamSquad({
     teamId,
-    enabled: visitedTabs.squad,
+    enabled: Boolean(safeTeamId),
   });
 
   const trophiesQuery = useTeamTrophies({
@@ -158,53 +173,10 @@ export function useTeamDetailsScreenModel() {
     enabled: Boolean(safeTeamId),
   });
 
-  const hasTrophiesTab = useMemo(
+  const hasTrophiesData = useMemo(
     () => (trophiesQuery.data?.groups ?? []).some(group => group.placements.length > 0),
     [trophiesQuery.data?.groups],
   );
-
-  useEffect(() => {
-    if (!teamId || !selectedLeagueId || typeof selectedSeason !== 'number') {
-      return;
-    }
-
-    if (isContextLoading || isContextError) {
-      return;
-    }
-
-    const shouldPrefetchStandings = !visitedTabs.standings;
-    if (!shouldPrefetchStandings) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      queryClient
-        .prefetchQuery({
-          queryKey: queryKeys.teams.standings(teamId, selectedLeagueId, selectedSeason),
-          ...featureQueryOptions.teams.standings,
-          queryFn: ({ signal }) =>
-            fetchTeamStandingsData({
-              teamId,
-              leagueId: selectedLeagueId,
-              season: selectedSeason,
-              signal,
-            }),
-        })
-        .catch(() => undefined);
-    }, 150);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [
-    isContextError,
-    isContextLoading,
-    queryClient,
-    selectedLeagueId,
-    selectedSeason,
-    teamId,
-    visitedTabs.standings,
-  ]);
 
   useEffect(() => {
     if (activeTab !== 'standings') {
@@ -257,23 +229,7 @@ export function useTeamDetailsScreenModel() {
 
   const handleChangeTab = useCallback((tab: TeamDetailsTab) => {
     setActiveTab(tab);
-    setVisitedTabs(current => ({
-      ...current,
-      [tab]: true,
-    }));
   }, []);
-
-  useEffect(() => {
-    if (activeTab !== 'trophies' || hasTrophiesTab) {
-      return;
-    }
-
-    setActiveTab('overview');
-    setVisitedTabs(current => ({
-      ...current,
-      overview: true,
-    }));
-  }, [activeTab, hasTrophiesTab]);
 
   const handlePressMatch = useCallback(
     (matchId: string) => {
@@ -319,22 +275,115 @@ export function useTeamDetailsScreenModel() {
     toggleTeamFollow(teamId).catch(() => undefined);
   }, [safeTeamId, teamId, toggleTeamFollow]);
 
+  const openNotificationModal = useCallback(() => {
+    setIsNotificationModalOpen(true);
+  }, []);
+
+  const closeNotificationModal = useCallback(() => {
+    setIsNotificationModalOpen(false);
+  }, []);
+
+  const hasMatchesData = useMemo(
+    () => (matchesQuery.data?.all.length ?? 0) > 0,
+    [matchesQuery.data?.all.length],
+  );
+  const hasStandingsData = useMemo(
+    () => (standingsQuery.data?.groups ?? []).some(group => group.rows.length > 0),
+    [standingsQuery.data?.groups],
+  );
+  const hasStatsData = useMemo(() => {
+    const visibility = resolveTeamStatsVisibility(statsQuery.data);
+
+    return (
+      visibility.pointsCardVisible ||
+      visibility.goalsCardVisible ||
+      visibility.playersCardVisible ||
+      (statsQuery.data?.comparisonMetrics.length ?? 0) > 0
+    );
+  }, [statsQuery.data]);
+  const hasTransfersData = useMemo(
+    () =>
+      (transfersQuery.data?.arrivals.length ?? 0) > 0 ||
+      (transfersQuery.data?.departures.length ?? 0) > 0,
+    [transfersQuery.data?.arrivals.length, transfersQuery.data?.departures.length],
+  );
+  const hasSquadData = useMemo(
+    () => (squadQuery.data?.players.length ?? 0) > 0 || Boolean(squadQuery.data?.coach),
+    [squadQuery.data?.coach, squadQuery.data?.players.length],
+  );
+
+  const showMatchesTab = hasLeagueSelection && shouldDisplayDataTab({
+    hasData: hasMatchesData,
+    query: matchesQuery,
+  });
+  const showStandingsTab = hasLeagueSelection && shouldDisplayDataTab({
+    hasData: hasStandingsData,
+    query: standingsQuery,
+  });
+  const showStatsTab = hasLeagueSelection && shouldDisplayDataTab({
+    hasData: hasStatsData,
+    query: statsQuery,
+  });
+  const showTransfersTab = shouldDisplayDataTab({
+    hasData: hasTransfersData,
+    query: transfersQuery,
+  });
+  const showSquadTab = shouldDisplayDataTab({
+    hasData: hasSquadData,
+    query: squadQuery,
+  });
+  const showTrophiesTab = shouldDisplayDataTab({
+    hasData: hasTrophiesData,
+    query: trophiesQuery,
+  });
+
   const tabs = useMemo(() => {
-    const baseTabs: Array<{ key: TeamDetailsTab; label: string }> = [
+    const computedTabs: Array<{ key: TeamDetailsTab; label: string }> = [
       { key: 'overview' as const, label: t('teamDetails.tabs.overview') },
-      { key: 'matches' as const, label: t('teamDetails.tabs.matches') },
-      { key: 'standings' as const, label: t('teamDetails.tabs.standings') },
-      { key: 'stats' as const, label: t('teamDetails.tabs.stats') },
-      { key: 'transfers' as const, label: t('teamDetails.tabs.transfers') },
-      { key: 'squad' as const, label: t('teamDetails.tabs.squad') },
     ];
 
-    if (hasTrophiesTab) {
-      baseTabs.push({ key: 'trophies' as const, label: t('teamDetails.tabs.trophies') });
+    if (showMatchesTab) {
+      computedTabs.push({ key: 'matches' as const, label: t('teamDetails.tabs.matches') });
     }
 
-    return baseTabs;
-  }, [hasTrophiesTab, t]);
+    if (showStandingsTab) {
+      computedTabs.push({ key: 'standings' as const, label: t('teamDetails.tabs.standings') });
+    }
+
+    if (showStatsTab) {
+      computedTabs.push({ key: 'stats' as const, label: t('teamDetails.tabs.stats') });
+    }
+
+    if (showTransfersTab) {
+      computedTabs.push({ key: 'transfers' as const, label: t('teamDetails.tabs.transfers') });
+    }
+
+    if (showSquadTab) {
+      computedTabs.push({ key: 'squad' as const, label: t('teamDetails.tabs.squad') });
+    }
+
+    if (showTrophiesTab) {
+      computedTabs.push({ key: 'trophies' as const, label: t('teamDetails.tabs.trophies') });
+    }
+
+    return computedTabs;
+  }, [
+    showMatchesTab,
+    showStandingsTab,
+    showStatsTab,
+    showTransfersTab,
+    showSquadTab,
+    showTrophiesTab,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (tabs.some(tab => tab.key === activeTab)) {
+      return;
+    }
+
+    setActiveTab('overview');
+  }, [activeTab, tabs]);
 
   const activeTabDataUpdatedAt = useMemo(() => {
     if (activeTab === 'overview') {
@@ -424,6 +473,9 @@ export function useTeamDetailsScreenModel() {
     handlePressTeam,
     handlePressPlayer,
     handleToggleFollow,
+    isNotificationModalOpen,
+    openNotificationModal,
+    closeNotificationModal,
     onBack: () => navigation.goBack(),
   };
 }

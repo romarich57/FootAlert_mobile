@@ -11,6 +11,7 @@ import type {
   PlayerProfileCompetitionStats,
   PlayerSeasonStatsDataset,
 } from '@ui/features/players/types/players.types';
+import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 
 type UsePlayerDetailsScreenModelParams = {
   playerId: string;
@@ -96,6 +97,26 @@ export function usePlayerDetailsScreenModel({
     season: currentSeason,
     leagueId: null,
   });
+
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const { followedPlayerIds, togglePlayerFollow } = useFollowsActions();
+  const isPlayerFollowed = playerId
+    ? followedPlayerIds.includes(playerId)
+    : false;
+
+  const handleToggleFollow = useCallback(() => {
+    if (playerId) {
+      togglePlayerFollow(playerId);
+    }
+  }, [playerId, togglePlayerFollow]);
+
+  const openNotificationModal = useCallback(() => {
+    setIsNotificationModalOpen(true);
+  }, []);
+
+  const closeNotificationModal = useCallback(() => {
+    setIsNotificationModalOpen(false);
+  }, []);
 
   const isMatchesTabActive = activeTab === 'matchs';
   const isStatsTabActive = activeTab === 'stats';
@@ -352,5 +373,10 @@ export function usePlayerDetailsScreenModel({
     hasCachedData,
     lastUpdatedAt,
     setSeason: handleSetSeason,
+    isPlayerFollowed,
+    isNotificationModalOpen,
+    handleToggleFollow,
+    openNotificationModal,
+    closeNotificationModal,
   };
 }

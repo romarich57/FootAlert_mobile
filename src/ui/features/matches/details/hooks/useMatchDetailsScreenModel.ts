@@ -38,7 +38,7 @@ import {
   mapPlayersToTopPlayersByCategory,
 } from '@data/mappers/teamsMapper';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
-import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
 import { resolveMatchDetailsQueryPolicy } from '@ui/features/matches/details/hooks/matchDetailsQueryPolicy';
@@ -84,6 +84,8 @@ type DatasetResolution = {
   isError: boolean;
   errorReason: MatchDetailsDatasetErrorReason;
 };
+
+const PRE_MATCH_LINEUPS_VISIBILITY_WINDOW_MS = 20 * 60_000;
 
 function toRawRecord(value: unknown): RawRecord | null {
   if (!value || typeof value !== 'object') {
@@ -350,8 +352,10 @@ function toRecentResultRows({
 
       return {
         fixtureId: match.fixtureId,
+        homeTeamId: match.homeTeamId ?? null,
         homeTeamName: match.homeTeamName,
         homeTeamLogo: match.homeTeamLogo,
+        awayTeamId: match.awayTeamId ?? null,
         awayTeamName: match.awayTeamName,
         awayTeamLogo: match.awayTeamLogo,
         homeGoals: match.homeGoals,
@@ -398,8 +402,10 @@ function toUpcomingRows({
       leagueLogo: match.leagueLogo,
       dateIso: match.date,
       kickoffDisplay: formatKickoffWithDate(match.date, locale),
+      homeTeamId: match.homeTeamId ?? null,
       homeTeamName: match.homeTeamName,
       homeTeamLogo: match.homeTeamLogo,
+      awayTeamId: match.awayTeamId ?? null,
       awayTeamName: match.awayTeamName,
       awayTeamLogo: match.awayTeamLogo,
       homeGoals: match.homeGoals,
@@ -650,6 +656,24 @@ function formatCountdown(dateIso: string | null | undefined, t: (key: string, op
   return t('matchDetails.header.countdown.minutes', { minutes: Math.max(minutes, 1) });
 }
 
+function isWithinPreMatchLineupsVisibilityWindow(
+  dateIso: string | null | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!dateIso) {
+    return false;
+  }
+
+  const kickoffDate = new Date(dateIso);
+  const kickoffTimestampMs = kickoffDate.getTime();
+  if (Number.isNaN(kickoffTimestampMs)) {
+    return false;
+  }
+
+  const msUntilKickoff = kickoffTimestampMs - nowMs;
+  return msUntilKickoff >= 0 && msUntilKickoff <= PRE_MATCH_LINEUPS_VISIBILITY_WINDOW_MS;
+}
+
 function extractFixtureSeason(fixture: ApiFootballFixtureDto | null): number | null {
   const seasonValue = fixture?.league.season;
   if (typeof seasonValue === 'number' && Number.isFinite(seasonValue)) {
@@ -827,6 +851,7 @@ function buildPreMatchSections({
     isAvailable: hasCompetitionMetaData,
     payload: hasCompetitionMetaData
       ? {
+        competitionId: toId(fixture?.league.id),
         competitionName: toNullableText(fixture?.league.name),
         competitionType,
         competitionRound: roundValue,
@@ -1063,6 +1088,7 @@ function buildPostMatchSections({
     isAvailable: hasCompetitionMetaData,
     payload: hasCompetitionMetaData
       ? {
+        competitionId: toId(fixture?.league.id),
         competitionName: toNullableText(fixture?.league.name),
         competitionType,
         competitionRound: roundValue,
@@ -1723,25 +1749,6 @@ export function useMatchDetailsScreenModel() {
     ],
   );
 
-  const tabs = useMemo(
-    () => composeMatchDetailsViewModel(lifecycleState, t).tabs,
-    [lifecycleState, t],
-  );
-
-  useEffect(() => {
-    setActiveTab('primary');
-  }, [safeMatchId]);
-
-  useEffect(() => {
-    setActiveTab(currentTab => {
-      if (tabs.some(tab => tab.key === currentTab)) {
-        return currentTab;
-      }
-
-      return tabs[0]?.key ?? 'primary';
-    });
-  }, [tabs]);
-
   const kickoffLabel = useMemo(
     () => formatKickoff(fixture?.fixture.date, locale),
     [fixture?.fixture.date, locale],
@@ -1942,6 +1949,31 @@ export function useMatchDetailsScreenModel() {
   const onRefreshLineups = useCallback(() => {
     lineupsQuery.refetch().catch(() => undefined);
   }, [lineupsQuery]);
+
+  const handlePressMatch = useCallback((matchId: string) => {
+    safeNavigateEntity(navigation, 'MatchDetails', matchId);
+  }, [navigation]);
+
+  const handlePressTeam = useCallback((teamId: string) => {
+    const safeTeamId = sanitizeNumericEntityId(teamId);
+    if (!safeTeamId) {
+      return;
+    }
+
+    if (safeTeamId === homeTeamId || safeTeamId === awayTeamId) {
+      return;
+    }
+
+    safeNavigateEntity(navigation, 'TeamDetails', safeTeamId);
+  }, [awayTeamId, homeTeamId, navigation]);
+
+  const handlePressPlayer = useCallback((playerId: string) => {
+    safeNavigateEntity(navigation, 'PlayerDetails', playerId);
+  }, [navigation]);
+
+  const handlePressCompetition = useCallback((competitionId: string) => {
+    safeNavigateEntity(navigation, 'CompetitionDetails', competitionId);
+  }, [navigation]);
 
   const isInitialLoading = fixtureQuery.isLoading;
   const isInitialError = fixtureQuery.isError || !safeMatchId;
@@ -2184,6 +2216,81 @@ export function useMatchDetailsScreenModel() {
       resolvedStatistics.source,
     ],
   );
+
+  const hasPreMatchLineupsPayload = teamLineups.length > 0;
+  const standingsGroups = standingsQuery.data?.league?.standings;
+  const hasStandingsData = Array.isArray(standingsGroups)
+    && standingsGroups.some(groupRows => Array.isArray(groupRows) && groupRows.length > 0);
+  const hasTimelineData = resolvedEvents.data.length > 0;
+  const hasLineupsData = teamLineups.length > 0;
+  const hasStatsData = statsAvailablePeriods.length > 0;
+  const hasFaceOffData = resolvedHeadToHead.data.length > 0;
+  const canShowPreMatchLineupsTab =
+    lifecycleState === 'pre_match'
+    && hasPreMatchLineupsPayload
+    && isWithinPreMatchLineupsVisibilityWindow(fixture?.fixture.date);
+
+  const tabs = useMemo(
+    () =>
+      composeMatchDetailsViewModel(
+        lifecycleState,
+        t,
+        {
+          showTimeline:
+            lifecycleState === 'pre_match'
+              ? false
+              : lifecycleState === 'finished'
+                ? hasTimelineData
+                : true,
+          showLineups:
+            lifecycleState === 'pre_match'
+              ? canShowPreMatchLineupsTab
+              : lifecycleState === 'finished'
+                ? hasLineupsData
+                : true,
+          showStandings:
+            lifecycleState === 'finished'
+              ? hasStandingsData
+              : true,
+          showStats:
+            lifecycleState === 'pre_match'
+              ? false
+              : lifecycleState === 'finished'
+                ? hasStatsData
+                : true,
+          showFaceOff:
+            lifecycleState === 'finished'
+              ? hasFaceOffData
+              : true,
+        },
+      ).tabs,
+    [
+      canShowPreMatchLineupsTab,
+      hasFaceOffData,
+      hasLineupsData,
+      hasStandingsData,
+      hasStatsData,
+      hasTimelineData,
+      lifecycleState,
+      t,
+    ],
+  );
+
+  useEffect(() => {
+    setActiveTab(currentTab => (currentTab === 'primary' ? currentTab : 'primary'));
+  }, [safeMatchId]);
+
+  useEffect(() => {
+    if (tabs.some(tab => tab.key === activeTab)) {
+      return;
+    }
+
+    const nextTab = tabs[0]?.key ?? 'primary';
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }, [activeTab, tabs]);
+
   const lastUpdatedAt =
     typeof fixture?.fixture.timestamp === 'number' && Number.isFinite(fixture.fixture.timestamp)
       ? fixture.fixture.timestamp * 1000
@@ -2198,6 +2305,10 @@ export function useMatchDetailsScreenModel() {
     isLiveRefreshing: summaryIsFetching,
     onRetryAll: retryAll,
     onRefreshLineups,
+    handlePressMatch,
+    handlePressTeam,
+    handlePressPlayer,
+    handlePressCompetition,
     isLineupsRefetching: lineupsQuery.isFetching,
     navigation,
     safeMatchId,

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { Transfer } from '../types/competitions.types';
 
@@ -59,9 +60,11 @@ function toDisplayTransferType(type: string, t: (key: string) => string): string
 
 type TransferCardProps = {
     transfer: Transfer;
+    onPressPlayer?: (playerId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
-export function TransferCard({ transfer }: TransferCardProps) {
+export function TransferCard({ transfer, onPressPlayer, onPressTeam }: TransferCardProps) {
     const { colors } = useAppTheme();
     const { t, i18n } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -75,39 +78,95 @@ export function TransferCard({ transfer }: TransferCardProps) {
         <View style={styles.cardContainer}>
             <View style={styles.topRow}>
                 <View style={styles.avatarContainer}>
-                    <Image
-                        source={{ uri: transfer.playerPhoto }}
-                        style={styles.avatar}
-                        resizeMode="cover"
-                    />
+                    {onPressPlayer ? (
+                        <AppPressable
+                            onPress={() => onPressPlayer(String(transfer.playerId))}
+                            accessibilityRole="button"
+                            accessibilityLabel={transfer.playerName}
+                        >
+                            <Image
+                                source={{ uri: transfer.playerPhoto }}
+                                style={styles.avatar}
+                                resizeMode="cover"
+                            />
+                        </AppPressable>
+                    ) : (
+                        <Image
+                            source={{ uri: transfer.playerPhoto }}
+                            style={styles.avatar}
+                            resizeMode="cover"
+                        />
+                    )}
                 </View>
                 <Text style={styles.dateText}>{relativeDate}</Text>
             </View>
 
-            <Text style={styles.playerName} numberOfLines={1}>{transfer.playerName}</Text>
+            {onPressPlayer ? (
+                <AppPressable
+                    onPress={() => onPressPlayer(String(transfer.playerId))}
+                    accessibilityRole="button"
+                    accessibilityLabel={transfer.playerName}
+                >
+                    <Text style={styles.playerName} numberOfLines={1}>{transfer.playerName}</Text>
+                </AppPressable>
+            ) : (
+                <Text style={styles.playerName} numberOfLines={1}>{transfer.playerName}</Text>
+            )}
 
             <View style={styles.clubsRow}>
-                <View style={styles.clubItem}>
-                    {transfer.teamOut.logo ? (
-                        <Image source={{ uri: transfer.teamOut.logo }} style={styles.clubLogo} />
-                    ) : null}
-                    <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
-                        {fromTeamName}
-                    </Text>
-                </View>
+                {onPressTeam ? (
+                    <AppPressable
+                        style={styles.clubItem}
+                        onPress={() => onPressTeam(String(transfer.teamOut.id))}
+                        accessibilityRole="button"
+                        accessibilityLabel={fromTeamName}
+                    >
+                        {transfer.teamOut.logo ? (
+                            <Image source={{ uri: transfer.teamOut.logo }} style={styles.clubLogo} />
+                        ) : null}
+                        <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
+                            {fromTeamName}
+                        </Text>
+                    </AppPressable>
+                ) : (
+                    <View style={styles.clubItem}>
+                        {transfer.teamOut.logo ? (
+                            <Image source={{ uri: transfer.teamOut.logo }} style={styles.clubLogo} />
+                        ) : null}
+                        <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
+                            {fromTeamName}
+                        </Text>
+                    </View>
+                )}
 
                 <View style={styles.arrowContainer}>
                     <Text style={styles.arrowText}>→</Text>
                 </View>
 
-                <View style={styles.clubItem}>
-                    {transfer.teamIn.logo ? (
-                        <Image source={{ uri: transfer.teamIn.logo }} style={styles.clubLogo} />
-                    ) : null}
-                    <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
-                        {toTeamName}
-                    </Text>
-                </View>
+                {onPressTeam ? (
+                    <AppPressable
+                        style={styles.clubItem}
+                        onPress={() => onPressTeam(String(transfer.teamIn.id))}
+                        accessibilityRole="button"
+                        accessibilityLabel={toTeamName}
+                    >
+                        {transfer.teamIn.logo ? (
+                            <Image source={{ uri: transfer.teamIn.logo }} style={styles.clubLogo} />
+                        ) : null}
+                        <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
+                            {toTeamName}
+                        </Text>
+                    </AppPressable>
+                ) : (
+                    <View style={styles.clubItem}>
+                        {transfer.teamIn.logo ? (
+                            <Image source={{ uri: transfer.teamIn.logo }} style={styles.clubLogo} />
+                        ) : null}
+                        <Text style={styles.clubName} numberOfLines={1} ellipsizeMode="tail">
+                            {toTeamName}
+                        </Text>
+                    </View>
+                )}
             </View>
 
             <View style={styles.footerRow}>

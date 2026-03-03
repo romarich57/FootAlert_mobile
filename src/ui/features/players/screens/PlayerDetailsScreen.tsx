@@ -7,7 +7,16 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { RootStackParamList } from '@ui/app/navigation/types';
-import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import {
+    getNotificationSubscriptions,
+    upsertNotificationSubscriptions,
+} from '@data/endpoints/notificationsApi';
+import {
+    buildNotificationSubscriptions,
+    hydrateNotificationToggles,
+    type AlertTypeMap,
+} from '@data/notifications/subscriptionMappings';
 
 import { PlayerHeader } from '@ui/features/players/components/PlayerHeader';
 import { PlayerTabs, PlayerTabType } from '@ui/features/players/components/PlayerTabs';
@@ -15,10 +24,53 @@ import { PlayerProfileTab } from '@ui/features/players/components/PlayerProfileT
 import { PlayerMatchesTab } from '@ui/features/players/components/PlayerMatchesTab';
 import { PlayerStatsTab } from '@ui/features/players/components/PlayerStatsTab';
 import { PlayerCareerTab } from '@ui/features/players/components/PlayerCareerTab';
+import {
+    PlayerNotificationModal,
+    type PlayerNotificationPrefs,
+} from '@ui/features/players/components/PlayerNotificationModal';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 
 import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
 import { useOfflineUiState } from '@ui/shared/hooks';
+
+type PlayerAlertPrefKey = Exclude<keyof PlayerNotificationPrefs, 'enabled'>;
+
+const PLAYER_NOTIFICATION_DEFAULTS: PlayerNotificationPrefs = {
+    enabled: false,
+    startingLineup: true,
+    goals: true,
+    assists: true,
+    yellowCards: true,
+    redCards: true,
+    missedPenalty: true,
+    transfers: true,
+    substitution: true,
+    matchRating: true,
+};
+
+const PLAYER_NOTIFICATION_TOGGLE_DEFAULTS: Omit<PlayerNotificationPrefs, 'enabled'> = {
+    startingLineup: PLAYER_NOTIFICATION_DEFAULTS.startingLineup,
+    goals: PLAYER_NOTIFICATION_DEFAULTS.goals,
+    assists: PLAYER_NOTIFICATION_DEFAULTS.assists,
+    yellowCards: PLAYER_NOTIFICATION_DEFAULTS.yellowCards,
+    redCards: PLAYER_NOTIFICATION_DEFAULTS.redCards,
+    missedPenalty: PLAYER_NOTIFICATION_DEFAULTS.missedPenalty,
+    transfers: PLAYER_NOTIFICATION_DEFAULTS.transfers,
+    substitution: PLAYER_NOTIFICATION_DEFAULTS.substitution,
+    matchRating: PLAYER_NOTIFICATION_DEFAULTS.matchRating,
+};
+
+const PLAYER_ALERT_MAP: AlertTypeMap<PlayerAlertPrefKey> = {
+    startingLineup: 'starting_lineup',
+    goals: 'goal',
+    assists: 'assist',
+    yellowCards: 'yellow_card',
+    redCards: 'red_card',
+    missedPenalty: 'missed_penalty',
+    transfers: 'transfer',
+    substitution: 'substitution',
+    matchRating: 'match_rating',
+};
 
 type PlayerDetailsScreenRouteProp = RouteProp<RootStackParamList, 'PlayerDetails'>;
 type PlayerDetailsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PlayerDetails'>;
@@ -32,9 +84,67 @@ export function PlayerDetailsScreen() {
     const safePlayerId = sanitizeNumericEntityId(route.params.playerId);
     const [activeTab, setActiveTab] = useState<PlayerTabType>('profil');
     const screenModel = usePlayerDetailsScreenModel({
-      playerId: safePlayerId ?? '',
-      activeTab,
+        playerId: safePlayerId ?? '',
+        activeTab,
     });
+    const [notificationPrefs, setNotificationPrefs] = useState<PlayerNotificationPrefs>({
+        ...PLAYER_NOTIFICATION_DEFAULTS,
+        enabled: screenModel.isPlayerFollowed,
+    });
+
+    const loadPlayerNotificationPrefs = useCallback(async () => {
+        if (!safePlayerId) {
+            return;
+        }
+
+        try {
+            const subscriptions = await getNotificationSubscriptions({
+                scopeKind: 'player',
+                scopeId: safePlayerId,
+            });
+            const toggles = hydrateNotificationToggles(
+                PLAYER_NOTIFICATION_TOGGLE_DEFAULTS,
+                PLAYER_ALERT_MAP,
+                subscriptions,
+            );
+            const hasEnabledAlert = Object.values(toggles).some(Boolean);
+            setNotificationPrefs({
+                enabled: hasEnabledAlert || screenModel.isPlayerFollowed,
+                ...toggles,
+            });
+        } catch {
+            setNotificationPrefs(current => ({
+                ...current,
+                enabled: screenModel.isPlayerFollowed,
+            }));
+        }
+    }, [safePlayerId, screenModel.isPlayerFollowed]);
+
+    const openPlayerNotificationModal = useCallback(() => {
+        screenModel.openNotificationModal();
+        void loadPlayerNotificationPrefs();
+    }, [loadPlayerNotificationPrefs, screenModel]);
+
+    const handleSavePlayerNotificationPrefs = useCallback((prefs: PlayerNotificationPrefs) => {
+        setNotificationPrefs(prefs);
+        if (!safePlayerId) {
+            screenModel.closeNotificationModal();
+            return;
+        }
+
+        const { enabled, ...toggles } = prefs;
+        void upsertNotificationSubscriptions({
+            scopeKind: 'player',
+            scopeId: safePlayerId,
+            subscriptions: buildNotificationSubscriptions(
+                toggles,
+                PLAYER_ALERT_MAP,
+                { disableAll: !enabled },
+            ),
+        }).finally(() => {
+            screenModel.closeNotificationModal();
+        });
+    }, [safePlayerId, screenModel]);
     const offlineUi = useOfflineUiState({
         hasData: screenModel.hasCachedData,
         isLoading:
@@ -51,16 +161,14 @@ export function PlayerDetailsScreen() {
     const handleBack = useCallback(() => {
         navigation.goBack();
     }, [navigation]);
-    const handleShare = useCallback(() => {
-        // TODO: Implement share logic.
-    }, []);
     const handlePressMatch = useCallback((fixtureId: string) => {
-        const safeFixtureId = sanitizeNumericEntityId(fixtureId);
-        if (!safeFixtureId) {
-            return;
-        }
-
-        navigation.navigate('MatchDetails', { matchId: safeFixtureId });
+        safeNavigateEntity(navigation, 'MatchDetails', fixtureId);
+    }, [navigation]);
+    const handlePressTeam = useCallback((teamId: string) => {
+        safeNavigateEntity(navigation, 'TeamDetails', teamId);
+    }, [navigation]);
+    const handlePressCompetition = useCallback((competitionId: string) => {
+        safeNavigateEntity(navigation, 'CompetitionDetails', competitionId);
     }, [navigation]);
 
     if (!safePlayerId) {
@@ -106,6 +214,7 @@ export function PlayerDetailsScreen() {
                     characteristics={screenModel.characteristics}
                     positions={screenModel.profilePositions}
                     trophiesByClub={screenModel.profileTrophiesByClub}
+                    onPressCompetition={handlePressCompetition}
                 />
             );
             break;
@@ -116,6 +225,8 @@ export function PlayerDetailsScreen() {
                 <PlayerMatchesTab
                     matches={screenModel.matches}
                     onPressMatch={handlePressMatch}
+                    onPressCompetition={handlePressCompetition}
+                    onPressTeam={handlePressTeam}
                 />
             );
             break;
@@ -141,6 +252,7 @@ export function PlayerDetailsScreen() {
                     seasons={screenModel.careerSeasons}
                     teams={screenModel.careerTeams}
                     nationality={profile.nationality ?? undefined}
+                    onPressTeam={handlePressTeam}
                 />
             );
             break;
@@ -153,8 +265,11 @@ export function PlayerDetailsScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <PlayerHeader
                 profile={profile}
+                isFollowed={screenModel.isPlayerFollowed}
                 onBack={handleBack}
-                onShare={handleShare}
+                onToggleFollow={screenModel.handleToggleFollow}
+                onOpenNotificationModal={openPlayerNotificationModal}
+                onPressTeam={handlePressTeam}
             />
             <PlayerTabs
                 selectedTab={activeTab}
@@ -166,6 +281,13 @@ export function PlayerDetailsScreen() {
                 </View>
             ) : null}
             {tabContent}
+
+            <PlayerNotificationModal
+                visible={screenModel.isNotificationModalOpen}
+                initialPrefs={notificationPrefs}
+                onClose={screenModel.closeNotificationModal}
+                onSave={handleSavePlayerNotificationPrefs}
+            />
         </View>
     );
 }

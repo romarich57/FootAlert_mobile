@@ -29,9 +29,16 @@ export function OverviewStandingHistoryCard({
   historyLeague,
 }: OverviewStandingHistoryCardProps) {
   const [historyChartWidth, setHistoryChartWidth] = useState(0);
+  const validHistoryPoints = useMemo(
+    () =>
+      historyPoints.filter(
+        point => typeof point.rank === 'number' && Number.isFinite(point.rank),
+      ),
+    [historyPoints],
+  );
   const historyVisualPoints = useMemo<HistoryVisualPoint[]>(
-    () => computeHistoryVisualPoints(historyPoints, historyChartWidth),
-    [historyChartWidth, historyPoints],
+    () => computeHistoryVisualPoints(validHistoryPoints, historyChartWidth),
+    [historyChartWidth, validHistoryPoints],
   );
 
   return (
@@ -53,7 +60,7 @@ export function OverviewStandingHistoryCard({
           </View>
         ) : null}
       </View>
-      {historyPoints.length > 0 ? (
+      {validHistoryPoints.length > 0 ? (
         <View style={styles.historyChart}>
           <View
             style={styles.historyGraphCanvas}
@@ -65,7 +72,7 @@ export function OverviewStandingHistoryCard({
             }}
           >
             <View style={styles.historyColumns}>
-              {historyPoints.map((point, index, array) => (
+              {validHistoryPoints.map((point, index, array) => (
                 <View
                   key={`history-col-${point.season}`}
                   style={[
@@ -127,7 +134,7 @@ export function OverviewStandingHistoryCard({
                   ]}
                 >
                   <Text style={[styles.historyItemText, { color: rankColor.text }]}>
-                    {toDisplayNumber(point.rank, '-')}
+                    {toDisplayNumber(point.rank)}
                   </Text>
                 </View>
               );
@@ -135,7 +142,7 @@ export function OverviewStandingHistoryCard({
           </View>
 
           <View style={styles.historySeasonRow}>
-            {historyPoints.map((point, index, array) => (
+            {validHistoryPoints.map((point, index, array) => (
               <View
                 key={`history-season-${point.season}`}
                 style={[

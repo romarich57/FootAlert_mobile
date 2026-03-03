@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import type { PropsWithChildren } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   APP_CACHE_SCHEMA_VERSION,
@@ -33,6 +33,12 @@ function isJestRuntime(): boolean {
 
 function registerOnlineManagerIfNeeded(): void {
   if (hasRegisteredOnlineManager) {
+    return;
+  }
+
+  // Tests don't need a global NetInfo bridge and it can keep open handles.
+  if (isJestRuntime()) {
+    hasRegisteredOnlineManager = true;
     return;
   }
 
@@ -79,18 +85,26 @@ export function QueryProvider({
       }),
   );
 
+  useEffect(() => {
+    return () => {
+      client.clear();
+    };
+  }, [client]);
+
   registerOnlineManagerIfNeeded();
 
-  const persister = useMemo(
-    () =>
-      createAsyncStoragePersister({
-        storage: AsyncStorage,
-        key: QUERY_PERSIST_CACHE_KEY,
-      }),
-    [],
-  );
+  const persister = useMemo(() => {
+    if (!enablePersistence) {
+      return null;
+    }
 
-  if (!enablePersistence) {
+    return createAsyncStoragePersister({
+      storage: AsyncStorage,
+      key: QUERY_PERSIST_CACHE_KEY,
+    });
+  }, [enablePersistence]);
+
+  if (!enablePersistence || !persister) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   }
 

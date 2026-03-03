@@ -11,6 +11,16 @@ export const fr = {
       search: 'Recherche',
       follows: 'Suivis',
     },
+    legal: {
+      footerTitle: 'Mentions légales :',
+      disclaimer: 'Contenu informatif 13+. Les prédictions ne sont pas un conseil de pari.',
+      routes: {
+        privacy: 'Politique de confidentialité',
+        terms: "Conditions d'utilisation",
+        cookies: 'Cookies',
+        dataDeletion: 'Suppression des données',
+      },
+    },
     states: {
       loading: 'Chargement…',
       empty: 'Aucune donnée pour ces paramètres.',

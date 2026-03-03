@@ -398,8 +398,46 @@ describe('useTeamOverview', () => {
     expect(result.coachPerformance?.pointsPerMatch).toBe(2.32);
   });
 
-  it('returns partial payload when players and one history season fail', async () => {
+  it('throws when players dataset is unavailable', async () => {
     mockedFetchTeamPlayers.mockRejectedValue(new Error('players failed'));
+
+    renderHook(() =>
+      useTeamOverview({
+        teamId: '529',
+        leagueId: '140',
+        season: 2025,
+        timezone: 'Europe/Paris',
+        competitionSeasons: [2024, 2023],
+      }),
+    );
+
+    const queryFn = capturedQueryConfig?.queryFn;
+    expect(queryFn).toBeDefined();
+
+    await expect(queryFn?.({ signal: undefined } as never)).rejects.toThrow('players failed');
+  });
+
+  it('throws when both fixtures and next fixture datasets are unavailable', async () => {
+    mockedFetchTeamFixtures.mockRejectedValue(new Error('fixtures failed'));
+    mockedFetchTeamNextFixture.mockRejectedValue(new Error('next fixture failed'));
+
+    renderHook(() =>
+      useTeamOverview({
+        teamId: '529',
+        leagueId: '140',
+        season: 2025,
+        timezone: 'Europe/Paris',
+        competitionSeasons: [2024, 2023],
+      }),
+    );
+
+    const queryFn = capturedQueryConfig?.queryFn;
+    expect(queryFn).toBeDefined();
+
+    await expect(queryFn?.({ signal: undefined } as never)).rejects.toThrow('fixtures failed');
+  });
+
+  it('returns partial payload when one standings history season fails', async () => {
     mockedFetchLeagueStandings.mockImplementation(async (_leagueId, season) => {
       if (season === 2024) {
         throw new Error('history failed');
@@ -423,11 +461,6 @@ describe('useTeamOverview', () => {
 
     const result = (await queryFn?.({ signal: undefined } as never)) as TeamOverviewData;
 
-    expect(result.playerLeaders).toEqual({
-      ratings: [],
-      scorers: [],
-      assisters: [],
-    });
     expect(result.standingHistory).toEqual([
       { season: 2025, rank: 2 },
       { season: 2024, rank: null },
@@ -455,7 +488,7 @@ describe('useTeamOverview', () => {
     const queryFn = capturedQueryConfig?.queryFn;
     expect(queryFn).toBeDefined();
 
-    await expect(queryFn?.({ signal: undefined } as never)).rejects.toThrow('fixtures failed');
+    await expect(queryFn?.({ signal: undefined } as never)).rejects.toThrow('standings failed');
   });
 
   it('rethrows abort errors instead of returning partial payload', async () => {

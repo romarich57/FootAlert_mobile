@@ -13,6 +13,7 @@ type TeamTransfersTabProps = {
   data: TeamTransfersData | undefined;
   isLoading: boolean;
   isError: boolean;
+  hasFetched?: boolean;
   onRetry: () => void;
 };
 
@@ -249,7 +250,13 @@ const TeamTransferRow = memo(function TeamTransferRow({
   );
 });
 
-export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTransfersTabProps) {
+export function TeamTransfersTab({
+  data,
+  isLoading,
+  isError,
+  hasFetched = true,
+  onRetry,
+}: TeamTransfersTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -257,6 +264,9 @@ export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTran
 
   const list = direction === 'arrival' ? data?.arrivals ?? [] : data?.departures ?? [];
   const transferTypeLabel = t('teamDetails.labels.transferType');
+  const hasRows = list.length > 0;
+  const shouldShowLoadingState = (isLoading || !hasFetched) && !hasRows;
+  const shouldShowErrorState = isError && !hasRows;
 
   const renderTransferItem = useCallback<ListRenderItem<TeamTransferItem>>(
     ({ item }) => (
@@ -291,13 +301,13 @@ export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTran
         })}
       </View>
 
-      {isLoading ? (
+      {shouldShowLoadingState ? (
         <View style={styles.stateCard}>
           <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
         </View>
       ) : null}
 
-      {isError ? (
+      {shouldShowErrorState ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
           <Pressable onPress={onRetry}>
@@ -306,13 +316,15 @@ export function TeamTransfersTab({ data, isLoading, isError, onRetry }: TeamTran
         </View>
       ) : null}
 
-      {!isLoading && !isError ? (
+      {!shouldShowLoadingState && !shouldShowErrorState ? (
         <FlashList
           data={list}
           keyExtractor={item => item.id}
           renderItem={renderTransferItem}
           estimatedItemSize={140}
-          ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
+          ListEmptyComponent={
+            hasFetched ? <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text> : null
+          }
         />
       ) : null}
     </View>

@@ -37,16 +37,13 @@ const LONG_STATUS_LIVE_HINTS = [
 ];
 const LONG_STATUS_UPCOMING_HINTS = ['not started', 'to be defined'];
 const TOP_COMPETITION_IDS_SET = new Set<string>(TOP_COMPETITION_IDS);
-const TOP_COMPETITION_NAME_HINTS = [
-  'champions league',
-  'uefa champions league',
-  'europa league',
-  'premier league',
-  'ligue 1',
-  'bundesliga',
-  'serie a',
-  'la liga',
-];
+const TOP_COMPETITION_PRIORITY = TOP_COMPETITION_IDS.reduce<Record<string, number>>(
+  (accumulator, competitionId, index) => {
+    accumulator[competitionId] = index;
+    return accumulator;
+  },
+  {},
+);
 
 function includesAny(haystack: string, needles: string[]): boolean {
   return needles.some(needle => haystack.includes(needle));
@@ -93,13 +90,8 @@ function normalizeStatus(
   return 'upcoming';
 }
 
-function isTopCompetition(competitionId: string, competitionName: string): boolean {
-  if (TOP_COMPETITION_IDS_SET.has(competitionId)) {
-    return true;
-  }
-
-  const normalizedCompetitionName = competitionName.trim().toLowerCase();
-  return TOP_COMPETITION_NAME_HINTS.some(nameHint => normalizedCompetitionName.includes(nameHint));
+function isTopCompetition(competitionId: string): boolean {
+  return TOP_COMPETITION_IDS_SET.has(competitionId);
 }
 
 export function formatStatusLabel(
@@ -210,7 +202,7 @@ export function mapFixturesToSections(fixtures: ApiFootballFixtureDto[]): Compet
         name: match.competitionName,
         logo: match.competitionLogo,
         country: match.competitionCountry,
-        isTopCompetition: isTopCompetition(sectionId, match.competitionName),
+        isTopCompetition: isTopCompetition(sectionId),
         matches: [match],
         weight: getCompetitionWeight(sectionId, match.competitionName),
       });
@@ -218,7 +210,7 @@ export function mapFixturesToSections(fixtures: ApiFootballFixtureDto[]): Compet
     }
 
     existingSection.isTopCompetition =
-      Boolean(existingSection.isTopCompetition) || isTopCompetition(sectionId, match.competitionName);
+      Boolean(existingSection.isTopCompetition) || isTopCompetition(sectionId);
     existingSection.matches.push(match);
     existingSection.weight = existingSection.weight || getCompetitionWeight(sectionId, match.competitionName);
   });
@@ -234,15 +226,25 @@ export function mapFixturesToSections(fixtures: ApiFootballFixtureDto[]): Compet
   });
 
   sections.sort((a, b) => {
+    const topA = Boolean(a.isTopCompetition);
+    const topB = Boolean(b.isTopCompetition);
+    if (topA !== topB) {
+      return topA ? -1 : 1;
+    }
+
+    if (topA && topB) {
+      const priorityA = TOP_COMPETITION_PRIORITY[a.id] ?? Number.MAX_SAFE_INTEGER;
+      const priorityB = TOP_COMPETITION_PRIORITY[b.id] ?? Number.MAX_SAFE_INTEGER;
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+    }
+
     const weightA = a.weight ?? 0;
     const weightB = b.weight ?? 0;
 
     if (weightA !== weightB) {
       return weightB - weightA; // Higher weight first
-    }
-
-    if (a.isTopCompetition !== b.isTopCompetition) {
-      return a.isTopCompetition ? -1 : 1;
     }
 
     return a.name.localeCompare(b.name);

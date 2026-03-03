@@ -21,29 +21,22 @@ function renderSection(section: CompetitionSectionType) {
       collapsed
       onToggle={jest.fn()}
       onPressMatch={jest.fn()}
+      onToggleMatchFollow={jest.fn()}
+      isMatchFollowed={() => false}
       onPressNotification={jest.fn()}
     />,
   );
 }
 
 describe('CompetitionSection', () => {
-  it('shows the TOP badge only for top competitions', () => {
+  it('displays the competition title correctly', () => {
     renderSection({
       ...baseSection,
-      isTopCompetition: true,
+      country: 'France',
+      name: 'Ligue 1',
     });
 
-    expect(screen.getByText('TOP')).toBeTruthy();
-  });
-
-  it('does not show TOP badge for non-top competitions', () => {
-    renderSection({
-      ...baseSection,
-      id: '999',
-      name: 'National League',
-      isTopCompetition: false,
-    });
-
-    expect(screen.queryByText('TOP')).toBeNull();
+    // Translation fallback to country name
+    expect(screen.getByText('France - Ligue 1')).toBeTruthy();
   });
 });

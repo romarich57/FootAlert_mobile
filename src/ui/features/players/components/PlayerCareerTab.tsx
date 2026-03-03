@@ -23,6 +23,7 @@ type PlayerCareerTabProps = {
   seasons: PlayerCareerSeason[];
   teams: PlayerCareerTeam[];
   nationality?: string;
+  onPressTeam?: (teamId: string) => void;
 };
 
 type CareerViewMode = 'season' | 'team';
@@ -38,6 +39,7 @@ function buildTeamModeItems(
   styles: PlayerCareerTabStyles,
   t: (key: string) => string,
   iconColor: string,
+  onPressTeam?: (teamId: string) => void,
 ): PlayerCareerContentItem[] {
   const items: PlayerCareerContentItem[] = [];
 
@@ -50,6 +52,7 @@ function buildTeamModeItems(
           sectionTeams={professionalTeams}
           styles={styles}
           iconColor={iconColor}
+          onPressTeam={onPressTeam}
         />
       ),
     });
@@ -62,6 +65,7 @@ function buildTeamModeItems(
         sectionTeams={nationalTeams}
         styles={styles}
         iconColor={iconColor}
+        onPressTeam={onPressTeam}
       />
     );
 
@@ -93,7 +97,7 @@ function buildTeamModeItems(
   return items;
 }
 
-export function PlayerCareerTab({ seasons, teams, nationality }: PlayerCareerTabProps) {
+export function PlayerCareerTab({ seasons, teams, nationality, onPressTeam }: PlayerCareerTabProps) {
   const { colors } = useAppTheme();
   const { t, i18n } = useTranslation();
   const styles = useMemo(() => createPlayerCareerTabStyles(colors), [colors]);
@@ -118,18 +122,20 @@ export function PlayerCareerTab({ seasons, teams, nationality }: PlayerCareerTab
               title={t('playerDetails.career.labels.professionalCareer')}
               emptyLabel={t('playerDetails.career.states.emptySeason')}
               iconColor={colors.textMuted}
+              onPressTeam={onPressTeam}
             />
           ),
         },
       ];
     }
 
-    return buildTeamModeItems(professionalTeams, nationalTeams, styles, t, colors.textMuted);
+    return buildTeamModeItems(professionalTeams, nationalTeams, styles, t, colors.textMuted, onPressTeam);
   }, [
     colors.textMuted,
     i18n.language,
     mode,
     nationalTeams,
+    onPressTeam,
     professionalTeams,
     seasonRows,
     styles,

@@ -9,6 +9,14 @@ describe('routeParams', () => {
     expect(sanitizeNumericEntityId('999999')).toBe('999999');
   });
 
+  it('normalizes finite numeric entity ids during navigation', () => {
+    const navigate = jest.fn();
+    const navigation = { navigate } as never;
+
+    expect(safeNavigateEntity(navigation, 'MatchDetails', 101)).toBe(true);
+    expect(navigate).toHaveBeenCalledWith('MatchDetails', { matchId: '101' });
+  });
+
   it('rejects malformed ids', () => {
     expect(sanitizeNumericEntityId('')).toBeNull();
     expect(sanitizeNumericEntityId('0')).toBeNull();

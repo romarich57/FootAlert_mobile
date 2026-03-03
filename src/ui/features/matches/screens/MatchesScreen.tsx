@@ -17,7 +17,7 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 20,
       paddingTop: 12,
       paddingBottom: 18,
-      gap: 20,
+      gap: 32,
     },
     listHeader: {
       gap: 18,
@@ -41,7 +41,9 @@ export function MatchesScreen() {
         listData={model.listData}
         selectedDate={model.selectedDate}
         statusFilter={model.statusFilter}
+        followedOnly={model.followedOnly}
         collapsedSections={model.collapsedSections}
+        isCalendarModalVisible={model.isCalendarModalVisible}
         isRefetching={model.isRefetching}
         showLoading={model.showLoading}
         showError={model.showError}
@@ -55,20 +57,22 @@ export function MatchesScreen() {
         notificationPrefs={model.notificationPrefs}
         onSelectDate={model.setSelectedDate}
         onFilterChange={model.setStatusFilter}
+        onToggleFollowedOnly={model.toggleFollowedOnly}
         onToggleSection={model.handleToggleSection}
         onPressMatch={model.handlePressMatch}
+        onToggleMatchFollow={model.handleToggleMatchFollow}
+        isMatchFollowed={model.isMatchFollowed}
         onPressTeam={model.handlePressTeam}
         onPressNotification={model.handlePressNotification}
         onPressCalendar={model.handlePressCalendar}
         onPressSearch={model.handlePressSearch}
-        onPressNotifications={model.handlePressNotifications}
         onRetry={model.refetch}
+        onCloseCalendarModal={model.closeCalendarModal}
         onCloseNotificationModal={model.closeNotificationModal}
         onSaveNotificationPrefs={model.handleSaveNotificationPrefs}
-        onPressManageHidden={model.handlePressManageHidden}
         onHideCompetition={model.handleHideCompetition}
         onUnhideCompetition={model.handleUnhideCompetition}
-        hiddenCompetitionsIds={model.hiddenCompetitionsIds}
+        hiddenCompetitions={model.hiddenCompetitions}
         isManageHiddenModalVisible={model.isManageHiddenModalVisible}
         onCloseManageHiddenModal={model.closeManageHiddenModal}
       />

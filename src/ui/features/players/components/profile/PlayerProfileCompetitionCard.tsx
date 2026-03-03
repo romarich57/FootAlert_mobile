@@ -2,6 +2,7 @@ import { Image, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import type { PlayerProfileTabStyles } from '@ui/features/players/components/profile/PlayerProfileTab.styles';
+import { AppPressable } from '@ui/shared/components';
 import type { CompetitionKpiItem, TranslateFn } from '@ui/features/players/components/profile/playerProfile.helpers';
 import type { PlayerProfileCompetitionStats } from '@ui/features/players/types/players.types';
 import { getRatingColor, toDisplayValue, toSeasonLabel } from '@ui/features/players/utils/playerDisplay';
@@ -15,6 +16,7 @@ type PlayerProfileCompetitionCardProps = {
   textMutedColor: string;
   primaryContrast: string;
   borderColor: string;
+  onPressCompetition?: (competitionId: string) => void;
 };
 
 export function PlayerProfileCompetitionCard({
@@ -26,6 +28,7 @@ export function PlayerProfileCompetitionCard({
   textMutedColor,
   primaryContrast,
   borderColor,
+  onPressCompetition,
 }: PlayerProfileCompetitionCardProps) {
   const competitionSeason = competitionStats ? toSeasonLabel(competitionStats.season) : '';
   const competitionRating = toDisplayValue(competitionStats?.rating);
@@ -39,21 +42,44 @@ export function PlayerProfileCompetitionCard({
 
       {competitionStats ? (
         <>
-          <View style={styles.competitionHeader}>
-            <View style={styles.competitionLogoWrap}>
-              {competitionStats.leagueLogo ? (
-                <Image source={{ uri: competitionStats.leagueLogo }} style={styles.competitionLogo} resizeMode="contain" />
-              ) : (
-                <MaterialCommunityIcons name="shield-outline" size={18} color={textMutedColor} />
-              )}
+          {competitionStats.leagueId && onPressCompetition ? (
+            <AppPressable
+              style={styles.competitionHeader}
+              onPress={() => onPressCompetition(competitionStats.leagueId ?? '')}
+              accessibilityRole="button"
+              accessibilityLabel={toDisplayValue(competitionStats.leagueName)}
+            >
+              <View style={styles.competitionLogoWrap}>
+                {competitionStats.leagueLogo ? (
+                  <Image source={{ uri: competitionStats.leagueLogo }} style={styles.competitionLogo} resizeMode="contain" />
+                ) : (
+                  <MaterialCommunityIcons name="shield-outline" size={18} color={textMutedColor} />
+                )}
+              </View>
+              <View style={styles.competitionMeta}>
+                <Text style={styles.competitionName} numberOfLines={1}>
+                  {toDisplayValue(competitionStats.leagueName)}
+                </Text>
+                {competitionSeason ? <Text style={styles.competitionSeason}>{competitionSeason}</Text> : null}
+              </View>
+            </AppPressable>
+          ) : (
+            <View style={styles.competitionHeader}>
+              <View style={styles.competitionLogoWrap}>
+                {competitionStats.leagueLogo ? (
+                  <Image source={{ uri: competitionStats.leagueLogo }} style={styles.competitionLogo} resizeMode="contain" />
+                ) : (
+                  <MaterialCommunityIcons name="shield-outline" size={18} color={textMutedColor} />
+                )}
+              </View>
+              <View style={styles.competitionMeta}>
+                <Text style={styles.competitionName} numberOfLines={1}>
+                  {toDisplayValue(competitionStats.leagueName)}
+                </Text>
+                {competitionSeason ? <Text style={styles.competitionSeason}>{competitionSeason}</Text> : null}
+              </View>
             </View>
-            <View style={styles.competitionMeta}>
-              <Text style={styles.competitionName} numberOfLines={1}>
-                {toDisplayValue(competitionStats.leagueName)}
-              </Text>
-              {competitionSeason ? <Text style={styles.competitionSeason}>{competitionSeason}</Text> : null}
-            </View>
-          </View>
+          )}
 
           <View style={styles.competitionKpis} testID="player-profile-competition-stats">
             {competitionKpis.map(kpi => (
@@ -73,7 +99,12 @@ export function PlayerProfileCompetitionCard({
                 <Text style={styles.competitionKpiLabel}>{t('playerDetails.stats.labels.rating')}</Text>
               </View>
               <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(competitionStats.rating) || borderColor }]}>
-                <Text style={[styles.ratingBadgeText, { color: primaryContrast }]} testID="player-profile-competition-rating-value">
+                <Text
+                  style={[styles.ratingBadgeText, { color: primaryContrast }]}
+                  testID="player-profile-competition-rating-value"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {competitionRating}
                 </Text>
               </View>

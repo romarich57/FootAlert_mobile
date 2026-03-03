@@ -4,6 +4,7 @@ type CompetitionPlayerStatType = 'goals' | 'assists' | 'yellowCards' | 'redCards
 
 export const queryKeys = {
   matches: (date: string, timezone: string) => ['matches', date, timezone] as const,
+  followedMatchIds: () => ['matches', 'followed-match-ids'] as const,
   matchDetails: (matchId: string, timezone: string) =>
     ['match_details', matchId, timezone] as const,
   matchEvents: (matchId: string) => ['match_details', matchId, 'events'] as const,
@@ -108,6 +109,7 @@ export const queryKeys = {
   follows: {
     followedTeamIds: () => ['follows', 'followed-team-ids'] as const,
     followedPlayerIds: () => ['follows', 'followed-player-ids'] as const,
+    followedLeagueIds: () => ['follows', 'followed-league-ids'] as const,
     hideTrends: (tab: FollowEntityTab) => ['follows', 'hide-trends', tab] as const,
     search: (tab: FollowEntityTab, query: string, season: number) =>
       ['follows', 'search', tab, query, season] as const,
@@ -117,5 +119,9 @@ export const queryKeys = {
       ['follows', 'player-cards', season, ...playerIds] as const,
     trends: (tab: FollowEntityTab, season: number, hidden: boolean) =>
       ['follows', 'trends', tab, season, hidden] as const,
+  },
+  search: {
+    global: (query: string, timezone: string, season?: number, limit?: number) =>
+      ['search', 'global', query, timezone, season ?? null, limit ?? null] as const,
   },
 };

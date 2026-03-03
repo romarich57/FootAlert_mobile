@@ -52,14 +52,14 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
     },
     cardTitle: {
       color: colors.text,
-      fontSize: 16,
-      fontWeight: '800',
+      fontSize: 14,
+      fontWeight: '700',
       flexShrink: 1,
     },
     cardTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
       flexShrink: 1,
     },
     cardSubtitle: {
@@ -92,10 +92,10 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
       flex: 1,
       borderRadius: 12,
       borderWidth: 1,
-      paddingVertical: 12,
-      paddingHorizontal: 10,
-      gap: 6,
-      minHeight: 88,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      gap: 4,
+      minHeight: 80,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -113,13 +113,13 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
     },
     kpiTopLabel: {
       color: colors.textMuted,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '700',
       textAlign: 'center',
     },
     kpiTopValue: {
       color: colors.text,
-      fontSize: 28,
+      fontSize: 24,
       fontWeight: '900',
     },
     kpiTopValuePrimary: {
@@ -138,19 +138,19 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surfaceElevated,
-      paddingVertical: 10,
-      paddingHorizontal: 8,
-      minHeight: 72,
+      paddingVertical: 8,
+      paddingHorizontal: 6,
+      minHeight: 64,
     },
     kpiBottomValue: {
       color: colors.text,
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '800',
       marginBottom: 4,
     },
     kpiBottomLabel: {
       color: colors.textMuted,
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '700',
       textAlign: 'center',
       textTransform: 'uppercase',
@@ -180,18 +180,18 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surfaceElevated,
-      paddingHorizontal: 10,
-      paddingVertical: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 10,
       gap: 4,
     },
     shotTileLabel: {
       color: colors.textMuted,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '700',
     },
     shotTileValue: {
       color: colors.text,
-      fontSize: 22,
+      fontSize: 18,
       fontWeight: '900',
     },
     perfHeader: {
@@ -209,7 +209,7 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
     },
     perfTitle: {
       color: colors.text,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '800',
       flexShrink: 1,
     },
@@ -253,7 +253,7 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
     },
     toggleText: {
       color: colors.textMuted,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '700',
     },
     toggleTextActive: {
@@ -261,7 +261,7 @@ export function createPlayerStatsTabStyles(colors: ThemeColors) {
     },
     sectionTitle: {
       color: colors.text,
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '800',
     },
     sectionTitleRow: {

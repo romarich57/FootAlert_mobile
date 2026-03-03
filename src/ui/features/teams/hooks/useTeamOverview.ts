@@ -103,6 +103,23 @@ function findAbortError(results: ReadonlyArray<PromiseSettledResult<unknown>>): 
   return null;
 }
 
+function isRejected(result: PromiseSettledResult<unknown>): result is PromiseRejectedResult {
+  return result.status === 'rejected';
+}
+
+function toSettledError(
+  results: ReadonlyArray<PromiseSettledResult<unknown>>,
+  fallbackMessage: string,
+): Error {
+  const candidate = results.find(isRejected)?.reason;
+
+  if (candidate instanceof Error) {
+    return candidate;
+  }
+
+  return new Error(fallbackMessage);
+}
+
 function hasLineupPlayers(lineup: TeamOverviewData['seasonLineup'] | null | undefined): boolean {
   return (
     Boolean(lineup?.goalkeeper) ||
@@ -434,6 +451,7 @@ export function useTeamOverview({
   return useQuery<TeamOverviewData>({
     queryKey: queryKeys.teams.overview(teamId, leagueId, season, timezone, historySeasonsKey),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
+    refetchOnMount: 'always',
     placeholderData: previousData => previousData,
     structuralSharing: (oldData, newData) =>
       mergeOverviewData(oldData as TeamOverviewData | undefined, newData as TeamOverviewData),
@@ -482,22 +500,31 @@ export function useTeamOverview({
         throw abortedError;
       }
 
-      const coreUnavailable =
-        fixturesResult.status === 'rejected' &&
-        standingsResult.status === 'rejected' &&
-        statsResult.status === 'rejected';
+      const matchGroupUnavailable =
+        fixturesResult.status === 'rejected' && nextFixtureResult.status === 'rejected';
+      const structureGroupUnavailable =
+        standingsResult.status === 'rejected' && statsResult.status === 'rejected';
+      const playersGroupUnavailable = playersResult.status === 'rejected';
 
-      if (coreUnavailable) {
-        const candidateError =
-          fixturesResult.reason instanceof Error
-            ? fixturesResult.reason
-            : standingsResult.reason instanceof Error
-              ? standingsResult.reason
-              : statsResult.reason instanceof Error
-                ? statsResult.reason
-                : new Error('Unable to load overview core datasets');
+      if (matchGroupUnavailable) {
+        throw toSettledError(
+          [fixturesResult, nextFixtureResult],
+          'Unable to load overview match datasets',
+        );
+      }
 
-        throw candidateError;
+      if (structureGroupUnavailable) {
+        throw toSettledError(
+          [standingsResult, statsResult],
+          'Unable to load overview standings and statistics datasets',
+        );
+      }
+
+      if (playersGroupUnavailable) {
+        throw toSettledError(
+          [playersResult],
+          'Unable to load overview players dataset',
+        );
       }
 
       const fixturesPayload = fixturesResult.status === 'fulfilled' ? fixturesResult.value : [];

@@ -27,6 +27,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Enforce web no-tracker policy
+        run: bash scripts/quality/check-web-no-tracker.sh
+
+      - name: Enforce API-Football licensing gate
+        run: bash scripts/quality/check-api-football-license.sh
+
       - name: Check index key usage
         run: npm run check:keys
 

@@ -11,12 +11,15 @@ servers:
     description: Local BFF server
   - url: https://staging-api.footalert.example.com
     description: Staging BFF server
+security:
+  - MobileSessionBearer: []
 
 paths:
   /health:
     get:
       summary: Health check
       operationId: getHealth
+      security: []
       responses:
         '200':
           description: Service is healthy
@@ -606,6 +609,23 @@ paths:
       - web
       - desktop
 
+  /v1/search/global:
+    get:
+      summary: Global search for teams, competitions, players and matches
+      operationId: searchGlobal
+      parameters:
+        - $ref: '#/components/parameters/QQuery'
+        - $ref: '#/components/parameters/TimezoneQuery'
+        - $ref: '#/components/parameters/OptionalSeasonQuery'
+        - $ref: '#/components/parameters/SearchLimitQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/SearchGlobalResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
   /v1/follows/teams/{teamId}:
     get:
       summary: Get followed team details
@@ -680,10 +700,43 @@ paths:
       - web
       - desktop
 
+  /v1/follows/trends/competitions:
+    get:
+      summary: Get curated list of top competitions for onboarding
+      operationId: getFollowCompetitionsTrends
+      responses:
+        '200':
+          description: Top competitions list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendCompetitionsResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
+
+  /v1/follows/search/competitions:
+    get:
+      summary: Search competitions for follows feature
+      operationId: searchFollowCompetitions
+      parameters:
+        - $ref: '#/components/parameters/QQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
+
   /v1/mobile/session/challenge:
     post:
       summary: Create short-lived mobile attestation challenge
       operationId: createMobileSessionChallenge
+      security: []
       requestBody:
         required: true
         content:
@@ -706,6 +759,7 @@ paths:
     post:
       summary: Verify mobile attestation and issue short-lived session token
       operationId: attestMobileSession
+      security: []
       requestBody:
         required: true
         content:
@@ -722,6 +776,78 @@ paths:
         '401':
           $ref: '#/components/responses/ProblemResponse'
         '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/mobile/session/refresh:
+    post:
+      summary: Rotate refresh token and issue a new short-lived session token
+      operationId: refreshMobileSession
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileSessionRefreshRequest'
+      responses:
+        '200':
+          description: Session token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileSessionAttestResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/mobile/session/revoke:
+    post:
+      summary: Revoke refresh-token family
+      operationId: revokeMobileSession
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileSessionRevokeRequest'
+      responses:
+        '204':
+          description: Session family revoked
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/mobile/privacy/erase:
+    post:
+      summary: Erase device-bound personal data after fresh attestation proof
+      operationId: eraseMobilePrivacyData
+      security:
+        - MobileSessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobilePrivacyEraseRequest'
+      responses:
+        '200':
+          description: Device-bound data erased
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobilePrivacyEraseResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
           $ref: '#/components/responses/ProblemResponse'
     x-platform-scope:
       - mobile
@@ -778,6 +904,126 @@ paths:
           $ref: '#/components/responses/ProblemResponse'
     x-platform-scope:
       - mobile
+
+  /v1/notifications/subscriptions:
+    post:
+      summary: Upsert notification preferences for a scope (attested mobile session)
+      operationId: upsertNotificationSubscriptions
+      security:
+        - MobileSessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSubscriptionUpsertRequest'
+      responses:
+        '200':
+          description: Scope subscriptions upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSubscriptionUpsertResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+    get:
+      summary: Get notification preferences for a scope (attested mobile session)
+      operationId: getNotificationSubscriptions
+      security:
+        - MobileSessionBearer: []
+      parameters:
+        - $ref: '#/components/parameters/NotificationDeviceIdQuery'
+        - $ref: '#/components/parameters/NotificationScopeKindQuery'
+        - $ref: '#/components/parameters/NotificationScopeIdQuery'
+      responses:
+        '200':
+          description: Scope subscriptions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSubscriptionsListResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/notifications/opened:
+    post:
+      summary: Track push notification open (attested mobile session)
+      operationId: trackNotificationOpened
+      security:
+        - MobileSessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationOpenedRequest'
+      responses:
+        '200':
+          description: Open tracking accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationOpenedResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '403':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/notifications/events:
+    post:
+      summary: Ingest notification business event (internal service-to-service)
+      operationId: ingestNotificationEvent
+      security:
+        - NotificationsIngestBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationEventIngestRequest'
+      responses:
+        '200':
+          description: Event accepted and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationEventIngestResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '401':
+          $ref: '#/components/responses/ProblemResponse'
+        '404':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - ops
+
+  /v1/notifications/metrics:
+    get:
+      summary: Get in-process notifications metrics snapshot
+      operationId: getNotificationMetricsSnapshot
+      responses:
+        '200':
+          description: Notifications metrics snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationMetricsSnapshot'
+    x-platform-scope:
+      - ops
 
   /v1/telemetry/events:
     post:
@@ -941,6 +1187,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    NotificationsIngestBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: InternalIngestToken
 
   parameters:
     IdPath:
@@ -978,6 +1228,28 @@ components:
       schema:
         type: string
         minLength: 1
+    NotificationDeviceIdQuery:
+      name: deviceId
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 256
+    NotificationScopeKindQuery:
+      name: scopeKind
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/NotificationScopeKind'
+    NotificationScopeIdQuery:
+      name: scopeId
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
     DateQuery:
       name: date
       in: query
@@ -1067,6 +1339,14 @@ components:
         type: integer
         minimum: 10
         maximum: 100
+    SearchLimitQuery:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
     OptionalCursorQuery:
       name: cursor
       in: query
@@ -1175,8 +1455,36 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ProblemResponse'
+    SearchGlobalResponse:
+      description: Normalized global search payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SearchGlobalResponse'
 
   schemas:
+    TrendCompetitionItem:
+      type: object
+      required: [ competitionId, competitionName, competitionLogo, country, type ]
+      properties:
+        competitionId:
+          type: string
+        competitionName:
+          type: string
+        competitionLogo:
+          type: string
+        country:
+          type: string
+        type:
+          type: string
+    TrendCompetitionsResponse:
+      type: object
+      required: [ competitions ]
+      properties:
+        competitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrendCompetitionItem'
     HealthResponse:
       type: object
       required: [ status, cache ]
@@ -1284,6 +1592,129 @@ components:
                 type: object
                 additionalProperties: true
             - type: 'null'
+    SearchTeamResult:
+      type: object
+      required: [ id, name, logo, country ]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        logo:
+          type: string
+        country:
+          type: string
+    SearchCompetitionResult:
+      type: object
+      required: [ id, name, logo, country, type ]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        logo:
+          type: string
+        country:
+          type: string
+        type:
+          type: string
+    SearchPlayerResult:
+      type: object
+      required: [ id, name, photo, position, teamName, teamLogo, leagueName ]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        photo:
+          type: string
+        position:
+          type: string
+        teamName:
+          type: string
+        teamLogo:
+          type: string
+        leagueName:
+          type: string
+    SearchMatchResult:
+      type: object
+      required:
+        [
+          fixtureId,
+          startDate,
+          statusShort,
+          statusLong,
+          competitionId,
+          competitionName,
+          competitionCountry,
+          competitionLogo,
+          homeTeamId,
+          homeTeamName,
+          homeTeamLogo,
+          awayTeamId,
+          awayTeamName,
+          awayTeamLogo,
+          homeGoals,
+          awayGoals,
+        ]
+      properties:
+        fixtureId:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        statusShort:
+          type: string
+        statusLong:
+          type: string
+        competitionId:
+          type: string
+        competitionName:
+          type: string
+        competitionCountry:
+          type: string
+        competitionLogo:
+          type: string
+        homeTeamId:
+          type: string
+        homeTeamName:
+          type: string
+        homeTeamLogo:
+          type: string
+        awayTeamId:
+          type: string
+        awayTeamName:
+          type: string
+        awayTeamLogo:
+          type: string
+        homeGoals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        awayGoals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    SearchGlobalResponse:
+      type: object
+      required: [ teams, competitions, players, matches ]
+      properties:
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchTeamResult'
+        competitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchCompetitionResult'
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchPlayerResult'
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchMatchResult'
     MobileSessionChallengeRequest:
       type: object
       additionalProperties: false
@@ -1351,7 +1782,7 @@ components:
     MobileSessionAttestResponse:
       type: object
       additionalProperties: false
-      required: [ accessToken, expiresAtMs, integrity ]
+      required: [ accessToken, expiresAtMs, refreshToken, refreshExpiresAtMs, integrity ]
       properties:
         accessToken:
           type: string
@@ -1359,9 +1790,65 @@ components:
         expiresAtMs:
           type: integer
           minimum: 1
+        refreshToken:
+          type: string
+          minLength: 1
+        refreshExpiresAtMs:
+          type: integer
+          minimum: 1
         integrity:
           type: string
           enum: [ strong, device, basic, unknown ]
+    MobileSessionRefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [ refreshToken ]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 512
+    MobileSessionRevokeRequest:
+      type: object
+      additionalProperties: false
+      required: [ refreshToken ]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 512
+    MobilePrivacyEraseRequest:
+      type: object
+      additionalProperties: false
+      required: [ challengeId, platform, deviceIdHash, attestation ]
+      properties:
+        challengeId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        platform:
+          type: string
+          enum: [ android, ios ]
+        deviceIdHash:
+          type: string
+          minLength: 8
+          maxLength: 256
+        attestation:
+          $ref: '#/components/schemas/MobileSessionAttestation'
+    MobilePrivacyEraseResponse:
+      type: object
+      additionalProperties: false
+      required: [ status, requestId, erasedAtMs ]
+      properties:
+        status:
+          type: string
+          enum: [ erased ]
+        requestId:
+          type: string
+          minLength: 1
+        erasedAtMs:
+          type: integer
+          minimum: 1
     PushTokenPayload:
       type: object
       additionalProperties: false
@@ -1392,6 +1879,210 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+    NotificationScopeKind:
+      type: string
+      enum: [ match, team, player, competition ]
+    NotificationAlertType:
+      type: string
+      enum:
+        - match_start
+        - halftime
+        - match_end
+        - goal
+        - red_card
+        - yellow_card
+        - assist
+        - missed_penalty
+        - transfer
+        - lineup
+        - starting_lineup
+        - substitution
+        - match_rating
+        - match_reminder
+    NotificationSubscriptionInput:
+      type: object
+      additionalProperties: false
+      required: [ alertType, enabled ]
+      properties:
+        alertType:
+          $ref: '#/components/schemas/NotificationAlertType'
+        enabled:
+          type: boolean
+    NotificationSubscriptionRecord:
+      type: object
+      additionalProperties: false
+      required:
+        [ id, deviceId, scopeKind, scopeId, alertType, enabled, createdAt, updatedAt ]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        deviceId:
+          type: string
+          minLength: 1
+          maxLength: 256
+        scopeKind:
+          $ref: '#/components/schemas/NotificationScopeKind'
+        scopeId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        alertType:
+          $ref: '#/components/schemas/NotificationAlertType'
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    NotificationSubscriptionUpsertRequest:
+      type: object
+      additionalProperties: false
+      required: [ deviceId, scopeKind, scopeId, subscriptions ]
+      properties:
+        deviceId:
+          type: string
+          minLength: 1
+          maxLength: 256
+        scopeKind:
+          $ref: '#/components/schemas/NotificationScopeKind'
+        scopeId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        subscriptions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/NotificationSubscriptionInput'
+    NotificationSubscriptionUpsertResponse:
+      type: object
+      additionalProperties: false
+      required: [ status, subscriptions ]
+      properties:
+        status:
+          type: string
+          enum: [ ok ]
+        subscriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationSubscriptionRecord'
+    NotificationSubscriptionsListResponse:
+      type: object
+      additionalProperties: false
+      required: [ subscriptions ]
+      properties:
+        subscriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationSubscriptionRecord'
+    NotificationOpenedRequest:
+      type: object
+      additionalProperties: false
+      required: [ eventId, deviceId ]
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        deviceId:
+          type: string
+          minLength: 1
+          maxLength: 256
+    NotificationOpenedResponse:
+      type: object
+      additionalProperties: false
+      required: [ status, openedCount ]
+      properties:
+        status:
+          type: string
+          enum: [ ok ]
+        openedCount:
+          type: integer
+          minimum: 0
+    NotificationEventIngestRequest:
+      type: object
+      additionalProperties: false
+      required: [ source, externalEventId, alertType, title, body ]
+      properties:
+        source:
+          type: string
+          minLength: 1
+          maxLength: 64
+        externalEventId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        alertType:
+          $ref: '#/components/schemas/NotificationAlertType'
+        occurredAt:
+          type: string
+          format: date-time
+        fixtureId:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 64
+            - type: 'null'
+        competitionId:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 64
+            - type: 'null'
+        teamIds:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+        playerIds:
+          type: array
+          maxItems: 64
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        body:
+          type: string
+          minLength: 1
+          maxLength: 600
+        payload:
+          type: object
+          additionalProperties: true
+    NotificationEventIngestResponse:
+      type: object
+      additionalProperties: false
+      required: [ status, eventId, deduplicated ]
+      properties:
+        status:
+          type: string
+          enum: [ accepted ]
+        eventId:
+          type: string
+          minLength: 1
+        deduplicated:
+          type: boolean
+    NotificationMetricsSnapshot:
+      type: object
+      additionalProperties: false
+      required: [ counters, gauges ]
+      properties:
+        counters:
+          type: object
+          additionalProperties:
+            type: number
+        gauges:
+          type: object
+          additionalProperties:
+            type: number
     TelemetryScalar:
       oneOf:
         - type: string

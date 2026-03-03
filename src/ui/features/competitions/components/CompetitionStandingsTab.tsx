@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { StandingRow } from '../types/competitions.types';
 import { useCompetitionStandings } from '../hooks/useCompetitionStandings';
@@ -10,6 +11,7 @@ import { useCompetitionStandings } from '../hooks/useCompetitionStandings';
 type CompetitionStandingsTabProps = {
     competitionId: number;
     season: number;
+    onPressTeam?: (teamId: string) => void;
 };
 
 type ListItem =
@@ -175,7 +177,7 @@ function createFormBadges(form: string, teamId: number) {
     });
 }
 
-export function CompetitionStandingsTab({ competitionId, season }: CompetitionStandingsTabProps) {
+export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: CompetitionStandingsTabProps) {
     const { colors } = useAppTheme();
     const { t } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -239,10 +241,22 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
                 <View style={styles.colRank}>
                     <Text style={styles.rankText}>{data.rank}</Text>
                 </View>
-                <View style={[styles.colTeam, styles.teamInfo]}>
-                    <Image source={{ uri: data.teamLogo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
-                    <Text style={styles.teamName} numberOfLines={1}>{displayValue(data.teamName)}</Text>
-                </View>
+                {onPressTeam ? (
+                    <AppPressable
+                        style={[styles.colTeam, styles.teamInfo]}
+                        onPress={() => onPressTeam(String(data.teamId))}
+                        accessibilityRole="button"
+                        accessibilityLabel={String(displayValue(data.teamName))}
+                    >
+                        <Image source={{ uri: data.teamLogo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
+                        <Text style={styles.teamName} numberOfLines={1}>{displayValue(data.teamName)}</Text>
+                    </AppPressable>
+                ) : (
+                    <View style={[styles.colTeam, styles.teamInfo]}>
+                        <Image source={{ uri: data.teamLogo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
+                        <Text style={styles.teamName} numberOfLines={1}>{displayValue(data.teamName)}</Text>
+                    </View>
+                )}
                 <View style={styles.colStat}>
                     <Text style={styles.statText}>{displayValue(data.played)}</Text>
                 </View>
@@ -267,7 +281,7 @@ export function CompetitionStandingsTab({ competitionId, season }: CompetitionSt
                 </View>
             </View>
         );
-    }, [styles, t]);
+    }, [onPressTeam, styles, t]);
 
     if (isLoading) {
         return (

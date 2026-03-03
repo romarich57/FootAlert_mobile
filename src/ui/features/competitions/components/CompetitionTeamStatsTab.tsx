@@ -35,9 +35,10 @@ import {
 type CompetitionTeamStatsTabProps = {
     competitionId: number;
     season: number;
+    onPressTeam?: (teamId: string) => void;
 };
 
-export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTeamStatsTabProps) {
+export function CompetitionTeamStatsTab({ competitionId, season, onPressTeam }: CompetitionTeamStatsTabProps) {
     const { colors } = useAppTheme();
     const { t } = useTranslation();
     const styles = useMemo(() => createCompetitionTeamStatsTabStyles(colors), [colors]);
@@ -153,6 +154,7 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                             title={t(SUMMARY_METRICS[selectedSummaryMetric].labelKey)}
                             data={summaryChartData}
                             valueFormatter={value => formatMetricValue(value, SUMMARY_METRICS[selectedSummaryMetric].format)}
+                            onPressTeam={onPressTeam}
                         />
                     ) : (
                         <View style={styles.stateCard}>
@@ -193,6 +195,7 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                             title={t(HOME_AWAY_METRICS[selectedHomeAwayMetric].labelKey)}
                             data={homeAwayChartData}
                             valueFormatter={value => formatMetricValue(value, HOME_AWAY_METRICS[selectedHomeAwayMetric].format)}
+                            onPressTeam={onPressTeam}
                         />
                     ) : (
                         <View style={styles.stateCard}>
@@ -272,6 +275,7 @@ export function CompetitionTeamStatsTab({ competitionId, season }: CompetitionTe
                                         valueFormatter={value =>
                                             formatMetricValue(value, ADVANCED_METRICS[selectedAdvancedMetric].format)
                                         }
+                                        onPressTeam={onPressTeam}
                                     />
                                 </>
                             ) : (

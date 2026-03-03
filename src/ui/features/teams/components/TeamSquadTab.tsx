@@ -17,6 +17,7 @@ type TeamSquadTabProps = {
   data: TeamSquadData | undefined;
   isLoading: boolean;
   isError: boolean;
+  hasFetched?: boolean;
   onRetry: () => void;
 };
 
@@ -216,7 +217,13 @@ const SquadPlayerRow = memo(function SquadPlayerRow({
   );
 });
 
-export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTabProps) {
+export function TeamSquadTab({
+  data,
+  isLoading,
+  isError,
+  hasFetched = true,
+  onRetry,
+}: TeamSquadTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -242,6 +249,9 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
     [data, roleLabels],
   );
   const keyExtractor = useCallback((item: SquadFeedItem) => item.key, []);
+  const hasRows = feedItems.length > 0;
+  const shouldShowLoadingState = (isLoading || !hasFetched) && !hasRows;
+  const shouldShowErrorState = isError && !hasRows;
 
   const renderItem = useCallback<ListRenderItem<SquadFeedItem>>(
     ({ item }) => {
@@ -267,13 +277,13 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
   return (
     <View style={styles.container}>
 
-      {isLoading ? (
+      {shouldShowLoadingState ? (
         <View style={styles.stateCard}>
           <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
         </View>
       ) : null}
 
-      {isError ? (
+      {shouldShowErrorState ? (
         <View style={styles.stateCard}>
           <Text style={styles.stateText}>{t('teamDetails.states.error')}</Text>
           <Pressable onPress={onRetry}>
@@ -282,13 +292,15 @@ export function TeamSquadTab({ data, isLoading, isError, onRetry }: TeamSquadTab
         </View>
       ) : null}
 
-      {!isLoading && !isError ? (
+      {!shouldShowLoadingState && !shouldShowErrorState ? (
         <FlashList
           data={feedItems}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           estimatedItemSize={72}
-          ListEmptyComponent={<Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>}
+          ListEmptyComponent={
+            hasFetched ? <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text> : null
+          }
         />
       ) : null}
     </View>

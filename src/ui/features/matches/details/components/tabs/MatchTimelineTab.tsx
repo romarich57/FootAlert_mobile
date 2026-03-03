@@ -15,6 +15,7 @@ type MatchTimelineTabProps = {
   eventRows: EventRow[];
   hasDataError?: boolean;
   dataErrorReason?: MatchDetailsDatasetErrorReason;
+  onPressPlayer?: (playerId: string) => void;
 };
 
 export function MatchTimelineTab({
@@ -23,6 +24,7 @@ export function MatchTimelineTab({
   eventRows,
   hasDataError = false,
   dataErrorReason = 'none',
+  onPressPlayer,
 }: MatchTimelineTabProps) {
   const { t } = useTranslation();
   const emptyStateKey =
@@ -52,7 +54,16 @@ export function MatchTimelineTab({
                 return (
                   <View style={styles.timelineRow}>
                     <View style={align === 'left' ? styles.timelineContentLeft : styles.timelineContentEmpty}>
-                      {align === 'left' ? <TimelineEventCard styles={styles} event={event} align="left" t={t} /> : null}
+                      {align === 'left' ? (
+                        <TimelineEventCard
+                          styles={styles}
+                          event={event}
+                          align="left"
+                          t={t}
+                          onPressPlayer={onPressPlayer}
+                          onPressAssist={onPressPlayer}
+                        />
+                      ) : null}
                     </View>
 
                     <View style={styles.timelineMinuteBadge}>
@@ -60,7 +71,16 @@ export function MatchTimelineTab({
                     </View>
 
                     <View style={align === 'right' ? styles.timelineContentRight : styles.timelineContentEmpty}>
-                      {align === 'right' ? <TimelineEventCard styles={styles} event={event} align="right" t={t} /> : null}
+                      {align === 'right' ? (
+                        <TimelineEventCard
+                          styles={styles}
+                          event={event}
+                          align="right"
+                          t={t}
+                          onPressPlayer={onPressPlayer}
+                          onPressAssist={onPressPlayer}
+                        />
+                      ) : null}
                     </View>
                   </View>
                 );

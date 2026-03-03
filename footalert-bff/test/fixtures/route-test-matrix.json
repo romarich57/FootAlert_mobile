@@ -120,6 +120,24 @@
     "testFile": "test/routes/mobileSession.routes.test.ts"
   },
   {
+    "method": "POST",
+    "path": "/v1/mobile/session/refresh",
+    "critical": true,
+    "testFile": "test/routes/mobileSession.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/mobile/session/revoke",
+    "critical": true,
+    "testFile": "test/routes/mobileSession.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/mobile/privacy/erase",
+    "critical": true,
+    "testFile": "test/routes/privacy.erase.routes.test.ts"
+  },
+  {
     "method": "GET",
     "path": "/v1/teams/standings",
     "critical": false,
@@ -312,6 +330,12 @@
     "testFile": "test/routes/follows.routes.test.ts"
   },
   {
+    "method": "GET",
+    "path": "/v1/search/global",
+    "critical": false,
+    "testFile": "test/routes/search.routes.test.ts"
+  },
+  {
     "method": "POST",
     "path": "/v1/notifications/tokens",
     "critical": true,
@@ -320,6 +344,36 @@
   {
     "method": "DELETE",
     "path": "/v1/notifications/tokens/:token",
+    "critical": true,
+    "testFile": "test/routes/notifications.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/subscriptions",
+    "critical": true,
+    "testFile": "test/routes/notifications.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/notifications/subscriptions",
+    "critical": true,
+    "testFile": "test/routes/notifications.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/opened",
+    "critical": true,
+    "testFile": "test/routes/notifications.routes.test.ts"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notifications/events",
+    "critical": true,
+    "testFile": "test/routes/notifications.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/notifications/metrics",
     "critical": true,
     "testFile": "test/routes/notifications.routes.test.ts"
   }

@@ -1,12 +1,15 @@
 import { useMemo } from 'react';
-import { View, StyleSheet, Text, Image } from 'react-native';
+import { View, StyleSheet, Text, Image, type ViewStyle } from 'react-native';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { CompetitionTotwPlayer } from '../types/competitions.types';
 
 type PitchFormationProps = {
     players: CompetitionTotwPlayer[];
+    onPressPlayer?: (playerId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -178,7 +181,7 @@ function toInitials(value: string): string {
     return initials || tokens[0].slice(0, 2).toUpperCase();
 }
 
-export function PitchFormation({ players }: PitchFormationProps) {
+export function PitchFormation({ players, onPressPlayer, onPressTeam }: PitchFormationProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -194,46 +197,79 @@ export function PitchFormation({ players }: PitchFormationProps) {
                 <View style={styles.penaltyBottom} />
             </View>
 
-            {players.map(player => (
-                <View
-                    key={player.playerId}
-                    testID="competition-totw-player-node"
-                    style={[
-                        styles.playerNode,
-                        {
-                            left: `${player.gridX}%`,
-                            top: `${player.gridY}%`,
-                            transform: [{ translateX: -43 }, { translateY: -34 }],
-                        },
-                    ]}
-                >
-                    <View style={styles.avatarWrap}>
-                        {player.playerPhoto ? (
-                            <Image source={{ uri: player.playerPhoto }} style={styles.avatar} />
-                        ) : (
-                            <Text style={styles.avatarFallback}>{toInitials(player.playerName)}</Text>
-                        )}
-                        {player.teamLogo ? (
-                            <View testID="competition-totw-team-logo" style={styles.teamLogoWrap}>
-                                <Image source={{ uri: player.teamLogo }} style={styles.teamLogo} />
-                            </View>
-                        ) : null}
-                    </View>
+            {players.map(player => {
+                const nodeStyle = [
+                    styles.playerNode,
+                    {
+                        left: `${player.gridX}%`,
+                        top: `${player.gridY}%`,
+                        transform: [{ translateX: -43 }, { translateY: -34 }],
+                    } as ViewStyle,
+                ];
 
-                    <View
-                        testID="competition-totw-rating-badge"
-                        style={[styles.ratingBadge, { backgroundColor: resolveRatingBackground(player.rating) }]}
-                    >
-                        <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
-                    </View>
+                const content = (
+                    <>
+                        <View style={styles.avatarWrap}>
+                            {player.playerPhoto ? (
+                                <Image source={{ uri: player.playerPhoto }} style={styles.avatar} />
+                            ) : (
+                                <Text style={styles.avatarFallback}>{toInitials(player.playerName)}</Text>
+                            )}
+                            {player.teamLogo ? (
+                                onPressTeam ? (
+                                    <AppPressable
+                                        testID="competition-totw-team-logo"
+                                        style={styles.teamLogoWrap}
+                                        onPress={() => onPressTeam(String(player.teamId))}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={player.teamName}
+                                    >
+                                        <Image source={{ uri: player.teamLogo }} style={styles.teamLogo} />
+                                    </AppPressable>
+                                ) : (
+                                    <View testID="competition-totw-team-logo" style={styles.teamLogoWrap}>
+                                        <Image source={{ uri: player.teamLogo }} style={styles.teamLogo} />
+                                    </View>
+                                )
+                            ) : null}
+                        </View>
 
-                    <View style={styles.nameChip}>
-                        <Text numberOfLines={1} style={styles.nameText}>
-                            {shortPlayerName(player.playerName)}
-                        </Text>
+                        <View
+                            testID="competition-totw-rating-badge"
+                            style={[styles.ratingBadge, { backgroundColor: resolveRatingBackground(player.rating) }]}
+                        >
+                            <Text style={styles.ratingText}>{player.rating.toFixed(1)}</Text>
+                        </View>
+
+                        <View style={styles.nameChip}>
+                            <Text numberOfLines={1} style={styles.nameText}>
+                                {shortPlayerName(player.playerName)}
+                            </Text>
+                        </View>
+                    </>
+                );
+
+                if (onPressPlayer) {
+                    return (
+                        <AppPressable
+                            key={player.playerId}
+                            testID="competition-totw-player-node"
+                            style={nodeStyle}
+                            onPress={() => onPressPlayer(String(player.playerId))}
+                            accessibilityRole="button"
+                            accessibilityLabel={player.playerName}
+                        >
+                            {content}
+                        </AppPressable>
+                    );
+                }
+
+                return (
+                    <View key={player.playerId} testID="competition-totw-player-node" style={nodeStyle}>
+                        {content}
                     </View>
-                </View>
-            ))}
+                );
+            })}
         </View>
     );
 }

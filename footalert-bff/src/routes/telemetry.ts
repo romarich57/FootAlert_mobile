@@ -54,6 +54,38 @@ const telemetryEventBatchSchema = z.array(telemetryEventSchema).min(1).max(100);
 const telemetryErrorBatchSchema = z.array(telemetryErrorSchema).min(1).max(100);
 const telemetryBreadcrumbBatchSchema = z.array(telemetryBreadcrumbSchema).min(1).max(100);
 
+function summarizeEventPayload(payload: z.infer<typeof telemetryEventSchema>): Record<string, unknown> {
+  return {
+    name: payload.name,
+    hasAttributes: Boolean(payload.attributes && Object.keys(payload.attributes).length > 0),
+    hasUserContext: Boolean(payload.userContext && Object.keys(payload.userContext).length > 0),
+    timestamp: payload.timestamp ?? null,
+  };
+}
+
+function summarizeErrorPayload(payload: z.infer<typeof telemetryErrorSchema>): Record<string, unknown> {
+  return {
+    name: payload.name,
+    messageLength: payload.message.length,
+    hasStack: typeof payload.stack === 'string' && payload.stack.length > 0,
+    contextFeature: payload.context?.feature ?? null,
+    contextStatus: payload.context?.status ?? null,
+    hasUserContext: Boolean(payload.userContext && Object.keys(payload.userContext).length > 0),
+    timestamp: payload.timestamp ?? null,
+  };
+}
+
+function summarizeBreadcrumbPayload(
+  payload: z.infer<typeof telemetryBreadcrumbSchema>,
+): Record<string, unknown> {
+  return {
+    name: payload.name,
+    hasAttributes: Boolean(payload.attributes && Object.keys(payload.attributes).length > 0),
+    hasUserContext: Boolean(payload.userContext && Object.keys(payload.userContext).length > 0),
+    timestamp: payload.timestamp ?? null,
+  };
+}
+
 function rejectUnauthorizedTelemetryRequest(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -84,7 +116,7 @@ export async function registerTelemetryRoutes(app: FastifyInstance): Promise<voi
     parseOrThrow(z.object({}).strict(), request.query);
     const payload = parseOrThrow(telemetryEventSchema, request.body);
 
-    app.log.info({ payload }, 'mobile.telemetry.event');
+    app.log.info({ event: summarizeEventPayload(payload) }, 'mobile.telemetry.event');
 
     return {
       status: 'accepted' as const,
@@ -117,7 +149,7 @@ export async function registerTelemetryRoutes(app: FastifyInstance): Promise<voi
     parseOrThrow(z.object({}).strict(), request.query);
     const payload = parseOrThrow(telemetryErrorSchema, request.body);
 
-    app.log.error({ payload }, 'mobile.telemetry.error');
+    app.log.error({ error: summarizeErrorPayload(payload) }, 'mobile.telemetry.error');
 
     return {
       status: 'accepted' as const,
@@ -150,7 +182,7 @@ export async function registerTelemetryRoutes(app: FastifyInstance): Promise<voi
     parseOrThrow(z.object({}).strict(), request.query);
     const payload = parseOrThrow(telemetryBreadcrumbSchema, request.body);
 
-    app.log.info({ payload }, 'mobile.telemetry.breadcrumb');
+    app.log.info({ breadcrumb: summarizeBreadcrumbPayload(payload) }, 'mobile.telemetry.breadcrumb');
 
     return {
       status: 'accepted' as const,

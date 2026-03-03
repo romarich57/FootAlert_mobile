@@ -57,7 +57,7 @@ export function createPlayerCareerTabStyles(colors: ThemeColors) {
     },
     cardTitle: {
       color: colors.text,
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '800',
       flex: 1,
       paddingRight: 10,
@@ -73,9 +73,9 @@ export function createPlayerCareerTabStyles(colors: ThemeColors) {
       gap: 10,
     },
     teamLogo: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
     },
     teamLogoFallback: {
       opacity: 0,
@@ -87,12 +87,12 @@ export function createPlayerCareerTabStyles(colors: ThemeColors) {
     },
     teamName: {
       color: colors.text,
-      fontSize: 17,
+      fontSize: 15,
       fontWeight: '700',
     },
     subText: {
       color: colors.textMuted,
-      fontSize: 15,
+      fontSize: 13,
       marginTop: 2,
     },
     seasonStats: {
@@ -106,12 +106,12 @@ export function createPlayerCareerTabStyles(colors: ThemeColors) {
     },
     statValue: {
       color: colors.text,
-      fontSize: 17,
+      fontSize: 15,
       fontWeight: '700',
     },
     ratingBadge: {
-      minWidth: 46,
-      borderRadius: 10,
+      minWidth: 40,
+      borderRadius: 8,
       paddingHorizontal: 8,
       paddingVertical: 4,
       alignItems: 'center',
@@ -119,12 +119,12 @@ export function createPlayerCareerTabStyles(colors: ThemeColors) {
     },
     ratingText: {
       color: '#FFFFFF',
-      fontSize: 15,
+      fontSize: 13,
       fontWeight: '800',
     },
     ratingPlaceholder: {
-      minWidth: 46,
-      height: 26,
+      minWidth: 40,
+      height: 24,
     },
     metricHeader: {
       flexDirection: 'row',
@@ -161,7 +161,7 @@ export function createPlayerCareerTabStyles(colors: ThemeColors) {
     },
     teamStatValue: {
       color: colors.text,
-      fontSize: 18,
+      fontSize: 15,
       fontWeight: '700',
       textAlign: 'center',
     },
@@ -181,7 +181,7 @@ export function createPlayerCareerTabStyles(colors: ThemeColors) {
     },
     legendText: {
       color: colors.textMuted,
-      fontSize: 15,
+      fontSize: 13,
       fontWeight: '600',
     },
     emptyText: {

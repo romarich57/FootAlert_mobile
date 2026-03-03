@@ -3,6 +3,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useTranslation } from 'react-i18next';
 
 import { AppImage } from '@ui/shared/media/AppImage';
+import { AppPressable } from '@ui/shared/components';
 import type {
   MatchLifecycleState,
   MatchLineupAbsence,
@@ -23,6 +24,8 @@ type MatchLineupsTabProps = {
   hasLineupsError?: boolean;
   lineupsErrorReason?: MatchDetailsDatasetErrorReason;
   lineupsDataSource?: 'query' | 'fixture_fallback' | 'none';
+  onPressPlayer?: (playerId: string) => void;
+  onPressTeam?: (teamId: string) => void;
 };
 
 type RatingVariant = 'elite' | 'good' | 'warning' | 'neutral';
@@ -110,6 +113,78 @@ function normalizeAbsence(absence: MatchLineupAbsence | string): MatchLineupAbse
   return absence;
 }
 
+function sanitizeAbsenceText(rawValue: string | null | undefined, t: (key: string) => string): string | null {
+  const rawLabel = toText(rawValue, '');
+  if (!rawLabel) {
+    return null;
+  }
+
+  const normalizedKey = rawLabel.replace(/^matchsDetails\./i, 'matchDetails.');
+  if (/^matchDetails\./.test(normalizedKey)) {
+    const translated = t(normalizedKey);
+    return translated !== normalizedKey ? translated : t('matchDetails.values.unavailable');
+  }
+
+  if (/^missing(\s|_)?fixture$/i.test(rawLabel)) {
+    return t('matchDetails.values.unavailable');
+  }
+
+  return rawLabel;
+}
+
+function resolveAbsenceTagLabel(rawValue: string | null | undefined, t: (key: string) => string): string | null {
+  const normalized = toText(rawValue, '').toLowerCase().trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (
+    normalized.includes('injur')
+    || normalized.includes('bless')
+  ) {
+    return t('matchDetails.lineups.absenceTags.injured');
+  }
+
+  if (
+    normalized.includes('suspend')
+    || normalized.includes('ban')
+  ) {
+    return t('matchDetails.lineups.absenceTags.suspended');
+  }
+
+  if (
+    normalized.includes('doubt')
+    || normalized.includes('incertain')
+  ) {
+    return t('matchDetails.lineups.absenceTags.doubtful');
+  }
+
+  if (normalized.includes('question')) {
+    return t('matchDetails.lineups.absenceTags.questionable');
+  }
+
+  if (
+    normalized.includes('illness')
+    || normalized.includes('sick')
+    || normalized.includes('malad')
+    || normalized.includes('virus')
+    || normalized.includes('flu')
+  ) {
+    return t('matchDetails.lineups.absenceTags.illness');
+  }
+
+  if (
+    normalized === 'out'
+    || normalized.includes('unavailable')
+    || normalized.includes('absent')
+    || normalized.includes('indisponible')
+  ) {
+    return t('matchDetails.lineups.absenceTags.out');
+  }
+
+  return sanitizeAbsenceText(rawValue, t);
+}
+
 function resolvePositionLabel(position: string | null | undefined, t: (key: string) => string): string {
   switch (position) {
     case 'G':
@@ -169,10 +244,12 @@ function LineupPlayerNode({
   styles,
   player,
   eventMode,
+  onPressPlayer,
 }: {
   styles: MatchDetailsTabStyles;
   player: MatchLineupPlayer;
   eventMode: 'pitch' | 'bench';
+  onPressPlayer?: (playerId: string) => void;
 }) {
   const ratingVariant = resolveRatingVariant(player.rating);
   const hasOutgoingSub = typeof player.outMinute === 'number' && Number.isFinite(player.outMinute);
@@ -181,7 +258,7 @@ function LineupPlayerNode({
   const hasYellow = typeof player.yellowCards === 'number' && player.yellowCards > 0;
   const hasRed = typeof player.redCards === 'number' && player.redCards > 0;
 
-  return (
+  const content = (
     <View style={styles.lineupPlayerNode}>
       <View style={styles.lineupPlayerAvatarWrap}>
         <View style={styles.lineupPlayerImageWrap}>
@@ -244,16 +321,34 @@ function LineupPlayerNode({
       </Text>
     </View>
   );
+
+  if (player.id && onPressPlayer) {
+    return (
+      <AppPressable
+        onPress={() => onPressPlayer(player.id)}
+        accessibilityRole='button'
+        accessibilityLabel={player.name}
+      >
+        {content}
+      </AppPressable>
+    );
+  }
+
+  return content;
 }
 
 function UnifiedLineupsPitch({
   styles,
   homeTeam,
   awayTeam,
+  onPressPlayer,
+  onPressTeam,
 }: {
   styles: MatchDetailsTabStyles;
   homeTeam: MatchLineupTeam;
   awayTeam: MatchLineupTeam;
+  onPressPlayer?: (playerId: string) => void;
+  onPressTeam?: (teamId: string) => void;
 }) {
   const processTeamRows = (team: MatchLineupTeam) => {
     return groupPlayersByPitchRows(team.startingXI)
@@ -285,7 +380,17 @@ function UnifiedLineupsPitch({
         {homeTeam.teamLogo ? (
           <AppImage source={{ uri: homeTeam.teamLogo }} style={styles.lineupTeamLogo} resizeMode="contain" />
         ) : null}
-        <Text style={styles.lineupTeamName}>{homeTeam.teamName}</Text>
+        {onPressTeam ? (
+          <AppPressable
+            onPress={() => onPressTeam(homeTeam.teamId)}
+            accessibilityRole='button'
+            accessibilityLabel={homeTeam.teamName}
+          >
+            <Text style={styles.lineupTeamName}>{homeTeam.teamName}</Text>
+          </AppPressable>
+        ) : (
+          <Text style={styles.lineupTeamName}>{homeTeam.teamName}</Text>
+        )}
         <Text style={styles.lineupTeamFormation}>{homeTeam.formation ?? '--'}</Text>
       </View>
 
@@ -300,7 +405,13 @@ function UnifiedLineupsPitch({
           {homeRows.map((row, index) => (
             <View key={`${homeTeam.teamId}-pitch-row-${index}`} style={[styles.lineupPitchRow, { zIndex: 10 - index }]}>
               {row.map(player => (
-                <LineupPlayerNode key={player.id} styles={styles} player={player} eventMode="pitch" />
+                <LineupPlayerNode
+                  key={player.id}
+                  styles={styles}
+                  player={player}
+                  eventMode="pitch"
+                  onPressPlayer={onPressPlayer}
+                />
               ))}
             </View>
           ))}
@@ -310,7 +421,13 @@ function UnifiedLineupsPitch({
           {awayRows.map((row, index) => (
             <View key={`${awayTeam.teamId}-pitch-row-${index}`} style={[styles.lineupPitchRow, { zIndex: index }]}>
               {row.map(player => (
-                <LineupPlayerNode key={player.id} styles={styles} player={player} eventMode="pitch" />
+                <LineupPlayerNode
+                  key={player.id}
+                  styles={styles}
+                  player={player}
+                  eventMode="pitch"
+                  onPressPlayer={onPressPlayer}
+                />
               ))}
             </View>
           ))}
@@ -323,7 +440,17 @@ function UnifiedLineupsPitch({
           {awayTeam.formation ?? '--'}
         </Text>
         {renderRatingChip(styles, awayTeamRating, resolveRatingVariant(awayTeamRating), 'lineup-away-rating', styles.lineupTeamRatingChip)}
-        <Text style={styles.lineupTeamName}>{awayTeam.teamName}</Text>
+        {onPressTeam ? (
+          <AppPressable
+            onPress={() => onPressTeam(awayTeam.teamId)}
+            accessibilityRole='button'
+            accessibilityLabel={awayTeam.teamName}
+          >
+            <Text style={styles.lineupTeamName}>{awayTeam.teamName}</Text>
+          </AppPressable>
+        ) : (
+          <Text style={styles.lineupTeamName}>{awayTeam.teamName}</Text>
+        )}
         {awayTeam.teamLogo ? (
           <AppImage source={{ uri: awayTeam.teamLogo }} style={styles.lineupTeamLogo} resizeMode="contain" />
         ) : null}
@@ -332,7 +459,33 @@ function UnifiedLineupsPitch({
   );
 }
 
-function TeamColumnLabel({ styles, team }: { styles: MatchDetailsTabStyles; team: MatchLineupTeam }) {
+function TeamColumnLabel({
+  styles,
+  team,
+  onPressTeam,
+}: {
+  styles: MatchDetailsTabStyles;
+  team: MatchLineupTeam;
+  onPressTeam?: (teamId: string) => void;
+}) {
+  if (onPressTeam) {
+    return (
+      <AppPressable
+        style={styles.lineupColumnHeader}
+        onPress={() => onPressTeam(team.teamId)}
+        accessibilityRole='button'
+        accessibilityLabel={team.teamName}
+      >
+        {team.teamLogo ? (
+          <AppImage source={{ uri: team.teamLogo }} style={styles.lineupColumnTeamLogo} resizeMode="contain" />
+        ) : null}
+        <Text style={styles.lineupColumnTeamName} numberOfLines={1}>
+          {team.teamName}
+        </Text>
+      </AppPressable>
+    );
+  }
+
   return (
     <View style={styles.lineupColumnHeader}>
       {team.teamLogo ? (
@@ -349,10 +502,12 @@ function FinishedBenchColumn({
   styles,
   team,
   t,
+  onPressPlayer,
 }: {
   styles: MatchDetailsTabStyles;
   team: MatchLineupTeam;
   t: (key: string) => string;
+  onPressPlayer?: (playerId: string) => void;
 }) {
   if (team.substitutes.length === 0) {
     return <Text style={styles.newsText}>{t('matchDetails.values.unavailable')}</Text>;
@@ -362,7 +517,12 @@ function FinishedBenchColumn({
     <View style={styles.lineupColumnList}>
       {team.substitutes.map(player => (
         <View key={`${team.teamId}-sub-finished-${player.id}`} style={styles.lineupBenchItem}>
-          <LineupPlayerNode styles={styles} player={player} eventMode="bench" />
+          <LineupPlayerNode
+            styles={styles}
+            player={player}
+            eventMode="bench"
+            onPressPlayer={onPressPlayer}
+          />
           <Text style={styles.lineupBenchPosition}>{resolvePositionLabel(player.position, t)}</Text>
         </View>
       ))}
@@ -374,10 +534,12 @@ function FinishedAbsenceColumn({
   styles,
   team,
   t,
+  onPressPlayer,
 }: {
   styles: MatchDetailsTabStyles;
   team: MatchLineupTeam;
   t: (key: string) => string;
+  onPressPlayer?: (playerId: string) => void;
 }) {
   if (team.absences.length === 0) {
     return null;
@@ -387,18 +549,43 @@ function FinishedAbsenceColumn({
     <View style={styles.lineupColumnList}>
       {team.absences.map((rawAbsence, index) => {
         const absence = normalizeAbsence(rawAbsence);
-        const reason = toText(absence.reason, t('matchDetails.values.unavailable'));
-        const status = toText(absence.status, '');
+        const displayName = sanitizeAbsenceText(absence.name, t) ?? t('matchDetails.values.unavailable');
+        const tags = [
+          resolveAbsenceTagLabel(absence.reason, t),
+          resolveAbsenceTagLabel(absence.status, t),
+          resolveAbsenceTagLabel(absence.type, t),
+        ].filter((tag): tag is string => Boolean(tag));
+        const dedupedTags = tags.filter((tag, idx) => tags.indexOf(tag) === idx);
+        const fallbackTag = t('matchDetails.values.unavailable');
+        const displayTags = dedupedTags.length > 0 ? dedupedTags : [fallbackTag];
 
-        return (
+        const rowContent = (
           <View key={`${team.teamId}-absence-${absence.id ?? absence.name}-${index}`} style={styles.rosterRow}>
             <Text style={styles.rosterName} numberOfLines={1}>
-              {absence.name}
+              {displayName}
             </Text>
-            <Text style={styles.newsText}>{reason}</Text>
-            {status ? <Text style={styles.newsText}>{status}</Text> : null}
+            {displayTags.map(tag => (
+              <Text key={`${team.teamId}-absence-tag-${absence.id ?? absence.name}-${tag}`} style={styles.newsText}>
+                {tag}
+              </Text>
+            ))}
           </View>
         );
+
+        if (absence.id && onPressPlayer) {
+          return (
+            <AppPressable
+              key={`${team.teamId}-absence-press-${absence.id}-${index}`}
+              onPress={() => onPressPlayer(absence.id ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={displayName}
+            >
+              {rowContent}
+            </AppPressable>
+          );
+        }
+
+        return rowContent;
       })}
     </View>
   );
@@ -434,10 +621,14 @@ function FinishedLineups({
   styles,
   lineupTeams,
   t,
+  onPressPlayer,
+  onPressTeam,
 }: {
   styles: MatchDetailsTabStyles;
   lineupTeams: MatchLineupTeam[];
   t: (key: string) => string;
+  onPressPlayer?: (playerId: string) => void;
+  onPressTeam?: (teamId: string) => void;
 }) {
   const teams = lineupTeams.slice(0, 2);
   const homeTeam = teams[0];
@@ -447,7 +638,13 @@ function FinishedLineups({
   return (
     <>
       {homeTeam && awayTeam ? (
-        <UnifiedLineupsPitch styles={styles} homeTeam={homeTeam} awayTeam={awayTeam} />
+        <UnifiedLineupsPitch
+          styles={styles}
+          homeTeam={homeTeam}
+          awayTeam={awayTeam}
+          onPressPlayer={onPressPlayer}
+          onPressTeam={onPressTeam}
+        />
       ) : null}
 
       <View style={styles.card}>
@@ -455,7 +652,7 @@ function FinishedLineups({
         <View style={styles.lineupTwoColumnsWrap}>
           {teams.map(team => (
             <View key={`coach-${team.teamId}`} style={styles.lineupColumn}>
-              <TeamColumnLabel styles={styles} team={team} />
+              <TeamColumnLabel styles={styles} team={team} onPressTeam={onPressTeam} />
               <View style={styles.lineupCoachCard}>
                 <View style={styles.lineupCoachAvatarWrap}>
                   <View style={styles.lineupPlayerImageWrap}>
@@ -480,8 +677,8 @@ function FinishedLineups({
         <View style={styles.lineupTwoColumnsWrap}>
           {teams.map(team => (
             <View key={`subs-${team.teamId}`} style={styles.lineupColumn}>
-              <TeamColumnLabel styles={styles} team={team} />
-              <FinishedBenchColumn styles={styles} team={team} t={t} />
+              <TeamColumnLabel styles={styles} team={team} onPressTeam={onPressTeam} />
+              <FinishedBenchColumn styles={styles} team={team} t={t} onPressPlayer={onPressPlayer} />
             </View>
           ))}
         </View>
@@ -493,8 +690,8 @@ function FinishedLineups({
           <View style={styles.lineupTwoColumnsWrap}>
             {teams.map(team => (
               <View key={`absences-${team.teamId}`} style={styles.lineupColumn}>
-                <TeamColumnLabel styles={styles} team={team} />
-                <FinishedAbsenceColumn styles={styles} team={team} t={t} />
+                <TeamColumnLabel styles={styles} team={team} onPressTeam={onPressTeam} />
+                <FinishedAbsenceColumn styles={styles} team={team} t={t} onPressPlayer={onPressPlayer} />
               </View>
             ))}
           </View>
@@ -517,6 +714,8 @@ export function MatchLineupsTab({
   hasLineupsError = false,
   lineupsErrorReason = 'none',
   lineupsDataSource,
+  onPressPlayer,
+  onPressTeam,
 }: MatchLineupsTabProps) {
   const { t } = useTranslation();
 
@@ -549,7 +748,13 @@ export function MatchLineupsTab({
       ) : null}
 
       {lineupTeams.length > 0 && showFinishedLayout ? (
-        <FinishedLineups styles={styles} lineupTeams={lineupTeams} t={t} />
+        <FinishedLineups
+          styles={styles}
+          lineupTeams={lineupTeams}
+          t={t}
+          onPressPlayer={onPressPlayer}
+          onPressTeam={onPressTeam}
+        />
       ) : null}
 
       {lineupTeams.length > 0 && lineupsDataSource === 'fixture_fallback' ? (
@@ -582,12 +787,26 @@ export function MatchLineupsTab({
 
           return (
             <View key={team.teamId || team.teamName} style={styles.card}>
-              <View style={styles.teamHeaderRow}>
-                {team.teamLogo ? (
-                  <AppImage source={{ uri: team.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
-                ) : null}
-                <Text style={styles.cardTitle}>{team.teamName}</Text>
-              </View>
+              {onPressTeam ? (
+                <AppPressable
+                  style={styles.teamHeaderRow}
+                  onPress={() => onPressTeam(team.teamId)}
+                  accessibilityRole='button'
+                  accessibilityLabel={team.teamName}
+                >
+                  {team.teamLogo ? (
+                    <AppImage source={{ uri: team.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
+                  ) : null}
+                  <Text style={styles.cardTitle}>{team.teamName}</Text>
+                </AppPressable>
+              ) : (
+                <View style={styles.teamHeaderRow}>
+                  {team.teamLogo ? (
+                    <AppImage source={{ uri: team.teamLogo }} style={styles.teamLogo} resizeMode="contain" />
+                  ) : null}
+                  <Text style={styles.cardTitle}>{team.teamName}</Text>
+                </View>
+              )}
               <Text style={styles.cardSubtitle}>
                 {t('matchDetails.lineups.formation')}: {team.formation}
               </Text>
@@ -599,11 +818,25 @@ export function MatchLineupsTab({
                 {pitchRows.map((row, index) => (
                   <View key={`${team.teamId}-pitch-row-${index}`} style={styles.pitchRow}>
                     {row.map(player => (
-                      <View key={player.id} style={styles.playerChip}>
-                        <Text style={styles.playerChipText} numberOfLines={1}>
-                          {player.number ?? '--'} {player.name}
-                        </Text>
-                      </View>
+                      player.id && onPressPlayer ? (
+                        <AppPressable
+                          key={player.id}
+                          style={styles.playerChip}
+                          onPress={() => onPressPlayer(player.id)}
+                          accessibilityRole='button'
+                          accessibilityLabel={player.name}
+                        >
+                          <Text style={styles.playerChipText} numberOfLines={1}>
+                            {player.number ?? '--'} {player.name}
+                          </Text>
+                        </AppPressable>
+                      ) : (
+                        <View key={player.id} style={styles.playerChip}>
+                          <Text style={styles.playerChipText} numberOfLines={1}>
+                            {player.number ?? '--'} {player.name}
+                          </Text>
+                        </View>
+                      )
                     ))}
                   </View>
                 ))}
@@ -611,29 +844,65 @@ export function MatchLineupsTab({
 
               <Text style={styles.metricLabel}>{t('matchDetails.lineups.substitutes')}</Text>
               {team.substitutes.map(player => (
-                <View key={`${team.teamId}-sub-${player.id}`} style={styles.rosterRow}>
-                  <Text style={styles.rosterName} numberOfLines={1}>
-                    {player.number ?? '--'} {player.name} {formatPlayerChange(player)}
-                  </Text>
-                  <Text style={styles.rosterMeta}>
-                    ★ {player.rating ?? '--'} · G {player.goals ?? 0} · A {player.assists ?? 0} ·{' '}
-                    {formatPlayerCards(player)}
-                  </Text>
-                </View>
-              ))}
-
-              <Text style={styles.metricLabel}>{t('matchDetails.lineups.reserves')}</Text>
-              {team.reserves.length > 0 ? (
-                team.reserves.map(player => (
-                  <View key={`${team.teamId}-reserve-${player.id}`} style={styles.rosterRow}>
+                player.id && onPressPlayer ? (
+                  <AppPressable
+                    key={`${team.teamId}-sub-${player.id}`}
+                    style={styles.rosterRow}
+                    onPress={() => onPressPlayer(player.id)}
+                    accessibilityRole='button'
+                    accessibilityLabel={player.name}
+                  >
                     <Text style={styles.rosterName} numberOfLines={1}>
-                      {player.number ?? '--'} {player.name}
+                      {player.number ?? '--'} {player.name} {formatPlayerChange(player)}
+                    </Text>
+                    <Text style={styles.rosterMeta}>
+                      ★ {player.rating ?? '--'} · G {player.goals ?? 0} · A {player.assists ?? 0} ·{' '}
+                      {formatPlayerCards(player)}
+                    </Text>
+                  </AppPressable>
+                ) : (
+                  <View key={`${team.teamId}-sub-${player.id}`} style={styles.rosterRow}>
+                    <Text style={styles.rosterName} numberOfLines={1}>
+                      {player.number ?? '--'} {player.name} {formatPlayerChange(player)}
                     </Text>
                     <Text style={styles.rosterMeta}>
                       ★ {player.rating ?? '--'} · G {player.goals ?? 0} · A {player.assists ?? 0} ·{' '}
                       {formatPlayerCards(player)}
                     </Text>
                   </View>
+                )
+              ))}
+
+              <Text style={styles.metricLabel}>{t('matchDetails.lineups.reserves')}</Text>
+              {team.reserves.length > 0 ? (
+                team.reserves.map(player => (
+                  player.id && onPressPlayer ? (
+                    <AppPressable
+                      key={`${team.teamId}-reserve-${player.id}`}
+                      style={styles.rosterRow}
+                      onPress={() => onPressPlayer(player.id)}
+                      accessibilityRole='button'
+                      accessibilityLabel={player.name}
+                    >
+                      <Text style={styles.rosterName} numberOfLines={1}>
+                        {player.number ?? '--'} {player.name}
+                      </Text>
+                      <Text style={styles.rosterMeta}>
+                        ★ {player.rating ?? '--'} · G {player.goals ?? 0} · A {player.assists ?? 0} ·{' '}
+                        {formatPlayerCards(player)}
+                      </Text>
+                    </AppPressable>
+                  ) : (
+                    <View key={`${team.teamId}-reserve-${player.id}`} style={styles.rosterRow}>
+                      <Text style={styles.rosterName} numberOfLines={1}>
+                        {player.number ?? '--'} {player.name}
+                      </Text>
+                      <Text style={styles.rosterMeta}>
+                        ★ {player.rating ?? '--'} · G {player.goals ?? 0} · A {player.assists ?? 0} ·{' '}
+                        {formatPlayerCards(player)}
+                      </Text>
+                    </View>
+                  )
                 ))
               ) : (
                 <Text style={styles.newsText}>{t('matchDetails.values.unavailable')}</Text>

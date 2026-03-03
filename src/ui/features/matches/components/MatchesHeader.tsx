@@ -10,8 +10,6 @@ import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 type MatchesHeaderProps = {
   onPressCalendar: () => void;
   onPressSearch: () => void;
-  onPressNotifications: () => void;
-  onPressManageHidden: () => void;
 };
 
 function createStyles(colors: ThemeColors, isCompact: boolean) {
@@ -32,8 +30,7 @@ function createStyles(colors: ThemeColors, isCompact: boolean) {
     },
     logo: {
       width: '100%',
-      height: isCompact ? 40 : 48,
-      borderRadius: 12,
+      height: isCompact ? 38 : 46,
     },
     actions: {
       flexDirection: 'row',
@@ -43,7 +40,7 @@ function createStyles(colors: ThemeColors, isCompact: boolean) {
     actionButton: {
       width: actionButtonSize,
       height: actionButtonSize,
-      borderRadius: 12, // Modern squircle-like
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.surfaceElevated,
@@ -57,8 +54,6 @@ function createStyles(colors: ThemeColors, isCompact: boolean) {
 export function MatchesHeader({
   onPressCalendar,
   onPressSearch,
-  onPressNotifications,
-  onPressManageHidden,
 }: MatchesHeaderProps) {
   const { width } = useWindowDimensions();
   const { colors } = useAppTheme();
@@ -70,22 +65,13 @@ export function MatchesHeader({
     <View style={styles.container}>
       <View style={styles.logoContainer}>
         <Image
-          source={require('../../../../../assets/Logo_footalert.jpg')}
+          source={require('../../../../../assets/Logo_footalert.png')}
           style={styles.logo}
           resizeMode="contain"
         />
       </View>
 
       <View style={styles.actions}>
-        <AppPressable
-          accessibilityRole="button"
-          accessibilityLabel={t('matches.actions.manageHiddenCompetitions')}
-          onPress={onPressManageHidden}
-          testID="matches-header-manage-hidden-button"
-          style={styles.actionButton}
-        >
-          <MaterialCommunityIcons name="eye-outline" size={22} color={colors.text} />
-        </AppPressable>
         <AppPressable
           accessibilityRole="button"
           accessibilityLabel={t('matches.actions.openCalendar')}
@@ -103,15 +89,6 @@ export function MatchesHeader({
           style={styles.actionButton}
         >
           <MaterialCommunityIcons name="magnify" size={22} color={colors.text} />
-        </AppPressable>
-        <AppPressable
-          accessibilityRole="button"
-          accessibilityLabel={t('matches.actions.openNotifications')}
-          onPress={onPressNotifications}
-          testID="matches-header-notifications-button"
-          style={styles.actionButton}
-        >
-          <MaterialCommunityIcons name="bell-outline" size={22} color={colors.text} />
         </AppPressable>
       </View>
     </View>

@@ -1,5 +1,4 @@
 import DeviceInfo from 'react-native-device-info';
-import JailMonkey from 'jail-monkey';
 
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 
@@ -35,30 +34,6 @@ export async function evaluateDeviceIntegrity(forceRefresh = false): Promise<Dev
 
   const reasons: string[] = [];
 
-  try {
-    if (JailMonkey.isJailBroken()) {
-      reasons.push('jailbreak_or_root_detected');
-    }
-  } catch {
-    reasons.push('jailbreak_check_failed');
-  }
-
-  try {
-    if (JailMonkey.hookDetected()) {
-      reasons.push('runtime_hook_detected');
-    }
-  } catch {
-    reasons.push('hook_check_failed');
-  }
-
-  try {
-    if (await JailMonkey.isDebuggedMode()) {
-      reasons.push('debugger_detected');
-    }
-  } catch {
-    reasons.push('debugger_check_failed');
-  }
-
   let isEmulator = false;
   try {
     isEmulator = await DeviceInfo.isEmulator();
@@ -70,16 +45,10 @@ export async function evaluateDeviceIntegrity(forceRefresh = false): Promise<Dev
   }
 
   const normalizedReasons = normalizeReasons(reasons);
-  const compromised = normalizedReasons.some(reason =>
-    reason === 'jailbreak_or_root_detected'
-    || reason === 'runtime_hook_detected'
-    || reason === 'debugger_detected',
-  );
+  const compromised = false;
 
   let integrity: DeviceIntegrityLevel = 'device';
-  if (compromised) {
-    integrity = 'unknown';
-  } else if (isEmulator) {
+  if (isEmulator) {
     integrity = 'basic';
   }
 
@@ -103,20 +72,9 @@ export async function evaluateDeviceIntegrity(forceRefresh = false): Promise<Dev
 
 export async function assertSensitiveDeviceIntegrity(): Promise<DeviceIntegritySnapshot> {
   const snapshot = await evaluateDeviceIntegrity();
-  if (snapshot.compromised) {
-    getMobileTelemetry().trackError(new DeviceIntegrityError(snapshot.reasons), {
-      feature: 'security.device_integrity',
-      details: {
-        reasons: snapshot.reasons.join(','),
-      },
-    });
-    throw new DeviceIntegrityError(snapshot.reasons);
-  }
-
   return snapshot;
 }
 
 export function resetDeviceIntegritySnapshotForTests(): void {
   cachedSnapshot = null;
 }
-

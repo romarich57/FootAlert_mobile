@@ -113,6 +113,7 @@ export function FollowsScreen() {
           title={trendItem.teamName}
           subtitle={subtitle}
           avatarUrl={trendItem.teamLogo}
+          imageType="team"
           onPressItem={() => handleOpenTeamDetails(trendItem.teamId)}
           itemAccessibilityLabel={trendItem.teamName}
           isFollowing={followedTeamIdsSet.has(trendItem.teamId)}
@@ -130,6 +131,7 @@ export function FollowsScreen() {
         title={trendItem.playerName}
         subtitle={[localizePlayerPosition(trendItem.position, t), trendItem.teamName].filter(Boolean).join(' • ')}
         avatarUrl={trendItem.playerPhoto}
+        imageType="player"
         onPressItem={() => handleOpenPlayerDetails(trendItem.playerId)}
         itemAccessibilityLabel={trendItem.playerName}
         isFollowing={followedPlayerIdsSet.has(trendItem.playerId)}

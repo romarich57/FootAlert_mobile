@@ -4,7 +4,11 @@ import type { MobileIntegrityLevel, MobilePlatform } from './mobileAttestation/i
 
 const TOKEN_ALG = 'HS256';
 
-export type MobileSessionScope = 'notifications:write' | 'telemetry:write';
+export type MobileSessionScope =
+  | 'api:read'
+  | 'notifications:write'
+  | 'telemetry:write'
+  | 'privacy:erase';
 
 export type MobileSessionTokenClaims = {
   sub: string;
@@ -70,7 +74,13 @@ function isValidClaims(payload: unknown): payload is MobileSessionTokenClaims {
       && claims.integrity !== 'basic'
       && claims.integrity !== 'unknown')
     || !Array.isArray(claims.scope)
-    || !claims.scope.every(scope => scope === 'notifications:write' || scope === 'telemetry:write')
+    || !claims.scope.every(
+      scope =>
+        scope === 'api:read'
+        || scope === 'notifications:write'
+        || scope === 'telemetry:write'
+        || scope === 'privacy:erase',
+    )
     || typeof claims.iat !== 'number'
     || typeof claims.exp !== 'number'
     || typeof claims.jti !== 'string'
@@ -199,4 +209,3 @@ export function verifyMobileSessionToken(
     claims: payload,
   };
 }
-

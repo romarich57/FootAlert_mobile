@@ -68,9 +68,13 @@ jobs:
             cd ~/foot_mobile/FootAlert_mobile
             git pull origin main
             cd footalert-bff
-            npm install
+            npm ci
             npm run build --if-present
-            pm2 restart footalert-bff
+            pm2 describe footalert-bff >/dev/null 2>&1 || pm2 start dist/index.js --name footalert-bff
+            pm2 describe footalert-bff-worker >/dev/null 2>&1 || pm2 start dist/worker.js --name footalert-bff-worker
+            pm2 restart footalert-bff --update-env
+            pm2 restart footalert-bff-worker --update-env
+            pm2 save
 
       - name: Wait for staging healthcheck
         env:

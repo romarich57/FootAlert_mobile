@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { useNavigation, type NavigationProp, type ParamListBase } from '@react-navigation/native';
 
 import { appEnv } from '@data/config/env';
-import { searchPlayersByName, searchTeamsByName } from '@data/endpoints/followsApi';
+import { searchGlobal } from '@data/endpoints/searchApi';
 import { SearchScreen } from '@ui/features/search/screens/SearchScreen';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
@@ -15,14 +15,17 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
-jest.mock('@data/endpoints/followsApi', () => ({
-  searchTeamsByName: jest.fn(async () => []),
-  searchPlayersByName: jest.fn(async () => []),
+jest.mock('@data/endpoints/searchApi', () => ({
+  searchGlobal: jest.fn(async () => ({
+    teams: [],
+    players: [],
+    competitions: [],
+    matches: [],
+  })),
 }));
 
 const mockedUseNavigation = jest.mocked(useNavigation);
-const mockedSearchTeamsByName = jest.mocked(searchTeamsByName);
-const mockedSearchPlayersByName = jest.mocked(searchPlayersByName);
+const mockedSearchGlobal = jest.mocked(searchGlobal);
 
 const navigateMock = jest.fn();
 
@@ -44,16 +47,12 @@ describe('SearchScreen', () => {
   });
 
   it('navigates to team details from a team result', async () => {
-    mockedSearchTeamsByName.mockResolvedValueOnce([
-      {
-        team: {
-          id: 529,
-          name: 'Barcelona',
-          logo: 'barca.png',
-          country: 'Spain',
-        },
-      },
-    ]);
+    mockedSearchGlobal.mockResolvedValueOnce({
+      teams: [{ id: '529', name: 'Barcelona', logo: 'barca.png', country: 'Spain' }],
+      players: [],
+      competitions: [],
+      matches: [],
+    });
 
     renderScreen();
 
@@ -72,30 +71,22 @@ describe('SearchScreen', () => {
   });
 
   it('navigates to player details from a player result', async () => {
-    mockedSearchPlayersByName.mockResolvedValueOnce([
-      {
-        player: {
-          id: 154,
+    mockedSearchGlobal.mockResolvedValueOnce({
+      teams: [],
+      players: [
+        {
+          id: '154',
           name: 'Cristiano Ronaldo',
           photo: 'cr7.png',
+          position: 'Attacker',
+          teamName: 'Al-Nassr',
+          teamLogo: 'nassr.png',
+          leagueName: 'Saudi Pro League',
         },
-        statistics: [
-          {
-            team: {
-              name: 'Al-Nassr',
-              logo: 'nassr.png',
-            },
-            league: {
-              name: 'Saudi Pro League',
-              season: 2025,
-            },
-            games: {
-              position: 'Attacker',
-            },
-          },
-        ],
-      },
-    ]);
+      ],
+      competitions: [],
+      matches: [],
+    });
 
     renderScreen();
 

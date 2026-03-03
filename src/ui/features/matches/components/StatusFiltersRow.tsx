@@ -13,6 +13,8 @@ import {
 type StatusFiltersRowProps = {
   filter: MatchStatusFilter;
   onFilterChange: (nextFilter: MatchStatusFilter) => void;
+  followedOnly: boolean;
+  onToggleFollowedOnly: () => void;
 };
 
 const FILTER_ORDER: MatchStatusFilter[] = ['all', 'live', 'upcoming', 'finished'];
@@ -21,24 +23,24 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
+      gap: 6,
     },
     chip: {
+      flex: 1,
       borderRadius: 12,
       backgroundColor: colors.surfaceElevated,
       minHeight: MIN_TOUCH_TARGET,
       justifyContent: 'center',
       alignItems: 'center',
       paddingVertical: 8,
-      paddingHorizontal: 16,
+      paddingHorizontal: 4,
     },
     chipActive: {
       backgroundColor: colors.primary,
     },
     text: {
       color: colors.textMuted,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600',
     },
     textActive: {
@@ -47,7 +49,12 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-export function StatusFiltersRow({ filter, onFilterChange }: StatusFiltersRowProps) {
+export function StatusFiltersRow({
+  filter,
+  onFilterChange,
+  followedOnly,
+  onToggleFollowedOnly,
+}: StatusFiltersRowProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -72,6 +79,18 @@ export function StatusFiltersRow({ filter, onFilterChange }: StatusFiltersRowPro
           </Pressable>
         );
       })}
+      <Pressable
+        onPress={onToggleFollowedOnly}
+        accessibilityRole="button"
+        accessibilityLabel={t('matches.filters.followed')}
+        accessibilityState={{ selected: followedOnly }}
+        hitSlop={DEFAULT_HIT_SLOP}
+        style={[styles.chip, followedOnly ? styles.chipActive : undefined]}
+      >
+        <Text style={[styles.text, followedOnly ? styles.textActive : undefined]}>
+          {t('matches.filters.followed')}
+        </Text>
+      </Pressable>
     </View>
   );
 }

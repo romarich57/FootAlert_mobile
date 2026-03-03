@@ -52,7 +52,6 @@ type MatchStatDescriptor = {
   metricKey: MatchStatsMetricKey;
   section: MatchStatsSectionKey;
   labelKey: string;
-  fallbackLabel: string;
   aliases: readonly string[];
 };
 
@@ -61,126 +60,108 @@ const MATCH_STAT_DESCRIPTORS: readonly MatchStatDescriptor[] = [
     metricKey: 'total_shots',
     section: 'shots',
     labelKey: 'matchDetails.stats.labels.totalShots',
-    fallbackLabel: 'Total Shots',
     aliases: ['total shots'],
   },
   {
     metricKey: 'shots_on_goal',
     section: 'shots',
     labelKey: 'matchDetails.stats.labels.shotsOnGoal',
-    fallbackLabel: 'Shots on Goal',
     aliases: ['shots on goal', 'shots on target'],
   },
   {
     metricKey: 'shots_off_goal',
     section: 'shots',
     labelKey: 'matchDetails.stats.labels.shotsOffGoal',
-    fallbackLabel: 'Shots off Goal',
     aliases: ['shots off goal', 'shots off target'],
   },
   {
     metricKey: 'blocked_shots',
     section: 'shots',
     labelKey: 'matchDetails.stats.labels.blockedShots',
-    fallbackLabel: 'Blocked Shots',
     aliases: ['blocked shots'],
   },
   {
     metricKey: 'shots_insidebox',
     section: 'shots',
     labelKey: 'matchDetails.stats.labels.shotsInsidebox',
-    fallbackLabel: 'Shots inside box',
     aliases: ['shots insidebox', 'shots inside box'],
   },
   {
     metricKey: 'shots_outsidebox',
     section: 'shots',
     labelKey: 'matchDetails.stats.labels.shotsOutsidebox',
-    fallbackLabel: 'Shots outside box',
     aliases: ['shots outsidebox', 'shots outside box'],
   },
   {
     metricKey: 'ball_possession',
     section: 'possessionPasses',
     labelKey: 'matchDetails.stats.labels.ballPossession',
-    fallbackLabel: 'Ball Possession',
     aliases: ['ball possession', 'possession'],
   },
   {
     metricKey: 'total_passes',
     section: 'possessionPasses',
     labelKey: 'matchDetails.stats.labels.totalPasses',
-    fallbackLabel: 'Total passes',
     aliases: ['total passes'],
   },
   {
     metricKey: 'passes_accurate',
     section: 'possessionPasses',
     labelKey: 'matchDetails.stats.labels.passesAccurate',
-    fallbackLabel: 'Passes accurate',
     aliases: ['passes accurate', 'accurate passes'],
   },
   {
     metricKey: 'passes_percent',
     section: 'possessionPasses',
     labelKey: 'matchDetails.stats.labels.passesPercent',
-    fallbackLabel: 'Passes %',
     aliases: ['passes %', 'passes percentage', 'passes accuracy', 'pass accuracy'],
   },
   {
     metricKey: 'fouls',
     section: 'discipline',
     labelKey: 'matchDetails.stats.labels.fouls',
-    fallbackLabel: 'Fouls',
     aliases: ['fouls', 'fouls committed'],
   },
   {
     metricKey: 'yellow_cards',
     section: 'discipline',
     labelKey: 'matchDetails.stats.labels.yellowCards',
-    fallbackLabel: 'Yellow Cards',
     aliases: ['yellow cards'],
   },
   {
     metricKey: 'red_cards',
     section: 'discipline',
     labelKey: 'matchDetails.stats.labels.redCards',
-    fallbackLabel: 'Red Cards',
     aliases: ['red cards'],
   },
   {
     metricKey: 'corner_kicks',
     section: 'other',
     labelKey: 'matchDetails.stats.labels.cornerKicks',
-    fallbackLabel: 'Corner Kicks',
     aliases: ['corner kicks', 'corners'],
   },
   {
     metricKey: 'offsides',
     section: 'other',
     labelKey: 'matchDetails.stats.labels.offsides',
-    fallbackLabel: 'Offsides',
     aliases: ['offsides'],
   },
   {
     metricKey: 'goalkeeper_saves',
     section: 'other',
     labelKey: 'matchDetails.stats.labels.goalkeeperSaves',
-    fallbackLabel: 'Goalkeeper Saves',
     aliases: ['goalkeeper saves', 'saves'],
   },
   {
     metricKey: 'expected_goals',
     section: 'advanced',
     labelKey: 'matchDetails.stats.labels.expectedGoals',
-    fallbackLabel: 'Expected Goals',
     aliases: ['expected goals', 'expected_goals', 'xg'],
   },
   {
     metricKey: 'goals_prevented',
     section: 'advanced',
     labelKey: 'matchDetails.stats.labels.goalsPrevented',
-    fallbackLabel: 'Goals Prevented',
     aliases: ['goals prevented', 'goals_prevented'],
   },
 ];
@@ -278,7 +259,7 @@ export function buildEvents(
       const minute = formatEventMinute(time?.elapsed, time?.extra);
       const type = toText(raw?.type, 'Event');
       const detail = toText(raw?.detail, toText(raw?.comments, ''));
-      const playerName = toText(player?.name, 'N/A');
+      const playerName = toText(player?.name, '—');
       const assistName = toText(assist?.name, '');
       const teamId = toId(team?.id);
       const side = getTeamSide(teamId, homeTeamId, awayTeamId);
@@ -351,7 +332,9 @@ export function buildFinalScorers(eventRows: EventRow[]): FinalScorerRow[] {
       team: event.team,
       minute: event.minute,
       playerName: event.playerName,
+      playerId: event.playerId,
       assistName: event.assistName,
+      assistId: event.assistId,
       eventType: event.type,
       eventDetail: event.detail,
     }))
@@ -405,7 +388,6 @@ export function buildStatRows(statistics: unknown[]): StatRow[] {
         key: descriptor.metricKey,
         metricKey: descriptor.metricKey,
         section: descriptor.section,
-        label: descriptor.fallbackLabel,
         labelKey: descriptor.labelKey,
         homeValue: formatDisplayStat(homeValueRaw),
         awayValue: formatDisplayStat(awayValueRaw),

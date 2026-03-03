@@ -15,7 +15,12 @@ describe('StatusFiltersRow', () => {
     const onFilterChange = jest.fn();
 
     renderWithAppProviders(
-      <StatusFiltersRow filter="all" onFilterChange={onFilterChange} />,
+      <StatusFiltersRow
+        filter="all"
+        onFilterChange={onFilterChange}
+        followedOnly={false}
+        onToggleFollowedOnly={jest.fn()}
+      />,
     );
 
     const allChip = screen.getByLabelText(i18n.t('matches.filters.all'));
@@ -31,7 +36,12 @@ describe('StatusFiltersRow', () => {
     const onFilterChange = jest.fn();
 
     renderWithAppProviders(
-      <StatusFiltersRow filter="all" onFilterChange={onFilterChange} />,
+      <StatusFiltersRow
+        filter="all"
+        onFilterChange={onFilterChange}
+        followedOnly={false}
+        onToggleFollowedOnly={jest.fn()}
+      />,
     );
 
     fireEvent.press(screen.getByLabelText(i18n.t('matches.filters.live')));

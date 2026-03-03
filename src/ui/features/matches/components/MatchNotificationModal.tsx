@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Modal,
   Pressable,
@@ -90,6 +90,13 @@ export function MatchNotificationModal({
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [prefs, setPrefs] = useState<MatchNotificationPrefs>(initialPrefs);
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    setPrefs(initialPrefs);
+  }, [initialPrefs, visible]);
 
   const updatePref = (key: keyof MatchNotificationPrefs, value: boolean) => {
     setPrefs(current => ({ ...current, [key]: value }));

@@ -16,16 +16,18 @@ type CompetitionSectionProps = {
   collapsed: boolean;
   onToggle: (sectionId: string) => void;
   onPressMatch: (match: MatchItem) => void;
+  onToggleMatchFollow: (match: MatchItem) => void;
+  isMatchFollowed: (fixtureId: string) => boolean;
   onPressNotification: (match: MatchItem) => void;
   onPressHomeTeam?: (teamId: string) => void;
   onPressAwayTeam?: (teamId: string) => void;
-  onHide?: () => void;
 };
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: {
       gap: 12,
+      marginBottom: 16,
     },
     header: {
       flexDirection: 'row',
@@ -62,24 +64,6 @@ function createStyles(colors: ThemeColors) {
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
-    topBadge: {
-      borderRadius: 6,
-      backgroundColor: colors.primary,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-    },
-    topBadgeText: {
-      color: colors.primaryContrast,
-      fontSize: 9,
-      fontWeight: '800',
-      textTransform: 'uppercase',
-    },
-    count: {
-      color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: '600',
-      opacity: 0.7,
-    },
     list: {
       gap: 16,
       marginTop: 4,
@@ -113,14 +97,22 @@ export function CompetitionSection({
   collapsed,
   onToggle,
   onPressMatch,
+  onToggleMatchFollow,
+  isMatchFollowed,
   onPressNotification,
   onPressHomeTeam,
   onPressAwayTeam,
-  onHide,
 }: CompetitionSectionProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const translatedCountry = section.country
+    ? t(`countries.${section.country}`, { defaultValue: section.country })
+    : '';
+
+  const displayTitle =
+    translatedCountry && !section.isFollowSection ? `${translatedCountry} - ${section.name}` : section.name;
 
   return (
     <View style={styles.container}>
@@ -132,23 +124,17 @@ export function CompetitionSection({
             <View style={styles.logo} />
           )}
           <View style={styles.titleRow}>
-            <Text numberOfLines={1} style={styles.title}>
-              {section.name}
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              style={styles.title}
+            >
+              {displayTitle}
             </Text>
-            {section.isTopCompetition ? (
-              <View style={styles.topBadge}>
-                <Text style={styles.topBadgeText}>{t('matches.topCompetitionBadge')}</Text>
-              </View>
-            ) : null}
-            <Text style={styles.count}>{section.matches.length}</Text>
           </View>
         </View>
         <View style={styles.actionsRow}>
-          {!section.isFollowSection && onHide ? (
-            <Pressable onPress={onHide} style={styles.actionButton} hitSlop={8}>
-              <MaterialCommunityIcons name="eye-off-outline" size={18} color={colors.textMuted} />
-            </Pressable>
-          ) : null}
           <View style={styles.actionButton}>
             <MaterialCommunityIcons
               name={collapsed ? 'chevron-down' : 'chevron-up'}
@@ -167,6 +153,8 @@ export function CompetitionSection({
                 key={match.fixtureId}
                 match={match}
                 onPress={onPressMatch}
+                isFollowed={isMatchFollowed(match.fixtureId)}
+                onToggleFollow={onToggleMatchFollow}
                 onPressNotification={onPressNotification}
                 onPressHomeTeam={onPressHomeTeam}
                 onPressAwayTeam={onPressAwayTeam}

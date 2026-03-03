@@ -32,6 +32,8 @@ const meta = {
     match: baseMatch,
     onPress: () => undefined,
     onPressNotification: () => undefined,
+    onToggleFollow: () => undefined,
+    isFollowed: false,
     onPressHomeTeam: () => undefined,
     onPressAwayTeam: () => undefined,
   },

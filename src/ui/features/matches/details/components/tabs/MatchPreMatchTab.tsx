@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
 import { AppImage } from '@ui/shared/media/AppImage';
+import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import {
@@ -22,6 +23,10 @@ type MatchPreMatchTabProps = {
   styles: MatchDetailsTabStyles;
   sections: MatchPreMatchSection[];
   isLoading: boolean;
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
+  onPressPlayer?: (playerId: string) => void;
+  onPressCompetition?: (competitionId: string) => void;
 };
 
 function LeaderAvatar({
@@ -50,12 +55,20 @@ function renderSection({
   colors,
   t,
   locale,
+  onPressMatch,
+  onPressTeam,
+  onPressPlayer,
+  onPressCompetition,
 }: {
   section: MatchPreMatchSection;
   styles: MatchDetailsTabStyles;
   colors: ThemeColors;
   t: TFunction;
   locale: string;
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
+  onPressPlayer?: (playerId: string) => void;
+  onPressCompetition?: (competitionId: string) => void;
 }) {
   if (!section.isAvailable || !section.payload) {
     return null;
@@ -118,6 +131,7 @@ function renderSection({
         colors={colors}
         t={t}
         payload={section.payload}
+        onPressCompetition={onPressCompetition}
       />
     );
   }
@@ -129,6 +143,8 @@ function renderSection({
         styles={styles}
         t={t}
         payload={section.payload}
+        onPressMatch={onPressMatch}
+        onPressTeam={onPressTeam}
       />
     );
   }
@@ -140,6 +156,7 @@ function renderSection({
         styles={styles}
         t={t}
         payload={section.payload}
+        onPressTeam={onPressTeam}
       />
     );
   }
@@ -165,33 +182,71 @@ function renderSection({
         },
       ].map(item => (
         <View key={item.title} style={styles.preMatchLeadersRow}>
-          <View style={styles.preMatchLeaderSide}>
-            <LeaderAvatar styles={styles} player={item.home} />
-            <View style={styles.preMatchLeaderTextWrap}>
-              <Text numberOfLines={1} style={styles.preMatchLeaderName}>
-                {item.home?.name ?? t('matchDetails.values.unavailable')}
-              </Text>
-              <Text style={styles.preMatchLeaderValue}>
-                {item.getValue(item.home) ?? '—'}
-              </Text>
+          {item.home?.playerId && onPressPlayer ? (
+            <AppPressable
+              style={styles.preMatchLeaderSide}
+              onPress={() => onPressPlayer(item.home?.playerId ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={item.home?.name ?? t('matchDetails.values.unavailable')}
+            >
+              <LeaderAvatar styles={styles} player={item.home} />
+              <View style={styles.preMatchLeaderTextWrap}>
+                <Text numberOfLines={1} style={styles.preMatchLeaderName}>
+                  {item.home?.name ?? t('matchDetails.values.unavailable')}
+                </Text>
+                <Text style={styles.preMatchLeaderValue}>
+                  {item.getValue(item.home) ?? '—'}
+                </Text>
+              </View>
+            </AppPressable>
+          ) : (
+            <View style={styles.preMatchLeaderSide}>
+              <LeaderAvatar styles={styles} player={item.home} />
+              <View style={styles.preMatchLeaderTextWrap}>
+                <Text numberOfLines={1} style={styles.preMatchLeaderName}>
+                  {item.home?.name ?? t('matchDetails.values.unavailable')}
+                </Text>
+                <Text style={styles.preMatchLeaderValue}>
+                  {item.getValue(item.home) ?? '—'}
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
 
           <View style={styles.preMatchLeadersCenter}>
             <Text style={styles.metricLabel}>{item.title}</Text>
           </View>
 
-          <View style={styles.preMatchLeaderSide}>
-            <View style={styles.preMatchLeaderTextWrapRight}>
-              <Text numberOfLines={1} style={styles.preMatchLeaderNameRight}>
-                {item.away?.name ?? t('matchDetails.values.unavailable')}
-              </Text>
-              <Text style={styles.preMatchLeaderValueRight}>
-                {item.getValue(item.away) ?? '—'}
-              </Text>
+          {item.away?.playerId && onPressPlayer ? (
+            <AppPressable
+              style={styles.preMatchLeaderSide}
+              onPress={() => onPressPlayer(item.away?.playerId ?? '')}
+              accessibilityRole='button'
+              accessibilityLabel={item.away?.name ?? t('matchDetails.values.unavailable')}
+            >
+              <View style={styles.preMatchLeaderTextWrapRight}>
+                <Text numberOfLines={1} style={styles.preMatchLeaderNameRight}>
+                  {item.away?.name ?? t('matchDetails.values.unavailable')}
+                </Text>
+                <Text style={styles.preMatchLeaderValueRight}>
+                  {item.getValue(item.away) ?? '—'}
+                </Text>
+              </View>
+              <LeaderAvatar styles={styles} player={item.away} />
+            </AppPressable>
+          ) : (
+            <View style={styles.preMatchLeaderSide}>
+              <View style={styles.preMatchLeaderTextWrapRight}>
+                <Text numberOfLines={1} style={styles.preMatchLeaderNameRight}>
+                  {item.away?.name ?? t('matchDetails.values.unavailable')}
+                </Text>
+                <Text style={styles.preMatchLeaderValueRight}>
+                  {item.getValue(item.away) ?? '—'}
+                </Text>
+              </View>
+              <LeaderAvatar styles={styles} player={item.away} />
             </View>
-            <LeaderAvatar styles={styles} player={item.away} />
-          </View>
+          )}
         </View>
       ))}
     </View>
@@ -202,6 +257,10 @@ export function MatchPreMatchTab({
   styles,
   sections,
   isLoading,
+  onPressMatch,
+  onPressTeam,
+  onPressPlayer,
+  onPressCompetition,
 }: MatchPreMatchTabProps) {
   const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
@@ -237,6 +296,10 @@ export function MatchPreMatchTab({
           colors,
           t,
           locale,
+          onPressMatch,
+          onPressTeam,
+          onPressPlayer,
+          onPressCompetition,
         }))}
     </View>
   );

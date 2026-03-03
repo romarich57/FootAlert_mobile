@@ -1,5 +1,7 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Redis as IORedis } from 'ioredis';
+
+import { BffError, UpstreamBffError } from './errors.js';
 
 type CacheEntry<T> = {
   expiresAt: number;
@@ -11,6 +13,10 @@ type CacheBackend = 'memory' | 'redis';
 type CacheConfig = {
   maxEntries: number;
   cleanupIntervalMs: number;
+  staleGraceMs: number;
+  ttlJitterPct: number;
+  lockTtlMs: number;
+  coalesceWaitMs: number;
   backend: CacheBackend;
   strictMode: boolean;
   redisUrl: string | null;
@@ -19,14 +25,39 @@ type CacheConfig = {
 
 const DEFAULT_CACHE_MAX_ENTRIES = 1_000;
 const DEFAULT_CACHE_CLEANUP_INTERVAL_MS = 60_000;
+const DEFAULT_CACHE_STALE_GRACE_MS = 60_000;
+const DEFAULT_CACHE_TTL_JITTER_PCT = 15;
+const DEFAULT_CACHE_LOCK_TTL_MS = 3_000;
+const DEFAULT_CACHE_COALESCE_WAIT_MS = 750;
 const DEFAULT_MAX_CACHE_KEY_LENGTH = 120;
 const DEFAULT_CACHE_BACKEND: CacheBackend = 'memory';
 const DEFAULT_REDIS_PREFIX = 'footalert:bff:';
 const DEFAULT_CACHE_STRICT_MODE = false;
 const REDIS_READY_TIMEOUT_MS = 3_000;
+const REDIS_CACHE_PAYLOAD_VERSION = 'v1';
+const LOCK_RECHECK_INTERVAL_MS = 50;
+const LOCK_RELEASE_LUA = `
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+end
+return 0
+`;
+
+type ParsedCacheValue<T> = {
+  value: T;
+  fresh: boolean;
+};
 
 function toPositiveInt(value: number, fallback: number): number {
   if (!Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+
+  return Math.floor(value);
+}
+
+function toNonNegativeInt(value: number, fallback: number): number {
+  if (!Number.isFinite(value) || value < 0) {
     return fallback;
   }
 
@@ -54,10 +85,26 @@ function hashCacheKey(rawKey: string): string {
   return `sha256:${createHash('sha256').update(rawKey).digest('hex')}`;
 }
 
+function applyTtlJitter(ttlMs: number): number {
+  const baseTtlMs = Math.max(1, Math.floor(ttlMs));
+  if (cacheTtlJitterPct <= 0) {
+    return baseTtlMs;
+  }
+
+  const spread = Math.floor((baseTtlMs * cacheTtlJitterPct) / 100);
+  if (spread <= 0) {
+    return baseTtlMs;
+  }
+
+  const delta = Math.floor(Math.random() * ((spread * 2) + 1)) - spread;
+  return Math.max(1, baseTtlMs + delta);
+}
+
 export class MemoryCache {
   private readonly store = new Map<string, CacheEntry<unknown>>();
   private maxEntries: number;
   private cleanupIntervalMs: number;
+  private staleGraceMs: number;
   private cleanupTimer: NodeJS.Timeout | null = null;
 
   constructor(config: Partial<CacheConfig> = {}) {
@@ -68,6 +115,10 @@ export class MemoryCache {
     this.cleanupIntervalMs = toPositiveInt(
       config.cleanupIntervalMs ?? DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
       DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
+    );
+    this.staleGraceMs = toPositiveInt(
+      config.staleGraceMs ?? DEFAULT_CACHE_STALE_GRACE_MS,
+      DEFAULT_CACHE_STALE_GRACE_MS,
     );
     this.startCleanupLoop();
   }
@@ -85,21 +136,51 @@ export class MemoryCache {
       );
       this.startCleanupLoop();
     }
+
+    if (typeof config.staleGraceMs === 'number') {
+      this.staleGraceMs = toPositiveInt(config.staleGraceMs, DEFAULT_CACHE_STALE_GRACE_MS);
+    }
   }
 
   get<T>(key: string): T | null {
+    return this.getFresh<T>(key);
+  }
+
+  getFresh<T>(key: string): T | null {
     const cacheKey = hashCacheKey(key);
     const entry = this.store.get(cacheKey);
     if (!entry) {
       return null;
     }
 
-    if (Date.now() > entry.expiresAt) {
+    const now = Date.now();
+    if (this.isBeyondStale(entry, now)) {
       this.store.delete(cacheKey);
+      return null;
+    }
+    if (now > entry.expiresAt) {
       return null;
     }
 
     // Keep most recently used entries at the end of the map.
+    this.store.delete(cacheKey);
+    this.store.set(cacheKey, entry);
+    return entry.value as T;
+  }
+
+  getStale<T>(key: string): T | null {
+    const cacheKey = hashCacheKey(key);
+    const entry = this.store.get(cacheKey);
+    if (!entry) {
+      return null;
+    }
+
+    const now = Date.now();
+    if (this.isBeyondStale(entry, now)) {
+      this.store.delete(cacheKey);
+      return null;
+    }
+
     this.store.delete(cacheKey);
     this.store.set(cacheKey, entry);
     return entry.value as T;
@@ -117,7 +198,7 @@ export class MemoryCache {
 
   sweepExpiredEntries(now = Date.now()): void {
     for (const [key, entry] of this.store.entries()) {
-      if (now > entry.expiresAt) {
+      if (this.isBeyondStale(entry, now)) {
         this.store.delete(key);
       }
     }
@@ -132,6 +213,7 @@ export class MemoryCache {
     this.configure({
       maxEntries: DEFAULT_CACHE_MAX_ENTRIES,
       cleanupIntervalMs: DEFAULT_CACHE_CLEANUP_INTERVAL_MS,
+      staleGraceMs: DEFAULT_CACHE_STALE_GRACE_MS,
     });
     this.startCleanupLoop();
   }
@@ -158,6 +240,10 @@ export class MemoryCache {
     }, this.cleanupIntervalMs);
     this.cleanupTimer.unref?.();
   }
+
+  private isBeyondStale(entry: CacheEntry<unknown>, now: number): boolean {
+    return now > entry.expiresAt + this.staleGraceMs;
+  }
 }
 
 const memoryCache = new MemoryCache();
@@ -171,6 +257,10 @@ let redisClient: IORedis | null = null;
 let redisReady = false;
 let hasLoggedRedisFallback = false;
 let lastRedisError: unknown = null;
+let cacheStaleGraceMs = DEFAULT_CACHE_STALE_GRACE_MS;
+let cacheTtlJitterPct = DEFAULT_CACHE_TTL_JITTER_PCT;
+let cacheLockTtlMs = DEFAULT_CACHE_LOCK_TTL_MS;
+let cacheCoalesceWaitMs = DEFAULT_CACHE_COALESCE_WAIT_MS;
 
 function logRedisFallback(error?: unknown): void {
   if (typeof error !== 'undefined') {
@@ -191,6 +281,10 @@ function logRedisFallback(error?: unknown): void {
 
 function buildRedisCacheKey(rawKey: string): string {
   return `${redisPrefix}${hashCacheKey(rawKey)}`;
+}
+
+function buildRedisLockKey(rawKey: string): string {
+  return `${redisPrefix}lock:${hashCacheKey(rawKey)}`;
 }
 
 function teardownRedisClient(): void {
@@ -268,7 +362,35 @@ async function ensureRedisReadyWithTimeout(timeoutMs = REDIS_READY_TIMEOUT_MS): 
   throw new Error('Redis did not become ready before timeout.');
 }
 
-async function getFromRedis<T>(key: string): Promise<T | null> {
+function parseRedisCachePayload<T>(payload: string): { value: T; expiresAt: number | null } | null {
+  try {
+    const parsed = JSON.parse(payload) as unknown;
+    if (
+      parsed
+      && typeof parsed === 'object'
+      && !Array.isArray(parsed)
+      && 'version' in parsed
+      && 'expiresAt' in parsed
+      && 'value' in parsed
+      && (parsed as { version: unknown }).version === REDIS_CACHE_PAYLOAD_VERSION
+      && typeof (parsed as { expiresAt: unknown }).expiresAt === 'number'
+    ) {
+      return {
+        value: (parsed as { value: T }).value,
+        expiresAt: (parsed as { expiresAt: number }).expiresAt,
+      };
+    }
+
+    return {
+      value: parsed as T,
+      expiresAt: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getFromRedis<T>(key: string): Promise<ParsedCacheValue<T> | null> {
   if (!redisClient || !redisReady) {
     return null;
   }
@@ -279,7 +401,15 @@ async function getFromRedis<T>(key: string): Promise<T | null> {
       return null;
     }
 
-    return JSON.parse(payload) as T;
+    const parsedPayload = parseRedisCachePayload<T>(payload);
+    if (!parsedPayload) {
+      return null;
+    }
+
+    return {
+      value: parsedPayload.value,
+      fresh: parsedPayload.expiresAt === null || Date.now() <= parsedPayload.expiresAt,
+    };
   } catch (error) {
     redisReady = false;
     logRedisFallback(error);
@@ -292,12 +422,19 @@ async function setToRedis<T>(key: string, value: T, ttlMs: number): Promise<void
     return;
   }
 
+  const expiresAt = Date.now() + ttlMs;
+  const redisTtlMs = Math.max(1, Math.floor(ttlMs + cacheStaleGraceMs));
+
   try {
     await redisClient.set(
       buildRedisCacheKey(key),
-      JSON.stringify(value),
+      JSON.stringify({
+        version: REDIS_CACHE_PAYLOAD_VERSION,
+        expiresAt,
+        value,
+      }),
       'PX',
-      Math.max(1, Math.floor(ttlMs)),
+      redisTtlMs,
     );
   } catch (error) {
     redisReady = false;
@@ -305,22 +442,123 @@ async function setToRedis<T>(key: string, value: T, ttlMs: number): Promise<void
   }
 }
 
-async function getCachedValue<T>(key: string): Promise<T | null> {
+async function getFreshCachedValue<T>(key: string): Promise<T | null> {
   if (cacheBackend === 'redis') {
     const redisValue = await getFromRedis<T>(key);
-    if (redisValue !== null) {
-      return redisValue;
+    if (redisValue?.fresh) {
+      return redisValue.value;
     }
   }
 
-  return memoryCache.get<T>(key);
+  return memoryCache.getFresh<T>(key);
+}
+
+async function getStaleCachedValue<T>(key: string): Promise<T | null> {
+  if (cacheBackend === 'redis') {
+    const redisValue = await getFromRedis<T>(key);
+    if (redisValue) {
+      return redisValue.value;
+    }
+  }
+
+  return memoryCache.getStale<T>(key);
 }
 
 async function setCachedValue<T>(key: string, value: T, ttlMs: number): Promise<void> {
-  memoryCache.set(key, value, ttlMs);
+  const effectiveTtlMs = applyTtlJitter(ttlMs);
+  memoryCache.set(key, value, effectiveTtlMs);
 
   if (cacheBackend === 'redis') {
-    await setToRedis(key, value, ttlMs);
+    await setToRedis(key, value, effectiveTtlMs);
+  }
+}
+
+async function waitForFreshCacheFill<T>(key: string): Promise<T | null> {
+  if (cacheCoalesceWaitMs <= 0) {
+    return null;
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < cacheCoalesceWaitMs) {
+    await wait(LOCK_RECHECK_INTERVAL_MS);
+    const cachedValue = await getFreshCachedValue<T>(key);
+    if (cachedValue !== null) {
+      return cachedValue;
+    }
+  }
+
+  return null;
+}
+
+async function acquireRedisLock(key: string): Promise<{ lockKey: string; token: string } | null> {
+  if (!redisClient || !redisReady) {
+    return null;
+  }
+
+  const lockKey = buildRedisLockKey(key);
+  const token = randomUUID();
+  try {
+    const result = await redisClient.set(
+      lockKey,
+      token,
+      'PX',
+      Math.max(1, cacheLockTtlMs),
+      'NX',
+    );
+    if (result === 'OK') {
+      return {
+        lockKey,
+        token,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    redisReady = false;
+    logRedisFallback(error);
+    return null;
+  }
+}
+
+async function releaseRedisLock(lock: { lockKey: string; token: string } | null): Promise<void> {
+  if (!lock || !redisClient || !redisReady) {
+    return;
+  }
+
+  try {
+    await redisClient.eval(LOCK_RELEASE_LUA, 1, lock.lockKey, lock.token);
+  } catch (error) {
+    redisReady = false;
+    logRedisFallback(error);
+  }
+}
+
+function shouldFallbackToStale(error: unknown): boolean {
+  if (!(error instanceof UpstreamBffError)) {
+    return false;
+  }
+
+  if (error.code === 'UPSTREAM_QUOTA_EXCEEDED' || error.code === 'UPSTREAM_CIRCUIT_OPEN') {
+    return true;
+  }
+
+  return error.statusCode === 429 || error.statusCode >= 500;
+}
+
+async function produceAndCache<T>(key: string, ttlMs: number, producer: () => Promise<T>): Promise<T> {
+  try {
+    const value = await producer();
+    await setCachedValue(key, value, ttlMs);
+    return value;
+  } catch (error) {
+    if (shouldFallbackToStale(error)) {
+      const staleValue = await getStaleCachedValue<T>(key);
+      if (staleValue !== null) {
+        return staleValue;
+      }
+    }
+
+    throw error;
   }
 }
 
@@ -356,6 +594,22 @@ export function configureCache(config: Partial<CacheConfig>): void {
       : redisPrefix;
   const nextStrictMode =
     typeof config.strictMode === 'boolean' ? config.strictMode : cacheStrictMode;
+  const nextStaleGraceMs =
+    typeof config.staleGraceMs === 'number'
+      ? toPositiveInt(config.staleGraceMs, DEFAULT_CACHE_STALE_GRACE_MS)
+      : cacheStaleGraceMs;
+  const nextTtlJitterPct =
+    typeof config.ttlJitterPct === 'number'
+      ? toNonNegativeInt(config.ttlJitterPct, DEFAULT_CACHE_TTL_JITTER_PCT)
+      : cacheTtlJitterPct;
+  const nextLockTtlMs =
+    typeof config.lockTtlMs === 'number'
+      ? toPositiveInt(config.lockTtlMs, DEFAULT_CACHE_LOCK_TTL_MS)
+      : cacheLockTtlMs;
+  const nextCoalesceWaitMs =
+    typeof config.coalesceWaitMs === 'number'
+      ? toPositiveInt(config.coalesceWaitMs, DEFAULT_CACHE_COALESCE_WAIT_MS)
+      : cacheCoalesceWaitMs;
 
   const shouldReconnectRedis =
     nextBackend !== cacheBackend ||
@@ -367,6 +621,10 @@ export function configureCache(config: Partial<CacheConfig>): void {
   cacheStrictMode = nextStrictMode;
   redisUrl = nextRedisUrl;
   redisPrefix = nextRedisPrefix;
+  cacheStaleGraceMs = nextStaleGraceMs;
+  cacheTtlJitterPct = nextTtlJitterPct;
+  cacheLockTtlMs = nextLockTtlMs;
+  cacheCoalesceWaitMs = nextCoalesceWaitMs;
 
   if (shouldReconnectRedis) {
     teardownRedisClient();
@@ -396,6 +654,12 @@ export async function assertCacheReadyOrThrow(): Promise<void> {
 export type CacheHealthSnapshot = {
   backend: CacheBackend;
   strictMode: boolean;
+  policy: {
+    staleGraceMs: number;
+    ttlJitterPct: number;
+    lockTtlMs: number;
+    coalesceWaitMs: number;
+  };
   redis: {
     configured: boolean;
     ready: boolean;
@@ -412,6 +676,12 @@ export function getCacheHealthSnapshot(): CacheHealthSnapshot {
   return {
     backend: cacheBackend,
     strictMode: cacheStrictMode,
+    policy: {
+      staleGraceMs: cacheStaleGraceMs,
+      ttlJitterPct: cacheTtlJitterPct,
+      lockTtlMs: cacheLockTtlMs,
+      coalesceWaitMs: cacheCoalesceWaitMs,
+    },
     redis: {
       configured: redisConfigured,
       ready: redisReady,
@@ -427,7 +697,7 @@ export async function withCache<T>(
   ttlMs: number,
   producer: () => Promise<T>,
 ): Promise<T> {
-  const cached = await getCachedValue<T>(key);
+  const cached = await getFreshCachedValue<T>(key);
   if (cached !== null) {
     return cached;
   }
@@ -437,11 +707,46 @@ export async function withCache<T>(
     return existingPromise;
   }
 
-  const pendingPromise = producer()
-    .then(async value => {
-      await setCachedValue(key, value, ttlMs);
-      return value;
-    })
+  const pendingPromise = (async () => {
+    if (cacheBackend !== 'redis' || !redisUrl) {
+      return produceAndCache(key, ttlMs, producer);
+    }
+
+    ensureRedisClient();
+    if (!redisClient || !redisReady) {
+      return produceAndCache(key, ttlMs, producer);
+    }
+
+    const lock = await acquireRedisLock(key);
+    if (lock) {
+      try {
+        const cachedAfterLock = await getFreshCachedValue<T>(key);
+        if (cachedAfterLock !== null) {
+          return cachedAfterLock;
+        }
+
+        return produceAndCache(key, ttlMs, producer);
+      } finally {
+        await releaseRedisLock(lock);
+      }
+    }
+
+    const coalescedValue = await waitForFreshCacheFill<T>(key);
+    if (coalescedValue !== null) {
+      return coalescedValue;
+    }
+
+    const staleValue = await getStaleCachedValue<T>(key);
+    if (staleValue !== null) {
+      return staleValue;
+    }
+
+    throw new BffError(
+      503,
+      'CACHE_LOCK_TIMEOUT',
+      'Cache lock wait timed out and no stale data is available.',
+    );
+  })()
     .finally(() => {
       clearInFlight(key);
     });
@@ -457,6 +762,10 @@ export function resetCacheForTests(): void {
   cacheStrictMode = DEFAULT_CACHE_STRICT_MODE;
   redisUrl = null;
   redisPrefix = DEFAULT_REDIS_PREFIX;
+  cacheStaleGraceMs = DEFAULT_CACHE_STALE_GRACE_MS;
+  cacheTtlJitterPct = DEFAULT_CACHE_TTL_JITTER_PCT;
+  cacheLockTtlMs = DEFAULT_CACHE_LOCK_TTL_MS;
+  cacheCoalesceWaitMs = DEFAULT_CACHE_COALESCE_WAIT_MS;
   hasLoggedRedisFallback = false;
   lastRedisError = null;
   teardownRedisClient();

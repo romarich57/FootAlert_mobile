@@ -1,9 +1,14 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { appEnv } from '@data/config/env';
 import { getAppVersionLabel } from '@data/config/appMeta';
+import {
+  openMobileConsentPreferences,
+  syncMobileConsentStatus,
+  type MobileConsentStatus,
+} from '@data/privacy/mobileConsent';
 import {
   getCurrencySymbol,
   getCurrencyCatalog,
@@ -16,6 +21,7 @@ import {
   requestNotificationsPermission,
 } from '@data/permissions/notificationsPermission';
 import { openStoreReviewPage } from '@data/reviews/inAppReview';
+import { eraseMobilePrivacyData } from '@data/security/mobileSessionAuth';
 import { incrementPositiveEventCount } from '@data/storage/reviewPromptStorage';
 import { useAppPreferences } from '@ui/app/providers/AppPreferencesProvider';
 import type {
@@ -43,6 +49,9 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
 
   const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [isErasingData, setIsErasingData] = useState(false);
+  const [isUpdatingConsent, setIsUpdatingConsent] = useState(false);
+  const [mobileConsentStatus, setMobileConsentStatus] = useState<MobileConsentStatus>('unknown');
   const normalizedCurrencyCode = useMemo(
     () => resolveSafeCurrencyCode(preferences.currencyCode),
     [preferences.currencyCode],
@@ -173,6 +182,10 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
     return openExternalUrl(appEnv.privacyPolicyUrl);
   }, [openExternalUrl]);
 
+  const openTermsOfUse = useCallback(async () => {
+    return openExternalUrl(appEnv.termsOfUseUrl);
+  }, [openExternalUrl]);
+
   const openSupport = useCallback(async () => {
     return openExternalUrl(appEnv.supportUrl);
   }, [openExternalUrl]);
@@ -188,7 +201,41 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
     });
   }, []);
 
+  const openPrivacyPreferences = useCallback(async () => {
+    setIsUpdatingConsent(true);
+    try {
+      const snapshot = await openMobileConsentPreferences();
+      setMobileConsentStatus(snapshot.status);
+      return snapshot.status;
+    } finally {
+      setIsUpdatingConsent(false);
+    }
+  }, []);
+
+  const erasePersonalData = useCallback(async () => {
+    if (isErasingData) {
+      return false;
+    }
+
+    setIsErasingData(true);
+    try {
+      await eraseMobilePrivacyData();
+      return true;
+    } finally {
+      setIsErasingData(false);
+    }
+  }, [isErasingData]);
+
+  useEffect(() => {
+    syncMobileConsentStatus()
+      .then(snapshot => {
+        setMobileConsentStatus(snapshot.status);
+      })
+      .catch(() => undefined);
+  }, []);
+
   const hasPrivacyPolicyUrl = Boolean(appEnv.privacyPolicyUrl);
+  const hasTermsOfUseUrl = Boolean(appEnv.termsOfUseUrl);
   const hasSupportUrl = Boolean(appEnv.supportUrl);
   const hasFollowUsUrl = Boolean(appEnv.followUsUrl);
   const hasRateAppUrl = Boolean(appEnv.appStoreUrl || appEnv.playStoreUrl);
@@ -203,8 +250,12 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
     languageOptions,
     measurementOptions,
     isUpdatingNotifications,
+    isErasingData,
+    isUpdatingConsent,
+    mobileConsentStatus,
     permissionDenied,
     hasPrivacyPolicyUrl,
+    hasTermsOfUseUrl,
     hasSupportUrl,
     hasFollowUsUrl,
     hasRateAppUrl,
@@ -215,9 +266,12 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
     handleMeasurementChange,
     handleNotificationsChange,
     openPrivacyPolicy,
+    openTermsOfUse,
     openSupport,
     openFollowUs,
     openRateApp,
+    openPrivacyPreferences,
+    erasePersonalData,
     openSystemNotificationSettings,
   };
 }

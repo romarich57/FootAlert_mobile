@@ -13,8 +13,6 @@ describe('MatchesHeader', () => {
       <MatchesHeader
         onPressCalendar={jest.fn()}
         onPressSearch={jest.fn()}
-        onPressNotifications={jest.fn()}
-        onPressManageHidden={jest.fn()}
       />,
     );
 
@@ -25,6 +23,5 @@ describe('MatchesHeader', () => {
     expect(style.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
     expect(screen.getByLabelText(i18n.t('matches.actions.openCalendar'))).toBeTruthy();
     expect(screen.getByLabelText(i18n.t('matches.actions.openSearch'))).toBeTruthy();
-    expect(screen.getByLabelText(i18n.t('matches.actions.openNotifications'))).toBeTruthy();
   });
 });

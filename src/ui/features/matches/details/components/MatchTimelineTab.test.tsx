@@ -77,7 +77,8 @@ describe('MatchTimelineTab', () => {
 
     expect(screen.getByText(/78/)).toBeTruthy();
     expect(screen.getByText('Kylian Mbappe')).toBeTruthy();
-    expect(screen.getByText('But (O. Dembele)')).toBeTruthy();
+    expect(screen.getByText('But')).toBeTruthy();
+    expect(screen.getByText('(O. Dembele)')).toBeTruthy();
   });
 
   it('renders explicit timeline error when events request failed', () => {

@@ -6,6 +6,7 @@ declare module 'react-native-config' {
     DESKTOP_API_BASE_URL?: string;
     WEB_APP_ORIGIN?: string;
     MOBILE_PRIVACY_POLICY_URL?: string;
+    MOBILE_TERMS_OF_USE_URL?: string;
     MOBILE_SUPPORT_URL?: string;
     MOBILE_FOLLOW_US_URL?: string;
     MOBILE_APP_STORE_URL?: string;
@@ -37,7 +38,9 @@ declare module 'react-native-config' {
     FOLLOWS_TRENDS_PLAYERS_LIMIT?: string;
     FOLLOWS_MAX_FOLLOWED_TEAMS?: string;
     FOLLOWS_MAX_FOLLOWED_PLAYERS?: string;
+    FOLLOWS_MAX_FOLLOWED_LEAGUES?: string;
     MOBILE_ENABLE_BFF_PLAYER_AGGREGATES?: string;
+    NOTIFICATIONS_MATCH_BACKEND_ENABLED?: string;
     MOBILE_ENABLE_STORYBOOK?: string;
   }
 

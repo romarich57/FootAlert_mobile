@@ -1,9 +1,3 @@
-jest.mock('jail-monkey', () => ({
-  isJailBroken: jest.fn(() => false),
-  hookDetected: jest.fn(() => false),
-  isDebuggedMode: jest.fn(async () => false),
-}));
-
 jest.mock('react-native-device-info', () => ({
   isEmulator: jest.fn(async () => false),
 }));
@@ -15,7 +9,6 @@ jest.mock('@data/telemetry/mobileTelemetry', () => ({
   }),
 }));
 
-import JailMonkey from 'jail-monkey';
 import DeviceInfo from 'react-native-device-info';
 
 import {
@@ -27,9 +20,6 @@ import {
 describe('deviceIntegrity', () => {
   beforeEach(() => {
     resetDeviceIntegritySnapshotForTests();
-    (JailMonkey.isJailBroken as jest.Mock).mockReturnValue(false);
-    (JailMonkey.hookDetected as jest.Mock).mockReturnValue(false);
-    (JailMonkey.isDebuggedMode as jest.Mock).mockResolvedValue(false);
     (DeviceInfo.isEmulator as jest.Mock).mockResolvedValue(false);
   });
 
@@ -41,21 +31,23 @@ describe('deviceIntegrity', () => {
     expect(snapshot.reasons).toEqual([]);
   });
 
-  it('flags compromised runtime when jailbreak is detected', async () => {
-    (JailMonkey.isJailBroken as jest.Mock).mockReturnValue(true);
+  it('downgrades integrity to basic on emulator environment', async () => {
+    (DeviceInfo.isEmulator as jest.Mock).mockResolvedValue(true);
 
     const snapshot = await evaluateDeviceIntegrity(true);
 
-    expect(snapshot.compromised).toBe(true);
-    expect(snapshot.integrity).toBe('unknown');
-    expect(snapshot.reasons).toContain('jailbreak_or_root_detected');
+    expect(snapshot.compromised).toBe(false);
+    expect(snapshot.integrity).toBe('basic');
+    expect(snapshot.reasons).toContain('emulator_environment');
   });
 
-  it('blocks sensitive actions on compromised device', async () => {
-    (JailMonkey.hookDetected as jest.Mock).mockReturnValue(true);
+  it('does not block sensitive actions on client-side device signals', async () => {
+    (DeviceInfo.isEmulator as jest.Mock).mockResolvedValue(true);
 
-    await expect(assertSensitiveDeviceIntegrity()).rejects.toThrow(
-      'Sensitive action blocked because the device integrity check failed.',
+    await expect(assertSensitiveDeviceIntegrity()).resolves.toEqual(
+      expect.objectContaining({
+        integrity: 'basic',
+      }),
     );
   });
 });

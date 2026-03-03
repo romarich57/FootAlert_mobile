@@ -1,12 +1,16 @@
+import React from 'react';
 import { renderHook } from '@testing-library/react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePowerState } from 'react-native-device-info';
 
 import { useFollowedTeamIdsQuery } from '@ui/features/follows/hooks/useFollowedTeamIdsQuery';
+import { useHiddenCompetitions } from '@ui/features/matches/hooks/useHiddenCompetitions';
 import { useMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
 import { useMatchesRefresh } from '@ui/features/matches/hooks/useMatchesRefresh';
 import { useMatchesScreenModel } from '@ui/features/matches/hooks/useMatchesScreenModel';
+import '@ui/shared/i18n';
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
@@ -32,6 +36,10 @@ jest.mock('@ui/features/follows/hooks/useFollowedTeamIdsQuery', () => ({
   useFollowedTeamIdsQuery: jest.fn(),
 }));
 
+jest.mock('@ui/features/matches/hooks/useHiddenCompetitions', () => ({
+  useHiddenCompetitions: jest.fn(),
+}));
+
 jest.mock('@ui/features/matches/hooks/useMatchesRefresh', () => ({
   useMatchesRefresh: jest.fn(),
 }));
@@ -42,7 +50,29 @@ const mockedUseNetInfo = jest.mocked(useNetInfo);
 const mockedUsePowerState = jest.mocked(usePowerState);
 const mockedUseMatchesQuery = jest.mocked(useMatchesQuery);
 const mockedUseFollowedTeamIdsQuery = jest.mocked(useFollowedTeamIdsQuery);
+const mockedUseHiddenCompetitions = jest.mocked(useHiddenCompetitions);
 const mockedUseMatchesRefresh = jest.mocked(useMatchesRefresh);
+
+function createWrapper(queryClient: QueryClient) {
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  };
+}
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+      },
+      mutations: {
+        retry: false,
+        gcTime: Infinity,
+      },
+    },
+  });
+}
 
 describe('useMatchesScreenModel', () => {
   beforeEach(() => {
@@ -60,6 +90,11 @@ describe('useMatchesScreenModel', () => {
       data: [],
       isLoading: false,
     } as never);
+    mockedUseHiddenCompetitions.mockReturnValue({
+      hiddenIds: [],
+      hideCompetition: jest.fn(async () => undefined),
+      unhideCompetition: jest.fn(async () => undefined),
+    });
     mockedUseMatchesQuery.mockReturnValue({
       data: {
         sections: [],
@@ -79,27 +114,39 @@ describe('useMatchesScreenModel', () => {
     mockedUsePowerState.mockReturnValue({
       lowPowerMode: true,
     } as ReturnType<typeof usePowerState>);
+    const queryClient = createTestQueryClient();
 
-    renderHook(() => useMatchesScreenModel());
+    const { unmount } = renderHook(() => useMatchesScreenModel(), {
+      wrapper: createWrapper(queryClient),
+    });
 
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         batteryLiteMode: true,
       }),
     );
+
+    unmount();
+    queryClient.clear();
   });
 
   it('passes batteryLiteMode=false to refresh hook when low power mode is disabled', () => {
     mockedUsePowerState.mockReturnValue({
       lowPowerMode: false,
     } as ReturnType<typeof usePowerState>);
+    const queryClient = createTestQueryClient();
 
-    renderHook(() => useMatchesScreenModel());
+    const { unmount } = renderHook(() => useMatchesScreenModel(), {
+      wrapper: createWrapper(queryClient),
+    });
 
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         batteryLiteMode: false,
       }),
     );
+
+    unmount();
+    queryClient.clear();
   });
 });

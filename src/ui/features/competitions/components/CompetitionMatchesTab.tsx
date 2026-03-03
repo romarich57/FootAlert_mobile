@@ -3,6 +3,7 @@ import { View, Text, Image, ActivityIndicator, Pressable } from 'react-native';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import type { Fixture } from '../types/competitions.types';
 import { useCompetitionFixtures } from '../hooks/useCompetitionFixtures';
 import { MatchesFilterBottomSheet, MatchesFilterState } from './MatchesFilterBottomSheet';
@@ -12,6 +13,8 @@ import { formatMatchRound } from '@ui/shared/utils/formatMatchRound';
 type CompetitionMatchesTabProps = {
     competitionId: number;
     season: number;
+    onPressMatch?: (matchId: string) => void;
+    onPressTeam?: (teamId: string) => void;
 };
 
 type ListItem =
@@ -42,7 +45,12 @@ function formatMatchDate(dateString: string, locale: string) {
     }
 }
 
-export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatchesTabProps) {
+export function CompetitionMatchesTab({
+    competitionId,
+    season,
+    onPressMatch,
+    onPressTeam,
+}: CompetitionMatchesTabProps) {
     const { colors } = useAppTheme();
     const { t, i18n } = useTranslation();
     const styles = useMemo(() => createCompetitionMatchesTabStyles(colors), [colors]);
@@ -196,29 +204,70 @@ export function CompetitionMatchesTab({ competitionId, season }: CompetitionMatc
                 </View>
 
                 <View style={styles.teamsContainer}>
-                    <View style={styles.teamBlock}>
-                        <Image source={{ uri: f.homeTeam.logo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
-                        <Text style={styles.teamName} numberOfLines={1}>{displayValue(f.homeTeam.name)}</Text>
-                    </View>
+                    {onPressTeam ? (
+                        <AppPressable
+                            style={styles.teamBlock}
+                            onPress={() => onPressTeam(String(f.homeTeam.id))}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('competitionDetails.matches.match')} ${displayValue(f.homeTeam.name)}`}
+                        >
+                            <Image source={{ uri: f.homeTeam.logo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
+                            <Text style={styles.teamName} numberOfLines={1}>{displayValue(f.homeTeam.name)}</Text>
+                        </AppPressable>
+                    ) : (
+                        <View style={styles.teamBlock}>
+                            <Image source={{ uri: f.homeTeam.logo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
+                            <Text style={styles.teamName} numberOfLines={1}>{displayValue(f.homeTeam.name)}</Text>
+                        </View>
+                    )}
 
-                    <View style={styles.scoreBlock}>
-                        {isFinished || isLive ? (
-                            <Text style={styles.scoreText}>
-                                {displayValue(f.goalsHome)} - {displayValue(f.goalsAway)}
-                            </Text>
-                        ) : (
-                            <Text style={styles.scoreText} />
-                        )}
-                    </View>
+                    {onPressMatch ? (
+                        <AppPressable
+                            style={styles.scoreBlock}
+                            onPress={() => onPressMatch(String(f.id))}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('competitionDetails.matches.match')}
+                        >
+                            {isFinished || isLive ? (
+                                <Text style={styles.scoreText}>
+                                    {displayValue(f.goalsHome)} - {displayValue(f.goalsAway)}
+                                </Text>
+                            ) : (
+                                <Text style={styles.scoreText} />
+                            )}
+                        </AppPressable>
+                    ) : (
+                        <View style={styles.scoreBlock}>
+                            {isFinished || isLive ? (
+                                <Text style={styles.scoreText}>
+                                    {displayValue(f.goalsHome)} - {displayValue(f.goalsAway)}
+                                </Text>
+                            ) : (
+                                <Text style={styles.scoreText} />
+                            )}
+                        </View>
+                    )}
 
-                    <View style={[styles.teamBlock, styles.teamBlockAway]}>
-                        <Text style={[styles.teamName, styles.teamNameAway]} numberOfLines={1}>{displayValue(f.awayTeam.name)}</Text>
-                        <Image source={{ uri: f.awayTeam.logo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
-                    </View>
+                    {onPressTeam ? (
+                        <AppPressable
+                            style={[styles.teamBlock, styles.teamBlockAway]}
+                            onPress={() => onPressTeam(String(f.awayTeam.id))}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('competitionDetails.matches.match')} ${displayValue(f.awayTeam.name)}`}
+                        >
+                            <Text style={[styles.teamName, styles.teamNameAway]} numberOfLines={1}>{displayValue(f.awayTeam.name)}</Text>
+                            <Image source={{ uri: f.awayTeam.logo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
+                        </AppPressable>
+                    ) : (
+                        <View style={[styles.teamBlock, styles.teamBlockAway]}>
+                            <Text style={[styles.teamName, styles.teamNameAway]} numberOfLines={1}>{displayValue(f.awayTeam.name)}</Text>
+                            <Image source={{ uri: f.awayTeam.logo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
+                        </View>
+                    )}
                 </View>
             </View>
         );
-    }, [locale, styles, t]);
+    }, [locale, onPressMatch, onPressTeam, styles, t]);
 
     if (isLoading) {
         return (

@@ -1,6 +1,6 @@
-import type { HttpAdapter } from '../adapters/http.js';
-import type { TelemetryAdapter } from '../adapters/telemetry.js';
-import type { PagedEnvelope } from '../domain/network.js';
+import type { HttpAdapter } from '../adapters/http';
+import type { TelemetryAdapter } from '../adapters/telemetry';
+import type { PagedEnvelope } from '../domain/network';
 type TeamsServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;

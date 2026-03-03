@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { TelemetryAdapter } from '../adapters/telemetry';
 export type RuntimeValidationOptions<T> = {
     schema: z.ZodType<T>;
     payload: unknown;

@@ -39,6 +39,8 @@ function renderCard(match: MatchItem) {
       match={match}
       onPress={onPress}
       onPressNotification={onPressNotification}
+      onToggleFollow={jest.fn()}
+      isFollowed={false}
       onPressHomeTeam={onPressHomeTeam}
       onPressAwayTeam={onPressAwayTeam}
     />,
@@ -60,8 +62,7 @@ describe('MatchCard', () => {
   it('renders score values for live matches', () => {
     renderCard(baseMatch);
 
-    expect(screen.getByText('2')).toBeTruthy();
-    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByText('2 - 1')).toBeTruthy();
   });
 
   it('triggers dedicated team callbacks without opening match details', () => {
@@ -74,6 +75,8 @@ describe('MatchCard', () => {
         match={baseMatch}
         onPress={onPress}
         onPressNotification={jest.fn()}
+        onToggleFollow={jest.fn()}
+        isFollowed={false}
         onPressHomeTeam={onPressHomeTeam}
         onPressAwayTeam={onPressAwayTeam}
       />,

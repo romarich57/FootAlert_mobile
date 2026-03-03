@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { env } from '../config/env.js';
 import { incrementMobileAuthMetric } from '../lib/mobileAuthMetrics.js';
+import { getMobileSessionRefreshStore } from '../lib/mobileSessionRefreshRuntime.js';
 import { verifyMobileAttestation } from '../lib/mobileAttestation/index.js';
 import {
   consumeMobileSessionChallenge,
@@ -34,9 +35,57 @@ const attestBodySchema = z
   })
   .strict();
 
-const sensitiveScopes = ['notifications:write', 'telemetry:write'] as const;
+const sessionScopes = ['api:read', 'notifications:write', 'telemetry:write', 'privacy:erase'] as const;
+
+const refreshBodySchema = z
+  .object({
+    refreshToken: z.string().trim().min(1).max(512),
+  })
+  .strict();
+
+const revokeBodySchema = z
+  .object({
+    refreshToken: z.string().trim().min(1).max(512),
+  })
+  .strict();
+
+function mapRefreshFailure(code: 'INVALID' | 'EXPIRED' | 'REPLAYED' | 'REVOKED'): {
+  error: string;
+  message: string;
+} {
+  if (code === 'EXPIRED') {
+    return {
+      error: 'MOBILE_SESSION_TOKEN_EXPIRED',
+      message: 'Refresh token is expired.',
+    };
+  }
+
+  if (code === 'REPLAYED') {
+    return {
+      error: 'MOBILE_SESSION_TOKEN_INVALID',
+      message: 'Refresh token replay detected.',
+    };
+  }
+
+  if (code === 'REVOKED') {
+    return {
+      error: 'MOBILE_SESSION_TOKEN_INVALID',
+      message: 'Refresh token is revoked.',
+    };
+  }
+
+  return {
+    error: 'MOBILE_SESSION_TOKEN_INVALID',
+    message: 'Refresh token is invalid.',
+  };
+}
 
 export async function registerMobileSessionRoutes(app: FastifyInstance): Promise<void> {
+  const refreshStore = await getMobileSessionRefreshStore({
+    backend: env.notificationsPersistenceBackend,
+    databaseUrl: env.databaseUrl,
+  });
+
   app.post('/v1/mobile/session/challenge', async (request, _reply) => {
     parseOrThrow(z.object({}).strict(), request.query);
     const payload = parseOrThrow(challengeBodySchema, request.body);
@@ -90,6 +139,7 @@ export async function registerMobileSessionRoutes(app: FastifyInstance): Promise
       },
       {
         acceptMock: env.mobileAttestationAcceptMock,
+        enforcementMode: env.mobileAttestationEnforcementMode,
       },
     );
 
@@ -115,16 +165,77 @@ export async function registerMobileSessionRoutes(app: FastifyInstance): Promise
       subject: challenge.deviceIdHash,
       platform: challenge.platform,
       integrity: attestationResult.integrity,
-      scope: [...sensitiveScopes],
+      scope: [...sessionScopes],
       ttlMs: env.mobileSessionTokenTtlMs,
       secret: env.mobileSessionJwtSecret,
+    });
+    const refreshSession = await refreshStore.issue({
+      subject: challenge.deviceIdHash,
+      platform: challenge.platform,
+      integrity: attestationResult.integrity,
+      scope: [...sessionScopes],
+      ttlMs: env.mobileRefreshTokenTtlMs,
     });
 
     incrementMobileAuthMetric('mobile_auth_attest_success_total');
     return {
       accessToken: sessionToken.token,
       expiresAtMs: sessionToken.expiresAtMs,
+      refreshToken: refreshSession.refreshToken,
+      refreshExpiresAtMs: refreshSession.refreshExpiresAtMs,
       integrity: attestationResult.integrity,
     };
+  });
+
+  app.post('/v1/mobile/session/refresh', async (request, reply) => {
+    parseOrThrow(z.object({}).strict(), request.query);
+    const payload = parseOrThrow(refreshBodySchema, request.body);
+
+    if (!env.mobileSessionJwtSecret) {
+      reply.code(500).send({
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'Mobile session token secret is not configured.',
+      });
+      return;
+    }
+
+    const rotated = await refreshStore.rotate({
+      refreshToken: payload.refreshToken,
+      ttlMs: env.mobileRefreshTokenTtlMs,
+    });
+
+    if (!rotated.ok) {
+      const failure = mapRefreshFailure(rotated.code);
+      reply.code(401).send(failure);
+      return;
+    }
+
+    const accessToken = createMobileSessionToken({
+      subject: rotated.subject,
+      platform: rotated.platform,
+      integrity: rotated.integrity,
+      scope: rotated.scope,
+      ttlMs: env.mobileSessionTokenTtlMs,
+      secret: env.mobileSessionJwtSecret,
+    });
+
+    return {
+      accessToken: accessToken.token,
+      expiresAtMs: accessToken.expiresAtMs,
+      refreshToken: rotated.refreshToken,
+      refreshExpiresAtMs: rotated.refreshExpiresAtMs,
+      integrity: rotated.integrity,
+    };
+  });
+
+  app.post('/v1/mobile/session/revoke', async (request, reply) => {
+    parseOrThrow(z.object({}).strict(), request.query);
+    const payload = parseOrThrow(revokeBodySchema, request.body);
+
+    await refreshStore.revokeFamilyByToken({
+      refreshToken: payload.refreshToken,
+    });
+
+    reply.code(204).send();
   });
 }

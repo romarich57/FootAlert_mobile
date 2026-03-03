@@ -18,6 +18,7 @@ type TeamStatsTabProps = {
   data: TeamStatsData | undefined;
   isLoading: boolean;
   isError: boolean;
+  hasFetched?: boolean;
   onRetry: () => void;
   onPressPlayer: (playerId: string) => void;
 };
@@ -27,7 +28,14 @@ type TeamStatsContentItem = {
   content: ReactElement;
 };
 
-export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer }: TeamStatsTabProps) {
+export function TeamStatsTab({
+  data,
+  isLoading,
+  isError,
+  hasFetched = true,
+  onRetry,
+  onPressPlayer,
+}: TeamStatsTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => createTeamStatsTabStyles(colors), [colors]);
@@ -41,7 +49,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     visibility.playersCardVisible ||
     comparisonMetrics.length > 0;
 
-  const shouldShowLoadingState = isLoading && !hasContentData;
+  const shouldShowLoadingState = (isLoading || !hasFetched) && !hasContentData;
   const shouldShowErrorState = isError && !hasContentData;
   const localizePosition = useCallback(
     (value: string | null | undefined) => localizePlayerPosition(value, t),
@@ -123,6 +131,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     if (
       !shouldShowLoadingState &&
       !shouldShowErrorState &&
+      hasFetched &&
       !visibility.pointsCardVisible &&
       !visibility.goalsCardVisible &&
       !visibility.playersCardVisible &&
@@ -150,6 +159,7 @@ export function TeamStatsTab({ data, isLoading, isError, onRetry, onPressPlayer 
     shouldShowLoadingState,
     styles,
     t,
+    hasFetched,
     visibility.goalsCardVisible,
     visibility.playersCardVisible,
     visibility.pointsCardVisible,

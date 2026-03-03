@@ -1,0 +1,145 @@
+name: BFF Production Rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration_confirmed:
+        description: "Have you run npm run db:migrate:notifications on production DB?"
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
+        default: "no"
+
+jobs:
+  bff-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: footalert-bff
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+          cache-dependency-path: footalert-bff/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enforce API-Football licensing gate
+        run: bash ../scripts/quality/check-api-football-license.sh
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Refresh route catalog
+        run: npm run routes:catalog
+
+      - name: Route suites
+        run: npm run test:routes
+
+      - name: Security auth suites
+        run: npm run test:security-auth
+
+      - name: Route file-size gates
+        run: npm run routes:line-limits
+
+      - name: BFF black-box E2E
+        run: npm run test:e2e:bff
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Coverage critical gates
+        run: npm run coverage:critical
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: bff-quality
+    environment: production
+    steps:
+      - name: Require manual migration confirmation
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.migration_confirmed }}" != "yes" ]; then
+            echo "Manual DB migration not confirmed. Run npm run db:migrate:notifications before deploy."
+            exit 1
+          fi
+
+      - name: Deploy to production VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_VPS_SSH_HOST }}
+          username: ${{ secrets.PROD_VPS_SSH_USERNAME }}
+          key: ${{ secrets.PROD_VPS_SSH_KEY }}
+          script: |
+            cd ~/foot_mobile/FootAlert_mobile
+            git pull origin main
+            cd footalert-bff
+            npm ci
+            npm run build --if-present
+            pm2 describe footalert-bff >/dev/null 2>&1 || pm2 start dist/index.js --name footalert-bff --exec-mode cluster --instances max
+            pm2 describe footalert-bff-worker >/dev/null 2>&1 || pm2 start dist/worker.js --name footalert-bff-worker
+            pm2 restart footalert-bff --update-env
+            pm2 scale footalert-bff max || true
+            pm2 restart footalert-bff-worker --update-env
+            pm2 save
+
+      - name: Wait for production healthcheck
+        env:
+          MOBILE_API_BASE_URL_PRODUCTION: ${{ secrets.MOBILE_API_BASE_URL_PRODUCTION }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MOBILE_API_BASE_URL_PRODUCTION:-}" ]; then
+            echo "Missing required secret: MOBILE_API_BASE_URL_PRODUCTION"
+            exit 1
+          fi
+
+          BASE_URL="${MOBILE_API_BASE_URL_PRODUCTION%/}"
+          SERVICE_BASE="$BASE_URL"
+          if [[ "$SERVICE_BASE" == */v1 ]]; then
+            SERVICE_BASE="${SERVICE_BASE%/v1}"
+          fi
+
+          for attempt in $(seq 1 24); do
+            if curl -fsSL "$SERVICE_BASE/health" >/dev/null; then
+              echo "Production BFF is healthy."
+              exit 0
+            fi
+            echo "Healthcheck not ready yet (attempt $attempt/24)."
+            sleep 10
+          done
+
+          echo "Production BFF healthcheck failed."
+          exit 1
+
+  validate-mobile-production:
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    defaults:
+      run:
+        working-directory: footalert-bff
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.11.0
+          cache: npm
+          cache-dependency-path: footalert-bff/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Mobile API smoke checks on production
+        env:
+          MOBILE_API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_PRODUCTION }}
+        run: npm run smoke:staging

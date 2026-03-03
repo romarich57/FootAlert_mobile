@@ -26,6 +26,7 @@ describe('CompetitionHeader', () => {
         isFollowed={false}
         onBack={jest.fn()}
         onToggleFollow={jest.fn()}
+        onOpenNotificationModal={jest.fn()}
         onOpenSeasonPicker={jest.fn()}
       />,
     );

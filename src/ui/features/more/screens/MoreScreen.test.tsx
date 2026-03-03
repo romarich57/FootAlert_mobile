@@ -56,9 +56,12 @@ const handleMeasurementChangeMock = jest.fn(async () => undefined);
 const handleNotificationsChangeMock = jest.fn(async () => undefined);
 const setPermissionDeniedMock = jest.fn();
 const openPrivacyPolicyMock = jest.fn(async () => true);
+const openTermsOfUseMock = jest.fn(async () => true);
 const openSupportMock = jest.fn(async () => true);
 const openFollowUsMock = jest.fn(async () => true);
 const openRateAppMock = jest.fn(async () => true);
+const openPrivacyPreferencesMock = jest.fn(async () => 'unknown' as const);
+const erasePersonalDataMock = jest.fn(async () => true);
 
 function createMoreSettingsMock(
   overrides: Partial<ReturnType<typeof useMoreSettings>> = {},
@@ -98,8 +101,12 @@ function createMoreSettingsMock(
       { value: 'imperial', label: 'imperial' },
     ],
     isUpdatingNotifications: false,
+    isErasingData: false,
+    isUpdatingConsent: false,
+    mobileConsentStatus: 'unknown',
     permissionDenied: false,
     hasPrivacyPolicyUrl: true,
+    hasTermsOfUseUrl: true,
     hasSupportUrl: true,
     hasFollowUsUrl: true,
     hasRateAppUrl: true,
@@ -110,9 +117,12 @@ function createMoreSettingsMock(
     handleMeasurementChange: handleMeasurementChangeMock,
     handleNotificationsChange: handleNotificationsChangeMock,
     openPrivacyPolicy: openPrivacyPolicyMock,
+    openTermsOfUse: openTermsOfUseMock,
     openSupport: openSupportMock,
     openFollowUs: openFollowUsMock,
     openRateApp: openRateAppMock,
+    openPrivacyPreferences: openPrivacyPreferencesMock,
+    erasePersonalData: erasePersonalDataMock,
     openSystemNotificationSettings: openSystemNotificationSettingsMock,
     ...overrides,
   };
@@ -197,7 +207,11 @@ describe('MoreScreen', () => {
     expect(screen.getByText(i18n.t('more.rows.followUs'))).toBeTruthy();
     expect(screen.getByText(i18n.t('more.rows.tipsSupport'))).toBeTruthy();
     expect(screen.getByText(i18n.t('more.rows.privacyPolicy'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('more.rows.termsOfUse'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('more.rows.privacyPreferences'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('more.rows.deleteData'))).toBeTruthy();
     expect(screen.getByText(i18n.t('more.rows.rateApp'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('more.rows.informationalDisclaimer'))).toBeTruthy();
   });
 
   it('opens legal and social links when rows are pressed', () => {
@@ -206,11 +220,15 @@ describe('MoreScreen', () => {
     fireEvent.press(screen.getByLabelText(i18n.t('more.rows.followUs')));
     fireEvent.press(screen.getByLabelText(i18n.t('more.rows.tipsSupport')));
     fireEvent.press(screen.getByLabelText(i18n.t('more.rows.privacyPolicy')));
+    fireEvent.press(screen.getByLabelText(i18n.t('more.rows.termsOfUse')));
+    fireEvent.press(screen.getByLabelText(i18n.t('more.rows.privacyPreferences')));
     fireEvent.press(screen.getByLabelText(i18n.t('more.rows.rateApp')));
 
     expect(openFollowUsMock).toHaveBeenCalled();
     expect(openSupportMock).toHaveBeenCalled();
     expect(openPrivacyPolicyMock).toHaveBeenCalled();
+    expect(openTermsOfUseMock).toHaveBeenCalled();
+    expect(openPrivacyPreferencesMock).toHaveBeenCalled();
     expect(openRateAppMock).toHaveBeenCalled();
   });
 
@@ -220,6 +238,7 @@ describe('MoreScreen', () => {
         hasFollowUsUrl: false,
         hasSupportUrl: false,
         hasPrivacyPolicyUrl: false,
+        hasTermsOfUseUrl: false,
         hasRateAppUrl: false,
       }),
     );
@@ -229,6 +248,7 @@ describe('MoreScreen', () => {
     expect(screen.queryByLabelText(i18n.t('more.rows.followUs'))).toBeNull();
     expect(screen.queryByLabelText(i18n.t('more.rows.tipsSupport'))).toBeNull();
     expect(screen.queryByLabelText(i18n.t('more.rows.privacyPolicy'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('more.rows.termsOfUse'))).toBeNull();
     expect(screen.queryByLabelText(i18n.t('more.rows.rateApp'))).toBeNull();
   });
 

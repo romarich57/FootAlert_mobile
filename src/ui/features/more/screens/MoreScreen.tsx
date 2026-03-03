@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -44,8 +44,12 @@ export function MoreScreen() {
     languageOptions,
     measurementOptions,
     isUpdatingNotifications,
+    isErasingData,
+    isUpdatingConsent,
+    mobileConsentStatus,
     permissionDenied,
     hasPrivacyPolicyUrl,
+    hasTermsOfUseUrl,
     hasSupportUrl,
     hasFollowUsUrl,
     hasRateAppUrl,
@@ -56,9 +60,12 @@ export function MoreScreen() {
     handleMeasurementChange,
     handleNotificationsChange,
     openPrivacyPolicy,
+    openTermsOfUse,
     openSupport,
     openFollowUs,
     openRateApp,
+    openPrivacyPreferences,
+    erasePersonalData,
     openSystemNotificationSettings,
   } = useMoreSettings({
     loadCurrencyCatalog: openedModal === 'currency',
@@ -85,6 +92,8 @@ export function MoreScreen() {
   const notificationsValue = t(
     preferences.notificationsEnabled ? 'more.values.notifications.on' : 'more.values.notifications.off',
   );
+  const privacyConsentValue = t(`more.values.consent.${mobileConsentStatus}`);
+  const eraseDataValue = isErasingData ? t('more.values.delete.inProgress') : undefined;
   const currencyValue = currentCurrency
     ? `${currentCurrency.code} · ${currentCurrency.symbol}`
     : preferences.currencyCode;
@@ -173,9 +182,14 @@ export function MoreScreen() {
         <InformationSectionCard
           appVersion={appVersion}
           hasPrivacyPolicyUrl={hasPrivacyPolicyUrl}
+          hasTermsOfUseUrl={hasTermsOfUseUrl}
           hasSupportUrl={hasSupportUrl}
           hasFollowUsUrl={hasFollowUsUrl}
           hasRateAppUrl={hasRateAppUrl}
+          privacyConsentValue={privacyConsentValue}
+          eraseDataValue={eraseDataValue}
+          isErasingData={isErasingData}
+          isUpdatingConsent={isUpdatingConsent}
           onOpenFollowUs={() => {
             openFollowUs().catch(() => undefined);
           }}
@@ -184,6 +198,41 @@ export function MoreScreen() {
           }}
           onOpenPrivacyPolicy={() => {
             openPrivacyPolicy().catch(() => undefined);
+          }}
+          onOpenTermsOfUse={() => {
+            openTermsOfUse().catch(() => undefined);
+          }}
+          onOpenPrivacyPreferences={() => {
+            openPrivacyPreferences().catch(() => undefined);
+          }}
+          onDeleteMyData={() => {
+            Alert.alert(
+              t('more.deleteData.confirmTitle'),
+              t('more.deleteData.confirmMessage'),
+              [
+                {
+                  text: t('actions.cancel'),
+                  style: 'cancel',
+                },
+                {
+                  text: t('more.deleteData.confirmAction'),
+                  style: 'destructive',
+                  onPress: () => {
+                    erasePersonalData()
+                      .then(isSuccess => {
+                        Alert.alert(
+                          isSuccess ? t('more.deleteData.successTitle') : t('more.deleteData.errorTitle'),
+                          isSuccess ? t('more.deleteData.successMessage') : t('more.deleteData.errorMessage'),
+                        );
+                      })
+                      .catch(() => {
+                        Alert.alert(t('more.deleteData.errorTitle'), t('more.deleteData.errorMessage'));
+                      });
+                  },
+                },
+              ],
+              { cancelable: true },
+            );
           }}
           onOpenRateApp={() => {
             openRateApp().catch(() => undefined);
@@ -202,19 +251,28 @@ export function MoreScreen() {
       hasFollowUsUrl,
       hasPrivacyPolicyUrl,
       hasRateAppUrl,
+      hasTermsOfUseUrl,
       hasSupportUrl,
+      isErasingData,
+      isUpdatingConsent,
       isUpdatingNotifications,
       languageValue,
       measurementValue,
       notificationsValue,
+      openPrivacyPreferences,
       openFollowUs,
       openPrivacyPolicy,
       openRateApp,
+      openTermsOfUse,
       openSupport,
       openSystemNotificationSettings,
       preferences,
+      privacyConsentValue,
+      eraseDataValue,
+      erasePersonalData,
       setPermissionDenied,
       styles,
+      t,
       themeValue,
     ],
   );

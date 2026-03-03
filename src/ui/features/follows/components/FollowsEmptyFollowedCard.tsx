@@ -13,19 +13,19 @@ type FollowsEmptyFollowedCardProps = {
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     card: {
-      width: 200,
-      height: 200,
+      width: 120,
+      height: 120,
       borderRadius: 16,
       backgroundColor: colors.surfaceElevated,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 14,
-      paddingHorizontal: 16,
+      gap: 12,
+      paddingHorizontal: 12,
     },
     iconCircle: {
-      width: 76,
-      height: 76,
-      borderRadius: 38,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       borderWidth: 2,
       borderStyle: 'dashed',
       borderColor: colors.textMuted,
@@ -35,9 +35,9 @@ function createStyles(colors: ThemeColors) {
     label: {
       color: colors.textMuted,
       textAlign: 'center',
-      fontSize: 18,
+      fontSize: 12,
       fontWeight: '600',
-      lineHeight: 24,
+      lineHeight: 16,
     },
   });
 }
@@ -49,7 +49,7 @@ export function FollowsEmptyFollowedCard({ onPress, label }: FollowsEmptyFollowe
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.card}>
       <View style={styles.iconCircle}>
-        <MaterialCommunityIcons name="plus" size={38} color={colors.textMuted} />
+        <MaterialCommunityIcons name="plus" size={24} color={colors.textMuted} />
       </View>
       <Text style={styles.label}>{label}</Text>
     </Pressable>

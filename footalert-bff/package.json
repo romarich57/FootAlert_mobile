@@ -6,24 +6,27 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:worker": "tsx watch src/worker.ts",
     "prebuild": "npm --prefix ../packages/app-core install --no-audit --no-fund && npm --prefix ../packages/app-core run build",
     "build": "tsc -p tsconfig.json",
     "prestart": "npm run build",
     "pretypecheck": "npm --prefix ../packages/app-core install --no-audit --no-fund && npm --prefix ../packages/app-core run build",
     "start": "node dist/index.js",
+    "start:worker": "node dist/worker.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "npm --prefix ../packages/app-core install --no-audit --no-fund && npm --prefix ../packages/app-core run build",
     "test": "node --import tsx --test test/**/*.test.ts",
     "test:routes": "node --import tsx --test --test-concurrency=1 test/routes/**/*.test.ts test/server.crosscutting.test.ts test/route-contract.test.ts",
     "test:pagination": "node --import tsx --test --test-concurrency=1 test/routes/pagination.routes.test.ts",
     "test:cache-strict": "node --import tsx --test --test-concurrency=1 test/cache.strict.test.ts test/server.crosscutting.test.ts",
-    "test:security-auth": "node --import tsx --test --test-concurrency=1 test/routes/mobileSession.routes.test.ts test/routes/notifications.routes.test.ts test/routes/telemetry.routes.test.ts",
+    "test:security-auth": "node --import tsx --test --test-concurrency=1 test/routes/mobileSession.routes.test.ts test/routes/privacy.erase.routes.test.ts test/routes/notifications.routes.test.ts test/routes/telemetry.routes.test.ts",
     "test:e2e:bff": "node --import tsx --test --test-concurrency=1 test/e2e/**/*.test.ts",
     "test:coverage": "c8 --reporter=text --reporter=json-summary --report-dir coverage node --import tsx --test --test-concurrency=1 test/**/*.test.ts",
     "coverage:critical": "node scripts/quality/check-critical-coverage.mjs",
     "routes:line-limits": "bash scripts/quality/check-route-line-limits.sh",
     "routes:catalog": "node --import tsx scripts/quality/generate-route-catalog.mjs",
-    "smoke:staging": "node scripts/smoke-staging.mjs"
+    "smoke:staging": "node scripts/smoke-staging.mjs",
+    "db:migrate:notifications": "node scripts/db/migrate-notifications.mjs"
   },
   "engines": {
     "node": ">=22.11.0"
@@ -32,8 +35,11 @@
     "@footalert/app-core": "file:../packages/app-core",
     "@fastify/cors": "^11.1.0",
     "@fastify/rate-limit": "^10.3.0",
+    "bullmq": "^5.61.2",
     "fastify": "^5.6.2",
+    "firebase-admin": "^13.5.0",
     "ioredis": "^5.8.2",
+    "pg": "^8.16.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {

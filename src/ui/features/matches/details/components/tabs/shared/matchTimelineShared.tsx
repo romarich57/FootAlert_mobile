@@ -3,6 +3,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import type { TFunction } from 'i18next';
 
 import { AppImage } from '@ui/shared/media/AppImage';
+import { AppPressable } from '@ui/shared/components';
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
 import type { EventRow } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
 
@@ -87,31 +88,64 @@ export function TimelineEventCard({
   event,
   align,
   t,
+  onPressPlayer,
+  onPressAssist,
 }: {
   styles: MatchDetailsTabStyles;
   event: EventRow;
   align: 'left' | 'right';
   t: TFunction;
+  onPressPlayer?: (playerId: string) => void;
+  onPressAssist?: (playerId: string) => void;
 }) {
   const { name, color } = getTimelineEventIcon(event.type, event.detail);
   const isLeft = align === 'left';
   const eventDisplayName = getTimelineEventDisplayName(event.type, event.detail, t);
+  const playerNameNode =
+    event.playerId && onPressPlayer ? (
+      <AppPressable
+        onPress={() => onPressPlayer(event.playerId ?? '')}
+        accessibilityRole='button'
+        accessibilityLabel={event.playerName}
+      >
+        <Text style={styles.timelinePlayerName} numberOfLines={1}>
+          {event.playerName}
+        </Text>
+      </AppPressable>
+    ) : (
+      <Text style={styles.timelinePlayerName} numberOfLines={1}>
+        {event.playerName}
+      </Text>
+    );
 
   return (
     <View style={[styles.timelineCard, isLeft ? styles.timelineCardLeft : null]}>
       <EventActorAvatar styles={styles} playerPhoto={event.playerPhoto} playerName={event.playerName} />
 
       <View style={isLeft ? styles.timelineEventDetailsLeft : styles.timelineEventDetailsRight}>
-        <Text style={styles.timelinePlayerName} numberOfLines={1}>
-          {event.playerName}
-        </Text>
+        {playerNameNode}
         <View style={[styles.timelineEventSubLine, isLeft ? styles.timelineEventSubLineReversed : null]}>
           <View style={styles.timelineIconWrap}>
             <MaterialCommunityIcons name={name} size={14} color={color} />
           </View>
-          <Text style={styles.timelineEventText} numberOfLines={1}>
-            {event.assistName ? `${eventDisplayName} (${event.assistName})` : eventDisplayName}
-          </Text>
+          <Text style={styles.timelineEventText} numberOfLines={1}>{eventDisplayName}</Text>
+          {event.assistName ? (
+            event.assistId && onPressAssist ? (
+              <AppPressable
+                onPress={() => onPressAssist(event.assistId ?? '')}
+                accessibilityRole='button'
+                accessibilityLabel={event.assistName}
+              >
+                <Text style={styles.timelineEventText} numberOfLines={1}>
+                  {`(${event.assistName})`}
+                </Text>
+              </AppPressable>
+            ) : (
+              <Text style={styles.timelineEventText} numberOfLines={1}>
+                {`(${event.assistName})`}
+              </Text>
+            )
+          ) : null}
         </View>
       </View>
     </View>
@@ -122,13 +156,33 @@ export function CompactTimelineEventRow({
   styles,
   event,
   t,
+  onPressPlayer,
+  onPressAssist,
 }: {
   styles: MatchDetailsTabStyles;
   event: EventRow;
   t: TFunction;
+  onPressPlayer?: (playerId: string) => void;
+  onPressAssist?: (playerId: string) => void;
 }) {
   const { name, color } = getTimelineEventIcon(event.type, event.detail);
   const eventDisplayName = getTimelineEventDisplayName(event.type, event.detail, t);
+  const playerNameNode =
+    event.playerId && onPressPlayer ? (
+      <AppPressable
+        onPress={() => onPressPlayer(event.playerId ?? '')}
+        accessibilityRole='button'
+        accessibilityLabel={event.playerName}
+      >
+        <Text style={styles.compactTimelinePlayer} numberOfLines={1}>
+          {event.playerName}
+        </Text>
+      </AppPressable>
+    ) : (
+      <Text style={styles.compactTimelinePlayer} numberOfLines={1}>
+        {event.playerName}
+      </Text>
+    );
 
   return (
     <View style={styles.compactTimelineRow}>
@@ -137,14 +191,27 @@ export function CompactTimelineEventRow({
       <EventActorAvatar styles={styles} playerPhoto={event.playerPhoto} playerName={event.playerName} />
 
       <View style={styles.compactTimelineTextWrap}>
-        <Text style={styles.compactTimelinePlayer} numberOfLines={1}>
-          {event.playerName}
-        </Text>
+        {playerNameNode}
         <View style={styles.compactTimelineDetailRow}>
           <MaterialCommunityIcons name={name} size={14} color={color} />
-          <Text style={styles.compactTimelineDetail} numberOfLines={1}>
-            {event.assistName ? `${eventDisplayName} (${event.assistName})` : eventDisplayName}
-          </Text>
+          <Text style={styles.compactTimelineDetail} numberOfLines={1}>{eventDisplayName}</Text>
+          {event.assistName ? (
+            event.assistId && onPressAssist ? (
+              <AppPressable
+                onPress={() => onPressAssist(event.assistId ?? '')}
+                accessibilityRole='button'
+                accessibilityLabel={event.assistName}
+              >
+                <Text style={styles.compactTimelineDetail} numberOfLines={1}>
+                  {`(${event.assistName})`}
+                </Text>
+              </AppPressable>
+            ) : (
+              <Text style={styles.compactTimelineDetail} numberOfLines={1}>
+                {`(${event.assistName})`}
+              </Text>
+            )
+          ) : null}
         </View>
       </View>
     </View>

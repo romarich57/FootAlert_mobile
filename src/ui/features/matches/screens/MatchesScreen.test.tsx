@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { ActionSheetIOS, Text } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import {
   useIsFocused,
@@ -57,6 +57,7 @@ const mockedUseIsFocused = jest.mocked(useIsFocused);
 
 const navigateMock = jest.fn();
 const refetchMock = jest.fn(async () => ({ isError: false }));
+const showActionSheetWithOptionsMock = jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions');
 
 const sectionFixture = {
   id: '61',
@@ -127,6 +128,9 @@ function renderScreen() {
 describe('MatchesScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    showActionSheetWithOptionsMock.mockImplementation((_options, callback) => {
+      callback(2);
+    });
     mockedUseNavigation.mockReturnValue({
       navigate: navigateMock,
     } as unknown as NavigationProp<ParamListBase>);
@@ -253,14 +257,11 @@ describe('MatchesScreen', () => {
     });
   });
 
-  it('routes to search and in-progress section navigation', () => {
+  it('routes to search and opens the matches menu', () => {
     renderScreen();
 
     fireEvent.press(screen.getByTestId('matches-header-search-button'));
     expect(navigateMock).toHaveBeenCalledWith('SearchPlaceholder');
-
-    fireEvent.press(screen.getByTestId('matches-header-notifications-button'));
-    expect(navigateMock).toHaveBeenCalledWith('MainTabs', { screen: 'More' });
   });
 
   it('keeps followed section first, then top competitions, then others', () => {

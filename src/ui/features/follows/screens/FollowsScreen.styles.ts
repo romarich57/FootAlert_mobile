@@ -26,7 +26,7 @@ export function createFollowsScreenStyles(colors: ThemeColors) {
     },
     trendsTitle: {
       color: colors.text,
-      fontSize: 24,
+      fontSize: 20,
       fontWeight: '800',
     },
     trendsActionText: {

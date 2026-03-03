@@ -1,6 +1,44 @@
 import 'react-native-gesture-handler/jestSetup';
 import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 
+jest.mock('react-native-worklets', () => ({
+  __esModule: true,
+  default: {},
+  isShareableRef: () => false,
+  makeShareable: value => value,
+  makeShareableCloneOnUIRecursive: value => value,
+  makeShareableCloneRecursive: value => value,
+  shareableMappingCache: new Map(),
+  getDynamicFeatureFlag: () => false,
+  getStaticFeatureFlag: () => false,
+  setDynamicFeatureFlag: () => undefined,
+  isSynchronizable: () => false,
+  createSerializable: value => value,
+  isSerializableRef: () => false,
+  registerCustomSerializable: () => undefined,
+  serializableMappingCache: new Map(),
+  createSynchronizable: value => value,
+  RuntimeKind: {
+    RN: 'RN',
+    UI: 'UI',
+  },
+  getRuntimeKind: () => 'RN',
+  createWorkletRuntime: () => ({ name: 'mock-runtime' }),
+  runOnRuntime: fn => fn,
+  scheduleOnRuntime: fn => fn,
+  callMicrotasks: () => undefined,
+  executeOnUIRuntimeSync: fn => (typeof fn === 'function' ? fn() : undefined),
+  runOnUI: fn => fn,
+  runOnUIAsync: fn => fn,
+  runOnUISync: fn => fn,
+  runOnJS: fn => fn,
+  scheduleOnRN: fn => (typeof fn === 'function' ? fn() : undefined),
+  scheduleOnUI: fn => (typeof fn === 'function' ? fn() : undefined),
+  unstable_eventLoopTask: fn => (typeof fn === 'function' ? fn() : undefined),
+  isWorkletFunction: jest.fn(() => false),
+  WorkletsModule: {},
+}));
+
 jest.mock('react-native-reanimated', () =>
   require('react-native-reanimated/mock'),
 );
@@ -17,6 +55,14 @@ jest.mock('react-native-config', () => ({
 }));
 
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
+jest.mock('react-native-calendars', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  const CalendarList = props => React.createElement(View, props, props.children ?? null);
+
+  return { CalendarList };
+});
 
 jest.mock('react-native-background-fetch', () => ({
   NETWORK_TYPE_ANY: 1,

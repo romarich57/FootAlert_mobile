@@ -4,6 +4,7 @@ import type { FollowEntityTab } from '@domain/contracts/follows.types';
 export const FOLLOWED_TEAM_IDS_KEY = 'followed_team_ids';
 export const FOLLOWED_PLAYER_IDS_KEY = 'followed_player_ids';
 export const FOLLOWED_LEAGUE_IDS_KEY = 'followed_league_ids';
+export const FOLLOWED_MATCH_IDS_KEY = 'followed_match_ids';
 export const FOLLOWS_HIDE_TRENDS_TEAMS_KEY = 'follows_hide_trends_teams';
 export const FOLLOWS_HIDE_TRENDS_PLAYERS_KEY = 'follows_hide_trends_players';
 
@@ -114,6 +115,23 @@ export async function toggleFollowedLeague(
   maxAllowed: number,
 ): Promise<ToggleFollowResult> {
   return toggleFollow(FOLLOWED_LEAGUE_IDS_KEY, leagueId, maxAllowed);
+}
+
+export async function loadFollowedMatchIds(): Promise<string[]> {
+  return loadIds(FOLLOWED_MATCH_IDS_KEY);
+}
+
+export async function saveFollowedMatchIds(ids: string[]): Promise<void> {
+  await saveIds(FOLLOWED_MATCH_IDS_KEY, ids);
+}
+
+export async function toggleFollowedMatch(matchId: string): Promise<string[]> {
+  const ids = await loadIds(FOLLOWED_MATCH_IDS_KEY);
+  const cleanId = String(matchId);
+  const exists = ids.includes(cleanId);
+  const nextIds = exists ? ids.filter(value => value !== cleanId) : normalizeAddedId(ids, cleanId);
+  await saveIds(FOLLOWED_MATCH_IDS_KEY, nextIds);
+  return nextIds;
 }
 
 function getHideTrendsKey(tab: FollowEntityTab): string {

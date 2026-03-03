@@ -9,6 +9,8 @@ export type MainTabParamList = {
 };
 
 export type RootStackParamList = {
+  Splash: undefined;
+  Onboarding: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   MatchDetails: { matchId: string };
   CompetitionDetails: { competitionId: string; competition?: Competition };

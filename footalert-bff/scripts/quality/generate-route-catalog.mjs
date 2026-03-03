@@ -6,6 +6,11 @@ process.env.API_FOOTBALL_BASE_URL ??= 'https://api-football.test';
 process.env.MOBILE_SESSION_JWT_SECRET ??= 'catalog-mobile-session-secret';
 process.env.MOBILE_ATTESTATION_ACCEPT_MOCK ??= 'true';
 process.env.CORS_ALLOWED_ORIGINS ??= 'https://app.footalert.test';
+process.env.NOTIFICATIONS_BACKEND_ENABLED ??= 'true';
+process.env.NOTIFICATIONS_EVENT_INGEST_ENABLED ??= 'true';
+process.env.NOTIFICATIONS_PERSISTENCE_BACKEND ??= 'memory';
+process.env.PUSH_TOKEN_ENCRYPTION_KEY ??= 'catalog-notifications-encryption-key';
+process.env.NOTIFICATIONS_INGEST_TOKEN ??= 'catalog-notifications-ingest-token';
 
 const { buildServer } = await import('../../src/server.ts');
 const app = await buildServer();
@@ -65,6 +70,10 @@ function toTestFile(pathname) {
     return 'test/routes/follows.routes.test.ts';
   }
 
+  if (pathname.startsWith('/v1/search')) {
+    return 'test/routes/search.routes.test.ts';
+  }
+
   if (pathname.startsWith('/v1/teams')) {
     return 'test/routes/teams.routes.test.ts';
   }
@@ -85,6 +94,10 @@ function toTestFile(pathname) {
     return 'test/routes/mobileSession.routes.test.ts';
   }
 
+  if (pathname.startsWith('/v1/mobile/privacy')) {
+    return 'test/routes/privacy.erase.routes.test.ts';
+  }
+
   return 'test/server.crosscutting.test.ts';
 }
 
@@ -96,6 +109,7 @@ const matrix = catalog.map(entry => ({
     || entry.path.startsWith('/v1/notifications')
     || entry.path.startsWith('/v1/telemetry')
     || entry.path.startsWith('/v1/mobile/session')
+    || entry.path.startsWith('/v1/mobile/privacy')
   ),
   testFile: toTestFile(entry.path),
 }));

@@ -80,6 +80,13 @@ export type MatchStatsMetricKey =
   | 'expected_goals'
   | 'goals_prevented';
 
+export type MatchEntityPressHandlers = {
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
+  onPressPlayer?: (playerId: string) => void;
+  onPressCompetition?: (competitionId: string) => void;
+};
+
 export type MatchDetailsTabContentProps = {
   activeTab: MatchDetailsTabKey;
   lifecycleState: MatchLifecycleState;
@@ -105,7 +112,7 @@ export type MatchDetailsTabContentProps = {
   statsAvailablePeriods?: StatsPeriodFilter[];
   preMatchTab?: MatchPreMatchTabViewModel;
   postMatchTab?: MatchPostMatchTabViewModel;
-};
+} & MatchEntityPressHandlers;
 
 export type RawRecord = Record<string, unknown>;
 
@@ -130,7 +137,9 @@ export type FinalScorerRow = {
   team: 'home' | 'away';
   minute: string;
   playerName: string;
+  playerId: string | null;
   assistName: string | null;
+  assistId: string | null;
   eventType: string;
   eventDetail: string;
 };
@@ -139,7 +148,6 @@ export type StatRow = {
   key: MatchStatsMetricKey;
   metricKey: MatchStatsMetricKey;
   section: MatchStatsSectionKey;
-  label: string;
   labelKey: string;
   homeValue: string;
   awayValue: string;

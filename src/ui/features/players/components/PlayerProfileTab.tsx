@@ -30,6 +30,7 @@ type PlayerProfileTabProps = {
   characteristics: PlayerCharacteristics | null;
   positions: PlayerPositionsData | null;
   trophiesByClub: PlayerTrophiesByClub;
+  onPressCompetition?: (competitionId: string) => void;
 };
 
 export function PlayerProfileTab({
@@ -38,6 +39,7 @@ export function PlayerProfileTab({
   characteristics,
   positions,
   trophiesByClub,
+  onPressCompetition,
 }: PlayerProfileTabProps) {
   const { colors } = useAppTheme();
   const { t } = useTranslation();
@@ -65,6 +67,7 @@ export function PlayerProfileTab({
         textMutedColor={colors.textMuted}
         primaryContrast={colors.primaryContrast}
         borderColor={colors.border}
+        onPressCompetition={onPressCompetition}
       />
 
       <PlayerProfileCharacteristicsCard

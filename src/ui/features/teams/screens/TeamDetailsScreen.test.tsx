@@ -157,25 +157,99 @@ describe('TeamDetailsScreen', () => {
       },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
 
     mockedUseTeamMatches.mockReturnValue({
       data: {
-        all: [],
-        upcoming: [],
+        all: [
+          {
+            fixtureId: '123456',
+            leagueId: '140',
+            leagueName: 'LaLiga',
+            leagueLogo: null,
+            date: '2026-02-01T20:00:00Z',
+            round: 'Regular Season - 24',
+            venue: null,
+            status: 'upcoming',
+            statusLabel: 'Not Started',
+            minute: null,
+            homeTeamId: '529',
+            homeTeamName: 'Barcelona',
+            homeTeamLogo: null,
+            awayTeamId: '541',
+            awayTeamName: 'Real Madrid',
+            awayTeamLogo: null,
+            homeGoals: null,
+            awayGoals: null,
+          },
+        ],
+        upcoming: [
+          {
+            fixtureId: '123456',
+            leagueId: '140',
+            leagueName: 'LaLiga',
+            leagueLogo: null,
+            date: '2026-02-01T20:00:00Z',
+            round: 'Regular Season - 24',
+            venue: null,
+            status: 'upcoming',
+            statusLabel: 'Not Started',
+            minute: null,
+            homeTeamId: '529',
+            homeTeamName: 'Barcelona',
+            homeTeamLogo: null,
+            awayTeamId: '541',
+            awayTeamName: 'Real Madrid',
+            awayTeamLogo: null,
+            homeGoals: null,
+            awayGoals: null,
+          },
+        ],
         live: [],
         past: [],
       },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
 
     mockedUseTeamStandings.mockReturnValue({
-      data: { groups: [] },
+      data: {
+        groups: [
+          {
+            groupName: null,
+            rows: [
+              {
+                rank: 2,
+                teamId: '529',
+                teamName: 'Barcelona',
+                teamLogo: null,
+                played: 24,
+                goalDiff: 39,
+                points: 58,
+                isTargetTeam: true,
+                form: 'WWDWW',
+                update: null,
+                all: { played: 24, win: 18, draw: 4, lose: 2, goalsFor: 64, goalsAgainst: 25 },
+                home: { played: 12, win: 10, draw: 1, lose: 1, goalsFor: 35, goalsAgainst: 10 },
+                away: { played: 12, win: 8, draw: 3, lose: 1, goalsFor: 29, goalsAgainst: 15 },
+              },
+            ],
+          },
+        ],
+      },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
 
@@ -217,20 +291,63 @@ describe('TeamDetailsScreen', () => {
       },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
 
     mockedUseTeamTransfers.mockReturnValue({
-      data: { arrivals: [], departures: [] },
+      data: {
+        arrivals: [
+          {
+            id: 'arrival-1',
+            direction: 'arrival',
+            playerId: '100',
+            playerName: 'John Doe',
+            playerPhoto: null,
+            position: 'Midfielder',
+            date: '2026-01-15',
+            type: 'Transfer',
+            amount: null,
+            fromTeamId: '10',
+            fromTeamName: 'Valencia',
+            fromTeamLogo: null,
+            toTeamId: '529',
+            toTeamName: 'Barcelona',
+            toTeamLogo: null,
+          },
+        ],
+        departures: [],
+      },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
 
     mockedUseTeamSquad.mockReturnValue({
-      data: { coach: null, players: [] },
+      data: {
+        coach: null,
+        players: [
+          {
+            playerId: '200',
+            name: 'Jane Player',
+            photo: null,
+            age: 25,
+            number: 8,
+            position: 'Midfielder',
+            role: 'midfielders',
+          },
+        ],
+      },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
 
@@ -238,6 +355,9 @@ describe('TeamDetailsScreen', () => {
       data: { groups: [], total: 0, totalWins: 0 },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
   });
@@ -267,12 +387,109 @@ describe('TeamDetailsScreen', () => {
       },
       isLoading: false,
       isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
 
     renderScreen();
 
     expect(screen.getByText(i18n.t('teamDetails.tabs.trophies'))).toBeTruthy();
+  });
+
+  it('hides tabs whose datasets are fetched and empty', () => {
+    mockedUseTeamMatches.mockReturnValue({
+      data: { all: [], upcoming: [], live: [], past: [] },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      refetch: jest.fn(async () => undefined),
+    } as never);
+    mockedUseTeamStandings.mockReturnValue({
+      data: { groups: [] },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      refetch: jest.fn(async () => undefined),
+    } as never);
+    mockedUseTeamStats.mockReturnValue({
+      data: {
+        rank: null,
+        points: null,
+        played: null,
+        wins: null,
+        draws: null,
+        losses: null,
+        goalsFor: null,
+        goalsAgainst: null,
+        homePlayed: null,
+        homeWins: null,
+        homeDraws: null,
+        homeLosses: null,
+        awayPlayed: null,
+        awayWins: null,
+        awayDraws: null,
+        awayLosses: null,
+        expectedGoalsFor: null,
+        pointsByVenue: { home: null, away: null },
+        goalsForPerMatch: null,
+        goalsAgainstPerMatch: null,
+        cleanSheets: null,
+        failedToScore: null,
+        topPlayersByCategory: { ratings: [], scorers: [], assisters: [] },
+        comparisonMetrics: [],
+        goalBreakdown: [],
+        topPlayers: [],
+      },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      refetch: jest.fn(async () => undefined),
+    } as never);
+    mockedUseTeamTransfers.mockReturnValue({
+      data: { arrivals: [], departures: [] },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      refetch: jest.fn(async () => undefined),
+    } as never);
+    mockedUseTeamSquad.mockReturnValue({
+      data: { coach: null, players: [] },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      refetch: jest.fn(async () => undefined),
+    } as never);
+    mockedUseTeamTrophies.mockReturnValue({
+      data: { groups: [], total: 0, totalWins: 0 },
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      refetch: jest.fn(async () => undefined),
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByLabelText(i18n.t('teamDetails.tabs.overview'))).toBeTruthy();
+    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.matches'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.standings'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.stats'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.transfers'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.squad'))).toBeNull();
+    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.trophies'))).toBeNull();
   });
 
   it('enables matches query after opening matches tab', () => {

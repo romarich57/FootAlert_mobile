@@ -87,6 +87,7 @@ describe('FollowsScreen', () => {
     mockedUseFollowsActions.mockReturnValue({
       followedTeamIds: ['529'],
       followedPlayerIds: [],
+      followedLeagueIds: [],
       hideTrendsTeams: false,
       hideTrendsPlayers: false,
       isLoading: false,
@@ -94,6 +95,7 @@ describe('FollowsScreen', () => {
       clearToggleError: jest.fn(),
       toggleTeamFollow: jest.fn(async () => ({ ids: [], changed: true })),
       togglePlayerFollow: jest.fn(async () => ({ ids: [], changed: true })),
+      toggleLeagueFollow: jest.fn(async () => ({ ids: [], changed: true })),
       updateHideTrends: jest.fn(async () => undefined),
     });
 

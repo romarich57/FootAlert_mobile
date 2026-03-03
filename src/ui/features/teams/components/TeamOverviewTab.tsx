@@ -31,7 +31,10 @@ type TeamOverviewTabProps = {
   selectedSeason: number | null;
   data: TeamOverviewData | undefined;
   isLoading: boolean;
+  isFetching: boolean;
   isError: boolean;
+  hasFetched: boolean;
+  hasFetchedAfterMount: boolean;
   onRetry: () => void;
   onPressMatch: (matchId: string) => void;
   onPressTeam: (teamId: string) => void;
@@ -56,7 +59,10 @@ export function TeamOverviewTab({
   selectedSeason,
   data,
   isLoading,
+  isFetching,
   isError,
+  hasFetched,
+  hasFetchedAfterMount,
   onRetry,
   onPressMatch,
   onPressTeam,
@@ -146,19 +152,11 @@ export function TeamOverviewTab({
     };
   }, [competitions, data?.miniStanding?.leagueLogo, data?.miniStanding?.leagueName, selectedSeason]);
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.content}>
-          <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-          </View>
-        </View>
-      </View>
-    );
-  }
+  const hasRenderableData = typeof data !== 'undefined';
+  const hasFetchAttempt = hasFetchedAfterMount || hasFetched;
+  const shouldShowErrorState = !hasRenderableData && isError && hasFetchAttempt && !isFetching && !isLoading;
 
-  if (isError) {
+  if (shouldShowErrorState) {
     return (
       <View style={styles.container}>
         <View style={styles.content}>
@@ -167,6 +165,18 @@ export function TeamOverviewTab({
             <Pressable onPress={onRetry}>
               <Text style={styles.retryText}>{t('actions.retry')}</Text>
             </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (!hasRenderableData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <View style={styles.stateCard}>
+            <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
           </View>
         </View>
       </View>

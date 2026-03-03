@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { PlayerCareerTeamLogo } from '@ui/features/players/components/career/PlayerCareerTeamLogo';
+import { AppPressable } from '@ui/shared/components';
 import type { PlayerCareerTabStyles } from '@ui/features/players/components/career/PlayerCareerTab.styles';
 import {
   formatLabelValue,
@@ -19,6 +20,7 @@ type PlayerCareerSeasonCardProps = {
   title: string;
   emptyLabel: string;
   iconColor: string;
+  onPressTeam?: (teamId: string) => void;
 };
 
 export function PlayerCareerSeasonCard({
@@ -28,6 +30,7 @@ export function PlayerCareerSeasonCard({
   title,
   emptyLabel,
   iconColor,
+  onPressTeam,
 }: PlayerCareerSeasonCardProps) {
   return (
     <View style={styles.card}>
@@ -55,7 +58,7 @@ export function PlayerCareerSeasonCard({
         seasonRows.map((season, index) => {
           const ratingLabel = formatRatingValue(season.rating, languageTag);
 
-          return (
+          const rowContent = (
             <View
               key={`season-${season.season ?? 'unknown'}-${season.team.id ?? season.team.name ?? 'unknown'}-${season.matches ?? 'na'}-${season.goals ?? 'na'}-${season.assists ?? 'na'}-${season.rating ?? 'na'}`}
               style={[styles.seasonRow, index > 0 ? styles.rowSeparator : null]}
@@ -99,6 +102,21 @@ export function PlayerCareerSeasonCard({
               </View>
             </View>
           );
+
+          if (season.team.id && onPressTeam) {
+            return (
+              <AppPressable
+                key={`season-press-${season.team.id}-${index}`}
+                onPress={() => onPressTeam(season.team.id ?? '')}
+                accessibilityRole='button'
+                accessibilityLabel={formatLabelValue(season.team.name) ?? ''}
+              >
+                {rowContent}
+              </AppPressable>
+            );
+          }
+
+          return rowContent;
         })
       )}
     </View>

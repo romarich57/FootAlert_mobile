@@ -27,6 +27,9 @@ type MatchFaceOffTabProps = {
   awayTeamLogo: string;
   hasDataError?: boolean;
   dataErrorReason?: MatchDetailsDatasetErrorReason;
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
+  onPressCompetition?: (competitionId: string) => void;
 };
 
 const INITIAL_VISIBLE_FIXTURES = 10;
@@ -107,11 +110,17 @@ function H2HMatchRow({
   styles,
   dynamicStyles,
   locale,
+  onPressMatch,
+  onPressTeam,
+  onPressCompetition,
 }: {
   fixture: H2HFixture;
   styles: MatchDetailsTabStyles;
   dynamicStyles: ReturnType<typeof createFaceOffDynamicStyles>;
   locale: string;
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
+  onPressCompetition?: (competitionId: string) => void;
 }) {
   const isHomeWinner = fixture.homeGoals !== null && fixture.awayGoals !== null && fixture.homeGoals > fixture.awayGoals;
   const isAwayWinner = fixture.homeGoals !== null && fixture.awayGoals !== null && fixture.awayGoals > fixture.homeGoals;
@@ -135,34 +144,108 @@ function H2HMatchRow({
     <View style={[localStyles.h2hRow, dynamicStyles.h2hRow]}>
       <View style={styles.inlineRow}>
         <Text style={styles.newsText}>{formatH2HDate(fixture.date, locale)}</Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText} numberOfLines={1}>
-            {fixture.leagueName}
-          </Text>
-        </View>
+        {onPressCompetition ? (
+          <AppPressable
+            style={styles.badge}
+            onPress={() => onPressCompetition(fixture.leagueId)}
+            accessibilityRole='button'
+            accessibilityLabel={fixture.leagueName}
+          >
+            <Text style={styles.badgeText} numberOfLines={1}>
+              {fixture.leagueName}
+            </Text>
+          </AppPressable>
+        ) : (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText} numberOfLines={1}>
+              {fixture.leagueName}
+            </Text>
+          </View>
+        )}
       </View>
       <View style={localStyles.scoreRow}>
-        <Text
-          style={[localStyles.teamName, homeTeamResultStyle]}
-          numberOfLines={1}
-        >
-          {fixture.homeTeamName}
-        </Text>
+        {onPressTeam ? (
+          <AppPressable
+            onPress={() => onPressTeam(fixture.homeTeamId)}
+            accessibilityRole='button'
+            accessibilityLabel={fixture.homeTeamName}
+          >
+            <Text
+              style={[localStyles.teamName, homeTeamResultStyle]}
+              numberOfLines={1}
+            >
+              {fixture.homeTeamName}
+            </Text>
+          </AppPressable>
+        ) : (
+          <Text
+            style={[localStyles.teamName, homeTeamResultStyle]}
+            numberOfLines={1}
+          >
+            {fixture.homeTeamName}
+          </Text>
+        )}
         {fixture.homeTeamLogo ? (
-          <Image source={{ uri: fixture.homeTeamLogo }} style={localStyles.teamLogo} />
+          onPressTeam ? (
+            <AppPressable
+              onPress={() => onPressTeam(fixture.homeTeamId)}
+              accessibilityRole='button'
+              accessibilityLabel={fixture.homeTeamName}
+            >
+              <Image source={{ uri: fixture.homeTeamLogo }} style={localStyles.teamLogo} />
+            </AppPressable>
+          ) : (
+            <Image source={{ uri: fixture.homeTeamLogo }} style={localStyles.teamLogo} />
+          )
         ) : null}
-        <View style={[localStyles.scoreBadge, dynamicStyles.scoreBadge]}>
-          <Text style={[localStyles.scoreText, dynamicStyles.scoreText]}>{scoreText}</Text>
-        </View>
+        {onPressMatch ? (
+          <AppPressable
+            style={[localStyles.scoreBadge, dynamicStyles.scoreBadge]}
+            onPress={() => onPressMatch(fixture.fixtureId)}
+            accessibilityRole='button'
+            accessibilityLabel={scoreText}
+          >
+            <Text style={[localStyles.scoreText, dynamicStyles.scoreText]}>{scoreText}</Text>
+          </AppPressable>
+        ) : (
+          <View style={[localStyles.scoreBadge, dynamicStyles.scoreBadge]}>
+            <Text style={[localStyles.scoreText, dynamicStyles.scoreText]}>{scoreText}</Text>
+          </View>
+        )}
         {fixture.awayTeamLogo ? (
-          <Image source={{ uri: fixture.awayTeamLogo }} style={localStyles.teamLogo} />
+          onPressTeam ? (
+            <AppPressable
+              onPress={() => onPressTeam(fixture.awayTeamId)}
+              accessibilityRole='button'
+              accessibilityLabel={fixture.awayTeamName}
+            >
+              <Image source={{ uri: fixture.awayTeamLogo }} style={localStyles.teamLogo} />
+            </AppPressable>
+          ) : (
+            <Image source={{ uri: fixture.awayTeamLogo }} style={localStyles.teamLogo} />
+          )
         ) : null}
-        <Text
-          style={[localStyles.teamName, awayTeamResultStyle]}
-          numberOfLines={1}
-        >
-          {fixture.awayTeamName}
-        </Text>
+        {onPressTeam ? (
+          <AppPressable
+            onPress={() => onPressTeam(fixture.awayTeamId)}
+            accessibilityRole='button'
+            accessibilityLabel={fixture.awayTeamName}
+          >
+            <Text
+              style={[localStyles.teamName, awayTeamResultStyle]}
+              numberOfLines={1}
+            >
+              {fixture.awayTeamName}
+            </Text>
+          </AppPressable>
+        ) : (
+          <Text
+            style={[localStyles.teamName, awayTeamResultStyle]}
+            numberOfLines={1}
+          >
+            {fixture.awayTeamName}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -177,8 +260,13 @@ export function MatchFaceOffTab({
   awayTeamId,
   homeTeamName,
   awayTeamName,
+  homeTeamLogo: _homeTeamLogo,
+  awayTeamLogo: _awayTeamLogo,
   hasDataError = false,
   dataErrorReason = 'none',
+  onPressMatch,
+  onPressTeam,
+  onPressCompetition,
 }: MatchFaceOffTabProps) {
   const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
@@ -226,7 +314,9 @@ export function MatchFaceOffTab({
   const canLoadMore = filteredFixtures.length > visibleCount;
 
   useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE_FIXTURES);
+    setVisibleCount(currentCount =>
+      currentCount === INITIAL_VISIBLE_FIXTURES ? currentCount : INITIAL_VISIBLE_FIXTURES,
+    );
   }, [activeLeague, fixtures]);
 
   // Largeurs de la barre comparative (proportionnelles au total)
@@ -344,6 +434,9 @@ export function MatchFaceOffTab({
                   styles={styles}
                   dynamicStyles={dynamicStyles}
                   locale={locale}
+                  onPressMatch={onPressMatch}
+                  onPressTeam={onPressTeam}
+                  onPressCompetition={onPressCompetition}
                 />
               )}
               scrollEnabled={false}

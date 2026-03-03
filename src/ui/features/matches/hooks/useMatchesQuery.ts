@@ -9,6 +9,7 @@ import {
 } from '@data/mappers/fixturesMapper';
 import type { MatchesQueryResult } from '@ui/features/matches/types/matches.types';
 import { ApiError, isNetworkRequestFailedError } from '@data/api/http/client';
+import { MobileAttestationProviderUnavailableError } from '@data/security/mobileAttestationProvider';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type UseMatchesQueryParams = {
@@ -29,6 +30,10 @@ function isRetriableStatus(status: number): boolean {
   return [500, 502, 503, 504].includes(status);
 }
 
+function isAttestationProviderUnavailable(error: unknown): boolean {
+  return error instanceof MobileAttestationProviderUnavailableError;
+}
+
 export function shouldRetryMatchesQuery(
   failureCount: number,
   error: unknown,
@@ -38,6 +43,10 @@ export function shouldRetryMatchesQuery(
   }
 
   if (isNetworkRequestFailedError(error)) {
+    return false;
+  }
+
+  if (isAttestationProviderUnavailable(error)) {
     return false;
   }
 
@@ -104,6 +113,14 @@ export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQu
     if (isNetworkRequestFailedError(query.error)) {
       console.warn(
         `[FootAlert][matches] network unavailable or request timed out on ${requestUrl}`,
+      );
+      return;
+    }
+
+    if (isAttestationProviderUnavailable(query.error)) {
+      console.info(
+        `[FootAlert][matches] mobile attestation provider unavailable on ${requestUrl}. ` +
+          'Install Play Integrity/App Attest native bridge modules, or use a local dev backend that accepts mock attestation.',
       );
       return;
     }

@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppPressable } from '@ui/shared/components';
 import {
   MatchCompetitionMetaCard,
   MatchRecentResultsCard,
@@ -52,6 +53,10 @@ type MatchPrimaryTabProps = {
   eventsErrorReason?: MatchDetailsDatasetErrorReason;
   predictionsError?: boolean;
   predictionsErrorReason?: MatchDetailsDatasetErrorReason;
+  onPressMatch?: (matchId: string) => void;
+  onPressTeam?: (teamId: string) => void;
+  onPressPlayer?: (playerId: string) => void;
+  onPressCompetition?: (competitionId: string) => void;
 };
 
 function ProbabilityCard({
@@ -100,6 +105,10 @@ export function MatchPrimaryTab({
   eventsErrorReason = 'none',
   predictionsError = false,
   predictionsErrorReason = 'none',
+  onPressMatch,
+  onPressTeam,
+  onPressPlayer,
+  onPressCompetition,
 }: MatchPrimaryTabProps) {
   const { t, i18n } = useTranslation();
   const { colors } = useAppTheme();
@@ -225,7 +234,7 @@ export function MatchPrimaryTab({
               <View key={row.key} style={styles.statRow}>
                 <View style={styles.statHeaderRow}>
                   <Text style={styles.statValue}>{row.homeValue}</Text>
-                  <Text style={styles.statLabel}>{t(row.labelKey, { defaultValue: row.label })}</Text>
+                  <Text style={styles.statLabel}>{t(row.labelKey)}</Text>
                   <Text style={styles.statValue}>{row.awayValue}</Text>
                 </View>
                 <View style={styles.statBarRail}>
@@ -288,9 +297,21 @@ export function MatchPrimaryTab({
                       <View key={scorer.id} style={styles.postMatchScorerRow}>
                         <Text style={styles.postMatchScorerMinute}>{scorer.minute}</Text>
                         <View style={styles.postMatchScorerContent}>
-                          <Text style={styles.postMatchScorerName} numberOfLines={1}>
-                            {scorer.playerName}
-                          </Text>
+                          {scorer.playerId && onPressPlayer ? (
+                            <AppPressable
+                              onPress={() => onPressPlayer(scorer.playerId ?? '')}
+                              accessibilityRole='button'
+                              accessibilityLabel={scorer.playerName}
+                            >
+                              <Text style={styles.postMatchScorerName} numberOfLines={1}>
+                                {scorer.playerName}
+                              </Text>
+                            </AppPressable>
+                          ) : (
+                            <Text style={styles.postMatchScorerName} numberOfLines={1}>
+                              {scorer.playerName}
+                            </Text>
+                          )}
                           <Text style={styles.postMatchScorerMeta} numberOfLines={1}>
                             {metaLabel}
                           </Text>
@@ -318,9 +339,21 @@ export function MatchPrimaryTab({
                     return (
                       <View key={scorer.id} style={[styles.postMatchScorerRow, styles.postMatchScorerRowRight]}>
                         <View style={[styles.postMatchScorerContent, styles.postMatchScorerContentRight]}>
-                          <Text style={styles.postMatchScorerName} numberOfLines={1}>
-                            {scorer.playerName}
-                          </Text>
+                          {scorer.playerId && onPressPlayer ? (
+                            <AppPressable
+                              onPress={() => onPressPlayer(scorer.playerId ?? '')}
+                              accessibilityRole='button'
+                              accessibilityLabel={scorer.playerName}
+                            >
+                              <Text style={styles.postMatchScorerName} numberOfLines={1}>
+                                {scorer.playerName}
+                              </Text>
+                            </AppPressable>
+                          ) : (
+                            <Text style={styles.postMatchScorerName} numberOfLines={1}>
+                              {scorer.playerName}
+                            </Text>
+                          )}
                           <Text style={[styles.postMatchScorerMeta, styles.postMatchScorerMetaRight]} numberOfLines={1}>
                             {metaLabel}
                           </Text>
@@ -346,7 +379,7 @@ export function MatchPrimaryTab({
                 <View key={row.key} style={styles.statRow}>
                   <View style={styles.statHeaderRow}>
                     <Text style={styles.statValue}>{row.homeValue}</Text>
-                    <Text style={styles.statLabel}>{t(row.labelKey, { defaultValue: row.label })}</Text>
+                    <Text style={styles.statLabel}>{t(row.labelKey)}</Text>
                     <Text style={styles.statValue}>{row.awayValue}</Text>
                   </View>
                   <View style={styles.statBarRail}>
@@ -372,6 +405,8 @@ export function MatchPrimaryTab({
                   styles={styles}
                   event={event}
                   t={t}
+                  onPressPlayer={onPressPlayer}
+                  onPressAssist={onPressPlayer}
                 />
               ))}
             </View>
@@ -404,6 +439,7 @@ export function MatchPrimaryTab({
                     colors={colors}
                     t={t}
                     payload={section.payload}
+                    onPressCompetition={onPressCompetition}
                   />
                 </View>
               );
@@ -416,6 +452,7 @@ export function MatchPrimaryTab({
                     styles={styles}
                     t={t}
                     payload={section.payload}
+                    onPressTeam={onPressTeam}
                   />
                 </View>
               );
@@ -428,6 +465,8 @@ export function MatchPrimaryTab({
                     styles={styles}
                     t={t}
                     payload={section.payload}
+                    onPressMatch={onPressMatch}
+                    onPressTeam={onPressTeam}
                   />
                 </View>
               );
@@ -439,6 +478,8 @@ export function MatchPrimaryTab({
                   styles={styles}
                   t={t}
                   payload={section.payload}
+                  onPressMatch={onPressMatch}
+                  onPressTeam={onPressTeam}
                 />
               </View>
             );

@@ -45,17 +45,23 @@ const mockedUseIsFocused = jest.mocked(useIsFocused);
 const mockedUseNetInfo = jest.mocked(useNetInfo);
 const mockedUsePowerState = jest.mocked(usePowerState);
 const mockedUseMatchesRefresh = jest.mocked(useMatchesRefresh);
+let mockedNavigate: jest.Mock;
 
 let fixtureStatusShort = 'NS';
 let fixtureStatusLong = 'Not started';
 let fixtureElapsed: number | null = null;
-const STABLE_TAB_KEYS = ['primary', 'timeline', 'lineups', 'standings', 'stats', 'faceOff'];
+let fixtureDateIso = '2099-02-26T20:00:00.000Z';
+const FULL_TAB_KEYS = ['primary', 'timeline', 'lineups', 'standings', 'stats', 'faceOff'];
+const PREMATCH_TAB_KEYS = ['primary', 'standings', 'faceOff'];
+const PREMATCH_WITH_LINEUPS_TAB_KEYS = ['primary', 'lineups', 'standings', 'faceOff'];
+const FINISHED_EMPTY_TAB_KEYS = ['primary'];
+const FINISHED_WITH_STATS_TAB_KEYS = ['primary', 'stats'];
 
 function buildFixture() {
   return {
     fixture: {
       id: 101,
-      date: '2026-02-26T20:00:00.000Z',
+      date: fixtureDateIso,
       status: {
         short: fixtureStatusShort,
         long: fixtureStatusLong,
@@ -98,9 +104,12 @@ describe('useMatchDetailsScreenModel', () => {
     fixtureStatusShort = 'NS';
     fixtureStatusLong = 'Not started';
     fixtureElapsed = null;
+    fixtureDateIso = '2099-02-26T20:00:00.000Z';
+    mockedNavigate = jest.fn();
 
     mockedUseNavigation.mockReturnValue({
       goBack: jest.fn(),
+      navigate: mockedNavigate,
     } as never);
     mockedUseRoute.mockReturnValue({
       params: {
@@ -198,7 +207,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     expect(result.current.lifecycleState).toBe('pre_match');
     expect(result.current.tabs[0].label).toBe(i18n.t('matchDetails.tabs.preMatch'));
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(PREMATCH_TAB_KEYS);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         hasLiveMatches: false,
@@ -247,8 +256,104 @@ describe('useMatchDetailsScreenModel', () => {
 
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(PREMATCH_TAB_KEYS);
     expect(result.current.activeTab).toBe('primary');
+  });
+
+  it('shows pre-match lineups tab only inside the 20-minute window when lineups payload exists', () => {
+    fixtureDateIso = new Date(Date.now() + 10 * 60_000).toISOString();
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: { league: { standings: [] } },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'lineups') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: { id: 1, name: 'Home', logo: '' },
+              coach: { name: 'Coach Home', photo: null },
+              formation: '4-3-3',
+              startXI: [],
+              substitutes: [],
+            },
+            {
+              team: { id: 2, name: 'Away', logo: '' },
+              coach: { name: 'Coach Away', photo: null },
+              formation: '4-4-2',
+              startXI: [],
+              substitutes: [],
+            },
+          ],
+        } as never;
+      }
+
+      if (
+        key[2] === 'events' ||
+        key[2] === 'statistics' ||
+        key[2] === 'absences' ||
+        key[2] === 'team_players_stats'
+      ) {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(PREMATCH_WITH_LINEUPS_TAB_KEYS);
+  });
+
+  it('keeps pre-match lineups tab hidden when no lineups payload is available', () => {
+    fixtureDateIso = new Date(Date.now() + 10 * 60_000).toISOString();
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(PREMATCH_TAB_KEYS);
   });
 
   it('switches to live lifecycle and summary tab label during match', () => {
@@ -260,7 +365,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     expect(result.current.lifecycleState).toBe('live');
     expect(result.current.tabs[0].label).toBe(i18n.t('matchDetails.tabs.summary'));
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(FULL_TAB_KEYS);
     expect(mockedUseMatchesRefresh).toHaveBeenCalledWith(
       expect.objectContaining({
         hasLiveMatches: true,
@@ -297,7 +402,7 @@ describe('useMatchDetailsScreenModel', () => {
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
     expect(result.current.lifecycleState).toBe('finished');
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(FINISHED_EMPTY_TAB_KEYS);
   });
 
   it('shows timeline tab when events data is available', () => {
@@ -384,7 +489,155 @@ describe('useMatchDetailsScreenModel', () => {
 
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(FULL_TAB_KEYS);
+  });
+
+  it('shows all post-match tabs only when finished match datasets are available', () => {
+    fixtureStatusShort = 'FT';
+    fixtureStatusLong = 'Match Finished';
+    fixtureElapsed = 90;
+
+    mockedUseQuery.mockImplementation((options: { queryKey: readonly unknown[] }) => {
+      const key = options.queryKey;
+      const baseResult = {
+        isLoading: false,
+        isError: false,
+        isFetching: false,
+        refetch: jest.fn(async () => ({ isError: false })),
+      };
+
+      if (key[0] === 'competition_standings') {
+        return {
+          ...baseResult,
+          data: {
+            league: {
+              standings: [
+                [
+                  {
+                    rank: 1,
+                    team: { id: 1, name: 'Home', logo: '' },
+                    points: 60,
+                    goalsDiff: 20,
+                    form: 'WWWWW',
+                    update: '2026-03-01',
+                    group: 'Ligue 1',
+                    all: {
+                      played: 25,
+                      win: 19,
+                      draw: 3,
+                      lose: 3,
+                      goals: { for: 50, against: 30 },
+                    },
+                    home: { played: 13, win: 10, draw: 2, lose: 1, goals: { for: 30, against: 12 } },
+                    away: { played: 12, win: 9, draw: 1, lose: 2, goals: { for: 20, against: 18 } },
+                  },
+                ],
+              ],
+            },
+          },
+        } as never;
+      }
+
+      if (key[0] !== 'match_details') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      if (key[2] === 'events') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              type: 'Goal',
+              detail: 'Normal Goal',
+              team: { id: 1 },
+              player: { name: 'Scorer' },
+              time: { elapsed: 12, extra: null },
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'statistics' && key[3] === 'all') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: { id: 1 },
+              statistics: [{ type: 'Shots on Goal', value: 5 }],
+            },
+            {
+              team: { id: 2 },
+              statistics: [{ type: 'Shots on Goal', value: 3 }],
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'lineups') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              team: { id: 1, name: 'Home', logo: '' },
+              coach: { name: 'Coach Home', photo: null },
+              formation: '4-3-3',
+              startXI: [{ player: { id: 10, name: 'Home Starter', number: 9, pos: 'F', grid: '1:1' } }],
+              substitutes: [],
+            },
+            {
+              team: { id: 2, name: 'Away', logo: '' },
+              coach: { name: 'Coach Away', photo: null },
+              formation: '4-4-2',
+              startXI: [{ player: { id: 20, name: 'Away Starter', number: 10, pos: 'F', grid: '1:1' } }],
+              substitutes: [],
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'head_to_head') {
+        return {
+          ...baseResult,
+          data: [{ fixture: { id: 9001 }, teams: { home: { id: 1 }, away: { id: 2 } }, goals: { home: 2, away: 1 } }],
+        } as never;
+      }
+
+      if (key[2] === 'predictions') {
+        return {
+          ...baseResult,
+          data: [
+            {
+              predictions: {
+                percent: {
+                  home: '40%',
+                  draw: '30%',
+                  away: '30%',
+                },
+              },
+            },
+          ],
+        } as never;
+      }
+
+      if (key[2] === 'absences' || key[2] === 'team_players_stats') {
+        return {
+          ...baseResult,
+          data: [],
+        } as never;
+      }
+
+      return {
+        ...baseResult,
+        data: buildFixture(),
+      } as never;
+    });
+
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(FULL_TAB_KEYS);
   });
 
   it('does not build lineups from players stats when lineups endpoint is empty', () => {
@@ -644,6 +897,37 @@ describe('useMatchDetailsScreenModel', () => {
     expect(result.current.datasetErrors.lineups).toBe(false);
   });
 
+  it('exposes safe entity press handlers for match, player, team and competition', () => {
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+
+    act(() => {
+      result.current.handlePressMatch('202');
+      result.current.handlePressPlayer('303');
+      result.current.handlePressTeam('404');
+      result.current.handlePressCompetition('505');
+    });
+
+    expect(mockedNavigate).toHaveBeenCalledWith('MatchDetails', { matchId: '202' });
+    expect(mockedNavigate).toHaveBeenCalledWith('PlayerDetails', { playerId: '303' });
+    expect(mockedNavigate).toHaveBeenCalledWith('TeamDetails', { teamId: '404' });
+    expect(mockedNavigate).toHaveBeenCalledWith('CompetitionDetails', { competitionId: '505' });
+  });
+
+  it('keeps handlers as no-op for invalid ids and current teams', () => {
+    const { result } = renderHook(() => useMatchDetailsScreenModel());
+    mockedNavigate.mockClear();
+
+    act(() => {
+      result.current.handlePressMatch('invalid');
+      result.current.handlePressPlayer('invalid');
+      result.current.handlePressCompetition('invalid');
+      result.current.handlePressTeam('1');
+      result.current.handlePressTeam('2');
+    });
+
+    expect(mockedNavigate).not.toHaveBeenCalled();
+  });
+
   it('classifies 404 dataset failures as endpoint_not_available', () => {
     fixtureStatusShort = 'FT';
     fixtureStatusLong = 'Match Finished';
@@ -850,7 +1134,7 @@ describe('useMatchDetailsScreenModel', () => {
 
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(FINISHED_WITH_STATS_TAB_KEYS);
     expect(result.current.statsAvailablePeriods).toEqual(['all']);
     expect(result.current.statsRowsByPeriod.all).toHaveLength(1);
     expect(result.current.statsRowsByPeriod.first).toHaveLength(0);
@@ -944,7 +1228,7 @@ describe('useMatchDetailsScreenModel', () => {
     const { result } = renderHook(() => useMatchDetailsScreenModel());
 
     expect(result.current.preMatchTab.hasAnySection).toBe(false);
-    expect(result.current.tabs.map(tab => tab.key)).toEqual(STABLE_TAB_KEYS);
+    expect(result.current.tabs.map(tab => tab.key)).toEqual(PREMATCH_TAB_KEYS);
     await waitFor(() => {
       expect(result.current.activeTab).toBe('primary');
     });

@@ -53,7 +53,7 @@ function buildFixture({
 }
 
 describe('fixturesMapper', () => {
-  it('prioritizes top competitions before non-top competitions', () => {
+  it('prioritizes top competitions by configured id order before non-top competitions', () => {
     const sections = mapFixturesToSections([
       buildFixture({
         fixtureId: 1,
@@ -75,13 +75,13 @@ describe('fixturesMapper', () => {
       }),
     ]);
 
-    expect(sections.map(section => section.id)).toEqual(['61', '39', '200']);
+    expect(sections.map(section => section.id)).toEqual(['39', '61', '200']);
     expect(sections[0]?.isTopCompetition).toBe(true);
     expect(sections[1]?.isTopCompetition).toBe(true);
     expect(sections[2]?.isTopCompetition).toBe(false);
   });
 
-  it('marks competition as top from fallback name when id is unknown', () => {
+  it('does not mark unknown competition ids as top from fallback names', () => {
     const sections = mapFixturesToSections([
       buildFixture({
         fixtureId: 10,
@@ -91,7 +91,7 @@ describe('fixturesMapper', () => {
       }),
     ]);
 
-    expect(sections[0]?.isTopCompetition).toBe(true);
+    expect(sections[0]?.isTopCompetition).toBe(false);
   });
 
   it('sorts matches by start date inside each competition section', () => {

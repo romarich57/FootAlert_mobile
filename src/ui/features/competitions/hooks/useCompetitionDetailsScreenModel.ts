@@ -4,7 +4,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
-import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { fetchLeagueById } from '@data/endpoints/competitionsApi';
 import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
@@ -55,6 +55,7 @@ export function useCompetitionDetailsScreenModel() {
 
   const [activeTab, setActiveTab] = useState<CompetitionTabKey>('standings');
   const [isSeasonPickerOpen, setIsSeasonPickerOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const { toggleFollow, followedIds } = useFollowedCompetitions();
   const isCompetitionFollowed = safeCompetitionId
     ? followedIds.includes(safeCompetitionId)
@@ -124,10 +125,34 @@ export function useCompetitionDetailsScreenModel() {
     setIsSeasonPickerOpen(false);
   }, []);
 
+  const openNotificationModal = useCallback(() => {
+    setIsNotificationModalOpen(true);
+  }, []);
+
+  const closeNotificationModal = useCallback(() => {
+    setIsNotificationModalOpen(false);
+  }, []);
+
   const selectSeason = useCallback((season: number) => {
     setSelectedSeason(season);
     setIsSeasonPickerOpen(false);
   }, []);
+
+  const handlePressMatch = useCallback((matchId: string) => {
+    safeNavigateEntity(navigation, 'MatchDetails', matchId);
+  }, [navigation]);
+
+  const handlePressTeam = useCallback((teamId: string) => {
+    safeNavigateEntity(navigation, 'TeamDetails', teamId);
+  }, [navigation]);
+
+  const handlePressPlayer = useCallback((playerId: string) => {
+    safeNavigateEntity(navigation, 'PlayerDetails', playerId);
+  }, [navigation]);
+
+  const handlePressCompetition = useCallback((competitionId: string) => {
+    safeNavigateEntity(navigation, 'CompetitionDetails', competitionId);
+  }, [navigation]);
 
   return {
     competition,
@@ -144,10 +169,17 @@ export function useCompetitionDetailsScreenModel() {
     availableSeasons,
     isCompetitionFollowed,
     isSeasonPickerOpen,
+    isNotificationModalOpen,
     handleBack,
     handleToggleFollow,
     openSeasonPicker,
     closeSeasonPicker,
+    openNotificationModal,
+    closeNotificationModal,
     selectSeason,
+    handlePressMatch,
+    handlePressTeam,
+    handlePressPlayer,
+    handlePressCompetition,
   };
 }
