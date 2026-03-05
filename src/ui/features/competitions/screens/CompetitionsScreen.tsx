@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   SectionList,
@@ -24,6 +23,7 @@ import {
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 import { createCompetitionsScreenStyles } from '@ui/features/competitions/screens/CompetitionsScreen.styles';
+import { StandingsTabSkeleton } from '@ui/features/competitions/components/StandingsTabSkeleton';
 
 export function CompetitionsScreen() {
   const { t } = useTranslation();
@@ -128,9 +128,17 @@ export function CompetitionsScreen() {
             >
               <View style={styles.countryFlagContainer}>
                 {section.flagUrl ? (
-                  <Image source={{ uri: section.flagUrl }} style={styles.countryFlag} />
+                  <Image
+                    source={{ uri: section.flagUrl }}
+                    style={styles.countryFlag}
+                    accessibilityLabel={countryName}
+                  />
                 ) : (
-                  <MaterialCommunityIcons name="flag" size={14} color={colors.textMuted} />
+                  <MaterialCommunityIcons
+                    name="flag"
+                    size={14}
+                    color={colors.textMuted}
+                  />
                 )}
               </View>
               <Text numberOfLines={1} style={styles.countryName}>
@@ -183,9 +191,8 @@ export function CompetitionsScreen() {
 
   if (screenModel.isCompetitionsLoading && !screenModel.hasCompetitionData) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>{t('screens.competitions.loading')}</Text>
+      <View style={styles.container}>
+        <StandingsTabSkeleton />
       </View>
     );
   }

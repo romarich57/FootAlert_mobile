@@ -1,6 +1,5 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,6 +7,8 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { MatchDetailsHeader } from '@ui/features/matches/details/components/MatchDetailsHeader';
@@ -18,6 +19,7 @@ import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView
 import { AppPressable } from '@ui/shared/components';
 import { useOfflineUiState } from '@ui/shared/hooks';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import { MatchCardSkeleton } from '@ui/features/matches/components/MatchCardSkeleton';
 
 function createStyles(colors: ThemeColors, topInset: number) {
   return StyleSheet.create({
@@ -31,6 +33,12 @@ function createStyles(colors: ThemeColors, topInset: number) {
       alignItems: 'center',
       gap: 12,
       paddingHorizontal: 20,
+      backgroundColor: colors.background,
+    },
+    skeletonContainer: {
+      flex: 1,
+      paddingHorizontal: 12,
+      paddingTop: topInset + 16,
       backgroundColor: colors.background,
     },
     infoText: {
@@ -66,6 +74,16 @@ export function MatchDetailsScreen() {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const model = useMatchDetailsScreenModel();
+  const queryClient = useQueryClient();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!model.safeMatchId) return;
+      // Invalide uniquement les queries stale pour éviter les refetch inutiles
+      queryClient.invalidateQueries({ queryKey: ['match_details', model.safeMatchId], stale: true });
+    }, [queryClient, model.safeMatchId]),
+  );
+
   const offlineUi = useOfflineUiState({
     hasData: Boolean(model.fixture),
     isLoading: model.isInitialLoading,
@@ -85,9 +103,10 @@ export function MatchDetailsScreen() {
 
   if (model.isInitialLoading && !model.fixture) {
     return (
-      <View style={styles.loadingContainer} testID="match-details-loading">
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.infoText}>{t('matchDetails.states.loading')}</Text>
+      <View style={styles.skeletonContainer} testID="match-details-loading">
+        <MatchCardSkeleton />
+        <MatchCardSkeleton />
+        <MatchCardSkeleton />
       </View>
     );
   }

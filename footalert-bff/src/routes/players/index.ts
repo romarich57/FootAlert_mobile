@@ -112,7 +112,17 @@ export async function registerPlayersRoutes(app: FastifyInstance): Promise<void>
     );
   });
 
-  app.get('/v1/players/:id/matches', async request => {
+  app.get(
+    '/v1/players/:id/matches',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async request => {
     const params = parseOrThrow(playerIdParamsSchema, request.params);
     const query = parseOrThrow(playerMatchesQuerySchema, request.query);
     const lastCount = typeof query.last === 'number' ? query.last : 15;
@@ -144,7 +154,11 @@ export async function registerPlayersRoutes(app: FastifyInstance): Promise<void>
 
               const fixtureStats = fixtureStatsPayload.response?.[0] ?? null;
               return mapPlayerMatchPerformance(params.id, query.teamId, fixture, fixtureStats);
-            } catch {
+            } catch (err: unknown) {
+              request.log.warn(
+                { fixtureId, err: err instanceof Error ? err.message : String(err) },
+                'api.upstream.failure',
+              );
               return mapPlayerMatchPerformance(params.id, query.teamId, fixture, null);
             }
           }),

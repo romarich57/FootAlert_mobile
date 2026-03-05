@@ -7,6 +7,14 @@ import i18n from '@ui/shared/i18n';
 import { useOfflineUiState } from '@ui/shared/hooks';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
+jest.mock('@react-navigation/native', () => {
+  const actual = jest.requireActual('@react-navigation/native');
+  return {
+    ...actual,
+    useFocusEffect: jest.fn(),
+  };
+});
+
 jest.mock('@ui/features/matches/details/hooks/useMatchDetailsScreenModel', () => ({
   useMatchDetailsScreenModel: jest.fn(),
 }));
@@ -136,8 +144,8 @@ describe('MatchDetailsScreen', () => {
 
     renderWithAppProviders(<MatchDetailsScreen />);
 
+    // Le skeleton remplace l'ActivityIndicator + texte de chargement
     expect(screen.getByTestId('match-details-loading')).toBeTruthy();
-    expect(screen.getByText(i18n.t('matchDetails.states.loading'))).toBeTruthy();
   });
 
   it('renders error state and retry action when fixture load fails', () => {

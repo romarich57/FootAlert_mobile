@@ -12,6 +12,7 @@ import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
 import { useCompetitionTotw } from '@ui/features/competitions/hooks/useCompetitionTotw';
+import { useCompetitionBracket } from '@ui/features/competitions/hooks/useCompetitionBracket';
 
 import type { CompetitionTabKey } from '../components/CompetitionTabs';
 
@@ -78,15 +79,21 @@ export function useCompetitionDetailsScreenModel() {
 
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const actualSeason = selectedSeason ?? defaultSeason;
+  const resolvedCompetitionId = Number.isFinite(numericCompetitionId) ? numericCompetitionId : undefined;
+  const resolvedSeason = seasonsLoading ? undefined : actualSeason;
   const availableSeasons = useMemo(
     () => (seasons ?? []).map(season => season.year),
     [seasons],
   );
 
-  const { data: totwData } = useCompetitionTotw(
-    Number.isFinite(numericCompetitionId) ? numericCompetitionId : undefined,
-    seasonsLoading ? undefined : actualSeason,
-  );
+  const { data: totwData } = useCompetitionTotw(resolvedCompetitionId, resolvedSeason);
+  const { data: competitionBracketData } = useCompetitionBracket(resolvedCompetitionId, resolvedSeason);
+  const competitionKind = competitionBracketData?.competitionKind;
+  const hasBracketRounds = (competitionBracketData?.bracket?.length ?? 0) > 0;
+  const isCupOnlyCompetition = competitionKind === 'cup';
+  const standingsTabLabelKey = isCupOnlyCompetition
+    ? 'competitionDetails.tabs.bracket'
+    : 'competitionDetails.tabs.standings';
 
   useEffect(() => {
     if (!Number.isFinite(numericCompetitionId) || seasonsLoading) {
@@ -123,21 +130,34 @@ export function useCompetitionDetailsScreenModel() {
   }, [numericCompetitionId, actualSeason, seasonsLoading]);
 
   const tabs = useMemo<CompetitionTabKey[]>(() => {
-    const base: CompetitionTabKey[] = [
-      'standings',
-      'matches',
-      'playerStats',
-      'teamStats',
-      'transfers',
-    ];
+    const showStandingsTab = !isCupOnlyCompetition || hasBracketRounds;
+    const showTeamStatsTab = !isCupOnlyCompetition;
+    const base: CompetitionTabKey[] = [];
+
+    if (showStandingsTab) {
+      base.push('standings');
+    }
+
+    base.push('matches', 'playerStats');
+
+    if (showTeamStatsTab) {
+      base.push('teamStats');
+    }
+
+    base.push('transfers');
+
     return totwData ? [...base, 'totw'] : base;
-  }, [totwData]);
+  }, [hasBracketRounds, isCupOnlyCompetition, totwData]);
 
   useEffect(() => {
-    if (activeTab === 'totw' && !totwData) {
-      setActiveTab('standings');
+    if (tabs.length === 0) {
+      return;
     }
-  }, [activeTab, totwData]);
+
+    if (!tabs.includes(activeTab)) {
+      setActiveTab(tabs[0]);
+    }
+  }, [activeTab, tabs]);
 
   const handleBack = useCallback(() => {
     navigation.goBack();
@@ -184,8 +204,8 @@ export function useCompetitionDetailsScreenModel() {
     safeNavigateEntity(navigation, 'PlayerDetails', playerId);
   }, [navigation]);
 
-  const handlePressCompetition = useCallback((competitionId: string) => {
-    safeNavigateEntity(navigation, 'CompetitionDetails', competitionId);
+  const handlePressCompetition = useCallback((nextCompetitionId: string) => {
+    safeNavigateEntity(navigation, 'CompetitionDetails', nextCompetitionId);
   }, [navigation]);
 
   return {
@@ -196,6 +216,7 @@ export function useCompetitionDetailsScreenModel() {
     activeTab,
     setActiveTab,
     tabs,
+    standingsTabLabelKey,
     totwData,
     seasonsLoading,
     actualSeason,

@@ -214,7 +214,6 @@ export function CompetitionDetailsScreen() {
                     <CompetitionTotwTab
                         totw={totwData}
                         onPressPlayer={handlePressPlayer}
-                        onPressTeam={handlePressTeam}
                     />
                 ) : null;
             default:
@@ -283,6 +282,7 @@ export function CompetitionDetailsScreen() {
                 activeTab={screenModel.activeTab}
                 tabs={screenModel.tabs}
                 onTabChange={screenModel.setActiveTab}
+                labelOverrides={{ standings: screenModel.standingsTabLabelKey }}
             />
 
             <View style={styles.content}>

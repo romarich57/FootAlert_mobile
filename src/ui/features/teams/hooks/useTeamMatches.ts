@@ -63,7 +63,7 @@ export function useTeamMatches({
   return useQuery<TeamMatchesData>({
     queryKey: queryKeys.teams.matches(teamId, leagueId, season, timezone),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     ...featureQueryOptions.teams.matches,
     queryFn: ({ signal }) =>
       fetchTeamMatchesData({

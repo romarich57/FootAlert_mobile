@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { createTeamStandingsTabStyles } from '@ui/features/teams/components/TeamStandingsTab.styles';
+import { StandingsTabSkeleton } from '@ui/features/competitions/components/StandingsTabSkeleton';
 import {
   buildStandingFeedItems,
   type DisplayMode,
@@ -160,9 +161,7 @@ export function TeamStandingsTab({
   return (
     <View style={styles.container}>
       {shouldShowLoadingState ? (
-        <View style={styles.stateCard}>
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-        </View>
+        <StandingsTabSkeleton />
       ) : null}
 
       {shouldShowErrorState ? (
@@ -208,6 +207,7 @@ export function TeamStandingsTab({
             data={feedItems}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
+            getItemType={item => item.type}
             ListHeaderComponent={renderListHeader}
             contentContainerStyle={styles.listContent}
             estimatedItemSize={58}

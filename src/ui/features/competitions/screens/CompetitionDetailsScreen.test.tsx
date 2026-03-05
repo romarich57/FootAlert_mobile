@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CompetitionDetailsScreen } from '@ui/features/competitions/screens/CompetitionDetailsScreen';
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
 import { useCompetitionTotw } from '@ui/features/competitions/hooks/useCompetitionTotw';
+import { useCompetitionBracket } from '@ui/features/competitions/hooks/useCompetitionBracket';
 import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
 import i18n from '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
@@ -30,6 +31,7 @@ jest.mock('@tanstack/react-query', () => {
 jest.mock('@ui/features/competitions/hooks/useFollowedCompetitions');
 jest.mock('@ui/features/competitions/hooks/useCompetitionSeasons');
 jest.mock('@ui/features/competitions/hooks/useCompetitionTotw');
+jest.mock('@ui/features/competitions/hooks/useCompetitionBracket');
 
 jest.mock('@ui/features/competitions/components/CompetitionStandingsTab', () => {
   const ReactLib = require('react');
@@ -68,6 +70,7 @@ const mockedUseQuery = jest.mocked(useQuery);
 const mockedUseFollowedCompetitions = jest.mocked(useFollowedCompetitions);
 const mockedUseCompetitionSeasons = jest.mocked(useCompetitionSeasons);
 const mockedUseCompetitionTotw = jest.mocked(useCompetitionTotw);
+const mockedUseCompetitionBracket = jest.mocked(useCompetitionBracket);
 
 const goBackMock = jest.fn();
 
@@ -131,6 +134,9 @@ describe('CompetitionDetailsScreen', () => {
     mockedUseCompetitionTotw.mockReturnValue({
       data: null,
     } as never);
+    mockedUseCompetitionBracket.mockReturnValue({
+      data: { competitionKind: 'league', bracket: null },
+    } as never);
   });
 
   it('does not render seasons tab', () => {
@@ -186,5 +192,20 @@ describe('CompetitionDetailsScreen', () => {
     });
     expect(screen.queryByText('totw-content')).toBeNull();
     expect(screen.queryByText(i18n.t('competitionDetails.tabs.totw'))).toBeNull();
+  });
+
+  it('renames standings tab to bracket and hides team stats for cup-only competitions', () => {
+    mockedUseCompetitionBracket.mockReturnValue({
+      data: {
+        competitionKind: 'cup',
+        bracket: [{ name: 'Final', order: 10, matches: [] }],
+      },
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText(i18n.t('competitionDetails.tabs.bracket'))).toBeTruthy();
+    expect(screen.queryByText(i18n.t('competitionDetails.tabs.standings'))).toBeNull();
+    expect(screen.queryByText(i18n.t('competitionDetails.tabs.teamStats'))).toBeNull();
   });
 });

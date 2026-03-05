@@ -42,5 +42,5 @@ Tout développement ou conception DOIT respecter scrupuleusement les directives 
 
 *(Cette section doit être mise à jour par l'Agent à chaque évolution majeure)*
 
-- **Phase actuelle** : Implémentation V1 de la page Matchs.
-- **Dernière action** : Implémentation V1 complète de la page Suivis (onglets Equipes/Joueurs, recherche API dédiée, follow/unfollow persistant, tendances, cache/TTL, route FollowsSearch) + synchronisation immédiate avec l'onglet Matchs via rechargement des suivis au focus.
+- **Phase actuelle** : Stabilisation V1 des pages Compétitions (focus coupes + cohérence d'affichage).
+- **Dernière action** : Correctifs appliqués sur les compétitions de type coupe (tri rounds éliminatoires, affichage tableau/bracket, fallback des onglets sans données) + correction TOTW (suppression du logo club superposé à la photo joueur) avec tests front/BFF mis à jour.

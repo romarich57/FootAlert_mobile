@@ -275,7 +275,17 @@ function mapMatchSearchResults(fixtures: TeamFixturesApiResponse['response'], li
 }
 
 export async function registerSearchRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/v1/search/global', async request => {
+  app.get(
+    '/v1/search/global',
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async request => {
     const query = parseOrThrow(searchGlobalQuerySchema, request.query);
     const limit = query.limit ?? DEFAULT_LIMIT;
 
@@ -283,13 +293,22 @@ export async function registerSearchRoutes(app: FastifyInstance): Promise<void> 
       const [teamsPayload, playersPayload, competitionsPayload] = await Promise.all([
         apiFootballGet<TeamSearchApiResponse>(
           `/teams?search=${encodeURIComponent(query.q)}`,
-        ).catch(() => ({ response: [] })),
+        ).catch(err => {
+          request.log.warn({ endpoint: '/teams', err: (err as Error).message }, 'api.upstream.failure');
+          return { response: [] };
+        }),
         apiFootballGet<PlayerProfilesApiResponse>(
           `/players/profiles?search=${encodeURIComponent(query.q)}`,
-        ).catch(() => ({ response: [] })),
+        ).catch(err => {
+          request.log.warn({ endpoint: '/players/profiles', err: (err as Error).message }, 'api.upstream.failure');
+          return { response: [] };
+        }),
         apiFootballGet<LeaguesSearchApiResponse>(
           `/leagues?search=${encodeURIComponent(query.q)}`,
-        ).catch(() => ({ response: [] })),
+        ).catch(err => {
+          request.log.warn({ endpoint: '/leagues', err: (err as Error).message }, 'api.upstream.failure');
+          return { response: [] };
+        }),
       ]);
 
       const teams = mapTeamSearchResults(teamsPayload, limit);
@@ -316,7 +335,10 @@ export async function registerSearchRoutes(app: FastifyInstance): Promise<void> 
 
           return apiFootballGet<TeamFixturesApiResponse>(
             `/fixtures?${searchParams.toString()}`,
-          ).catch(() => ({ response: [] }));
+          ).catch(err => {
+            request.log.warn({ endpoint: '/fixtures', teamId, err: (err as Error).message }, 'api.upstream.failure');
+            return { response: [] };
+          });
         },
       );
 

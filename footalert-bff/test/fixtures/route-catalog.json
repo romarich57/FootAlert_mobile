@@ -29,7 +29,15 @@
   },
   {
     "method": "GET",
+    "path": "/v1/competitions/:id/bracket"
+  },
+  {
+    "method": "GET",
     "path": "/v1/competitions/:id/player-stats"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/totw"
   },
   {
     "method": "GET",
@@ -193,11 +201,15 @@
   },
   {
     "method": "GET",
-    "path": "/v1/follows/search/teams"
+    "path": "/v1/follows/trends/competitions"
   },
   {
     "method": "GET",
-    "path": "/v1/follows/search/players"
+    "path": "/v1/follows/trends/teams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/trends/players"
   },
   {
     "method": "GET",
@@ -209,11 +221,15 @@
   },
   {
     "method": "GET",
-    "path": "/v1/follows/trends/teams"
+    "path": "/v1/follows/search/competitions"
   },
   {
     "method": "GET",
-    "path": "/v1/follows/trends/players"
+    "path": "/v1/follows/search/teams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/search/players"
   },
   {
     "method": "GET",

@@ -47,7 +47,7 @@ export function useTeamStandings({
   return useQuery<TeamStandingsData>({
     queryKey: queryKeys.teams.standings(teamId, leagueId, season),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     placeholderData: previousData => previousData,
     ...featureQueryOptions.teams.standings,
     queryFn: ({ signal }) =>

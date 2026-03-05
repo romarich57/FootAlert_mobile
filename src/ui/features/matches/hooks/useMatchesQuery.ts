@@ -81,7 +81,7 @@ export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQu
     enabled,
     staleTime: MATCHES_QUERY_STALE_TIME_MS,
     refetchOnReconnect: true,
-    refetchOnMount: true,
+    refetchOnMount: false,
     retry: shouldRetryMatchesQuery,
     queryFn: ({ signal }) => buildMatchesQueryResult({ date, timezone, signal }),
   });

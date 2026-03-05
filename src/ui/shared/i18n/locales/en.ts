@@ -97,6 +97,10 @@ export const en = {
       semiFinals: 'Semi-finals',
       final: 'Final',
       roundOf16: 'Round of 16',
+      roundOf32: 'Round of 32',
+      roundOf64: 'Round of 64',
+      roundOf128: 'Round of 128',
+      roundOf256: 'Round of 256',
       quarterFinals: 'Quarter-finals',
       thirdPlace: '3rd Place',
     },
@@ -538,6 +542,7 @@ export const en = {
   competitionDetails: {
     tabs: {
       standings: 'Standings',
+      bracket: 'Bracket',
       matches: 'Matches',
       playerStats: 'Player stats',
       teamStats: 'Team stats',
@@ -618,8 +623,8 @@ export const en = {
       sortBy: 'Sort by',
       sortDateAsc: 'Date (oldest first)',
       sortDateDesc: 'Date (latest first)',
-      sortRoundAsc: 'Matchday (1 -> 38)',
-      sortRoundDesc: 'Matchday (38 -> 1)',
+      sortRoundAsc: 'Round (earliest stage first)',
+      sortRoundDesc: 'Round (latest stage first)',
       filterTeam: 'Filter by team',
       allTeams: 'All teams',
       allMatches: 'All matches',
@@ -720,6 +725,9 @@ export const en = {
         quarter_final: 'Quarter-finals',
         round_of_16: 'Round of 16',
         round_of_32: 'Round of 32',
+        round_of_64: 'Round of 64',
+        round_of_128: 'Round of 128',
+        round_of_256: 'Round of 256',
         other: 'Elimination Round',
       },
       tbd: 'TBD',
@@ -1069,5 +1077,12 @@ export const en = {
     Europe: 'Europe',
     India: 'India',
     USA: 'USA',
+  },
+  matchCard: {
+    actions: {
+      openNotifications: 'Open match notifications',
+      follow: 'Follow match {{team}}',
+      unfollow: 'Unfollow match {{team}}',
+    },
   },
 } as const;

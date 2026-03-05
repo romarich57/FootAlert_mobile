@@ -24,7 +24,17 @@ type CompetitionMatchesEnvelope = {
 } & Record<string, unknown>;
 
 export function registerCompetitionMatchesRoute(app: FastifyInstance): void {
-  app.get('/v1/competitions/:id/matches', async request => {
+  app.get(
+    '/v1/competitions/:id/matches',
+    {
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async request => {
     const params = parseOrThrow(competitionIdParamsSchema, request.params);
     const query = parseOrThrow(seasonQuerySchema, request.query);
     const isCursorPagination = typeof query.limit === 'number' || typeof query.cursor === 'string';

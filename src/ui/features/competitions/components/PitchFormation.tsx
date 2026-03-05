@@ -9,7 +9,6 @@ import type { CompetitionTotwPlayer } from '../types/competitions.types';
 type PitchFormationProps = {
     players: CompetitionTotwPlayer[];
     onPressPlayer?: (playerId: string) => void;
-    onPressTeam?: (teamId: string) => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -100,24 +99,6 @@ function createStyles(colors: ThemeColors) {
             fontSize: 13,
             fontWeight: '900',
         },
-        teamLogoWrap: {
-            position: 'absolute',
-            right: -2,
-            bottom: -1,
-            width: 16,
-            height: 16,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: '#0b1510',
-            backgroundColor: '#ffffff',
-            overflow: 'hidden',
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        teamLogo: {
-            width: '100%',
-            height: '100%',
-        },
         ratingBadge: {
             position: 'absolute',
             top: -6,
@@ -181,7 +162,7 @@ function toInitials(value: string): string {
     return initials || tokens[0].slice(0, 2).toUpperCase();
 }
 
-export function PitchFormation({ players, onPressPlayer, onPressTeam }: PitchFormationProps) {
+export function PitchFormation({ players, onPressPlayer }: PitchFormationProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -215,23 +196,6 @@ export function PitchFormation({ players, onPressPlayer, onPressTeam }: PitchFor
                             ) : (
                                 <Text style={styles.avatarFallback}>{toInitials(player.playerName)}</Text>
                             )}
-                            {player.teamLogo ? (
-                                onPressTeam ? (
-                                    <AppPressable
-                                        testID="competition-totw-team-logo"
-                                        style={styles.teamLogoWrap}
-                                        onPress={() => onPressTeam(String(player.teamId))}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={player.teamName}
-                                    >
-                                        <Image source={{ uri: player.teamLogo }} style={styles.teamLogo} />
-                                    </AppPressable>
-                                ) : (
-                                    <View testID="competition-totw-team-logo" style={styles.teamLogoWrap}>
-                                        <Image source={{ uri: player.teamLogo }} style={styles.teamLogo} />
-                                    </View>
-                                )
-                            ) : null}
                         </View>
 
                         <View

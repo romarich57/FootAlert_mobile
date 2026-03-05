@@ -25,7 +25,17 @@ import {
 } from './transfersMapper.js';
 
 export function registerCompetitionTransfersRoute(app: FastifyInstance): void {
-  app.get('/v1/competitions/:id/transfers', async request => {
+  app.get(
+    '/v1/competitions/:id/transfers',
+    {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async request => {
     const params = parseOrThrow(competitionIdParamsSchema, request.params);
     const query = parseOrThrow(optionalSeasonQuerySchema, request.query);
 

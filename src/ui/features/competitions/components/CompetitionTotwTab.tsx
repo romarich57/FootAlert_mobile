@@ -10,7 +10,6 @@ import { PitchFormation } from './PitchFormation';
 type CompetitionTotwTabProps = {
     totw: CompetitionTotwData;
     onPressPlayer?: (playerId: string) => void;
-    onPressTeam?: (teamId: string) => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -76,7 +75,7 @@ function toOneDecimal(value: number): string {
     return Number.isFinite(value) ? value.toFixed(1) : '0.0';
 }
 
-export function CompetitionTotwTab({ totw, onPressPlayer, onPressTeam }: CompetitionTotwTabProps) {
+export function CompetitionTotwTab({ totw, onPressPlayer }: CompetitionTotwTabProps) {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -106,7 +105,6 @@ export function CompetitionTotwTab({ totw, onPressPlayer, onPressTeam }: Competi
                     <PitchFormation
                         players={totw.players}
                         onPressPlayer={onPressPlayer}
-                        onPressTeam={onPressTeam}
                     />
                 </View>
             </ScrollView>

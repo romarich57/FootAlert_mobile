@@ -18,10 +18,19 @@ test('classifyRound identifie correctement les rounds knockout', () => {
   assert.equal(classifyRound('Round of 16'), 'knockout');
   assert.equal(classifyRound('Round of 32'), 'knockout');
   assert.equal(classifyRound('Round of 64'), 'knockout');
+  assert.equal(classifyRound('Round of 128'), 'knockout');
   assert.equal(classifyRound('Last 16'), 'knockout');
   assert.equal(classifyRound('Last 8'), 'knockout');
   assert.equal(classifyRound('Last 4'), 'knockout');
   assert.equal(classifyRound('8th Finals'), 'knockout');
+  assert.equal(classifyRound('16th Finals'), 'knockout');
+  assert.equal(classifyRound('32nd Finals'), 'knockout');
+  assert.equal(classifyRound('64th Finals'), 'knockout');
+  assert.equal(classifyRound('128th Finals'), 'knockout');
+  assert.equal(classifyRound('1/8 Finals'), 'knockout');
+  assert.equal(classifyRound('16e de finale'), 'knockout');
+  assert.equal(classifyRound('32e de finale'), 'knockout');
+  assert.equal(classifyRound('64e de finale'), 'knockout');
   assert.equal(classifyRound('4th Finals'), 'knockout');
   assert.equal(classifyRound('2nd Round'), 'knockout');
   assert.equal(classifyRound('3rd Round'), 'knockout');
@@ -128,13 +137,12 @@ test('buildCompetitionBracket retourne cup avec bracket pour une coupe sans grou
   const result = buildCompetitionBracket(fixtures);
   assert.equal(result.competitionKind, 'cup');
   assert.ok(Array.isArray(result.bracket));
-  // Tri par ordre : Quarter-Final (4) < Semi-Final (5) < Final (6)
+  // Tri par ordre : Quarter-Final < Semi-Final < Final
   assert.equal(result.bracket[0].name, 'Quarter-Final');
   assert.equal(result.bracket[1].name, 'Semi-Final');
   assert.equal(result.bracket[2].name, 'Final');
-  assert.equal(result.bracket[0].order, 4);
-  assert.equal(result.bracket[1].order, 5);
-  assert.equal(result.bracket[2].order, 6);
+  assert.ok(result.bracket[0].order < result.bracket[1].order);
+  assert.ok(result.bracket[1].order < result.bracket[2].order);
 });
 
 test('buildCompetitionBracket retourne mixed pour une compétition avec groupes + knockout', () => {
@@ -194,6 +202,26 @@ test('buildCompetitionBracket calcule winnerId aux tirs au but (PEN)', () => {
   const result = buildCompetitionBracket(fixtures);
   assert.ok(Array.isArray(result.bracket));
   assert.equal(result.bracket[0].matches[0].winnerId, 10); // gagne aux pens
+});
+
+test('buildCompetitionBracket trie correctement les tours de coupe à grand tableau', () => {
+  const fixtures = [
+    makeFixture({ id: 1, round: 'Final', homeId: 10, homeName: 'A', awayId: 20, awayName: 'B', homeGoals: null, awayGoals: null, status: 'NS' }),
+    makeFixture({ id: 2, round: 'Semi-Final', homeId: 10, homeName: 'A', awayId: 30, awayName: 'C', homeGoals: null, awayGoals: null, status: 'NS' }),
+    makeFixture({ id: 3, round: 'Quarter-Final', homeId: 10, homeName: 'A', awayId: 40, awayName: 'D', homeGoals: null, awayGoals: null, status: 'NS' }),
+    makeFixture({ id: 4, round: '8th Finals', homeId: 10, homeName: 'A', awayId: 50, awayName: 'E', homeGoals: null, awayGoals: null, status: 'NS' }),
+    makeFixture({ id: 5, round: '16th Finals', homeId: 10, homeName: 'A', awayId: 60, awayName: 'F', homeGoals: null, awayGoals: null, status: 'NS' }),
+    makeFixture({ id: 6, round: '32nd Finals', homeId: 10, homeName: 'A', awayId: 70, awayName: 'G', homeGoals: null, awayGoals: null, status: 'NS' }),
+    makeFixture({ id: 7, round: '64th Finals', homeId: 10, homeName: 'A', awayId: 80, awayName: 'H', homeGoals: null, awayGoals: null, status: 'NS' }),
+  ];
+
+  const result = buildCompetitionBracket(fixtures);
+  assert.equal(result.competitionKind, 'cup');
+  assert.ok(Array.isArray(result.bracket));
+  assert.deepEqual(
+    result.bracket.map(round => round.name),
+    ['64th Finals', '32nd Finals', '16th Finals', '8th Finals', 'Quarter-Final', 'Semi-Final', 'Final'],
+  );
 });
 
 test('buildCompetitionBracket retourne un tableau vide pour une liste de fixtures vide', () => {

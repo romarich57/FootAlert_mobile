@@ -29,14 +29,45 @@ type TeamRowProps = {
  * Exemple : "Semi-Finals" → "semi_final"
  */
 function getRoundI18nKey(roundName: string): string {
-  const lower = roundName.toLowerCase().trim();
+  const lower = roundName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  const roundOfFromValue = (() => {
+    const roundOfMatch = lower.match(/\bround of\s+(\d{1,3})\b/);
+    if (roundOfMatch) return Number.parseInt(roundOfMatch[1], 10);
+
+    const lastMatch = lower.match(/\blast\s+(\d{1,3})\b/);
+    if (lastMatch) return Number.parseInt(lastMatch[1], 10);
+
+    const fractionMatch = lower.match(/\b1\s*\/\s*(\d{1,3})\b/);
+    if (fractionMatch) return Number.parseInt(fractionMatch[1], 10) * 2;
+
+    const englishFinalsMatch = lower.match(/\b(\d{1,3})(?:st|nd|rd|th)\s+finals?\b/);
+    if (englishFinalsMatch) return Number.parseInt(englishFinalsMatch[1], 10) * 2;
+
+    const frenchFinalsMatch = lower.match(/\b(\d{1,3})(?:e|eme|er)?\s+de\s+finale\b/);
+    if (frenchFinalsMatch) return Number.parseInt(frenchFinalsMatch[1], 10) * 2;
+
+    return null;
+  })();
+
+  if (lower.includes('semi') || lower.includes('demi')) return 'semi_final';
+  if (lower.includes('quarter') || lower.includes('quart')) return 'quarter_final';
+  if (roundOfFromValue === 16) return 'round_of_16';
+  if (roundOfFromValue === 32) return 'round_of_32';
+  if (roundOfFromValue === 64) return 'round_of_64';
+  if (roundOfFromValue === 128) return 'round_of_128';
+  if (roundOfFromValue === 256) return 'round_of_256';
+  if (/^finale?s?$/.test(lower)) {
+    return 'final';
+  }
   if (lower.includes('final') && !lower.includes('semi') && !lower.includes('quarter')) {
     return 'final';
   }
-  if (lower.includes('semi')) return 'semi_final';
-  if (lower.includes('quarter')) return 'quarter_final';
-  if (lower.includes('16') || lower.includes('last 16')) return 'round_of_16';
-  if (lower.includes('32')) return 'round_of_32';
+
   return 'other';
 }
 

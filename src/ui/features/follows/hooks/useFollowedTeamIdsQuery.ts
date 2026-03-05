@@ -7,6 +7,7 @@ export function useFollowedTeamIdsQuery() {
   return useQuery({
     queryKey: queryKeys.follows.followedTeamIds(),
     queryFn: loadFollowedTeamIds,
-    staleTime: Infinity,
+    staleTime: 10 * 60_000,
+    refetchOnReconnect: true,
   });
 }

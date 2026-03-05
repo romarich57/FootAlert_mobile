@@ -220,7 +220,10 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
         mapWithConcurrency(query.leagueIds, TRENDS_MAX_CONCURRENCY, leagueId =>
           apiFootballGet(
             `/standings?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(query.season))}`,
-          ).catch(() => ({ response: [] })),
+          ).catch(err => {
+            request.log.warn({ leagueId, err: (err as Error).message }, 'api.upstream.failure');
+            return { response: [] };
+          }),
         ),
       );
 
@@ -250,7 +253,10 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
           mapWithConcurrency(query.leagueIds, TRENDS_MAX_CONCURRENCY, leagueId =>
             apiFootballGet(
               `/players/topscorers?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(query.season))}`,
-            ).catch(() => ({ response: [] })),
+            ).catch(err => {
+              request.log.warn({ leagueId, err: (err as Error).message }, 'api.upstream.failure');
+              return { response: [] };
+            }),
           ),
       );
 

@@ -1,10 +1,11 @@
 import { useCallback, useMemo, type ReactElement } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { TeamStatsData } from '@ui/features/teams/types/teams.types';
+import { TeamDetailsSkeleton } from '@ui/features/teams/components/TeamDetailsSkeleton';
 import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
 
 import { TeamComparisonMetricsSection } from './stats/TeamComparisonMetricsSection';
@@ -62,11 +63,7 @@ export function TeamStatsTab({
     if (shouldShowLoadingState) {
       items.push({
         key: 'loading-state',
-        content: (
-          <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-          </View>
-        ),
+        content: <TeamDetailsSkeleton />,
       });
     }
 

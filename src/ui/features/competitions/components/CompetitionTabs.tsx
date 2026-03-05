@@ -21,6 +21,7 @@ type CompetitionTabsProps = {
     activeTab: CompetitionTabKey;
     tabs: CompetitionTabKey[];
     onTabChange: (tab: CompetitionTabKey) => void;
+    labelOverrides?: Partial<Record<CompetitionTabKey, string>>;
 };
 
 const TAB_LABEL_KEYS: Record<CompetitionTabKey, string> = {
@@ -73,7 +74,7 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
-export function CompetitionTabs({ activeTab, tabs, onTabChange }: CompetitionTabsProps) {
+export function CompetitionTabs({ activeTab, tabs, onTabChange, labelOverrides }: CompetitionTabsProps) {
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -87,7 +88,8 @@ export function CompetitionTabs({ activeTab, tabs, onTabChange }: CompetitionTab
             >
                 {tabs.map(tab => {
                     const isActive = activeTab === tab;
-                    const label = t(TAB_LABEL_KEYS[tab]);
+                    const labelKey = labelOverrides?.[tab] ?? TAB_LABEL_KEYS[tab];
+                    const label = t(labelKey);
                     return (
                         <AppPressable
                             key={tab}

@@ -47,12 +47,12 @@ describe('CompetitionTotwTab', () => {
     ).toBeTruthy();
   });
 
-  it('renders 11 players with rating badges and team logos', () => {
+  it('renders 11 players with rating badges', () => {
     renderWithAppProviders(<CompetitionTotwTab totw={totw} />);
 
     expect(screen.getAllByTestId('competition-totw-player-node')).toHaveLength(11);
     expect(screen.getAllByTestId('competition-totw-rating-badge')).toHaveLength(11);
-    expect(screen.getAllByTestId('competition-totw-team-logo')).toHaveLength(11);
+    expect(screen.queryByTestId('competition-totw-team-logo')).toBeNull();
   });
 
   it('does not display fallback unavailable content', () => {

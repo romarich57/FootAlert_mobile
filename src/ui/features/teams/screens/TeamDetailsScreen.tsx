@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import {
@@ -29,6 +31,7 @@ import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView
 import { useOfflineUiState } from '@ui/shared/hooks';
 import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import { TeamDetailsSkeleton } from '@ui/features/teams/components/TeamDetailsSkeleton';
 
 type TeamAlertPrefKey = Exclude<keyof TeamNotificationPrefs, 'enabled'>;
 
@@ -107,6 +110,19 @@ export function TeamDetailsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const model = useTeamDetailsScreenModel();
+  const queryClient = useQueryClient();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!model.teamId) return;
+      // Invalide uniquement les queries stale des onglets teams pour éviter les refetch inutiles
+      const filters = { stale: true } as const;
+      queryClient.invalidateQueries({ queryKey: ['team_overview', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_matches', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_stats', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_standings', model.teamId], ...filters });
+    }, [queryClient, model.teamId]),
+  );
   const [notificationPrefs, setNotificationPrefs] = useState<TeamNotificationPrefs>({
     ...TEAM_NOTIFICATION_DEFAULTS,
     enabled: model.isFollowed,
@@ -259,11 +275,7 @@ export function TeamDetailsScreen() {
       ) : null}
 
       {!offlineUi.showOfflineNoCache && model.isContextLoading ? (
-        <View style={styles.stateWrap}>
-          <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-          </View>
-        </View>
+        <TeamDetailsSkeleton />
       ) : null}
 
       {!offlineUi.showOfflineNoCache && model.isContextError ? (

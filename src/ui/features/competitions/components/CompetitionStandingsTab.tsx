@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -9,6 +9,7 @@ import type { StandingRow } from '../types/competitions.types';
 import { useCompetitionStandings } from '../hooks/useCompetitionStandings';
 import { useCompetitionBracket } from '../hooks/useCompetitionBracket';
 import { KnockoutBracketView } from './KnockoutBracketView';
+import { StandingsTabSkeleton } from './StandingsTabSkeleton';
 
 type CompetitionStandingsTabProps = {
     competitionId: number;
@@ -305,11 +306,7 @@ export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: 
     }
 
     if (isLoading) {
-        return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-        );
+        return <StandingsTabSkeleton />;
     }
 
     if ((error || listData.length === 0) && !showBracket) {

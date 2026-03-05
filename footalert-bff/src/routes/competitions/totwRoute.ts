@@ -48,7 +48,7 @@ export function registerCompetitionTotwRoute(app: FastifyInstance): void {
       // Clé de cache stable par compétition et saison
       const cacheKey = `competition:totw:${params.id}:${season}`;
 
-      return withCache<TotwAggregatedResponse>(cacheKey, 5 * 60_000, async () => {
+      return withCache<TotwAggregatedResponse>(cacheKey, 30 * 60_000, async () => {
         // Lancement des 4 appels en parallèle pour minimiser la latence
         const [scorersRaw, assistsRaw, yellowCardsRaw, redCardsRaw] = await Promise.all([
           apiFootballGet(buildPlayerStatsPath('topscorers', params.id, season)),

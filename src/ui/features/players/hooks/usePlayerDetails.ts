@@ -12,11 +12,16 @@ import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 export function usePlayerDetails(playerId: string, season: number) {
-  const profileQuery = useQuery({
+  const query = useQuery({
     queryKey: queryKeys.players.details(playerId, season),
     queryFn: async ({ signal }) => {
-      const dto = await fetchPlayerDetails(playerId, season, signal);
+      const [dto, trophiesDtos] = await Promise.all([
+        fetchPlayerDetails(playerId, season, signal),
+        fetchPlayerTrophies(playerId, signal),
+      ]);
+
       if (!dto) throw new Error('Player not found');
+
       const seasonStatsDataset = mapPlayerDetailsToSeasonStatsDataset(dto, season);
 
       return {
@@ -25,35 +30,26 @@ export function usePlayerDetails(playerId: string, season: number) {
         positions: mapPlayerDetailsToPositions(dto, season),
         seasonStats: seasonStatsDataset.overall,
         seasonStatsDataset,
+        trophies: mapPlayerTrophies(trophiesDtos),
       };
     },
     enabled: !!playerId && !!season,
-    ...featureQueryOptions.players.details,
-  });
-
-  const trophiesQuery = useQuery({
-    queryKey: queryKeys.players.trophies(playerId),
-    queryFn: async ({ signal }) => {
-      const dtos = await fetchPlayerTrophies(playerId, signal);
-      return mapPlayerTrophies(dtos);
-    },
-    enabled: !!playerId,
-    ...featureQueryOptions.players.trophies,
+    // staleTime = le plus court des deux anciens (details: 5min, trophies: 60min)
+    staleTime: featureQueryOptions.players.details.staleTime,
+    gcTime: featureQueryOptions.players.details.gcTime,
+    retry: featureQueryOptions.players.details.retry,
   });
 
   return {
-    profile: profileQuery.data?.profile ?? null,
-    characteristics: profileQuery.data?.characteristics ?? null,
-    positions: profileQuery.data?.positions ?? null,
-    seasonStats: profileQuery.data?.seasonStats ?? null,
-    seasonStatsDataset: profileQuery.data?.seasonStatsDataset ?? null,
-    trophies: trophiesQuery.data ?? [],
-    isLoading: profileQuery.isLoading || trophiesQuery.isLoading,
-    isError: profileQuery.isError,
-    dataUpdatedAt: Math.max(profileQuery.dataUpdatedAt, trophiesQuery.dataUpdatedAt),
-    refetch: () => {
-      profileQuery.refetch();
-      trophiesQuery.refetch();
-    },
+    profile: query.data?.profile ?? null,
+    characteristics: query.data?.characteristics ?? null,
+    positions: query.data?.positions ?? null,
+    seasonStats: query.data?.seasonStats ?? null,
+    seasonStatsDataset: query.data?.seasonStatsDataset ?? null,
+    trophies: query.data?.trophies ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    dataUpdatedAt: query.dataUpdatedAt,
+    refetch: () => { query.refetch(); },
   };
 }

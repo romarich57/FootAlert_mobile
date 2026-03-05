@@ -205,6 +205,7 @@ export function MatchesScreenContent({
         data={listData}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
+        getItemType={item => item.type}
         estimatedItemSize={420}
         refreshing={isRefetching}
         onRefresh={onRetry}

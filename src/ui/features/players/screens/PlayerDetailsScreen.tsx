@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { View, StyleSheet, Text } from 'react-native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +31,7 @@ import {
 } from '@ui/features/players/components/PlayerNotificationModal';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 
+import { PlayerDetailsSkeleton } from '@ui/features/players/components/PlayerDetailsSkeleton';
 import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
 import { useOfflineUiState } from '@ui/shared/hooks';
 
@@ -82,6 +84,19 @@ export function PlayerDetailsScreen() {
     const navigation = useNavigation<PlayerDetailsScreenNavigationProp>();
 
     const safePlayerId = sanitizeNumericEntityId(route.params.playerId);
+    const queryClient = useQueryClient();
+
+    useFocusEffect(
+        useCallback(() => {
+            if (!safePlayerId) return;
+            // Invalide uniquement les queries stale du joueur pour éviter les refetch inutiles
+            const filters = { stale: true } as const;
+            queryClient.invalidateQueries({ queryKey: ['player_details', safePlayerId], ...filters });
+            queryClient.invalidateQueries({ queryKey: ['player_stats', 'v2', safePlayerId], ...filters });
+            queryClient.invalidateQueries({ queryKey: ['player_career_aggregate', safePlayerId], ...filters });
+        }, [queryClient, safePlayerId]),
+    );
+
     const [activeTab, setActiveTab] = useState<PlayerTabType>('profil');
     const screenModel = usePlayerDetailsScreenModel({
         playerId: safePlayerId ?? '',
@@ -188,11 +203,7 @@ export function PlayerDetailsScreen() {
     }
 
     if (screenModel.isProfileLoading) {
-        return (
-            <View style={[styles.center, { backgroundColor: colors.background }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-        );
+        return <PlayerDetailsSkeleton />;
     }
 
     if (screenModel.isProfileError || !screenModel.profile) {
@@ -220,7 +231,7 @@ export function PlayerDetailsScreen() {
             break;
         case 'matchs':
             tabContent = screenModel.isMatchesLoading ? (
-                <ActivityIndicator style={styles.loader} color={colors.primary} />
+                <PlayerDetailsSkeleton />
             ) : (
                 <PlayerMatchesTab
                     matches={screenModel.matches}
@@ -232,7 +243,7 @@ export function PlayerDetailsScreen() {
             break;
         case 'stats':
             tabContent = screenModel.isStatsLoading || !screenModel.stats ? (
-                <ActivityIndicator style={styles.loader} color={colors.primary} />
+                <PlayerDetailsSkeleton />
             ) : (
                 <PlayerStatsTab
                     stats={screenModel.stats}
@@ -246,7 +257,7 @@ export function PlayerDetailsScreen() {
             break;
         case 'carriere':
             tabContent = screenModel.isCareerLoading ? (
-                <ActivityIndicator style={styles.loader} color={colors.primary} />
+                <PlayerDetailsSkeleton />
             ) : (
                 <PlayerCareerTab
                     seasons={screenModel.careerSeasons}
@@ -300,9 +311,6 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    loader: {
-        marginTop: 40,
     },
     offlineBannerWrap: {
         paddingHorizontal: 16,

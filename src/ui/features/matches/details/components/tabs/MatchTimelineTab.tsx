@@ -1,4 +1,5 @@
-import { FlatList, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 
 import type { MatchLifecycleState } from '@ui/features/matches/types/matches.types';
@@ -45,9 +46,11 @@ export function MatchTimelineTab({
         {eventRows.length > 0 ? (
           <View style={styles.timelineContainer}>
             <View style={styles.timelineCenterLine} />
-            <FlatList
+            <FlashList
               data={eventRows}
               keyExtractor={event => event.id}
+              estimatedItemSize={120}
+              getItemType={event => event.team}
               renderItem={({ item: event }) => {
                 const align = event.team === 'home' ? 'left' : 'right';
 
@@ -86,10 +89,6 @@ export function MatchTimelineTab({
                 );
               }}
               scrollEnabled={false}
-              removeClippedSubviews
-              initialNumToRender={12}
-              maxToRenderPerBatch={12}
-              windowSize={5}
             />
           </View>
         ) : null}

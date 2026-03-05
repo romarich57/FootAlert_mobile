@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
-import { View, Text, Image, ActivityIndicator, Pressable } from 'react-native';
+import { ActivityIndicator, View, Text, Image, Pressable } from 'react-native';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -9,6 +9,14 @@ import { useCompetitionFixtures } from '../hooks/useCompetitionFixtures';
 import { MatchesFilterBottomSheet, MatchesFilterState } from './MatchesFilterBottomSheet';
 import { createCompetitionMatchesTabStyles } from './CompetitionMatchesTab.styles';
 import { formatMatchRound } from '@ui/shared/utils/formatMatchRound';
+import { FixturesTabSkeleton } from './FixturesTabSkeleton';
+import {
+  displayValue,
+  formatMatchTime,
+  formatMatchDate,
+  getRoundSortMeta,
+  type RoundKind,
+} from './competitionMatchesHelpers';
 
 type CompetitionMatchesTabProps = {
     competitionId: number;
@@ -20,30 +28,6 @@ type CompetitionMatchesTabProps = {
 type ListItem =
     | { type: 'header'; key: string; title: string }
     | { type: 'fixture'; key: string; data: Fixture };
-
-function displayValue(value: string | number | null | undefined): string | number {
-    return value !== null && value !== undefined && value !== '' ? value : '';
-}
-
-function formatMatchTime(dateString: string, locale: string) {
-    if (!dateString) return '';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-    } catch {
-        return '';
-    }
-}
-
-function formatMatchDate(dateString: string, locale: string) {
-    if (!dateString) return '';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-        return '';
-    }
-}
 
 export function CompetitionMatchesTab({
     competitionId,
@@ -102,21 +86,35 @@ export function CompetitionMatchesTab({
             : fixtures.filter(f => f.homeTeam.id === filterState.teamId || f.awayTeam.id === filterState.teamId);
 
         // Sort — pre-compute timestamps once (Schwartzian transform)
-        const getRoundNum = (roundStr: string) => {
-            const match = roundStr.match(/\d+/);
-            return match ? parseInt(match[0], 10) : 0;
+        const roundKindOrder: Record<RoundKind, number> = {
+            matchday: 1,
+            group: 1,
+            knockout: 2,
+            other: 3,
         };
+
         const withMeta = result.map(f => ({
             f,
             ts: new Date(f.date).getTime(),
-            round: getRoundNum(f.round),
+            roundMeta: getRoundSortMeta(f.round),
         }));
         withMeta.sort((a, b) => {
             if (filterState.sortBy === 'date_asc' || filterState.sortBy === 'date_desc') {
                 return filterState.sortBy === 'date_asc' ? a.ts - b.ts : b.ts - a.ts;
             }
-            if (a.round !== b.round) {
-                return filterState.sortBy === 'round_asc' ? a.round - b.round : b.round - a.round;
+
+            if (a.roundMeta.kind !== b.roundMeta.kind) {
+                const aKindOrder = roundKindOrder[a.roundMeta.kind];
+                const bKindOrder = roundKindOrder[b.roundMeta.kind];
+                return filterState.sortBy === 'round_asc'
+                    ? aKindOrder - bKindOrder
+                    : bKindOrder - aKindOrder;
+            }
+
+            if (a.roundMeta.order !== b.roundMeta.order) {
+                return filterState.sortBy === 'round_asc'
+                    ? a.roundMeta.order - b.roundMeta.order
+                    : b.roundMeta.order - a.roundMeta.order;
             }
             return a.ts - b.ts;
         });
@@ -203,7 +201,9 @@ export function CompetitionMatchesTab({
         if (item.type === 'header') {
             return (
                 <View style={styles.roundHeader}>
-                    <Text style={styles.roundHeaderText}>{item.title}</Text>
+                    <Text testID="competition-matches-round-header" style={styles.roundHeaderText}>
+                        {item.title}
+                    </Text>
                 </View>
             );
         }
@@ -293,11 +293,7 @@ export function CompetitionMatchesTab({
     }, [locale, onPressMatch, onPressTeam, styles, t]);
 
     if (isLoading) {
-        return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-        );
+        return <FixturesTabSkeleton />;
     }
 
     if (error || listData.length === 0) {

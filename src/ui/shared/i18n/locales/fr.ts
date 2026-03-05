@@ -98,6 +98,10 @@ export const fr = {
       semiFinals: 'Demi-finales',
       final: 'Finale',
       roundOf16: 'Huitièmes',
+      roundOf32: 'Seizièmes',
+      roundOf64: 'Trente-deuxièmes',
+      roundOf128: 'Soixante-quatrièmes',
+      roundOf256: 'Cent-vingt-huitièmes',
       quarterFinals: 'Quarts de finale',
       thirdPlace: '3ème place',
     },
@@ -539,6 +543,7 @@ export const fr = {
   competitionDetails: {
     tabs: {
       standings: 'Classement',
+      bracket: 'Tableau',
       matches: 'Matchs',
       playerStats: 'Stats joueurs',
       teamStats: 'Stats équipes',
@@ -619,8 +624,8 @@ export const fr = {
       sortBy: 'Trier par',
       sortDateAsc: "Date (anciens d'abord)",
       sortDateDesc: "Date (récents d'abord)",
-      sortRoundAsc: 'Journée (1 -> 38)',
-      sortRoundDesc: 'Journée (38 -> 1)',
+      sortRoundAsc: 'Tour (du plus ancien au plus avancé)',
+      sortRoundDesc: 'Tour (du plus avancé au plus ancien)',
       filterTeam: 'Filtrer par équipe',
       allTeams: 'Toutes les équipes',
       allMatches: 'Tous les matchs',
@@ -721,6 +726,9 @@ export const fr = {
         quarter_final: 'Quarts de finale',
         round_of_16: 'Huitièmes de finale',
         round_of_32: 'Seizièmes de finale',
+        round_of_64: 'Trente-deuxièmes de finale',
+        round_of_128: 'Soixante-quatrièmes de finale',
+        round_of_256: 'Cent-vingt-huitièmes de finale',
         other: 'Tour éliminatoire',
       },
       tbd: 'À déterminer',
@@ -1070,5 +1078,12 @@ export const fr = {
     Europe: 'Europe',
     India: 'Inde',
     USA: 'États-Unis',
+  },
+  matchCard: {
+    actions: {
+      openNotifications: 'Ouvrir les notifications du match',
+      follow: 'Suivre le match {{team}}',
+      unfollow: 'Ne plus suivre le match {{team}}',
+    },
   },
 } as const;

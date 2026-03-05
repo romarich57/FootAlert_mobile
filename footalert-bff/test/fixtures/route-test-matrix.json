@@ -43,7 +43,19 @@
   },
   {
     "method": "GET",
+    "path": "/v1/competitions/:id/bracket",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
     "path": "/v1/competitions/:id/player-stats",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/totw",
     "critical": true,
     "testFile": "test/routes/competitions.routes.test.ts"
   },
@@ -289,13 +301,19 @@
   },
   {
     "method": "GET",
-    "path": "/v1/follows/search/teams",
+    "path": "/v1/follows/trends/competitions",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },
   {
     "method": "GET",
-    "path": "/v1/follows/search/players",
+    "path": "/v1/follows/trends/teams",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/trends/players",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },
@@ -313,13 +331,19 @@
   },
   {
     "method": "GET",
-    "path": "/v1/follows/trends/teams",
+    "path": "/v1/follows/search/competitions",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },
   {
     "method": "GET",
-    "path": "/v1/follows/trends/players",
+    "path": "/v1/follows/search/teams",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/search/players",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },

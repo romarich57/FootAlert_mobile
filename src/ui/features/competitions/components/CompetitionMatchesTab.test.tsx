@@ -38,6 +38,51 @@ const baseFixtures: Fixture[] = [
   },
 ];
 
+const knockoutFixtures: Fixture[] = [
+  {
+    ...baseFixtures[0],
+    id: 201,
+    round: 'Final',
+    date: '2025-05-20T20:00:00.000Z',
+  },
+  {
+    ...baseFixtures[0],
+    id: 202,
+    round: '64th Finals',
+    date: '2025-01-05T20:00:00.000Z',
+  },
+  {
+    ...baseFixtures[0],
+    id: 203,
+    round: 'Quarter-Final',
+    date: '2025-04-01T20:00:00.000Z',
+  },
+  {
+    ...baseFixtures[0],
+    id: 204,
+    round: '16th Finals',
+    date: '2025-02-10T20:00:00.000Z',
+  },
+  {
+    ...baseFixtures[0],
+    id: 205,
+    round: 'Semi-Final',
+    date: '2025-05-01T20:00:00.000Z',
+  },
+  {
+    ...baseFixtures[0],
+    id: 206,
+    round: '32nd Finals',
+    date: '2025-01-20T20:00:00.000Z',
+  },
+  {
+    ...baseFixtures[0],
+    id: 207,
+    round: '8th Finals',
+    date: '2025-03-01T20:00:00.000Z',
+  },
+];
+
 describe('CompetitionMatchesTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -86,5 +131,32 @@ describe('CompetitionMatchesTab', () => {
     renderWithAppProviders(<CompetitionMatchesTab competitionId={61} season={2025} />);
 
     expect(screen.getByText(i18n.t('competitionDetails.matches.unavailable'))).toBeTruthy();
+  });
+
+  it('sorts knockout rounds from early stages to final by default', () => {
+    mockedUseCompetitionFixtures.mockReturnValue({
+      data: { pages: [{ items: knockoutFixtures, hasMore: false, nextCursor: null }], pageParams: [undefined] },
+      isLoading: false,
+      error: null,
+      fetchNextPage: jest.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    } as never);
+
+    renderWithAppProviders(<CompetitionMatchesTab competitionId={66} season={2025} />);
+
+    const displayedRoundHeaders = screen
+      .getAllByTestId('competition-matches-round-header')
+      .map(node => node.props.children);
+
+    expect(displayedRoundHeaders).toEqual([
+      i18n.t('matches.rounds.roundOf128'),
+      i18n.t('matches.rounds.roundOf64'),
+      i18n.t('matches.rounds.roundOf32'),
+      i18n.t('matches.rounds.roundOf16'),
+      i18n.t('matches.rounds.quarterFinals'),
+      i18n.t('matches.rounds.semiFinals'),
+      i18n.t('matches.rounds.final'),
+    ]);
   });
 });

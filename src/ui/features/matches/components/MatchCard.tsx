@@ -8,6 +8,7 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { MatchItem } from '@ui/features/matches/types/matches.types';
@@ -132,8 +133,9 @@ function renderTeamLogo(params: {
   onError: () => void;
   styles: ReturnType<typeof createStyles>;
   fixtureId: string;
+  teamName: string;
 }) {
-  const { side, logoUrl, isUnavailable, onError, styles, fixtureId } = params;
+  const { side, logoUrl, isUnavailable, onError, styles, fixtureId, teamName } = params;
 
   if (isUnavailable) {
     return (
@@ -148,6 +150,7 @@ function renderTeamLogo(params: {
     <Image
       source={{ uri: logoUrl }}
       style={styles.teamLogo}
+      accessibilityLabel={teamName}
       testID={`match-team-logo-${side}-${fixtureId}`}
       onError={onError}
     />
@@ -164,6 +167,7 @@ export function MatchCard({
   onPressAwayTeam,
 }: MatchCardProps) {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [homeLogoUnavailable, setHomeLogoUnavailable] = useState(!match.homeTeamLogo);
   const [awayLogoUnavailable, setAwayLogoUnavailable] = useState(!match.awayTeamLogo);
@@ -225,6 +229,7 @@ export function MatchCard({
               onError: () => setHomeLogoUnavailable(true),
               styles,
               fixtureId: match.fixtureId,
+              teamName: match.homeTeamName,
             })}
           </Pressable>
 
@@ -246,6 +251,7 @@ export function MatchCard({
               onError: () => setAwayLogoUnavailable(true),
               styles,
               fixtureId: match.fixtureId,
+              teamName: match.awayTeamName,
             })}
             <Text
               numberOfLines={1}
@@ -264,6 +270,8 @@ export function MatchCard({
           <Pressable
             hitSlop={8}
             onPress={handleNotificationPress}
+            accessibilityRole="button"
+            accessibilityLabel={t('matchCard.actions.openNotifications')}
             testID={`match-notification-button-${match.fixtureId}`}
           >
             <MaterialCommunityIcons name="bell-outline" size={16} color={colors.textMuted} />
@@ -271,6 +279,12 @@ export function MatchCard({
           <Pressable
             hitSlop={8}
             onPress={handleFollowPress}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isFollowed
+                ? t('matchCard.actions.unfollow', { team: match.homeTeamName })
+                : t('matchCard.actions.follow', { team: match.homeTeamName })
+            }
             testID={`match-follow-button-${match.fixtureId}`}
           >
             <MaterialCommunityIcons
