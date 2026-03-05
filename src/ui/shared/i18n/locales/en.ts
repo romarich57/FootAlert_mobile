@@ -712,6 +712,18 @@ export const en = {
       unavailable:
         'Team of the Week is not available for this competition due to API limits.',
     },
+    bracket: {
+      title: 'Knockout Stage',
+      rounds: {
+        final: 'Final',
+        semi_final: 'Semi-finals',
+        quarter_final: 'Quarter-finals',
+        round_of_16: 'Round of 16',
+        round_of_32: 'Round of 32',
+        other: 'Elimination Round',
+      },
+      tbd: 'TBD',
+    },
   },
   playerDetails: {
     tabs: {

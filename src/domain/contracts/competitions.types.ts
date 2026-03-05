@@ -500,3 +500,37 @@ export type CompetitionTotwData = {
     averageRating: number;
     players: CompetitionTotwPlayer[];
 };
+
+// --- Bracket / Knockout types ---
+
+export type CompetitionKind = 'league' | 'cup' | 'mixed';
+
+export type BracketTeam = {
+    id: number | null;
+    name: string;
+    logo: string;
+};
+
+export type BracketMatch = {
+    matchId: number;
+    homeTeam: BracketTeam;
+    awayTeam: BracketTeam;
+    homeScore: number | null;
+    awayScore: number | null;
+    penaltyHome: number | null;
+    penaltyAway: number | null;
+    status: string;
+    date: string;
+    winnerId: number | null;
+};
+
+export type KnockoutRound = {
+    name: string;
+    order: number;
+    matches: BracketMatch[];
+};
+
+export type CompetitionBracket = {
+    competitionKind: CompetitionKind;
+    bracket: KnockoutRound[] | null;
+};

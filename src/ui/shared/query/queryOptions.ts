@@ -1,9 +1,9 @@
 import type { QueryObserverOptions } from '@tanstack/react-query';
 
 export const QUERY_STALE_TIME_MS = 30_000;
-export const QUERY_GC_TIME_MS = 5 * 60_000;
+export const QUERY_GC_TIME_MS = 30 * 60_000;
 export const QUERY_PERSIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-export const APP_CACHE_SCHEMA_VERSION = 'v2';
+export const APP_CACHE_SCHEMA_VERSION = 'v3';
 export const QUERY_PERSIST_CACHE_KEY = `footalert-query-cache-${APP_CACHE_SCHEMA_VERSION}`;
 
 export const defaultQueryOptions: Pick<
@@ -43,14 +43,15 @@ export const featureQueryOptions = {
     trophies: { staleTime: 60 * 60_000, retry: 1 },
   },
   competitions: {
-    fixtures: { staleTime: 5 * 60_000, retry: 2 },
-    standings: { staleTime: 5 * 60 * 1000, retry: 2 },
-    transfers: { staleTime: 60 * 60 * 1000, retry: 1 },
+    fixtures: { staleTime: 2 * 60_000, retry: 2 },
+    standings: { staleTime: 2 * 60_000, retry: 2 },
+    transfers: { staleTime: 6 * 60 * 60 * 1000, retry: 1 },
     seasons: { staleTime: 24 * 60 * 60 * 1000, retry: 1 },
-    playerStats: { staleTime: 60 * 60 * 1000, retry: 1 },
+    playerStats: { staleTime: 5 * 60 * 1000, retry: 1 },
     teamStats: { staleTime: 5 * 60 * 1000, retry: 1 },
     teamAdvancedStats: { staleTime: 30 * 60 * 1000, retry: 1 },
-    totw: { staleTime: 24 * 60 * 60 * 1000, retry: 1 },
+    totw: { staleTime: 30 * 60 * 1000, retry: 1 },
+    bracket: { staleTime: 6 * 60_000, retry: 2 },
   },
   matches: {
     details: { staleTime: 60_000, retry: 2 },

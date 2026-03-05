@@ -23,7 +23,7 @@ export function registerCompetitionPlayerStatsRoute(app: FastifyInstance): void 
       const query = parseOrThrow(playerStatsQuerySchema, request.query);
 
       const cacheKey = `competition:playerstats:${request.url}`;
-      return withCache(cacheKey, 90_000, () =>
+      return withCache(cacheKey, 5 * 60_000, () =>
         apiFootballGet(buildPlayerStatsPath(query.type, params.id, query.season)),
       );
     },

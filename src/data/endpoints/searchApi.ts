@@ -59,7 +59,7 @@ export async function searchGlobal(
   signal?: AbortSignal,
 ): Promise<SearchGlobalApiResponse> {
   return bffGet<SearchGlobalApiResponse>(
-    '/v1/search/global',
+    '/search/global',
     {
       q: query,
       timezone,

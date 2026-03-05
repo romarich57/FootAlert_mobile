@@ -25,7 +25,6 @@ import { ApiError } from '@data/api/http/client';
 import { fetchLeagueStandings } from '@data/endpoints/competitionsApi';
 import {
   fetchTeamFixtures,
-  fetchTeamPlayers,
 } from '@data/endpoints/teamsApi';
 import {
   classifyFixtureStatus,
@@ -61,11 +60,11 @@ import type {
   MatchLineupTeam,
 } from '@ui/features/matches/types/matches.types';
 import type {
-  TeamApiPlayerDto,
   TeamMatchesData,
   TeamTopPlayer,
   TeamTopPlayersByCategory,
 } from '@ui/features/teams/types/teams.types';
+import { fetchAllTeamPlayers } from '@ui/features/teams/utils/fetchAllTeamPlayers';
 import type {
   MatchDetailsDatasetErrorReason,
   StatRowsByPeriod,
@@ -166,57 +165,6 @@ async function fetchTeamMatchesSnapshot({
   );
 
   return mapFixturesToTeamMatches(fixtures);
-}
-
-async function fetchAllTeamPlayers({
-  teamId,
-  leagueId,
-  season,
-  signal,
-}: {
-  teamId: string;
-  leagueId: number;
-  season: number;
-  signal?: AbortSignal;
-}): Promise<TeamApiPlayerDto[]> {
-  const aggregated: TeamApiPlayerDto[] = [];
-  const limit = 50;
-  const maxRequests = 10;
-  const targetItems = 200;
-  const seenCursors = new Set<string>();
-  let cursor: string | undefined;
-
-  for (let requestIndex = 0; requestIndex < maxRequests; requestIndex += 1) {
-    const page = await fetchTeamPlayers(
-      {
-        teamId,
-        leagueId: String(leagueId),
-        season,
-        limit,
-        cursor,
-      },
-      signal,
-    );
-
-    if (Array.isArray(page.response) && page.response.length > 0) {
-      aggregated.push(...page.response);
-    }
-
-    const nextCursor = page.pageInfo?.nextCursor ?? undefined;
-    const hasMore = page.pageInfo?.hasMore ?? false;
-    if (!hasMore || !nextCursor || seenCursors.has(nextCursor)) {
-      break;
-    }
-
-    if (aggregated.length >= targetItems) {
-      break;
-    }
-
-    seenCursors.add(nextCursor);
-    cursor = nextCursor;
-  }
-
-  return aggregated;
 }
 
 async function fetchTeamLeadersByCategory({
@@ -1441,7 +1389,12 @@ export function useMatchDetailsScreenModel() {
   const shouldFetchPreMatchExtras = queryPolicy.enablePreMatchExtras;
 
   const homeTeamMatchesQuery = useQuery({
-    queryKey: queryKeys.matchTeamRecentResults(safeMatchId ?? 'invalid', homeTeamId ?? 'unknown'),
+    queryKey: queryKeys.teamRecentResults(
+      homeTeamId ?? 'unknown',
+      leagueId,
+      season,
+      timezone,
+    ),
     enabled: shouldFetchTeamContext && Boolean(homeTeamId),
     queryFn: ({ signal }) =>
       fetchTeamMatchesSnapshot({
@@ -1457,7 +1410,12 @@ export function useMatchDetailsScreenModel() {
   });
 
   const awayTeamMatchesQuery = useQuery({
-    queryKey: queryKeys.matchTeamRecentResults(safeMatchId ?? 'invalid', awayTeamId ?? 'unknown'),
+    queryKey: queryKeys.teamRecentResults(
+      awayTeamId ?? 'unknown',
+      leagueId,
+      season,
+      timezone,
+    ),
     enabled: shouldFetchTeamContext && Boolean(awayTeamId),
     queryFn: ({ signal }) =>
       fetchTeamMatchesSnapshot({
@@ -1473,7 +1431,11 @@ export function useMatchDetailsScreenModel() {
   });
 
   const homeLeadersQuery = useQuery({
-    queryKey: queryKeys.matchTeamLeaders(safeMatchId ?? 'invalid', homeTeamId ?? 'unknown'),
+    queryKey: queryKeys.teamLeaders(
+      homeTeamId ?? 'unknown',
+      leagueId,
+      season,
+    ),
     enabled: shouldFetchPreMatchExtras && Boolean(homeTeamId),
     queryFn: ({ signal }) =>
       fetchTeamLeadersByCategory({
@@ -1488,7 +1450,11 @@ export function useMatchDetailsScreenModel() {
   });
 
   const awayLeadersQuery = useQuery({
-    queryKey: queryKeys.matchTeamLeaders(safeMatchId ?? 'invalid', awayTeamId ?? 'unknown'),
+    queryKey: queryKeys.teamLeaders(
+      awayTeamId ?? 'unknown',
+      leagueId,
+      season,
+    ),
     enabled: shouldFetchPreMatchExtras && Boolean(awayTeamId),
     queryFn: ({ signal }) =>
       fetchTeamLeadersByCategory({

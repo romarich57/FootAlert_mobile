@@ -154,63 +154,73 @@ export function CompetitionDetailsScreen() {
         });
     }, [screenModel]);
 
+    const {
+        activeTab,
+        numericCompetitionId,
+        actualSeason,
+        totwData,
+        handlePressTeam,
+        handlePressMatch,
+        handlePressPlayer,
+    } = screenModel;
+
     const renderTabContent = useCallback(() => {
-        switch (screenModel.activeTab) {
+        switch (activeTab) {
             case 'standings':
                 return (
                     <CompetitionStandingsTab
-                        competitionId={screenModel.numericCompetitionId}
-                        season={screenModel.actualSeason}
-                        onPressTeam={screenModel.handlePressTeam}
+                        competitionId={numericCompetitionId}
+                        season={actualSeason}
+                        onPressTeam={handlePressTeam}
                     />
                 );
             case 'matches':
                 return (
                     <CompetitionMatchesTab
-                        competitionId={screenModel.numericCompetitionId}
-                        season={screenModel.actualSeason}
-                        onPressMatch={screenModel.handlePressMatch}
-                        onPressTeam={screenModel.handlePressTeam}
+                        competitionId={numericCompetitionId}
+                        season={actualSeason}
+                        onPressMatch={handlePressMatch}
+                        onPressTeam={handlePressTeam}
                     />
                 );
             case 'playerStats':
                 return (
                     <CompetitionPlayerStatsTab
-                        competitionId={screenModel.numericCompetitionId}
-                        season={screenModel.actualSeason}
-                        onPressPlayer={screenModel.handlePressPlayer}
-                        onPressTeam={screenModel.handlePressTeam}
+                        competitionId={numericCompetitionId}
+                        season={actualSeason}
+                        onPressPlayer={handlePressPlayer}
+                        onPressTeam={handlePressTeam}
                     />
                 );
             case 'teamStats':
                 return (
                     <CompetitionTeamStatsTab
-                        competitionId={screenModel.numericCompetitionId}
-                        season={screenModel.actualSeason}
-                        onPressTeam={screenModel.handlePressTeam}
+                        competitionId={numericCompetitionId}
+                        season={actualSeason}
+                        onPressTeam={handlePressTeam}
                     />
                 );
             case 'transfers':
                 return (
                     <CompetitionTransfersTab
-                        competitionId={screenModel.numericCompetitionId}
-                        season={screenModel.actualSeason}
-                        onPressPlayer={screenModel.handlePressPlayer}
-                        onPressTeam={screenModel.handlePressTeam}
+                        competitionId={numericCompetitionId}
+                        season={actualSeason}
+                        onPressPlayer={handlePressPlayer}
+                        onPressTeam={handlePressTeam}
                     />
                 );
             case 'totw':
-                return screenModel.totwData ? (
+                return totwData ? (
                     <CompetitionTotwTab
-                        totw={screenModel.totwData}
-                        onPressPlayer={screenModel.handlePressPlayer}
-                        onPressTeam={screenModel.handlePressTeam}
+                        totw={totwData}
+                        onPressPlayer={handlePressPlayer}
+                        onPressTeam={handlePressTeam}
                     />
                 ) : null;
             default:
                 return null;
         }
-    }, [screenModel]);
+    }, [activeTab, numericCompetitionId, actualSeason, totwData, handlePressTeam, handlePressMatch, handlePressPlayer]);
 
     if (!screenModel.competition && screenModel.isCompetitionQueryLoading) {
         return (

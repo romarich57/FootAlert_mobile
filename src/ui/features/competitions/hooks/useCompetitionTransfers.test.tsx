@@ -39,7 +39,7 @@ describe('useCompetitionTransfers', () => {
       expect.objectContaining({
         queryKey: ['competition_transfers', 61, 2025],
         enabled: true,
-        staleTime: 60 * 60 * 1000,
+        staleTime: 6 * 60 * 60 * 1000,
       }),
     );
   });

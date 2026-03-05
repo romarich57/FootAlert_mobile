@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -9,6 +9,7 @@ import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTea
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { useFollowsSearch } from '@ui/features/follows/hooks/useFollowsSearch';
 import { useFollowsTrends } from '@ui/features/follows/hooks/useFollowsTrends';
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import type {
   FollowEntityTab,
   FollowsSearchResultPlayer,
@@ -22,6 +23,7 @@ export function useFollowsScreenModel() {
   const [selectedTab, setSelectedTab] = useState<FollowEntityTab>('teams');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const requestCountTelemetryKeyRef = useRef<string | null>(null);
 
   const {
     followedTeamIds,
@@ -40,14 +42,17 @@ export function useFollowsScreenModel() {
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
     [],
   );
+  const isTeamsTabSelected = selectedTab === 'teams';
 
   const teamCardsQuery = useFollowedTeamsCards({
     teamIds: followedTeamIds,
     timezone,
+    enabled: isTeamsTabSelected,
   });
 
   const playerCardsQuery = useFollowedPlayersCards({
     playerIds: followedPlayerIds,
+    enabled: !isTeamsTabSelected,
   });
 
   const hideTrendsCurrentTab = selectedTab === 'teams' ? hideTrendsTeams : hideTrendsPlayers;
@@ -108,6 +113,27 @@ export function useFollowsScreenModel() {
     localTeams,
     localPlayers,
   });
+
+  const activeRequestCount = useMemo(() => {
+    const cardsQueryCount = 1;
+    const trendsQueryCount = 1;
+    const remoteSearchQueryCount = search.hasEnoughChars ? 1 : 0;
+    return cardsQueryCount + trendsQueryCount + remoteSearchQueryCount;
+  }, [search.hasEnoughChars]);
+
+  useEffect(() => {
+    const telemetryKey = `${selectedTab}|${search.debouncedQuery}|${activeRequestCount}`;
+    if (requestCountTelemetryKeyRef.current === telemetryKey) {
+      return;
+    }
+    requestCountTelemetryKeyRef.current = telemetryKey;
+
+    getMobileTelemetry().trackEvent('follows_screen.request_count', {
+      selectedTab,
+      queryCount: activeRequestCount,
+      hasSearch: search.hasEnoughChars,
+    });
+  }, [activeRequestCount, search.debouncedQuery, search.hasEnoughChars, selectedTab]);
 
   const lastUpdatedAt = useMemo(() => {
     const maxUpdatedAt = Math.max(

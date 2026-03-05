@@ -64,9 +64,34 @@ function buildQueryString(query?: Record<string, QueryValue>): string {
   return queryString ? `?${queryString}` : '';
 }
 
+function normalizePathWithBase(path: string, mobileApiBaseUrl: string): string {
+  const pathWithLeadingSlash = path.startsWith('/') ? path : `/${path}`;
+
+  try {
+    const baseUrl = new URL(mobileApiBaseUrl);
+    const basePath = baseUrl.pathname.replace(/\/+$/, '');
+    if (!basePath || basePath === '/') {
+      return pathWithLeadingSlash;
+    }
+
+    if (pathWithLeadingSlash === basePath) {
+      return '/';
+    }
+
+    if (pathWithLeadingSlash.startsWith(`${basePath}/`)) {
+      const normalized = pathWithLeadingSlash.slice(basePath.length);
+      return normalized.startsWith('/') ? normalized : `/${normalized}`;
+    }
+  } catch {
+    // Keep fallback behavior when base URL cannot be parsed for any reason.
+  }
+
+  return pathWithLeadingSlash;
+}
+
 export function buildBffUrl(path: string, query?: Record<string, QueryValue>): string {
   const { mobileApiBaseUrl } = getMobileApiEnvOrThrow();
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const normalizedPath = normalizePathWithBase(path, mobileApiBaseUrl);
   return `${mobileApiBaseUrl}${normalizedPath}${buildQueryString(query)}`;
 }
 

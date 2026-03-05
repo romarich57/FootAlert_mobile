@@ -13,15 +13,19 @@ import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type UseFollowedPlayersCardsParams = {
   playerIds: string[];
+  enabled?: boolean;
 };
 
-export function useFollowedPlayersCards({ playerIds }: UseFollowedPlayersCardsParams) {
+export function useFollowedPlayersCards({
+  playerIds,
+  enabled = true,
+}: UseFollowedPlayersCardsParams) {
   const season = getCurrentSeasonYear();
   const sortedPlayerIds = useMemo(() => [...playerIds].sort(), [playerIds]);
 
   return useQuery({
     queryKey: queryKeys.follows.followedPlayerCards(sortedPlayerIds, season),
-    enabled: sortedPlayerIds.length > 0,
+    enabled: enabled && sortedPlayerIds.length > 0,
     staleTime: appEnv.followsPlayerStatsTtlMs,
     queryFn: async ({ signal }): Promise<FollowedPlayerCard[]> => {
       const cards = await mapWithConcurrency(sortedPlayerIds, 3, async playerId => {

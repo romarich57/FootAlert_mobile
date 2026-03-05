@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { fetchLeagueStandings } from '@data/endpoints/competitionsApi';
 import { mapStandingDtoToGroups } from '@data/mappers/competitionsMapper';
@@ -20,6 +20,7 @@ export function useCompetitionStandings(
       return mapStandingDtoToGroups(dto);
     },
     enabled: !!leagueId && !!season,
+    placeholderData: keepPreviousData,
     ...featureQueryOptions.competitions.standings,
   });
 }

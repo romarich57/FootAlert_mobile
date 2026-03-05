@@ -53,6 +53,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/competitions/{id}/bracket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get competition bracket */
+        get: operations["getCompetitionBracket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/competitions/{id}/matches": {
         parameters: {
             query?: never;
@@ -1061,6 +1078,29 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        BracketMatch: {
+            awayScore?: number | null;
+            awayTeam: components["schemas"]["BracketTeam"];
+            /** Format: date-time */
+            date: string;
+            homeScore?: number | null;
+            homeTeam: components["schemas"]["BracketTeam"];
+            matchId: number;
+            penaltyAway?: number | null;
+            penaltyHome?: number | null;
+            status: string;
+            winnerId?: number | null;
+        };
+        BracketTeam: {
+            id?: number | null;
+            logo: string;
+            name: string;
+        };
+        CompetitionBracketResponse: {
+            bracket?: components["schemas"]["KnockoutRound"][] | null;
+            /** @enum {string} */
+            competitionKind: "league" | "cup" | "mixed";
+        };
         CursorPageInfo: {
             hasMore: boolean;
             nextCursor: string | null;
@@ -1084,6 +1124,11 @@ export type components = {
             };
             /** @enum {string} */
             status: "ok" | "degraded";
+        };
+        KnockoutRound: {
+            matches: components["schemas"]["BracketMatch"][];
+            name: string;
+            order: number;
         };
         ListEnvelope: {
             pageInfo?: components["schemas"]["CursorPageInfo"] | null;
@@ -1500,6 +1545,31 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getCompetitionBracket: {
+        parameters: {
+            query: {
+                season: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Competition bracket data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetitionBracketResponse"];
+                };
+            };
             400: components["responses"]["ProblemResponse"];
         };
     };

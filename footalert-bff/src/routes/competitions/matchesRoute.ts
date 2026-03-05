@@ -29,8 +29,8 @@ export function registerCompetitionMatchesRoute(app: FastifyInstance): void {
     const query = parseOrThrow(seasonQuerySchema, request.query);
     const isCursorPagination = typeof query.limit === 'number' || typeof query.cursor === 'string';
 
-    const cacheKey = `competition:matches:${params.id}:${query.season}`;
-    const payload = await withCache(cacheKey, 60_000, () =>
+    const cacheKey = `competition:matches:${request.url}`;
+    const payload = await withCache(cacheKey, 90_000, () =>
       apiFootballGet<CompetitionMatchesEnvelope>(
         `/fixtures?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(query.season))}`,
       ),

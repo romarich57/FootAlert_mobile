@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import {
   useNavigation,
@@ -21,6 +21,7 @@ import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import { resolveTeamStatsVisibility } from '@ui/features/teams/components/stats/teamStatsSelectors';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
@@ -65,6 +66,7 @@ export function useTeamDetailsScreenModel() {
   const teamId = safeTeamId ?? '';
 
   const [activeTab, setActiveTab] = useState<TeamDetailsTab>('overview');
+  const requestCountTelemetryKeyRef = useRef<string | null>(null);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
   const { followedTeamIds, toggleTeamFollow } = useFollowsActions();
@@ -87,6 +89,13 @@ export function useTeamDetailsScreenModel() {
   } = useTeamContext({ teamId });
 
   const hasLeagueSelection = Boolean(selectedLeagueId) && typeof selectedSeason === 'number';
+  const isOverviewTabActive = activeTab === 'overview';
+  const isMatchesTabActive = activeTab === 'matches';
+  const isStandingsTabActive = activeTab === 'standings';
+  const isStatsTabActive = activeTab === 'stats';
+  const isTransfersTabActive = activeTab === 'transfers';
+  const isSquadTabActive = activeTab === 'squad';
+  const isTrophiesTabActive = activeTab === 'trophies';
   const standingsCompetitions = useMemo(
     () => competitions.filter(item => isLeagueCompetition(item.type)),
     [competitions],
@@ -132,7 +141,7 @@ export function useTeamDetailsScreenModel() {
     season: selectedSeason,
     timezone,
     competitionSeasons: selectedCompetitionSeasons,
-    enabled: hasLeagueSelection,
+    enabled: hasLeagueSelection && isOverviewTabActive,
   });
 
   const matchesQuery = useTeamMatches({
@@ -140,38 +149,102 @@ export function useTeamDetailsScreenModel() {
     leagueId: selectedLeagueId,
     season: selectedSeason,
     timezone,
-    enabled: hasLeagueSelection,
+    enabled: hasLeagueSelection && isMatchesTabActive,
   });
 
   const standingsQuery = useTeamStandings({
     teamId,
     leagueId: selectedLeagueId,
     season: selectedSeason,
-    enabled: hasLeagueSelection,
+    enabled: hasLeagueSelection && isStandingsTabActive,
   });
 
   const statsQuery = useTeamStats({
     teamId,
     leagueId: selectedLeagueId,
     season: selectedSeason,
-    enabled: hasLeagueSelection,
+    enabled: hasLeagueSelection && isStatsTabActive,
   });
 
   const transfersQuery = useTeamTransfers({
     teamId,
     season: selectedSeason,
-    enabled: Boolean(safeTeamId),
+    enabled: Boolean(safeTeamId) && isTransfersTabActive,
   });
 
   const squadQuery = useTeamSquad({
     teamId,
-    enabled: Boolean(safeTeamId),
+    enabled: Boolean(safeTeamId) && isSquadTabActive,
   });
 
   const trophiesQuery = useTeamTrophies({
     teamId,
-    enabled: Boolean(safeTeamId),
+    enabled: Boolean(safeTeamId) && isTrophiesTabActive,
   });
+
+  const activeRequestCount = useMemo(() => {
+    let count = 1; // Team context query.
+
+    if (hasLeagueSelection && isOverviewTabActive) {
+      count += 1;
+    }
+    if (hasLeagueSelection && isMatchesTabActive) {
+      count += 1;
+    }
+    if (hasLeagueSelection && isStandingsTabActive) {
+      count += 1;
+    }
+    if (hasLeagueSelection && isStatsTabActive) {
+      count += 1;
+    }
+    if (safeTeamId && isTransfersTabActive) {
+      count += 1;
+    }
+    if (safeTeamId && isSquadTabActive) {
+      count += 1;
+    }
+    if (safeTeamId && isTrophiesTabActive) {
+      count += 1;
+    }
+
+    return count;
+  }, [
+    hasLeagueSelection,
+    isMatchesTabActive,
+    isOverviewTabActive,
+    isSquadTabActive,
+    isStandingsTabActive,
+    isStatsTabActive,
+    isTransfersTabActive,
+    isTrophiesTabActive,
+    safeTeamId,
+  ]);
+
+  useEffect(() => {
+    if (!safeTeamId) {
+      return;
+    }
+
+    const telemetryKey = `${teamId}|${activeTab}|${selectedLeagueId ?? 'none'}|${selectedSeason ?? 'none'}|${activeRequestCount}`;
+    if (requestCountTelemetryKeyRef.current === telemetryKey) {
+      return;
+    }
+    requestCountTelemetryKeyRef.current = telemetryKey;
+
+    getMobileTelemetry().trackEvent('team_details.request_count', {
+      activeTab,
+      queryCount: activeRequestCount,
+      hasLeagueSelection,
+    });
+  }, [
+    activeRequestCount,
+    activeTab,
+    hasLeagueSelection,
+    safeTeamId,
+    selectedLeagueId,
+    selectedSeason,
+    teamId,
+  ]);
 
   const hasTrophiesData = useMemo(
     () => (trophiesQuery.data?.groups ?? []).some(group => group.placements.length > 0),

@@ -45,6 +45,26 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
     return (payload as ListEnvelope<T>).response;
   }
 
+  async function fetchListWithPageInfo<T = unknown>(
+    path: string,
+    query: Record<string, string | number | undefined> | undefined,
+    feature: string,
+    endpoint: string,
+    signal?: AbortSignal,
+  ): Promise<ListEnvelope<T>> {
+    const rawPayload = await http.get<unknown>(path, query, { signal });
+    const payload = parseRuntimePayloadOrFallback({
+      schema: listResponseSchema,
+      payload: rawPayload,
+      fallback: { response: [] },
+      telemetry,
+      feature,
+      endpoint,
+    });
+
+    return payload as ListEnvelope<T>;
+  }
+
   return {
     fetchAllLeagues<T = unknown>(signal?: AbortSignal): Promise<T[]> {
       return fetchList('/competitions', undefined, 'competitions.list', '/competitions', signal);
@@ -110,6 +130,28 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
       );
     },
 
+    fetchLeagueFixturesPage<T = unknown>(
+      leagueId: number,
+      season: number,
+      signal?: AbortSignal,
+      options?: {
+        limit?: number;
+        cursor?: string;
+      },
+    ): Promise<ListEnvelope<T>> {
+      return fetchListWithPageInfo(
+        `/competitions/${encodeURIComponent(String(leagueId))}/matches`,
+        {
+          season,
+          limit: options?.limit,
+          cursor: options?.cursor,
+        },
+        'competitions.fixtures_page',
+        `/competitions/${leagueId}/matches`,
+        signal,
+      );
+    },
+
     fetchLeaguePlayerStats<T = unknown>(
       leagueId: number,
       season: number,
@@ -137,6 +179,44 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
         `/competitions/${leagueId}/transfers`,
         signal,
       );
+    },
+
+    async fetchCompetitionBracket<T = unknown>(
+      leagueId: number,
+      season: number,
+      signal?: AbortSignal,
+    ): Promise<T> {
+      // Appel direct : le BFF retourne un objet { competitionKind, bracket } (pas d'enveloppe { response: [] })
+      return http.get<T>(
+        `/competitions/${encodeURIComponent(String(leagueId))}/bracket`,
+        { season },
+        { signal },
+      );
+    },
+
+    async fetchCompetitionTotw<T = unknown>(
+      leagueId: number,
+      season: number,
+      signal?: AbortSignal,
+    ): Promise<{ topScorers: T[]; topAssists: T[]; topYellowCards: T[]; topRedCards: T[] }> {
+      // Appel direct : la réponse BFF n'est pas une enveloppe { response: [] }
+      // mais directement { topScorers, topAssists, topYellowCards, topRedCards }
+      const raw = await http.get<{
+        topScorers: unknown[];
+        topAssists: unknown[];
+        topYellowCards: unknown[];
+        topRedCards: unknown[];
+      }>(
+        `/competitions/${encodeURIComponent(String(leagueId))}/totw`,
+        { season },
+        { signal },
+      );
+      return {
+        topScorers: (raw.topScorers ?? []) as T[],
+        topAssists: (raw.topAssists ?? []) as T[],
+        topYellowCards: (raw.topYellowCards ?? []) as T[],
+        topRedCards: (raw.topRedCards ?? []) as T[],
+      };
     },
   };
 }

@@ -190,4 +190,31 @@ describe('useSearchScreenModel', () => {
       expect(result.current.isLoading).toBe(false);
     });
   });
+
+  it('does not trigger fallback calls when global search is aborted', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mockedSearchGlobal.mockRejectedValueOnce(abortError);
+
+    const { result } = renderHook(() => useSearchScreenModel(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setQuery('Messi');
+      jest.advanceTimersByTime(appEnv.followsSearchDebounceMs + 10);
+    });
+
+    await waitFor(() => {
+      expect(mockedSearchGlobal).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(mockedSearchTeamsByName).not.toHaveBeenCalled();
+    expect(mockedSearchPlayersByName).not.toHaveBeenCalled();
+    expect(mockedSearchLeaguesByName).not.toHaveBeenCalled();
+  });
 });

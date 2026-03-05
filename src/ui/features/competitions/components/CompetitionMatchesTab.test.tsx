@@ -42,9 +42,12 @@ describe('CompetitionMatchesTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedUseCompetitionFixtures.mockReturnValue({
-      data: baseFixtures,
+      data: { pages: [{ items: baseFixtures, hasMore: false, nextCursor: null }], pageParams: [undefined] },
       isLoading: false,
       error: null,
+      fetchNextPage: jest.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
     } as never);
   });
 
@@ -72,9 +75,12 @@ describe('CompetitionMatchesTab', () => {
 
   it('shows unavailable state when fixtures are empty', () => {
     mockedUseCompetitionFixtures.mockReturnValue({
-      data: [],
+      data: { pages: [{ items: [], hasMore: false, nextCursor: null }], pageParams: [undefined] },
       isLoading: false,
       error: null,
+      fetchNextPage: jest.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
     } as never);
 
     renderWithAppProviders(<CompetitionMatchesTab competitionId={61} season={2025} />);

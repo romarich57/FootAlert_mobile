@@ -27,9 +27,25 @@ export function useFollowedCompetitions() {
   const followedCompetitionsQuery = useQuery({
     queryKey: queryKeys.competitions.followedDetails(followedIds),
     queryFn: async ({ signal }) => {
-      const results = await Promise.all(followedIds.map(id => fetchLeagueById(id, signal)));
+      const results = await Promise.allSettled(
+        followedIds.map(id => fetchLeagueById(id, signal)),
+      );
+      const abortedError = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === 'rejected' &&
+          result.reason instanceof Error &&
+          result.reason.name === 'AbortError',
+      );
+      if (abortedError) {
+        throw abortedError.reason;
+      }
+
       return results
-        .map(dto => mapLeagueDtoToCompetition(dto))
+        .filter(
+          (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof fetchLeagueById>>> =>
+            result.status === 'fulfilled',
+        )
+        .map(result => mapLeagueDtoToCompetition(result.value))
         .filter(Boolean) as Competition[];
     },
     enabled: followedIds.length > 0,

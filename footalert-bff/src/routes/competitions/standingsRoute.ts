@@ -22,7 +22,7 @@ export function registerCompetitionStandingsRoute(app: FastifyInstance): void {
       const query = parseOrThrow(seasonQuerySchema, request.query);
 
       const cacheKey = `competition:standings:${request.url}`;
-      return withCache(cacheKey, 60_000, () =>
+      return withCache(cacheKey, 90_000, () =>
         apiFootballGet(
           `/standings?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(query.season))}`,
         ),

@@ -33,4 +33,26 @@ describe('http client timeout handling', () => {
     await expect(httpGet('https://example.com/failure')).rejects.toThrow('network down');
     expect(jest.getTimerCount()).toBe(0);
   });
+
+  it('propagates pre-aborted signal to transport layer', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+
+    globalThis.fetch = jest.fn(async (_url, init) => {
+      const signal = init?.signal as AbortSignal | undefined;
+      if (!signal?.aborted) {
+        throw new Error('signal should be aborted before fetch');
+      }
+      throw abortError;
+    }) as unknown as typeof fetch;
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      httpGet('https://example.com/pre-aborted', { signal: controller.signal }),
+    ).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -8,6 +8,7 @@ import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
 import { searchLeaguesByName } from '@data/endpoints/competitionsApi';
 import { searchPlayersByName, searchTeamsByName } from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import {
   getCurrentSeasonYear,
   mapPlayerSearchResults,
@@ -99,6 +100,7 @@ export function useSearchScreenModel() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [selectedTab, setSelectedTab] = useState<SearchEntityTab>('all');
   const [query, setQuery] = useState('');
+  const trackedRequestKeyRef = useRef<string | null>(null);
   const season = getCurrentSeasonYear();
   const trimmedQuery = query.trim();
   const debouncedQuery = useDebouncedValue(trimmedQuery, appEnv.followsSearchDebounceMs);
@@ -144,7 +146,18 @@ export function useSearchScreenModel() {
           })),
           matches: mapMatchResults(payload.matches, resultsLimit),
         };
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw error;
+        }
+
+        getMobileTelemetry().trackEvent('search_global_fallback_triggered', {
+          reason: error instanceof Error ? 'http_error' : 'parse_error',
+          queryLength: debouncedQuery.length,
+          season,
+          limit: resultsLimit,
+        });
+
         const [teamsPayload, playersPayload, competitionsPayload] = await Promise.all([
           searchTeamsByName(debouncedQuery, signal),
           searchPlayersByName(debouncedQuery, season, signal),
@@ -160,6 +173,25 @@ export function useSearchScreenModel() {
       }
     },
   });
+
+  useEffect(() => {
+    if (!hasEnoughChars) {
+      return;
+    }
+
+    const requestKey = `${debouncedQuery}|${timezone}|${season}|${resultsLimit}`;
+    if (trackedRequestKeyRef.current === requestKey) {
+      return;
+    }
+    trackedRequestKeyRef.current = requestKey;
+
+    getMobileTelemetry().trackEvent('search_screen.request_count', {
+      queryCount: 1,
+      queryLength: debouncedQuery.length,
+      season,
+      limit: resultsLimit,
+    });
+  }, [debouncedQuery, hasEnoughChars, resultsLimit, season, timezone]);
 
   const handleClearQuery = useCallback(() => {
     setQuery('');

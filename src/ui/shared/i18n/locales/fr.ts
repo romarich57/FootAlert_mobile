@@ -713,6 +713,18 @@ export const fr = {
       unavailable:
         "L'Équipe de la semaine n'est pas disponible pour cette compétition à cause des limites de l'API.",
     },
+    bracket: {
+      title: 'Tableau des phases finales',
+      rounds: {
+        final: 'Finale',
+        semi_final: 'Demi-finales',
+        quarter_final: 'Quarts de finale',
+        round_of_16: 'Huitièmes de finale',
+        round_of_32: 'Seizièmes de finale',
+        other: 'Tour éliminatoire',
+      },
+      tbd: 'À déterminer',
+    },
   },
   playerDetails: {
     tabs: {

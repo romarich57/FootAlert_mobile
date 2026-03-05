@@ -7,6 +7,8 @@ import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import type { StandingRow } from '../types/competitions.types';
 import { useCompetitionStandings } from '../hooks/useCompetitionStandings';
+import { useCompetitionBracket } from '../hooks/useCompetitionBracket';
+import { KnockoutBracketView } from './KnockoutBracketView';
 
 type CompetitionStandingsTabProps = {
     competitionId: number;
@@ -141,6 +143,19 @@ function displayValue(value: string | number | null | undefined): string | numbe
     return value !== null && value !== undefined && value !== '' ? value : '';
 }
 
+function TableHeaderRow({ styles, t }: { styles: ReturnType<typeof createStyles>; t: (key: string) => string }) {
+    return (
+        <View style={styles.tableHeaderRow}>
+            <View style={styles.colRank}><Text style={styles.headerText}>{t('competitionDetails.standings.table.rank')}</Text></View>
+            <View style={styles.colTeam}><Text style={styles.headerText}>{t('competitionDetails.standings.table.team')}</Text></View>
+            <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.played')}</Text></View>
+            <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.goalDiff')}</Text></View>
+            <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.points')}</Text></View>
+            <View style={styles.colForm}><Text style={styles.headerText}>{t('competitionDetails.standings.table.form')}</Text></View>
+        </View>
+    );
+}
+
 function getFormStyle(char: string, styles: ReturnType<typeof createStyles>) {
     if (char === 'W') return styles.formW;
     if (char === 'D') return styles.formD;
@@ -165,15 +180,10 @@ function getDescriptionColor(desc: string | null, styles: ReturnType<typeof crea
 function createFormBadges(form: string, teamId: number) {
     const chars = form.trim().length > 0 ? form.split('').slice(0, 5) : [];
     const seen = new Map<string, number>();
-
     return chars.map(char => {
         const occurrence = (seen.get(char) ?? 0) + 1;
         seen.set(char, occurrence);
-
-        return {
-            char,
-            key: `form-${teamId}-${char}-${occurrence}`,
-        };
+        return { char, key: `form-${teamId}-${char}-${occurrence}` };
     });
 }
 
@@ -183,7 +193,13 @@ export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: 
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const { data: groups, isLoading, error } = useCompetitionStandings(competitionId, season);
+    const { data: bracketData } = useCompetitionBracket(competitionId, season);
     const defaultGroupTitle = t('competitionDetails.standings.defaultGroup');
+
+    const kind = bracketData?.competitionKind;
+    const isCupOnly = kind === 'cup';
+    const showBracket = !!(bracketData?.bracket?.length) && (isCupOnly || kind === 'mixed');
+    const showStandings = !isCupOnly;
 
     const listData = useMemo(() => {
         if (!groups) return [];
@@ -219,14 +235,7 @@ export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: 
             return (
                 <View style={styles.groupHeader}>
                     <Text style={styles.groupHeaderText}>{item.title}</Text>
-                    <View style={styles.tableHeaderRow}>
-                        <View style={styles.colRank}><Text style={styles.headerText}>{t('competitionDetails.standings.table.rank')}</Text></View>
-                        <View style={styles.colTeam}><Text style={styles.headerText}>{t('competitionDetails.standings.table.team')}</Text></View>
-                        <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.played')}</Text></View>
-                        <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.goalDiff')}</Text></View>
-                        <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.points')}</Text></View>
-                        <View style={styles.colForm}><Text style={styles.headerText}>{t('competitionDetails.standings.table.form')}</Text></View>
-                    </View>
+                    <TableHeaderRow styles={styles} t={t} />
                 </View>
             );
         }
@@ -283,6 +292,18 @@ export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: 
         );
     }, [onPressTeam, styles, t]);
 
+    if (isCupOnly) {
+        return showBracket ? (
+            <View style={styles.container}>
+                <KnockoutBracketView rounds={bracketData!.bracket!} />
+            </View>
+        ) : (
+            <View style={styles.centerContainer}>
+                <Text style={styles.emptyText}>{t('competitionDetails.standings.unavailable')}</Text>
+            </View>
+        );
+    }
+
     if (isLoading) {
         return (
             <View style={styles.centerContainer}>
@@ -291,7 +312,7 @@ export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: 
         );
     }
 
-    if (error || listData.length === 0) {
+    if ((error || listData.length === 0) && !showBracket) {
         return (
             <View style={styles.centerContainer}>
                 <Text style={styles.emptyText}>{t('competitionDetails.standings.unavailable')}</Text>
@@ -299,28 +320,28 @@ export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: 
         );
     }
 
-    // If there is only one group and it has no header in the listData, we need to add the table header at the top
     const needsTopHeader = listData.length > 0 && listData[0]?.type === 'row';
 
     return (
         <View style={styles.container}>
-            {needsTopHeader && (
-                <View style={styles.tableHeaderRow}>
-                    <View style={styles.colRank}><Text style={styles.headerText}>{t('competitionDetails.standings.table.rank')}</Text></View>
-                    <View style={styles.colTeam}><Text style={styles.headerText}>{t('competitionDetails.standings.table.team')}</Text></View>
-                    <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.played')}</Text></View>
-                    <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.goalDiff')}</Text></View>
-                    <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.points')}</Text></View>
-                    <View style={styles.colForm}><Text style={styles.headerText}>{t('competitionDetails.standings.table.form')}</Text></View>
-                </View>
+            {showStandings && listData.length > 0 && (
+                <>
+                    {needsTopHeader && <TableHeaderRow styles={styles} t={t} />}
+                    <FlashList
+                        data={listData}
+                        keyExtractor={keyExtractor}
+                        renderItem={renderItem}
+                        getItemType={(item) => item.type}
+                        estimatedItemSize={52}
+                    />
+                </>
             )}
-            <FlashList
-                data={listData}
-                keyExtractor={keyExtractor}
-                renderItem={renderItem}
-                getItemType={(item) => item.type}
-                estimatedItemSize={340}
-            />
+            {showBracket && (
+                <KnockoutBracketView
+                    rounds={bracketData!.bracket!}
+                    sectionTitle={t('competitionDetails.bracket.title')}
+                />
+            )}
         </View>
     );
 }

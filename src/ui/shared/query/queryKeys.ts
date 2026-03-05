@@ -17,10 +17,17 @@ export const queryKeys = {
   matchAbsences: (matchId: string, timezone: string) =>
     ['match_details', matchId, 'absences', timezone] as const,
   matchHeadToHead: (matchId: string) => ['match_details', matchId, 'head_to_head'] as const,
-  matchTeamRecentResults: (matchId: string, teamId: string) =>
-    ['match_details', matchId, 'team_recent_results', teamId] as const,
-  matchTeamLeaders: (matchId: string, teamId: string) =>
-    ['match_details', matchId, 'team_leaders', teamId] as const,
+  teamRecentResults: (
+    teamId: string,
+    leagueId: number | undefined,
+    season: number | null,
+    timezone: string,
+  ) => ['team_recent_results', teamId, leagueId, season, timezone] as const,
+  teamLeaders: (
+    teamId: string,
+    leagueId: number | undefined,
+    season: number | null,
+  ) => ['team_leaders', teamId, leagueId, season] as const,
   teams: {
     details: (teamId: string) => ['teams', 'details', teamId] as const,
     leagues: (teamId: string) => ['teams', 'leagues', teamId] as const,
@@ -105,6 +112,8 @@ export const queryKeys = {
       leagueId: number | undefined,
       season: number | undefined,
     ) => ['competition_totw', leagueId, season] as const,
+    bracket: (leagueId: number | undefined, season: number | undefined) =>
+      ['competition_bracket', leagueId, season] as const,
   },
   follows: {
     followedTeamIds: () => ['follows', 'followed-team-ids'] as const,

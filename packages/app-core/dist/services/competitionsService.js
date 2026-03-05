@@ -26,6 +26,18 @@ export function createCompetitionsReadService({ http, telemetry }) {
         });
         return payload.response;
     }
+    async function fetchListWithPageInfo(path, query, feature, endpoint, signal) {
+        const rawPayload = await http.get(path, query, { signal });
+        const payload = parseRuntimePayloadOrFallback({
+            schema: listResponseSchema,
+            payload: rawPayload,
+            fallback: { response: [] },
+            telemetry,
+            feature,
+            endpoint,
+        });
+        return payload;
+    }
     return {
         fetchAllLeagues(signal) {
             return fetchList('/competitions', undefined, 'competitions.list', '/competitions', signal);
@@ -48,11 +60,33 @@ export function createCompetitionsReadService({ http, telemetry }) {
                 cursor: options?.cursor,
             }, 'competitions.fixtures', `/competitions/${leagueId}/matches`, signal);
         },
+        fetchLeagueFixturesPage(leagueId, season, signal, options) {
+            return fetchListWithPageInfo(`/competitions/${encodeURIComponent(String(leagueId))}/matches`, {
+                season,
+                limit: options?.limit,
+                cursor: options?.cursor,
+            }, 'competitions.fixtures_page', `/competitions/${leagueId}/matches`, signal);
+        },
         fetchLeaguePlayerStats(leagueId, season, type, signal) {
             return fetchList(`/competitions/${encodeURIComponent(String(leagueId))}/player-stats`, { season, type }, 'competitions.player_stats', `/competitions/${leagueId}/player-stats`, signal);
         },
         fetchLeagueTransfers(leagueId, season, signal) {
             return fetchList(`/competitions/${encodeURIComponent(String(leagueId))}/transfers`, { season }, 'competitions.transfers', `/competitions/${leagueId}/transfers`, signal);
+        },
+        async fetchCompetitionBracket(leagueId, season, signal) {
+            // Appel direct : le BFF retourne un objet { competitionKind, bracket } (pas d'enveloppe { response: [] })
+            return http.get(`/competitions/${encodeURIComponent(String(leagueId))}/bracket`, { season }, { signal });
+        },
+        async fetchCompetitionTotw(leagueId, season, signal) {
+            // Appel direct : la réponse BFF n'est pas une enveloppe { response: [] }
+            // mais directement { topScorers, topAssists, topYellowCards, topRedCards }
+            const raw = await http.get(`/competitions/${encodeURIComponent(String(leagueId))}/totw`, { season }, { signal });
+            return {
+                topScorers: (raw.topScorers ?? []),
+                topAssists: (raw.topAssists ?? []),
+                topYellowCards: (raw.topYellowCards ?? []),
+                topRedCards: (raw.topRedCards ?? []),
+            };
         },
     };
 }

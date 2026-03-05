@@ -120,7 +120,7 @@ export function mapFixturesDtoToFixtures(dtos: CompetitionsApiFixtureDto[]): Fix
         goalsAway: normalizeNumber(dto.goals?.away),
         penaltyHome: normalizeNumber(dto.score?.penalty?.home),
         penaltyAway: normalizeNumber(dto.score?.penalty?.away),
-    })).sort((a, b) => a.timestamp - b.timestamp);
+    }));
 }
 
 function toComparableNumber(value: number | null | undefined): number {

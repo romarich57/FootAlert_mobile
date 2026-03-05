@@ -1,11 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import {
-  fetchLeagueTopAssists,
-  fetchLeagueTopRedCards,
-  fetchLeagueTopScorers,
-  fetchLeagueTopYellowCards,
-} from '@data/endpoints/competitionsApi';
+import { fetchCompetitionTotw } from '@data/endpoints/competitionsApi';
 import {
   mapCompetitionPlayerStatsToTotw,
   mapPlayerStatsDtoToPlayerStats,
@@ -25,18 +20,14 @@ export function useCompetitionTotw(
         return null;
       }
 
-      const [topScorers, topAssists, topYellowCards, topRedCards] = await Promise.all([
-        fetchLeagueTopScorers(leagueId, season, signal),
-        fetchLeagueTopAssists(leagueId, season, signal),
-        fetchLeagueTopYellowCards(leagueId, season, signal),
-        fetchLeagueTopRedCards(leagueId, season, signal),
-      ]);
+      // Un seul appel BFF agrégé remplace les 4 appels séparés précédents
+      const totw = await fetchCompetitionTotw(leagueId, season, signal);
 
       const allPlayers = [
-        ...mapPlayerStatsDtoToPlayerStats(topScorers, season),
-        ...mapPlayerStatsDtoToPlayerStats(topAssists, season),
-        ...mapPlayerStatsDtoToPlayerStats(topYellowCards, season),
-        ...mapPlayerStatsDtoToPlayerStats(topRedCards, season),
+        ...mapPlayerStatsDtoToPlayerStats(totw.topScorers, season),
+        ...mapPlayerStatsDtoToPlayerStats(totw.topAssists, season),
+        ...mapPlayerStatsDtoToPlayerStats(totw.topYellowCards, season),
+        ...mapPlayerStatsDtoToPlayerStats(totw.topRedCards, season),
       ];
 
       return mapCompetitionPlayerStatsToTotw(allPlayers, season);

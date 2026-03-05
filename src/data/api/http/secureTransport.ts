@@ -44,16 +44,25 @@ function withTimeout(
   cleanup: () => void;
 } {
   const controller = new AbortController();
+  if (signal?.aborted) {
+    controller.abort();
+  }
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   const abortFromParent = () => controller.abort();
-  signal?.addEventListener('abort', abortFromParent, { once: true });
+  let isAbortListenerAttached = false;
+  if (signal && !signal.aborted) {
+    signal.addEventListener('abort', abortFromParent, { once: true });
+    isAbortListenerAttached = true;
+  }
 
   return {
     signal: controller.signal,
     cleanup: () => {
       clearTimeout(timeout);
-      signal?.removeEventListener('abort', abortFromParent);
+      if (isAbortListenerAttached) {
+        signal?.removeEventListener('abort', abortFromParent);
+      }
     },
   };
 }

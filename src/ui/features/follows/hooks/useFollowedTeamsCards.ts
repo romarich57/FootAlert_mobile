@@ -11,14 +11,19 @@ import { queryKeys } from '@ui/shared/query/queryKeys';
 type UseFollowedTeamsCardsParams = {
   teamIds: string[];
   timezone: string;
+  enabled?: boolean;
 };
 
-export function useFollowedTeamsCards({ teamIds, timezone }: UseFollowedTeamsCardsParams) {
+export function useFollowedTeamsCards({
+  teamIds,
+  timezone,
+  enabled = true,
+}: UseFollowedTeamsCardsParams) {
   const sortedTeamIds = useMemo(() => [...teamIds].sort(), [teamIds]);
 
   return useQuery({
     queryKey: queryKeys.follows.followedTeamCards(sortedTeamIds, timezone),
-    enabled: sortedTeamIds.length > 0,
+    enabled: enabled && sortedTeamIds.length > 0,
     staleTime: appEnv.followsTeamNextFixtureTtlMs,
     queryFn: async ({ signal }): Promise<FollowedTeamCard[]> => {
       const cards = await mapWithConcurrency(sortedTeamIds, 3, async teamId => {

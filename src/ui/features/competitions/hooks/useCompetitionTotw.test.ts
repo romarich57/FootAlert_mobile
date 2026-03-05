@@ -1,11 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import {
-  fetchLeagueTopAssists,
-  fetchLeagueTopRedCards,
-  fetchLeagueTopScorers,
-  fetchLeagueTopYellowCards,
-} from '@data/endpoints/competitionsApi';
+import { fetchCompetitionTotw } from '@data/endpoints/competitionsApi';
 import {
   mapCompetitionPlayerStatsToTotw,
   mapPlayerStatsDtoToPlayerStats,
@@ -17,10 +12,7 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 jest.mock('@data/endpoints/competitionsApi', () => ({
-  fetchLeagueTopScorers: jest.fn(),
-  fetchLeagueTopAssists: jest.fn(),
-  fetchLeagueTopYellowCards: jest.fn(),
-  fetchLeagueTopRedCards: jest.fn(),
+  fetchCompetitionTotw: jest.fn(),
 }));
 
 jest.mock('@data/mappers/competitionsMapper', () => ({
@@ -29,10 +21,7 @@ jest.mock('@data/mappers/competitionsMapper', () => ({
 }));
 
 const mockedUseQuery = jest.mocked(useQuery);
-const mockedFetchLeagueTopScorers = jest.mocked(fetchLeagueTopScorers);
-const mockedFetchLeagueTopAssists = jest.mocked(fetchLeagueTopAssists);
-const mockedFetchLeagueTopYellowCards = jest.mocked(fetchLeagueTopYellowCards);
-const mockedFetchLeagueTopRedCards = jest.mocked(fetchLeagueTopRedCards);
+const mockedFetchCompetitionTotw = jest.mocked(fetchCompetitionTotw);
 const mockedMapPlayerStatsDtoToPlayerStats = jest.mocked(mapPlayerStatsDtoToPlayerStats);
 const mockedMapCompetitionPlayerStatsToTotw = jest.mocked(mapCompetitionPlayerStatsToTotw);
 
@@ -65,22 +54,24 @@ describe('useCompetitionTotw', () => {
       expect.objectContaining({
         queryKey: ['competition_totw', 61, 2025],
         enabled: true,
-        staleTime: 24 * 60 * 60 * 1000,
+        staleTime: 30 * 60 * 1000,
       }),
     );
   });
 
-  it('aggregates 4 endpoints and forwards data to strict TOTW mapper', async () => {
+  it('aggregates 4 endpoints via a single BFF call and forwards data to strict TOTW mapper', async () => {
     const signal = new AbortController().signal;
     const topScorersRaw = [{ key: 'scorer' }] as never;
     const topAssistsRaw = [{ key: 'assist' }] as never;
     const topYellowRaw = [{ key: 'yellow' }] as never;
     const topRedRaw = [{ key: 'red' }] as never;
 
-    mockedFetchLeagueTopScorers.mockResolvedValue(topScorersRaw);
-    mockedFetchLeagueTopAssists.mockResolvedValue(topAssistsRaw);
-    mockedFetchLeagueTopYellowCards.mockResolvedValue(topYellowRaw);
-    mockedFetchLeagueTopRedCards.mockResolvedValue(topRedRaw);
+    mockedFetchCompetitionTotw.mockResolvedValue({
+      topScorers: topScorersRaw,
+      topAssists: topAssistsRaw,
+      topYellowCards: topYellowRaw,
+      topRedCards: topRedRaw,
+    });
 
     mockedMapPlayerStatsDtoToPlayerStats
       .mockReturnValueOnce([{ playerId: 1 }] as never)
@@ -96,10 +87,7 @@ describe('useCompetitionTotw', () => {
     const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>;
     const result = await queryFn({ signal });
 
-    expect(mockedFetchLeagueTopScorers).toHaveBeenCalledWith(61, 2025, signal);
-    expect(mockedFetchLeagueTopAssists).toHaveBeenCalledWith(61, 2025, signal);
-    expect(mockedFetchLeagueTopYellowCards).toHaveBeenCalledWith(61, 2025, signal);
-    expect(mockedFetchLeagueTopRedCards).toHaveBeenCalledWith(61, 2025, signal);
+    expect(mockedFetchCompetitionTotw).toHaveBeenCalledWith(61, 2025, signal);
 
     expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(1, topScorersRaw, 2025);
     expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(2, topAssistsRaw, 2025);
@@ -110,5 +98,20 @@ describe('useCompetitionTotw', () => {
       2025,
     );
     expect(result).toEqual(expectedTotw);
+  });
+
+  it('propagates BFF error when the aggregated endpoint fails', async () => {
+    const signal = new AbortController().signal;
+    const upstreamError = new Error('BFF upstream failed');
+
+    mockedFetchCompetitionTotw.mockRejectedValue(upstreamError);
+
+    useCompetitionTotw(61, 2025);
+    const queryConfig = mockedUseQuery.mock.calls[0]?.[0];
+    const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>;
+
+    await expect(queryFn({ signal })).rejects.toThrow('BFF upstream failed');
+    expect(mockedMapPlayerStatsDtoToPlayerStats).not.toHaveBeenCalled();
+    expect(mockedMapCompetitionPlayerStatsToTotw).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 import type { HttpAdapter } from '../adapters/http';
 import type { TelemetryAdapter } from '../adapters/telemetry';
+import type { ListEnvelope } from '../domain/network';
 type CompetitionsServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;
@@ -13,8 +14,19 @@ export declare function createCompetitionsReadService({ http, telemetry }: Compe
         limit?: number;
         cursor?: string;
     }): Promise<T[]>;
+    fetchLeagueFixturesPage<T = unknown>(leagueId: number, season: number, signal?: AbortSignal, options?: {
+        limit?: number;
+        cursor?: string;
+    }): Promise<ListEnvelope<T>>;
     fetchLeaguePlayerStats<T = unknown>(leagueId: number, season: number, type: "topscorers" | "topassists" | "topyellowcards" | "topredcards", signal?: AbortSignal): Promise<T[]>;
     fetchLeagueTransfers<T = unknown>(leagueId: number, season?: number, signal?: AbortSignal): Promise<T[]>;
+    fetchCompetitionBracket<T = unknown>(leagueId: number, season: number, signal?: AbortSignal): Promise<T>;
+    fetchCompetitionTotw<T = unknown>(leagueId: number, season: number, signal?: AbortSignal): Promise<{
+        topScorers: T[];
+        topAssists: T[];
+        topYellowCards: T[];
+        topRedCards: T[];
+    }>;
 };
 export {};
 //# sourceMappingURL=competitionsService.d.ts.map

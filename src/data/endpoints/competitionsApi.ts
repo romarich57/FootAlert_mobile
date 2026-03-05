@@ -1,5 +1,7 @@
 import { createCompetitionsReadService } from '@app-core/services/competitionsService';
 import type {
+  CompetitionBracket,
+  CompetitionKind,
   CompetitionsApiFixtureDto,
   CompetitionsApiLeagueDto,
   CompetitionsApiPlayerStatDto,
@@ -63,6 +65,34 @@ export async function fetchLeagueFixtures(
   );
 }
 
+export type FixturesPage = {
+  items: CompetitionsApiFixtureDto[];
+  pageInfo: { hasMore: boolean; nextCursor: string | null } | undefined;
+};
+
+export async function fetchLeagueFixturesPage(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+  options?: {
+    limit?: number;
+    cursor?: string;
+  },
+): Promise<FixturesPage> {
+  const envelope = await competitionsReadService.fetchLeagueFixturesPage<CompetitionsApiFixtureDto>(
+    leagueId,
+    season,
+    signal,
+    options,
+  );
+  return {
+    items: envelope.response,
+    pageInfo: envelope.pageInfo
+      ? { hasMore: envelope.pageInfo.hasMore, nextCursor: envelope.pageInfo.nextCursor }
+      : undefined,
+  };
+}
+
 async function fetchLeaguePlayerStatsByType(
   leagueId: number,
   season: number,
@@ -115,6 +145,45 @@ export async function fetchLeagueTransfers(
   signal?: AbortSignal,
 ): Promise<CompetitionsApiTransferDto[]> {
   return competitionsReadService.fetchLeagueTransfers<CompetitionsApiTransferDto>(
+    leagueId,
+    season,
+    signal,
+  );
+}
+
+export async function fetchCompetitionBracket(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionBracket> {
+  // Le BFF retourne { competitionKind, bracket } — pas d'enveloppe response[]
+  const raw = await competitionsReadService.fetchCompetitionBracket<{
+    competitionKind: string;
+    bracket: unknown[] | null;
+  }>(leagueId, season, signal);
+
+  const validKinds: CompetitionKind[] = ['league', 'cup', 'mixed'];
+  const kind: CompetitionKind = validKinds.includes(raw.competitionKind as CompetitionKind)
+    ? (raw.competitionKind as CompetitionKind)
+    : 'league';
+
+  return {
+    competitionKind: kind,
+    bracket: raw.bracket as CompetitionBracket['bracket'],
+  };
+}
+
+export async function fetchCompetitionTotw(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<{
+  topScorers: CompetitionsApiPlayerStatDto[];
+  topAssists: CompetitionsApiPlayerStatDto[];
+  topYellowCards: CompetitionsApiPlayerStatDto[];
+  topRedCards: CompetitionsApiPlayerStatDto[];
+}> {
+  return competitionsReadService.fetchCompetitionTotw<CompetitionsApiPlayerStatDto>(
     leagueId,
     season,
     signal,

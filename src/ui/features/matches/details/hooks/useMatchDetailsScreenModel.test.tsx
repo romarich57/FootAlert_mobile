@@ -146,7 +146,11 @@ describe('useMatchDetailsScreenModel', () => {
         } as never;
       }
 
-      if (key[0] !== 'match_details') {
+      if (
+        key[0] !== 'match_details' &&
+        key[0] !== 'team_recent_results' &&
+        key[0] !== 'team_leaders'
+      ) {
         return {
           ...baseResult,
           data: [],
@@ -170,14 +174,14 @@ describe('useMatchDetailsScreenModel', () => {
         } as never;
       }
 
-      if (key[2] === 'team_recent_results') {
+      if (key[0] === 'team_recent_results') {
         return {
           ...baseResult,
           data: [],
         } as never;
       }
 
-      if (key[2] === 'team_leaders') {
+      if (key[0] === 'team_leaders') {
         return {
           ...baseResult,
           data: {
@@ -212,6 +216,34 @@ describe('useMatchDetailsScreenModel', () => {
       expect.objectContaining({
         hasLiveMatches: false,
       }),
+    );
+  });
+
+  it('uses shared team context query keys to maximize cache reuse across match screens', () => {
+    renderHook(() => useMatchDetailsScreenModel());
+
+    const recentResultsKeys = mockedUseQuery.mock.calls
+      .map(call => call[0]?.queryKey as readonly unknown[] | undefined)
+      .filter((key): key is readonly unknown[] => Array.isArray(key) && key[0] === 'team_recent_results');
+    const teamLeadersKeys = mockedUseQuery.mock.calls
+      .map(call => call[0]?.queryKey as readonly unknown[] | undefined)
+      .filter((key): key is readonly unknown[] => Array.isArray(key) && key[0] === 'team_leaders');
+
+    expect(recentResultsKeys).toHaveLength(2);
+    expect(teamLeadersKeys).toHaveLength(2);
+
+    expect(recentResultsKeys[0]).toEqual(
+      expect.arrayContaining(['team_recent_results', '1', 61, 2025]),
+    );
+    expect(recentResultsKeys[1]).toEqual(
+      expect.arrayContaining(['team_recent_results', '2', 61, 2025]),
+    );
+
+    expect(teamLeadersKeys[0]).toEqual(
+      expect.arrayContaining(['team_leaders', '1', 61, 2025]),
+    );
+    expect(teamLeadersKeys[1]).toEqual(
+      expect.arrayContaining(['team_leaders', '2', 61, 2025]),
     );
   });
 
@@ -1024,8 +1056,6 @@ describe('useMatchDetailsScreenModel', () => {
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'statistics' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'lineups' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'team_players_stats' &&
-        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'team_recent_results' &&
-        (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'team_leaders' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'predictions' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'absences' &&
         (options as { queryKey: readonly unknown[] }).queryKey[2] !== 'head_to_head',
@@ -1162,21 +1192,25 @@ describe('useMatchDetailsScreenModel', () => {
         } as never;
       }
 
-      if (key[0] !== 'match_details') {
+      if (
+        key[0] !== 'match_details' &&
+        key[0] !== 'team_recent_results' &&
+        key[0] !== 'team_leaders'
+      ) {
         return {
           ...baseResult,
           data: [],
         } as never;
       }
 
-      if (key[2] === 'team_recent_results') {
+      if (key[0] === 'team_recent_results') {
         return {
           ...baseResult,
           data: [],
         } as never;
       }
 
-      if (key[2] === 'team_leaders') {
+      if (key[0] === 'team_leaders') {
         return {
           ...baseResult,
           data: {
@@ -1255,7 +1289,7 @@ describe('useMatchDetailsScreenModel', () => {
     renderHook(() => useMatchDetailsScreenModel());
 
     const teamContextCalls = mockedUseQuery.mock.calls.filter(
-      ([options]) => (options as { queryKey: readonly unknown[] }).queryKey[2] === 'team_recent_results',
+      ([options]) => (options as { queryKey: readonly unknown[] }).queryKey[0] === 'team_recent_results',
     );
 
     expect(teamContextCalls).toHaveLength(2);
@@ -1299,15 +1333,15 @@ describe('useMatchDetailsScreenModel', () => {
         } as never;
       }
 
-      if (key[0] !== 'match_details') {
+      if (key[0] !== 'match_details' && key[0] !== 'team_recent_results') {
         return {
           ...baseResult,
           data: [],
         } as never;
       }
 
-      if (key[2] === 'team_recent_results') {
-        const teamId = String(key[3] ?? '');
+      if (key[0] === 'team_recent_results') {
+        const teamId = String(key[1] ?? '');
         return {
           ...baseResult,
           data: {
@@ -1412,15 +1446,19 @@ describe('useMatchDetailsScreenModel', () => {
         } as never;
       }
 
-      if (key[0] !== 'match_details') {
+      if (
+        key[0] !== 'match_details' &&
+        key[0] !== 'team_recent_results' &&
+        key[0] !== 'team_leaders'
+      ) {
         return {
           ...baseResult,
           data: [],
         } as never;
       }
 
-      if (key[2] === 'team_recent_results') {
-        const teamId = String(key[3] ?? '');
+      if (key[0] === 'team_recent_results') {
+        const teamId = String(key[1] ?? '');
         if (teamId === '1') {
           const rows = [
             { fixtureId: 'h1', leagueId: '61', date: '2026-02-01T12:00:00.000Z', status: 'finished', homeTeamId: '1', homeTeamName: 'Home', homeTeamLogo: '', awayTeamId: '10', awayTeamName: 'A', awayTeamLogo: '', homeGoals: 2, awayGoals: 1 },
@@ -1462,7 +1500,7 @@ describe('useMatchDetailsScreenModel', () => {
         } as never;
       }
 
-      if (key[2] === 'team_leaders') {
+      if (key[0] === 'team_leaders') {
         return {
           ...baseResult,
           data: {

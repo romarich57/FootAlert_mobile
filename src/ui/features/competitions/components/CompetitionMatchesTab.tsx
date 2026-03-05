@@ -56,7 +56,19 @@ export function CompetitionMatchesTab({
     const styles = useMemo(() => createCompetitionMatchesTabStyles(colors), [colors]);
     const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-US';
 
-    const { data: fixtures, isLoading, error } = useCompetitionFixtures(competitionId, season);
+    const {
+        data,
+        isLoading,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useCompetitionFixtures(competitionId, season);
+
+    const fixtures = useMemo(
+        () => data?.pages.flatMap(page => page.items) ?? [],
+        [data],
+    );
 
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [filterState, setFilterState] = useState<MatchesFilterState>({
@@ -89,30 +101,26 @@ export function CompetitionMatchesTab({
             ? [...fixtures]
             : fixtures.filter(f => f.homeTeam.id === filterState.teamId || f.awayTeam.id === filterState.teamId);
 
-        // Sort
-        result.sort((a, b) => {
+        // Sort — pre-compute timestamps once (Schwartzian transform)
+        const getRoundNum = (roundStr: string) => {
+            const match = roundStr.match(/\d+/);
+            return match ? parseInt(match[0], 10) : 0;
+        };
+        const withMeta = result.map(f => ({
+            f,
+            ts: new Date(f.date).getTime(),
+            round: getRoundNum(f.round),
+        }));
+        withMeta.sort((a, b) => {
             if (filterState.sortBy === 'date_asc' || filterState.sortBy === 'date_desc') {
-                const dateA = new Date(a.date).getTime();
-                const dateB = new Date(b.date).getTime();
-                return filterState.sortBy === 'date_asc' ? dateA - dateB : dateB - dateA;
-            } else {
-                // round_asc or round_desc
-                // Basic implementation extracting round number if possible
-                const getRoundNum = (roundStr: string) => {
-                    const match = roundStr.match(/\d+/);
-                    return match ? parseInt(match[0], 10) : 0;
-                };
-                const roundA = getRoundNum(a.round);
-                const roundB = getRoundNum(b.round);
-                if (roundA !== roundB) {
-                    return filterState.sortBy === 'round_asc' ? roundA - roundB : roundB - roundA;
-                }
-                // Fallback to date sorting within the same round
-                const dateA = new Date(a.date).getTime();
-                const dateB = new Date(b.date).getTime();
-                return dateA - dateB;
+                return filterState.sortBy === 'date_asc' ? a.ts - b.ts : b.ts - a.ts;
             }
+            if (a.round !== b.round) {
+                return filterState.sortBy === 'round_asc' ? a.round - b.round : b.round - a.round;
+            }
+            return a.ts - b.ts;
         });
+        result = withMeta.map(({ f }) => f);
 
         return result;
     }, [fixtures, filterState]);
@@ -173,6 +181,21 @@ export function CompetitionMatchesTab({
             }
         };
     }, [listData, hasAutoScrolled]);
+
+    const handleEndReached = useCallback(() => {
+        if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+    const renderFooter = useCallback(() => {
+        if (!isFetchingNextPage) return null;
+        return (
+            <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+        );
+    }, [isFetchingNextPage, colors.primary, styles]);
 
     const keyExtractor = useCallback((item: ListItem) => item.key, []);
 
@@ -302,6 +325,9 @@ export function CompetitionMatchesTab({
                 getItemType={(item) => item.type}
                 estimatedItemSize={70}
                 showsVerticalScrollIndicator={false}
+                onEndReached={handleEndReached}
+                onEndReachedThreshold={0.3}
+                ListFooterComponent={renderFooter}
             />
 
             <MatchesFilterBottomSheet

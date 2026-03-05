@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   fetchTeamAdvancedStats,
   fetchLeagueStandings,
-  fetchTeamPlayers,
   fetchTeamStatistics,
 } from '@data/endpoints/teamsApi';
 import {
@@ -12,7 +11,8 @@ import {
   mapStandingsToTeamData,
   mapTeamStatisticsToStats,
 } from '@data/mappers/teamsMapper';
-import type { TeamApiPlayerDto, TeamStatsData } from '@ui/features/teams/types/teams.types';
+import type { TeamStatsData } from '@ui/features/teams/types/teams.types';
+import { fetchAllTeamPlayers } from '@ui/features/teams/utils/fetchAllTeamPlayers';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
@@ -107,52 +107,6 @@ type FetchTeamStatsDataParams = {
   signal?: AbortSignal;
 };
 
-async function fetchAllTeamPlayers(
-  teamId: string,
-  leagueId: string,
-  season: number,
-  signal?: AbortSignal,
-): Promise<TeamApiPlayerDto[]> {
-  const aggregated: TeamApiPlayerDto[] = [];
-  const limit = 50;
-  const maxRequests = 10;
-  const targetItems = 200;
-  const seenCursors = new Set<string>();
-  let cursor: string | undefined;
-
-  for (let requestIndex = 0; requestIndex < maxRequests; requestIndex += 1) {
-    const page = await fetchTeamPlayers(
-      {
-        teamId,
-        leagueId,
-        season,
-        limit,
-        cursor,
-      },
-      signal,
-    );
-
-    if (Array.isArray(page.response) && page.response.length > 0) {
-      aggregated.push(...page.response);
-    }
-
-    const nextCursor = page.pageInfo?.nextCursor ?? undefined;
-    const hasMore = page.pageInfo?.hasMore ?? false;
-    if (!hasMore || !nextCursor || seenCursors.has(nextCursor)) {
-      break;
-    }
-
-    if (aggregated.length >= targetItems) {
-      break;
-    }
-
-    seenCursors.add(nextCursor);
-    cursor = nextCursor;
-  }
-
-  return aggregated;
-}
-
 export async function fetchTeamStatsData({
   teamId,
   leagueId,
@@ -167,7 +121,7 @@ export async function fetchTeamStatsData({
     await Promise.allSettled([
       fetchTeamStatistics(leagueId, season, teamId, signal),
       fetchLeagueStandings(leagueId, season, signal),
-      fetchAllTeamPlayers(teamId, leagueId, season, signal),
+      fetchAllTeamPlayers({ teamId, leagueId, season, signal }),
       fetchTeamAdvancedStats(leagueId, season, teamId, signal),
     ]);
 

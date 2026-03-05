@@ -5,7 +5,6 @@ import {
   fetchLeagueStandings,
   fetchTeamFixtures,
   fetchTeamNextFixture,
-  fetchTeamPlayers,
   fetchTeamSquad,
   fetchTeamStatistics,
   fetchTeamTrophies,
@@ -23,7 +22,6 @@ import {
   mapTrophiesToTeamTrophies,
 } from '@data/mappers/teamsMapper';
 import type {
-  TeamApiPlayerDto,
   TeamOverviewCoach,
   TeamOverviewCoachPerformance,
   TeamOverviewData,
@@ -32,6 +30,7 @@ import type {
   TeamSeasonLineup,
   TeamTopPlayer,
 } from '@ui/features/teams/types/teams.types';
+import { fetchAllTeamPlayers } from '@ui/features/teams/utils/fetchAllTeamPlayers';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
@@ -389,52 +388,6 @@ function extractCurrentStandingRows(teamId: string, standingsPayload: ReturnType
   return targetGroup?.rows ?? standingsPayload.groups[0]?.rows ?? [];
 }
 
-async function fetchAllTeamPlayers(
-  teamId: string,
-  leagueId: string,
-  season: number,
-  signal?: AbortSignal,
-): Promise<TeamApiPlayerDto[]> {
-  const aggregated: TeamApiPlayerDto[] = [];
-  const limit = 50;
-  const maxRequests = 10;
-  const targetItems = 200;
-  const seenCursors = new Set<string>();
-  let cursor: string | undefined;
-
-  for (let requestIndex = 0; requestIndex < maxRequests; requestIndex += 1) {
-    const page = await fetchTeamPlayers(
-      {
-        teamId,
-        leagueId,
-        season,
-        limit,
-        cursor,
-      },
-      signal,
-    );
-
-    if (Array.isArray(page.response) && page.response.length > 0) {
-      aggregated.push(...page.response);
-    }
-
-    const nextCursor = page.pageInfo?.nextCursor ?? undefined;
-    const hasMore = page.pageInfo?.hasMore ?? false;
-    if (!hasMore || !nextCursor || seenCursors.has(nextCursor)) {
-      break;
-    }
-
-    if (aggregated.length >= targetItems) {
-      break;
-    }
-
-    seenCursors.add(nextCursor);
-    cursor = nextCursor;
-  }
-
-  return aggregated;
-}
-
 export function useTeamOverview({
   teamId,
   leagueId,
@@ -482,7 +435,7 @@ export function useTeamOverview({
         fetchTeamNextFixture(teamId, timezone, signal),
         fetchLeagueStandings(leagueId, season, signal),
         fetchTeamStatistics(leagueId, season, teamId, signal),
-        fetchAllTeamPlayers(teamId, leagueId, season, signal),
+        fetchAllTeamPlayers({ teamId, leagueId, season, signal }),
         fetchTeamSquad(teamId, signal),
         fetchTeamTrophies(teamId, signal),
       ]);

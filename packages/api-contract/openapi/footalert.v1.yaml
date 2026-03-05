@@ -305,6 +305,37 @@ paths:
       - web
       - desktop
 
+  /v1/competitions/{id}/bracket:
+    get:
+      tags: [competitions]
+      summary: Get competition bracket
+      operationId: getCompetitionBracket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d+$'
+        - name: season
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Competition bracket data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionBracketResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+      - web
+      - desktop
+
   /v1/teams/standings:
     get:
       summary: Get league standings for teams endpoint
@@ -2167,3 +2198,72 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    CompetitionBracketResponse:
+      type: object
+      required: [competitionKind]
+      properties:
+        competitionKind:
+          type: string
+          enum: [league, cup, mixed]
+        bracket:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/KnockoutRound'
+
+    KnockoutRound:
+      type: object
+      required: [name, order, matches]
+      properties:
+        name:
+          type: string
+        order:
+          type: integer
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/BracketMatch'
+
+    BracketMatch:
+      type: object
+      required: [matchId, homeTeam, awayTeam, status, date]
+      properties:
+        matchId:
+          type: integer
+        homeTeam:
+          $ref: '#/components/schemas/BracketTeam'
+        awayTeam:
+          $ref: '#/components/schemas/BracketTeam'
+        homeScore:
+          type: integer
+          nullable: true
+        awayScore:
+          type: integer
+          nullable: true
+        penaltyHome:
+          type: integer
+          nullable: true
+        penaltyAway:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        date:
+          type: string
+          format: date-time
+        winnerId:
+          type: integer
+          nullable: true
+
+    BracketTeam:
+      type: object
+      required: [name, logo]
+      properties:
+        id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        logo:
+          type: string

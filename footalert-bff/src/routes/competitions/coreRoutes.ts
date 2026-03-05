@@ -12,7 +12,7 @@ export function registerCompetitionCoreRoutes(app: FastifyInstance): void {
     parseOrThrow(z.object({}).strict(), request.query);
 
     const cacheKey = `competitions:${request.url}`;
-    return withCache(cacheKey, 120_000, () => apiFootballGet('/leagues'));
+    return withCache(cacheKey, 3_600_000, () => apiFootballGet('/leagues'));
   });
 
   app.get('/v1/competitions/search', async request => {

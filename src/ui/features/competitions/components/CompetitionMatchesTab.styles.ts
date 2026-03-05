@@ -123,5 +123,9 @@ export function createCompetitionMatchesTabStyles(colors: ThemeColors) {
       fontWeight: '900',
       letterSpacing: 2,
     },
+    footerLoader: {
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
   });
 }

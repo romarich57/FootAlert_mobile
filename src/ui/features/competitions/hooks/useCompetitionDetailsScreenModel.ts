@@ -1,13 +1,14 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import { fetchLeagueById } from '@data/endpoints/competitionsApi';
-import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
+import { fetchLeagueById, fetchLeagueStandings, fetchLeagueFixturesPage } from '@data/endpoints/competitionsApi';
+import { mapLeagueDtoToCompetition, mapStandingDtoToGroups, mapFixturesDtoToFixtures } from '@data/mappers/competitionsMapper';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
 import { useCompetitionTotw } from '@ui/features/competitions/hooks/useCompetitionTotw';
@@ -23,6 +24,7 @@ type CompetitionDetailsScreenNavigationProp = NativeStackNavigationProp<
 export function useCompetitionDetailsScreenModel() {
   const route = useRoute<CompetitionDetailsScreenRouteProp>();
   const navigation = useNavigation<CompetitionDetailsScreenNavigationProp>();
+  const queryClient = useQueryClient();
 
   const { competitionId, competition: routeCompetition } = route.params;
   const safeCompetitionId = sanitizeNumericEntityId(competitionId);
@@ -57,8 +59,9 @@ export function useCompetitionDetailsScreenModel() {
   const [isSeasonPickerOpen, setIsSeasonPickerOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const { toggleFollow, followedIds } = useFollowedCompetitions();
+  const followedIdsSet = useMemo(() => new Set(followedIds), [followedIds]);
   const isCompetitionFollowed = safeCompetitionId
-    ? followedIds.includes(safeCompetitionId)
+    ? followedIdsSet.has(safeCompetitionId)
     : false;
 
   const { data: seasons, isLoading: seasonsLoading } = useCompetitionSeasons(
@@ -85,18 +88,49 @@ export function useCompetitionDetailsScreenModel() {
     seasonsLoading ? undefined : actualSeason,
   );
 
+  useEffect(() => {
+    if (!Number.isFinite(numericCompetitionId) || seasonsLoading) {
+      return;
+    }
+
+    const leagueId = numericCompetitionId;
+    const season = actualSeason;
+
+    void queryClient.prefetchQuery({
+      queryKey: queryKeys.competitions.standings(leagueId, season),
+      queryFn: ({ signal }) =>
+        fetchLeagueStandings(leagueId, season, signal).then(dto => mapStandingDtoToGroups(dto)),
+      staleTime: featureQueryOptions.competitions.standings.staleTime,
+    });
+
+    void queryClient.prefetchInfiniteQuery({
+      queryKey: queryKeys.competitions.fixtures(leagueId, season),
+      queryFn: async ({ pageParam, signal }) => {
+        const page = await fetchLeagueFixturesPage(leagueId, season, signal, {
+          limit: 50,
+          cursor: pageParam as string | undefined,
+        });
+        return {
+          items: mapFixturesDtoToFixtures(page.items),
+          hasMore: page.pageInfo?.hasMore ?? false,
+          nextCursor: page.pageInfo?.nextCursor ?? null,
+        };
+      },
+      initialPageParam: undefined as string | undefined,
+      staleTime: featureQueryOptions.competitions.fixtures.staleTime,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numericCompetitionId, actualSeason, seasonsLoading]);
+
   const tabs = useMemo<CompetitionTabKey[]>(() => {
-    const baseTabs: CompetitionTabKey[] = [
+    const base: CompetitionTabKey[] = [
       'standings',
       'matches',
       'playerStats',
       'teamStats',
       'transfers',
     ];
-    if (totwData) {
-      baseTabs.push('totw');
-    }
-    return baseTabs;
+    return totwData ? [...base, 'totw'] : base;
   }, [totwData]);
 
   useEffect(() => {
