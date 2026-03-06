@@ -120,7 +120,7 @@ export function PlayerStatsTab({
   }, [colors, competitions.length, leagueName, mode, rows, shotAccuracy, shotConversion, stats, styles, t]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="player-stats-tab">
       {competitions.length > 0 ? (
         <TeamCompetitionSeasonSelector
           competitions={competitions}

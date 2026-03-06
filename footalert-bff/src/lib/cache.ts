@@ -50,6 +50,7 @@ type ParsedCacheValue<T> = {
 
 type WithCacheOptions<T> = {
   shouldCache?: (value: T) => boolean;
+  onEvent?: (event: 'hit' | 'miss' | 'stale') => void;
 };
 
 function toPositiveInt(value: number, fallback: number): number {
@@ -597,6 +598,7 @@ async function produceAndCache<T>(
     if (shouldFallbackToStale(error)) {
       const staleValue = await getStaleCachedValue<T>(key);
       if (staleValue !== null) {
+        options?.onEvent?.('stale');
         return staleValue;
       }
     }
@@ -743,21 +745,25 @@ export async function withCache<T>(
 ): Promise<T> {
   const cached = await getFreshCachedValue<T>(key);
   if (cached !== null) {
+    options?.onEvent?.('hit');
     return cached;
   }
 
   const existingPromise = getInFlight<T>(key);
   if (existingPromise) {
+    options?.onEvent?.('hit');
     return existingPromise;
   }
 
   const pendingPromise = (async () => {
     if (cacheBackend !== 'redis' || !redisUrl) {
+      options?.onEvent?.('miss');
       return produceAndCache(key, ttlMs, producer, options);
     }
 
     ensureRedisClient();
     if (!redisClient || !redisReady) {
+      options?.onEvent?.('miss');
       return produceAndCache(key, ttlMs, producer, options);
     }
 
@@ -766,9 +772,11 @@ export async function withCache<T>(
       try {
         const cachedAfterLock = await getFreshCachedValue<T>(key);
         if (cachedAfterLock !== null) {
+          options?.onEvent?.('hit');
           return cachedAfterLock;
         }
 
+        options?.onEvent?.('miss');
         return produceAndCache(key, ttlMs, producer, options);
       } finally {
         await releaseRedisLock(lock);
@@ -777,14 +785,17 @@ export async function withCache<T>(
 
     const coalescedValue = await waitForFreshCacheFill<T>(key);
     if (coalescedValue !== null) {
+      options?.onEvent?.('hit');
       return coalescedValue;
     }
 
     const staleValue = await getStaleCachedValue<T>(key);
     if (staleValue !== null) {
+      options?.onEvent?.('stale');
       return staleValue;
     }
 
+    options?.onEvent?.('miss');
     return produceAndCache(key, ttlMs, producer, options);
   })()
     .finally(() => {

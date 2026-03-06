@@ -33,6 +33,8 @@ const REQUIRED_PATHS = [
   '/v1/players/{id}/seasons',
   '/v1/players/{id}/trophies',
   '/v1/players/{id}/career',
+  '/v1/players/{id}/overview',
+  '/v1/players/{id}/stats-catalog',
   '/v1/players/team/{teamId}/fixtures',
   '/v1/players/fixtures/{fixtureId}/team/{teamId}/stats',
   '/v1/players/{id}/matches',

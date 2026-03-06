@@ -7,7 +7,7 @@ This matrix tracks the expected parity target for the first multi-platform rollo
 | Feature | iOS/Android (RN) | Web (Vite+React) | Desktop (Tauri 2) | Notes |
 |---|---|---|---|---|
 | Matches listing | ✅ | ✅ | ✅ | `/v1/matches` |
-| Team details / fixtures / standings | ✅ | ✅ | ✅ | `/v1/teams/*` |
+| Team details / fixtures / standings | ✅ | ✅ | ✅ | `/v1/teams/*` (mobile excludes the team trophies tab) |
 | Player details / trophies / matches | ✅ | ✅ | ✅ | `/v1/players/*` |
 | Competitions list / standings / matches | ✅ | ✅ | ✅ | `/v1/competitions/*` |
 | Follows trends | ✅ | ✅ | ✅ | `/v1/follows/trends/*` |
@@ -18,7 +18,7 @@ This matrix tracks the expected parity target for the first multi-platform rollo
 ## Parity Baseline v2 (machine-readable)
 
 - Journey contract: `docs/architecture/parity-journeys.v2.json`
-- Platform route surfaces: `docs/architecture/platform-route-manifests.v1.json`
+- Platform route surfaces (web/desktop): `docs/architecture/platform-route-manifests.v1.json`
 - OpenAPI endpoint scoping: `x-platform-scope` on every `/v1/*` path and `/health`.
 
 Canonical journeys enforced in v2:

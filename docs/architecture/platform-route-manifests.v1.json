@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "Declared route surfaces consumed by each client platform for parity governance.",
+  "description": "Declared route surfaces consumed by web and desktop clients for parity governance. Mobile team route coverage is tracked in parity journeys and OpenAPI scope.",
   "web": [
     "/v1/matches",
     "/v1/matches/{id}",

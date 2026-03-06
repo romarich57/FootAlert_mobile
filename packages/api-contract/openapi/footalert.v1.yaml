@@ -582,6 +582,35 @@ paths:
       - web
       - desktop
 
+  /v1/players/{id}/overview:
+    get:
+      summary: Get aggregated player overview for mobile details screens
+      operationId: getPlayerOverview
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlayerOverviewResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
+  /v1/players/{id}/stats-catalog:
+    get:
+      summary: Get aggregated player stats catalog for mobile details screens
+      operationId: getPlayerStatsCatalog
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlayerStatsCatalogResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
   /v1/players/team/{teamId}/fixtures:
     get:
       summary: Get fixtures for a team (players context)
@@ -589,7 +618,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/TeamIdPath'
         - $ref: '#/components/parameters/SeasonQuery'
-        - $ref: '#/components/parameters/OptionalLastQuery'
+        - $ref: '#/components/parameters/PlayerAggregateLastQuery'
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
@@ -621,7 +650,7 @@ paths:
         - $ref: '#/components/parameters/IdPath'
         - $ref: '#/components/parameters/TeamIdQuery'
         - $ref: '#/components/parameters/SeasonQuery'
-        - $ref: '#/components/parameters/OptionalLastQuery'
+        - $ref: '#/components/parameters/PlayerAggregateLastQuery'
       responses:
         '200':
           $ref: '#/components/responses/ListEnvelopeResponse'
@@ -1450,6 +1479,14 @@ components:
         type: integer
         minimum: 1
         maximum: 20
+    PlayerAggregateLastQuery:
+      name: last
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 99
     OptionalStatisticsPeriodQuery:
       name: period
       in: query
@@ -1562,6 +1599,18 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/TeamOverviewResponse'
+    PlayerOverviewResponse:
+      description: Aggregated player overview payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlayerOverviewResponse'
+    PlayerStatsCatalogResponse:
+      description: Aggregated player stats catalog payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlayerStatsCatalogResponse'
 
   schemas:
     TrendCompetitionItem:
@@ -2268,6 +2317,543 @@ components:
           oneOf:
             - type: integer
             - type: 'null'
+    PlayerOverviewTeamRef:
+      type: object
+      required: [ id, name, logo ]
+      properties:
+        id:
+          oneOf:
+            - type: string
+            - type: 'null'
+        name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        logo:
+          oneOf:
+            - type: string
+            - type: 'null'
+    PlayerOverviewLeagueRef:
+      type: object
+      required: [ id, name, logo, season ]
+      properties:
+        id:
+          oneOf:
+            - type: string
+            - type: 'null'
+        name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        logo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        season:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    PlayerOverviewProfile:
+      type: object
+      required:
+        [
+          id,
+          name,
+          photo,
+          position,
+          age,
+          height,
+          weight,
+          nationality,
+          dateOfBirth,
+          number,
+          foot,
+          transferValue,
+          team,
+          league,
+        ]
+      properties:
+        id:
+          oneOf:
+            - type: string
+            - type: 'null'
+        name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        photo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        position:
+          oneOf:
+            - type: string
+            - type: 'null'
+        age:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        height:
+          oneOf:
+            - type: string
+            - type: 'null'
+        weight:
+          oneOf:
+            - type: string
+            - type: 'null'
+        nationality:
+          oneOf:
+            - type: string
+            - type: 'null'
+        dateOfBirth:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        number:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        foot:
+          oneOf:
+            - type: string
+            - type: 'null'
+        transferValue:
+          oneOf:
+            - type: string
+            - type: 'null'
+        team:
+          $ref: '#/components/schemas/PlayerOverviewTeamRef'
+        league:
+          $ref: '#/components/schemas/PlayerOverviewLeagueRef'
+    PlayerOverviewCharacteristics:
+      type: object
+      required: [ touches, dribbles, chances, defense, duels, attack ]
+      properties:
+        touches:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        dribbles:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        chances:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        defense:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        duels:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        attack:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    PlayerOverviewPositionPoint:
+      type: object
+      required: [ id, code, shortLabel, label, x, y, appearances, minutes, score, isPrimary ]
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        shortLabel:
+          type: string
+        label:
+          type: string
+        x:
+          type: number
+        y:
+          type: number
+        appearances:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        minutes:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        score:
+          type: number
+        isPrimary:
+          type: boolean
+    PlayerOverviewPositions:
+      type: object
+      required: [ primary, others, all ]
+      properties:
+        primary:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewPositionPoint'
+            - type: 'null'
+        others:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerOverviewPositionPoint'
+        all:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerOverviewPositionPoint'
+    PlayerOverviewSeasonStats:
+      type: object
+      required:
+        [
+          matches,
+          starts,
+          minutes,
+          goals,
+          assists,
+          rating,
+          shots,
+          shotsOnTarget,
+          penaltyGoals,
+          passes,
+          passesAccuracy,
+          keyPasses,
+          dribblesAttempts,
+          dribblesSuccess,
+          tackles,
+          interceptions,
+          blocks,
+          duelsTotal,
+          duelsWon,
+          foulsCommitted,
+          foulsDrawn,
+          yellowCards,
+          redCards,
+          dribblesBeaten,
+          saves,
+          goalsConceded,
+          penaltiesWon,
+          penaltiesMissed,
+          penaltiesCommitted,
+        ]
+      properties:
+        matches:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        starts:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        minutes:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        goals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        assists:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        rating:
+          oneOf:
+            - type: string
+            - type: 'null'
+        shots:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        shotsOnTarget:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        penaltyGoals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        passes:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        passesAccuracy:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        keyPasses:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        dribblesAttempts:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        dribblesSuccess:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        tackles:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        interceptions:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        blocks:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        duelsTotal:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        duelsWon:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        foulsCommitted:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        foulsDrawn:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        yellowCards:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        redCards:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        dribblesBeaten:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        saves:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        goalsConceded:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        penaltiesWon:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        penaltiesMissed:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        penaltiesCommitted:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    PlayerOverviewCompetitionSeasonStats:
+      type: object
+      required: [ leagueId, leagueName, leagueLogo, season, stats ]
+      properties:
+        leagueId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        season:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        stats:
+          $ref: '#/components/schemas/PlayerOverviewSeasonStats'
+    PlayerOverviewSeasonStatsDataset:
+      type: object
+      required: [ overall, byCompetition ]
+      properties:
+        overall:
+          $ref: '#/components/schemas/PlayerOverviewSeasonStats'
+        byCompetition:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerOverviewCompetitionSeasonStats'
+    PlayerOverviewCompetitionStats:
+      type: object
+      required: [ leagueId, leagueName, leagueLogo, season, matches, goals, assists, rating ]
+      properties:
+        leagueId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        season:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        matches:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        goals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        assists:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        rating:
+          oneOf:
+            - type: string
+            - type: 'null'
+    PlayerOverviewTrophyCompetitionGroup:
+      type: object
+      required: [ competition, country, count, seasons ]
+      properties:
+        competition:
+          type: string
+        country:
+          oneOf:
+            - type: string
+            - type: 'null'
+        count:
+          type: integer
+        seasons:
+          type: array
+          items:
+            type: string
+    PlayerOverviewTrophyClubGroup:
+      type: object
+      required: [ clubId, clubName, clubLogo, total, competitions ]
+      properties:
+        clubId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        clubName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        clubLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        total:
+          type: integer
+        competitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerOverviewTrophyCompetitionGroup'
+    PlayerOverviewResponse:
+      type: object
+      required:
+        [
+          profile,
+          characteristics,
+          positions,
+          seasonStats,
+          seasonStatsDataset,
+          profileCompetitionStats,
+          trophiesByClub,
+        ]
+      properties:
+        profile:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewProfile'
+            - type: 'null'
+        characteristics:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewCharacteristics'
+            - type: 'null'
+        positions:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewPositions'
+            - type: 'null'
+        seasonStats:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewSeasonStats'
+            - type: 'null'
+        seasonStatsDataset:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewSeasonStatsDataset'
+            - type: 'null'
+        profileCompetitionStats:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewCompetitionStats'
+            - type: 'null'
+        trophiesByClub:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerOverviewTrophyClubGroup'
+    PlayerStatsCatalogSelection:
+      type: object
+      required: [ leagueId, season ]
+      properties:
+        leagueId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        season:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    PlayerStatsCatalogCompetition:
+      type: object
+      required: [ leagueId, leagueName, leagueLogo, type, country, seasons, currentSeason ]
+      properties:
+        leagueId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        type:
+          oneOf:
+            - type: string
+            - type: 'null'
+        country:
+          oneOf:
+            - type: string
+            - type: 'null'
+        seasons:
+          type: array
+          items:
+            type: integer
+        currentSeason:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    PlayerStatsCatalogResponse:
+      type: object
+      required: [ competitions, defaultSelection, availableSeasons ]
+      properties:
+        competitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerStatsCatalogCompetition'
+        defaultSelection:
+          $ref: '#/components/schemas/PlayerStatsCatalogSelection'
+        availableSeasons:
+          type: array
+          items:
+            type: integer
     MobileSessionChallengeRequest:
       type: object
       additionalProperties: false

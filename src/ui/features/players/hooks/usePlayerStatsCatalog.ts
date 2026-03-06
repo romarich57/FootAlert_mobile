@@ -1,7 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchPlayerDetails, fetchPlayerSeasons } from '@data/endpoints/playersApi';
+import { appEnv } from '@data/config/env';
+import {
+  fetchPlayerDetails,
+  fetchPlayerSeasons,
+  fetchPlayerStatsCatalog,
+} from '@data/endpoints/playersApi';
 import { mapPlayerDetailsToSeasonStatsDataset } from '@data/mappers/playersMapper';
+import type { PlayerStatsCatalogCompetition } from '@domain/contracts/players.types';
 import type { TeamCompetitionOption } from '@ui/features/teams/types/teams.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -65,11 +71,47 @@ function buildCatalog(competitions: TeamCompetitionOption[]): PlayerStatsCatalog
   };
 }
 
+function toTeamCompetitionOption(
+  competition: PlayerStatsCatalogCompetition,
+): TeamCompetitionOption | null {
+  const leagueId =
+    typeof competition.leagueId === 'string' && competition.leagueId.length > 0
+      ? competition.leagueId
+      : null;
+  if (!leagueId) {
+    return null;
+  }
+
+  return {
+    leagueId,
+    leagueName: competition.leagueName ?? null,
+    leagueLogo: competition.leagueLogo ?? null,
+    type: competition.type ?? null,
+    country: competition.country ?? null,
+    seasons: [...competition.seasons],
+    currentSeason: competition.currentSeason ?? null,
+  };
+}
+
 export function usePlayerStatsCatalog(playerId: string, enabled: boolean = true) {
+  const useAggregateCatalog = appEnv.mobileEnablePlayerStatsCatalogAggregate;
   const catalogQuery = useQuery({
-    queryKey: queryKeys.players.statsCatalog(playerId),
+    queryKey: useAggregateCatalog
+      ? queryKeys.players.statsCatalogV2(playerId)
+      : queryKeys.players.statsCatalog(playerId),
     enabled: enabled && !!playerId,
     queryFn: async ({ signal }): Promise<PlayerStatsCatalog> => {
+      if (useAggregateCatalog) {
+        const payload = await fetchPlayerStatsCatalog(playerId, signal);
+
+        return {
+          competitions: (payload?.competitions ?? [])
+            .map(toTeamCompetitionOption)
+            .filter((competition): competition is TeamCompetitionOption => competition !== null),
+          defaultSelection: payload?.defaultSelection ?? EMPTY_SELECTION,
+        };
+      }
+
       const seasons = await fetchPlayerSeasons(playerId, signal);
       const uniqueSeasons = Array.from(
         new Set(seasons.filter(value => Number.isFinite(value))),
@@ -143,7 +185,7 @@ export function usePlayerStatsCatalog(playerId: string, enabled: boolean = true)
 
       return buildCatalog(Array.from(competitionsMap.values()));
     },
-    ...featureQueryOptions.players.stats,
+    ...featureQueryOptions.players.statsCatalog,
   });
 
   return {

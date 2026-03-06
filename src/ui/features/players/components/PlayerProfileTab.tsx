@@ -51,6 +51,7 @@ export function PlayerProfileTab({
 
   return (
     <ScrollView
+      testID="player-profile-tab"
       style={styles.container}
       contentContainerStyle={styles.content}
       removeClippedSubviews

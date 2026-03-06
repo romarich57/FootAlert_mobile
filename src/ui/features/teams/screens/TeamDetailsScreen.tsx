@@ -238,7 +238,6 @@ export function TeamDetailsScreen() {
       {!offlineUi.showOfflineNoCache &&
         model.activeTab !== 'overview' &&
         model.activeTab !== 'squad' &&
-        model.activeTab !== 'trophies' &&
         model.activeTab !== 'transfers' &&
         model.activeTab !== 'standings' ? (
         <TeamCompetitionSeasonSelector
@@ -311,7 +310,6 @@ export function TeamDetailsScreen() {
             statsQuery={model.statsQuery}
             transfersQuery={model.transfersQuery}
             squadQuery={model.squadQuery}
-            trophiesQuery={model.trophiesQuery}
           />
         </View>
       ) : null}

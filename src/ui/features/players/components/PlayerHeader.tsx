@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -99,20 +99,20 @@ function createStyles(colors: ThemeColors, topInset: number) {
         },
         teamLogoSmallContainer: {
             position: 'absolute',
-            bottom: 0,
-            right: 0,
-            width: 20,
-            height: 20,
-            borderRadius: 10,
+            bottom: -2,
+            right: -2,
+            width: 24,
+            height: 24,
+            borderRadius: 12,
             backgroundColor: colors.surfaceElevated,
             alignItems: 'center',
             justifyContent: 'center',
-            borderWidth: 1,
+            borderWidth: 1.5,
             borderColor: colors.background,
         },
         teamLogoSmall: {
-            width: 12,
-            height: 12,
+            width: 14,
+            height: 14,
         },
         name: {
             color: colors.text,
@@ -124,6 +124,8 @@ function createStyles(colors: ThemeColors, topInset: number) {
         subtitleRow: {
             flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
             gap: 8,
         },
         position: {
@@ -203,27 +205,28 @@ export function PlayerHeader({
                             resizeMode="cover"
                         />
                     </View>
-                    <View style={styles.teamLogoSmallContainer}>
-                        {profile.team.id && onPressTeam ? (
-                            <AppPressable
-                                onPress={() => onPressTeam(profile.team.id ?? '')}
-                                accessibilityRole="button"
-                                accessibilityLabel={displayValue(profile.team.name)}
-                            >
-                                <Image
-                                    source={{ uri: profile.team.logo ?? undefined }}
-                                    style={styles.teamLogoSmall}
-                                    resizeMode="contain"
-                                />
-                            </AppPressable>
-                        ) : (
+                    {profile.team.id && onPressTeam ? (
+                        <Pressable
+                            style={styles.teamLogoSmallContainer}
+                            onPress={() => onPressTeam(profile.team.id ?? '')}
+                            accessibilityRole="button"
+                            accessibilityLabel={displayValue(profile.team.name)}
+                        >
                             <Image
                                 source={{ uri: profile.team.logo ?? undefined }}
                                 style={styles.teamLogoSmall}
                                 resizeMode="contain"
                             />
-                        )}
-                    </View>
+                        </Pressable>
+                    ) : (
+                        <View style={styles.teamLogoSmallContainer}>
+                            <Image
+                                source={{ uri: profile.team.logo ?? undefined }}
+                                style={styles.teamLogoSmall}
+                                resizeMode="contain"
+                            />
+                        </View>
+                    )}
                 </View>
 
                 <Text style={styles.name}>{displayValue(profile.name)}</Text>
@@ -232,13 +235,13 @@ export function PlayerHeader({
                     <Text style={styles.position}>{localizedPosition}</Text>
                     <Text style={styles.separator}>•</Text>
                     {profile.team.id && onPressTeam ? (
-                        <AppPressable
+                        <Pressable
                             onPress={() => onPressTeam(profile.team.id ?? '')}
                             accessibilityRole="button"
                             accessibilityLabel={displayValue(profile.team.name)}
                         >
                             <Text style={styles.teamName}>{displayValue(profile.team.name)}</Text>
-                        </AppPressable>
+                        </Pressable>
                     ) : (
                         <Text style={styles.teamName}>{displayValue(profile.team.name)}</Text>
                     )}

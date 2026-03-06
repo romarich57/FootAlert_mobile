@@ -5,6 +5,11 @@ const listResponseSchema = z
     response: z.array(z.unknown()).default([]),
 })
     .passthrough();
+const objectResponseSchema = z
+    .object({
+    response: z.unknown().optional(),
+})
+    .passthrough();
 const careerAggregateResponseSchema = z
     .object({
     response: z
@@ -15,6 +20,7 @@ const careerAggregateResponseSchema = z
         .optional(),
 })
     .passthrough();
+export const PLAYER_MATCHES_LIMIT = 99;
 export function createPlayersReadService({ http, telemetry }) {
     return {
         async fetchPlayerDetails(playerId, season, signal) {
@@ -68,7 +74,31 @@ export function createPlayersReadService({ http, telemetry }) {
                 teams: (payload.response?.teams ?? []),
             };
         },
-        async fetchTeamFixtures(teamId, season, amount = 10, signal) {
+        async fetchPlayerOverview(playerId, season, signal) {
+            const rawPayload = await http.get(`/players/${encodeURIComponent(playerId)}/overview`, { season }, { signal });
+            const payload = parseRuntimePayloadOrFallback({
+                schema: objectResponseSchema,
+                payload: rawPayload,
+                fallback: { response: undefined },
+                telemetry,
+                feature: 'players.overview',
+                endpoint: `/players/${playerId}/overview`,
+            });
+            return (payload.response ?? null);
+        },
+        async fetchPlayerStatsCatalog(playerId, signal) {
+            const rawPayload = await http.get(`/players/${encodeURIComponent(playerId)}/stats-catalog`, undefined, { signal });
+            const payload = parseRuntimePayloadOrFallback({
+                schema: objectResponseSchema,
+                payload: rawPayload,
+                fallback: { response: undefined },
+                telemetry,
+                feature: 'players.stats_catalog',
+                endpoint: `/players/${playerId}/stats-catalog`,
+            });
+            return (payload.response ?? null);
+        },
+        async fetchTeamFixtures(teamId, season, amount = PLAYER_MATCHES_LIMIT, signal) {
             const rawPayload = await http.get(`/players/team/${encodeURIComponent(teamId)}/fixtures`, {
                 season,
                 last: amount,
@@ -95,7 +125,7 @@ export function createPlayersReadService({ http, telemetry }) {
             });
             return (payload.response[0] ?? null);
         },
-        async fetchPlayerMatchesAggregate(playerId, teamId, season, amount = 15, signal) {
+        async fetchPlayerMatchesAggregate(playerId, teamId, season, amount = PLAYER_MATCHES_LIMIT, signal) {
             const rawPayload = await http.get(`/players/${encodeURIComponent(playerId)}/matches`, {
                 teamId,
                 season,

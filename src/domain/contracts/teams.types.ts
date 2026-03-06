@@ -4,8 +4,7 @@ export type TeamDetailsTab =
   | 'standings'
   | 'stats'
   | 'transfers'
-  | 'squad'
-  | 'trophies';
+  | 'squad';
 
 export type TeamMatchStatus = 'live' | 'upcoming' | 'finished';
 
@@ -312,25 +311,6 @@ export type TeamCoach = {
 export type TeamSquadData = {
   coach: TeamCoach | null;
   players: TeamSquadPlayer[];
-};
-
-export type TeamTrophyPlacement = {
-  place: string;
-  count: number;
-  seasons: string[];
-};
-
-export type TeamTrophyGroup = {
-  id: string;
-  competition: string | null;
-  country: string | null;
-  placements: TeamTrophyPlacement[];
-};
-
-export type TeamTrophiesData = {
-  groups: TeamTrophyGroup[];
-  total: number;
-  totalWins: number;
 };
 
 export type ApiFootballListResponse<T> = {
@@ -640,11 +620,4 @@ export type TeamApiTransferDto = {
       };
     };
   }>;
-};
-
-export type TeamApiTrophyDto = {
-  league?: string;
-  country?: string;
-  season?: string;
-  place?: string;
 };

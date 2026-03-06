@@ -1,0 +1,23 @@
+appId: com.footalert.app
+---
+- launchApp:
+    clearState: true
+- openLink: footalert://player/278
+- assertVisible:
+    id: player-details-screen
+- assertVisible:
+    id: player-profile-tab
+- tapOn:
+    id: player-details-tab-stats
+- assertVisible:
+    id: player-stats-tab
+- tapOn:
+    id: player-details-tab-matchs
+- assertVisible:
+    id: player-matches-tab
+- back
+- openLink: footalert://player/278
+- assertVisible:
+    id: player-details-screen
+- assertVisible:
+    id: player-profile-tab

@@ -57,12 +57,13 @@ export const queryKeys = {
     transfers: (teamId: string, season: number | null) =>
       ['team_transfers', teamId, season] as const,
     squad: (teamId: string) => ['team_squad', teamId] as const,
-    trophies: (teamId: string) => ['team_trophies', teamId] as const,
   },
   players: {
+    overview: (playerId: string, season: number) => ['player_overview', playerId, season] as const,
     details: (playerId: string, season: number) => ['player_details', playerId, season] as const,
     stats: (playerId: string, season: number) => ['player_stats', 'v2', playerId, season] as const,
     statsCatalog: (playerId: string) => ['player_stats_catalog', playerId] as const,
+    statsCatalogV2: (playerId: string) => ['player_stats_catalog', 'v2', playerId] as const,
     trophies: (playerId: string) => ['player_trophies', playerId] as const,
     careerAggregate: (playerId: string) => ['player_career_aggregate', playerId] as const,
     matchesAggregate: (

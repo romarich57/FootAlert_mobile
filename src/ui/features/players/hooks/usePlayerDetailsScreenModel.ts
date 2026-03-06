@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { groupPlayerTrophiesByClub } from '@data/mappers/playersMapper';
 import { usePlayerCareer } from '@ui/features/players/hooks/usePlayerCareer';
-import { usePlayerDetails } from '@ui/features/players/hooks/usePlayerDetails';
 import { usePlayerMatches } from '@ui/features/players/hooks/usePlayerMatches';
+import { usePlayerOverview } from '@ui/features/players/hooks/usePlayerOverview';
 import { usePlayerStatsCatalog } from '@ui/features/players/hooks/usePlayerStatsCatalog';
 import { usePlayerStats } from '@ui/features/players/hooks/usePlayerStats';
 import type { PlayerTabType } from '@ui/features/players/components/PlayerTabs';
@@ -121,8 +122,7 @@ export function usePlayerDetailsScreenModel({
   const isMatchesTabActive = activeTab === 'matchs';
   const isStatsTabActive = activeTab === 'stats';
   const isCareerTabActive = activeTab === 'carriere';
-  const isProfileTabActive = activeTab === 'profil';
-  const shouldLoadCareer = isCareerTabActive || isStatsTabActive || isProfileTabActive;
+  const shouldLoadCareer = isCareerTabActive;
 
   const {
     profile,
@@ -130,11 +130,13 @@ export function usePlayerDetailsScreenModel({
     positions,
     seasonStats: basicSeasonStats,
     seasonStatsDataset,
+    profileCompetitionStats: overviewProfileCompetitionStats,
+    profileTrophiesByClub: overviewProfileTrophiesByClub,
     trophies,
     isLoading: isProfileLoading,
     isError: isProfileError,
     dataUpdatedAt: profileDataUpdatedAt,
-  } = usePlayerDetails(playerId, selectedSeason);
+  } = usePlayerOverview(playerId, selectedSeason);
 
   const teamId = profile?.team.id ?? '';
 
@@ -262,13 +264,23 @@ export function usePlayerDetailsScreenModel({
   );
 
   const profileCompetitionStats = useMemo(
-    () => selectProfileCompetitionStats(seasonStatsDataset),
-    [seasonStatsDataset],
+    () => overviewProfileCompetitionStats ?? selectProfileCompetitionStats(seasonStatsDataset),
+    [overviewProfileCompetitionStats, seasonStatsDataset],
   );
 
   const profileTrophiesByClub = useMemo(
-    () => groupPlayerTrophiesByClub(trophies, careerSeasons),
-    [careerSeasons, trophies],
+    () => {
+      if (overviewProfileTrophiesByClub.length > 0) {
+        return overviewProfileTrophiesByClub;
+      }
+
+      if (trophies.length === 0 || careerSeasons.length === 0) {
+        return [];
+      }
+
+      return groupPlayerTrophiesByClub(trophies, careerSeasons);
+    },
+    [careerSeasons, overviewProfileTrophiesByClub, trophies],
   );
 
   const profilePositions = useMemo(() => {
@@ -288,6 +300,7 @@ export function usePlayerDetailsScreenModel({
       statsCompetitions.length > 0 ||
       careerSeasons.length > 0 ||
       careerTeams.length > 0 ||
+      profileTrophiesByClub.length > 0 ||
       trophies.length > 0,
     [
       careerSeasons.length,
@@ -295,6 +308,7 @@ export function usePlayerDetailsScreenModel({
       matches.length,
       profile,
       profileCompetitionStats,
+      profileTrophiesByClub.length,
       stats,
       statsCompetitions.length,
       trophies.length,
@@ -311,8 +325,8 @@ export function usePlayerDetailsScreenModel({
       return unique;
     }
 
-    return [currentSeason];
-  }, [careerSeasons, currentSeason]);
+    return [selectedSeason];
+  }, [careerSeasons, selectedSeason]);
 
   useEffect(() => {
     if (availableSeasons.length === 0) {
@@ -342,6 +356,34 @@ export function usePlayerDetailsScreenModel({
       season,
     });
   }, []);
+
+  const activeRequestCount = useMemo(
+    () =>
+      [
+        isProfileLoading,
+        isMatchesTabActive && isMatchesLoading,
+        isStatsTabActive && (isStatsDatasetLoading || isStatsCatalogLoading),
+        isCareerTabActive && isCareerLoading,
+      ].filter(Boolean).length,
+    [
+      isCareerLoading,
+      isCareerTabActive,
+      isMatchesLoading,
+      isMatchesTabActive,
+      isProfileLoading,
+      isStatsCatalogLoading,
+      isStatsDatasetLoading,
+      isStatsTabActive,
+    ],
+  );
+
+  useEffect(() => {
+    getMobileTelemetry().trackEvent('player_details.requests_count', {
+      tab: activeTab,
+      count: activeRequestCount,
+      hasCachedData,
+    });
+  }, [activeRequestCount, activeTab, hasCachedData]);
 
   return {
     currentSeason,

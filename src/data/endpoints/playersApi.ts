@@ -1,11 +1,16 @@
-import { createPlayersReadService } from '@app-core/services/playersService';
+import {
+  createPlayersReadService,
+  PLAYER_MATCHES_LIMIT,
+} from '@app-core/services/playersService';
 import type {
   PlayerApiCareerSeasonAggregateDto,
   PlayerApiCareerTeamAggregateDto,
   PlayerApiDetailsDto,
   PlayerApiFixtureDto,
+  PlayerApiOverviewResponse,
   PlayerApiMatchPerformanceDto,
   PlayerApiMatchesAggregateResponse,
+  PlayerApiStatsCatalogResponse,
   PlayerApiTrophyDto,
   PlayerCareerSeason,
   PlayerCareerTeam,
@@ -25,6 +30,8 @@ const playersReadService = createPlayersReadService({
   http: mobileReadHttpAdapter,
   telemetry: mobileReadTelemetryAdapter,
 });
+
+export { PLAYER_MATCHES_LIMIT };
 
 export async function fetchPlayerDetails(
   playerId: string,
@@ -70,10 +77,25 @@ export async function fetchPlayerCareerAggregate(
   return { seasons, teams };
 }
 
+export async function fetchPlayerOverview(
+  playerId: string,
+  season: number,
+  signal?: AbortSignal,
+): Promise<PlayerApiOverviewResponse | null> {
+  return playersReadService.fetchPlayerOverview<PlayerApiOverviewResponse>(playerId, season, signal);
+}
+
+export async function fetchPlayerStatsCatalog(
+  playerId: string,
+  signal?: AbortSignal,
+): Promise<PlayerApiStatsCatalogResponse | null> {
+  return playersReadService.fetchPlayerStatsCatalog<PlayerApiStatsCatalogResponse>(playerId, signal);
+}
+
 export async function fetchTeamFixtures(
   teamId: string,
   season: number,
-  amount: number = 10,
+  amount: number = PLAYER_MATCHES_LIMIT,
   signal?: AbortSignal,
 ): Promise<PlayerApiFixtureDto[]> {
   return playersReadService.fetchTeamFixtures<PlayerApiFixtureDto>(teamId, season, amount, signal);
@@ -95,7 +117,7 @@ export async function fetchPlayerMatchesAggregate(
   playerId: string,
   teamId: string,
   season: number,
-  amount: number = 15,
+  amount: number = PLAYER_MATCHES_LIMIT,
   signal?: AbortSignal,
 ): Promise<PlayerMatchPerformance[]> {
   const aggregateResponse = await playersReadService.fetchPlayerMatchesAggregate<

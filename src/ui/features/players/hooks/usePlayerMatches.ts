@@ -4,6 +4,7 @@ import { appEnv } from '@data/config/env';
 import {
   fetchFixturePlayerStats,
   fetchPlayerMatchesAggregate,
+  PLAYER_MATCHES_LIMIT,
   fetchTeamFixtures,
 } from '@data/endpoints/playersApi';
 import { mapPlayerMatchPerformance } from '@data/mappers/playersMapper';
@@ -22,7 +23,13 @@ export function usePlayerMatches(
   const aggregateQuery = useQuery({
     queryKey: queryKeys.players.matchesAggregate(playerId, teamId, season),
     queryFn: async ({ signal }) =>
-      fetchPlayerMatchesAggregate(playerId, teamId, season, 15, signal),
+      fetchPlayerMatchesAggregate(
+        playerId,
+        teamId,
+        season,
+        PLAYER_MATCHES_LIMIT,
+        signal,
+      ),
     enabled: enabled && useAggregateEndpoint && !!playerId && !!teamId && !!season,
     ...featureQueryOptions.players.matches,
   });
@@ -30,7 +37,12 @@ export function usePlayerMatches(
   const legacyMatchesQuery = useQuery({
     queryKey: queryKeys.players.matchesLegacy(playerId, teamId, season),
     queryFn: async ({ signal }) => {
-      const fixtures = await fetchTeamFixtures(teamId, season, 15, signal);
+      const fixtures = await fetchTeamFixtures(
+        teamId,
+        season,
+        PLAYER_MATCHES_LIMIT,
+        signal,
+      );
 
       const performanceTasks = fixtures
         .filter(fixture => Boolean(fixture.fixture?.id))

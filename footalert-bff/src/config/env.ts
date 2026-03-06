@@ -26,6 +26,9 @@ const DEFAULT_NOTIFICATIONS_EVENT_INGEST_ENABLED = true;
 const DEFAULT_NOTIFICATIONS_FANOUT_MAX_PER_EVENT = 10_000;
 const DEFAULT_NOTIFICATIONS_DEFERRED_PROMOTION_BATCH = 1_000;
 const DEFAULT_NOTIFICATIONS_DEFERRED_DELAY_MS = 15_000;
+const DEFAULT_BFF_ENABLE_PLAYER_CANONICAL_CACHE_KEYS = true;
+const DEFAULT_BFF_ENABLE_PLAYER_MATCHES_SWR = true;
+const DEFAULT_BFF_ENABLE_PLAYER_OVERVIEW_ROUTE = true;
 
 type CacheBackend = 'memory' | 'redis';
 type NotificationsPersistenceBackend = 'memory' | 'postgres';
@@ -78,6 +81,9 @@ type BffEnv = {
   notificationsFanoutMaxPerEvent: number;
   notificationsDeferredPromotionBatch: number;
   notificationsDeferredDelayMs: number;
+  bffEnablePlayerCanonicalCacheKeys: boolean;
+  bffEnablePlayerMatchesSwr: boolean;
+  bffEnablePlayerOverviewRoute: boolean;
   databaseUrl: string | null;
   notificationsIngestToken: string | null;
   pushTokenEncryptionKey: string | null;
@@ -392,6 +398,18 @@ export const env: BffEnv = {
   notificationsDeferredDelayMs: readPositiveInt(
     process.env.NOTIFICATIONS_DEFERRED_DELAY_MS,
     DEFAULT_NOTIFICATIONS_DEFERRED_DELAY_MS,
+  ),
+  bffEnablePlayerCanonicalCacheKeys: readBoolean(
+    process.env.BFF_ENABLE_PLAYER_CANONICAL_CACHE_KEYS,
+    DEFAULT_BFF_ENABLE_PLAYER_CANONICAL_CACHE_KEYS,
+  ),
+  bffEnablePlayerMatchesSwr: readBoolean(
+    process.env.BFF_ENABLE_PLAYER_MATCHES_SWR,
+    DEFAULT_BFF_ENABLE_PLAYER_MATCHES_SWR,
+  ),
+  bffEnablePlayerOverviewRoute: readBoolean(
+    process.env.BFF_ENABLE_PLAYER_OVERVIEW_ROUTE,
+    DEFAULT_BFF_ENABLE_PLAYER_OVERVIEW_ROUTE,
   ),
   databaseUrl: readOptionalValue(process.env.DATABASE_URL),
   notificationsIngestToken: readOptionalValue(process.env.NOTIFICATIONS_INGEST_TOKEN),

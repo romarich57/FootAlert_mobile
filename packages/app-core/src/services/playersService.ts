@@ -11,6 +11,12 @@ const listResponseSchema = z
   })
   .passthrough();
 
+const objectResponseSchema = z
+  .object({
+    response: z.unknown().optional(),
+  })
+  .passthrough();
+
 const careerAggregateResponseSchema = z
   .object({
     response: z
@@ -26,6 +32,8 @@ type PlayersServiceDependencies = {
   http: HttpAdapter;
   telemetry: TelemetryAdapter;
 };
+
+export const PLAYER_MATCHES_LIMIT = 99;
 
 export function createPlayersReadService({ http, telemetry }: PlayersServiceDependencies) {
   return {
@@ -111,10 +119,53 @@ export function createPlayersReadService({ http, telemetry }: PlayersServiceDepe
       };
     },
 
+    async fetchPlayerOverview<T = unknown>(
+      playerId: string,
+      season: number,
+      signal?: AbortSignal,
+    ): Promise<T | null> {
+      const rawPayload = await http.get<unknown>(
+        `/players/${encodeURIComponent(playerId)}/overview`,
+        { season },
+        { signal },
+      );
+      const payload = parseRuntimePayloadOrFallback({
+        schema: objectResponseSchema,
+        payload: rawPayload,
+        fallback: { response: undefined },
+        telemetry,
+        feature: 'players.overview',
+        endpoint: `/players/${playerId}/overview`,
+      });
+
+      return (payload.response ?? null) as T | null;
+    },
+
+    async fetchPlayerStatsCatalog<T = unknown>(
+      playerId: string,
+      signal?: AbortSignal,
+    ): Promise<T | null> {
+      const rawPayload = await http.get<unknown>(
+        `/players/${encodeURIComponent(playerId)}/stats-catalog`,
+        undefined,
+        { signal },
+      );
+      const payload = parseRuntimePayloadOrFallback({
+        schema: objectResponseSchema,
+        payload: rawPayload,
+        fallback: { response: undefined },
+        telemetry,
+        feature: 'players.stats_catalog',
+        endpoint: `/players/${playerId}/stats-catalog`,
+      });
+
+      return (payload.response ?? null) as T | null;
+    },
+
     async fetchTeamFixtures<T = unknown>(
       teamId: string,
       season: number,
-      amount: number = 10,
+      amount: number = PLAYER_MATCHES_LIMIT,
       signal?: AbortSignal,
     ): Promise<T[]> {
       const rawPayload = await http.get<unknown>(
@@ -163,7 +214,7 @@ export function createPlayersReadService({ http, telemetry }: PlayersServiceDepe
       playerId: string,
       teamId: string,
       season: number,
-      amount: number = 15,
+      amount: number = PLAYER_MATCHES_LIMIT,
       signal?: AbortSignal,
     ): Promise<T[]> {
       const rawPayload = await http.get<unknown>(

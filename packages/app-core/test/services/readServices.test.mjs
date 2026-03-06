@@ -114,6 +114,43 @@ describe('read services path/query normalization', () => {
     assert.deepEqual(calls[0].query, { season: 2025 });
   });
 
+  it('players service exposes overview aggregation on a stable endpoint', async () => {
+    const { http, calls } = createHttpRecorder([{}]);
+    const service = createPlayersReadService({ http, telemetry: noopTelemetry });
+
+    await service.fetchPlayerOverview('77', 2025);
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, '/players/77/overview');
+    assert.deepEqual(calls[0].query, { season: 2025 });
+  });
+
+  it('players service exposes stats catalog aggregation without season fan-out parameters', async () => {
+    const { http, calls } = createHttpRecorder([{}]);
+    const service = createPlayersReadService({ http, telemetry: noopTelemetry });
+
+    await service.fetchPlayerStatsCatalog('77');
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, '/players/77/stats-catalog');
+    assert.equal(calls[0].query, undefined);
+  });
+
+  it('players service defaults aggregate matches to the mobile contract limit', async () => {
+    const { http, calls } = createHttpRecorder([{ response: [] }]);
+    const service = createPlayersReadService({ http, telemetry: noopTelemetry });
+
+    await service.fetchPlayerMatchesAggregate('77', '40', 2025);
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, '/players/77/matches');
+    assert.deepEqual(calls[0].query, {
+      teamId: '40',
+      season: 2025,
+      last: 99,
+    });
+  });
+
   it('follows service keeps search endpoint contract stable', async () => {
     const { http, calls } = createHttpRecorder([{ response: [] }]);
     const service = createFollowsReadService({ http, telemetry: noopTelemetry });

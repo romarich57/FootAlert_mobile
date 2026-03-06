@@ -77,11 +77,12 @@ export const featureQueryOptions = {
     stats: getQueryFreshnessProfile('interactive'),
     transfers: getQueryFreshnessProfile('stable', { staleTime: 2 * 60_000, retry: 2 }),
     squad: getQueryFreshnessProfile('stable', { staleTime: 10 * 60_000 }),
-    trophies: getQueryFreshnessProfile('stable'),
   },
   players: {
+    overview: getQueryFreshnessProfile('interactive', { staleTime: 5 * 60_000 }),
     details: getQueryFreshnessProfile('interactive', { staleTime: 5 * 60_000 }),
     stats: getQueryFreshnessProfile('interactive', { staleTime: 5 * 60_000 }),
+    statsCatalog: getQueryFreshnessProfile('stable', { staleTime: 30 * 60_000 }),
     matches: getQueryFreshnessProfile('interactive', { staleTime: 5 * 60_000 }),
     career: getQueryFreshnessProfile('stable'),
     trophies: getQueryFreshnessProfile('stable'),

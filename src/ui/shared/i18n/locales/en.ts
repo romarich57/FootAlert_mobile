@@ -398,7 +398,6 @@ export const en = {
       stats: 'Stats',
       transfers: 'Transfers',
       squad: 'Squad',
-      trophies: 'Trophies',
     },
     filters: {
       competition: 'Competition',
@@ -508,15 +507,6 @@ export const en = {
         midfielders: 'Midfielders',
         attackers: 'Attackers',
         other: 'Other',
-      },
-    },
-    trophies: {
-      title: 'Honours',
-      places: {
-        champion: 'Champion',
-        runnerUp: 'Runner-up',
-        semifinalist: 'Semi-finalist',
-        title: 'Title',
       },
     },
     labels: {

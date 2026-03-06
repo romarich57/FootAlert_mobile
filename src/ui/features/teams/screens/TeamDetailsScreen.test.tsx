@@ -11,7 +11,6 @@ import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
 import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
 import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
-import { useTeamTrophies } from '@ui/features/teams/hooks/useTeamTrophies';
 import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import '@ui/shared/i18n';
 import i18n from '@ui/shared/i18n';
@@ -35,7 +34,6 @@ jest.mock('@ui/features/teams/hooks/useTeamStandings');
 jest.mock('@ui/features/teams/hooks/useTeamStats');
 jest.mock('@ui/features/teams/hooks/useTeamTransfers');
 jest.mock('@ui/features/teams/hooks/useTeamSquad');
-jest.mock('@ui/features/teams/hooks/useTeamTrophies');
 
 const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedUseRoute = jest.mocked(useRoute);
@@ -48,7 +46,6 @@ const mockedUseTeamStandings = jest.mocked(useTeamStandings);
 const mockedUseTeamStats = jest.mocked(useTeamStats);
 const mockedUseTeamTransfers = jest.mocked(useTeamTransfers);
 const mockedUseTeamSquad = jest.mocked(useTeamSquad);
-const mockedUseTeamTrophies = jest.mocked(useTeamTrophies);
 
 const navigateMock = jest.fn();
 const pushMock = jest.fn();
@@ -352,15 +349,6 @@ describe('TeamDetailsScreen', () => {
       refetch: jest.fn(async () => undefined),
     } as never);
 
-    mockedUseTeamTrophies.mockReturnValue({
-      data: { groups: [], total: 0, totalWins: 0 },
-      isLoading: false,
-      isError: false,
-      isFetching: false,
-      isFetched: true,
-      isFetchedAfterMount: true,
-      refetch: jest.fn(async () => undefined),
-    } as never);
   });
 
   it('renders team header and tabs', () => {
@@ -369,34 +357,10 @@ describe('TeamDetailsScreen', () => {
     expect(screen.getAllByText('Barcelona').length).toBeGreaterThan(0);
     expect(screen.getByText(i18n.t('teamDetails.tabs.overview'))).toBeTruthy();
     expect(screen.getByText(i18n.t('teamDetails.tabs.matches'))).toBeTruthy();
-    expect(screen.queryByText(i18n.t('teamDetails.tabs.trophies'))).toBeNull();
-  });
-
-  it('shows trophies tab only when API returns exploitable trophy groups', () => {
-    mockedUseTeamTrophies.mockReturnValue({
-      data: {
-        groups: [
-          {
-            id: 'laliga::spain',
-            competition: 'LaLiga',
-            country: 'Spain',
-            placements: [{ place: 'champion', count: 1, seasons: ['2024/25'] }],
-          },
-        ],
-        total: 1,
-        totalWins: 1,
-      },
-      isLoading: false,
-      isError: false,
-      isFetching: false,
-      isFetched: true,
-      isFetchedAfterMount: true,
-      refetch: jest.fn(async () => undefined),
-    } as never);
-
-    renderScreen();
-
-    expect(screen.getByText(i18n.t('teamDetails.tabs.trophies'))).toBeTruthy();
+    expect(screen.getAllByText(i18n.t('teamDetails.tabs.standings')).length).toBeGreaterThan(0);
+    expect(screen.getByText(i18n.t('teamDetails.tabs.stats'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('teamDetails.tabs.transfers'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('teamDetails.tabs.squad'))).toBeTruthy();
   });
 
   it('hides tabs whose datasets are fetched and empty', () => {
@@ -472,16 +436,6 @@ describe('TeamDetailsScreen', () => {
       isFetchedAfterMount: true,
       refetch: jest.fn(async () => undefined),
     } as never);
-    mockedUseTeamTrophies.mockReturnValue({
-      data: { groups: [], total: 0, totalWins: 0 },
-      isLoading: false,
-      isError: false,
-      isFetching: false,
-      isFetched: true,
-      isFetchedAfterMount: true,
-      refetch: jest.fn(async () => undefined),
-    } as never);
-
     renderScreen();
 
     expect(screen.getByLabelText(i18n.t('teamDetails.tabs.overview'))).toBeTruthy();
@@ -490,7 +444,6 @@ describe('TeamDetailsScreen', () => {
     expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.stats'))).toBeNull();
     expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.transfers'))).toBeNull();
     expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.squad'))).toBeNull();
-    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.trophies'))).toBeNull();
   });
 
   it('enables matches query after opening matches tab', () => {

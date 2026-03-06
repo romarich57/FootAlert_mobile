@@ -25,7 +25,7 @@ test('players and teams endpoints reject out-of-range volumetric params', async 
 
   const playerMatches = await app.inject({
     method: 'GET',
-    url: '/v1/players/278/matches?teamId=40&season=2025&last=21',
+    url: '/v1/players/278/matches?teamId=40&season=2025&last=100',
   });
   const teamFixtures = await app.inject({
     method: 'GET',
@@ -40,6 +40,175 @@ test('players and teams endpoints reject out-of-range volumetric params', async 
   assert.equal(teamFixtures.statusCode, 400);
   assert.equal(teamPlayers.statusCode, 400);
   assert.equal(calls.length, 0);
+});
+
+test('GET /v1/players/:id/matches accepts last=99 for the aggregate path', async t => {
+  const calls = installFetchMock(async call => {
+    const url = String(call.input);
+
+    if (url.includes('/fixtures?team=40&season=2025&last=99')) {
+      return jsonResponse({ response: [] });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/players/278/matches?teamId=40&season=2025&last=99',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), { response: [] });
+  assert.equal(
+    String(calls[0].input),
+    'https://api-football.test/fixtures?team=40&season=2025&last=99',
+  );
+});
+
+test('GET /v1/players/:id/overview returns the aggregated profile payload', async t => {
+  const calls = installFetchMock(async call => {
+    const url = String(call.input);
+
+    if (url.includes('/players?id=278&season=2025')) {
+      return jsonResponse({
+        response: [
+          {
+            player: {
+              id: 278,
+              name: 'Kylian Mbappe',
+              age: 26,
+              nationality: 'France',
+              photo: 'https://photo.test/mbappe.png',
+            },
+            statistics: [
+              {
+                team: { id: 40, name: 'Team A', logo: 'https://logo.test/team-a.png' },
+                league: { id: 39, name: 'Premier League', logo: 'https://logo.test/pl.png', season: 2025 },
+                games: { appearences: 28, lineups: 27, minutes: 2400, position: 'Attacker', rating: '7.84' },
+                goals: { total: 19, assists: 8 },
+                shots: { total: 88, on: 41 },
+                passes: { total: 730, key: 39, accuracy: 84 },
+                dribbles: { attempts: 66, success: 35, past: 8 },
+                tackles: { total: 9, interceptions: 3, blocks: 1 },
+                duels: { total: 120, won: 64 },
+                fouls: { drawn: 25, committed: 9 },
+                cards: { yellow: 2, red: 0 },
+                penalty: { scored: 3, won: 4, missed: 0, commited: 0 },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (url.includes('/trophies?player=278')) {
+      return jsonResponse({
+        response: [
+          {
+            league: 'Premier League',
+            country: 'England',
+            season: '2024/2025',
+            place: 'Winner',
+          },
+        ],
+      });
+    }
+
+    if (url.includes('/players/seasons?player=278')) {
+      return jsonResponse({
+        response: [2025],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/players/278/overview?season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.response.profile.name, 'Kylian Mbappe');
+  assert.equal(payload.response.profileCompetitionStats.leagueId, '39');
+  assert.equal(payload.response.seasonStatsDataset.overall.goals, 19);
+  assert.equal(payload.response.trophiesByClub.length, 1);
+  assert.equal(payload.response.trophiesByClub[0].total, 1);
+  assert.equal(calls.length, 3);
+});
+
+test('GET /v1/players/:id/stats-catalog returns cached aggregated competition options', async t => {
+  const calls = installFetchMock(async call => {
+    const url = String(call.input);
+
+    if (url.includes('/players/seasons?player=278')) {
+      return jsonResponse({
+        response: [2025, 2024],
+      });
+    }
+
+    if (url.includes('/players?id=278&season=2025')) {
+      return jsonResponse({
+        response: [
+          {
+            statistics: [
+              {
+                league: { id: 39, name: 'Premier League', logo: 'pl.png', season: 2025 },
+                games: { appearences: 28, minutes: 2400 },
+                goals: { total: 19, assists: 8 },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (url.includes('/players?id=278&season=2024')) {
+      return jsonResponse({
+        response: [
+          {
+            statistics: [
+              {
+                league: { id: 2, name: 'UEFA Champions League', logo: 'ucl.png', season: 2024 },
+                games: { appearences: 12, minutes: 980 },
+                goals: { total: 7, assists: 2 },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const firstResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/players/278/stats-catalog',
+  });
+  const secondResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/players/278/stats-catalog',
+  });
+
+  assert.equal(firstResponse.statusCode, 200);
+  assert.equal(secondResponse.statusCode, 200);
+  const payload = firstResponse.json();
+  assert.equal(payload.response.competitions.length, 2);
+  assert.deepEqual(payload.response.defaultSelection, {
+    leagueId: '39',
+    season: 2025,
+  });
+  assert.deepEqual(payload.response.availableSeasons, [2025, 2024]);
+  assert.equal(calls.length, 3);
 });
 
 test('GET /v1/players/:id/career returns aggregated seasons and teams', async t => {
@@ -197,6 +366,70 @@ test('GET /v1/players/:id/matches returns aggregated player match performances',
   assert.equal(payload.response[1].fixtureId, '9002');
   assert.equal(payload.response[1].playerStats.minutes, null);
   assert.equal(calls.length, 3);
+});
+
+test('GET /v1/players/:id/matches reuses the canonical cache key across query order variants', async t => {
+  const calls = installFetchMock(async call => {
+    const url = String(call.input);
+
+    if (url.includes('/fixtures?team=40&season=2025&last=2')) {
+      return jsonResponse({
+        response: [
+          {
+            fixture: { id: 9001, date: '2026-02-20T20:00:00Z' },
+            league: { id: 39, name: 'Premier League', logo: 'https://league-logo' },
+            teams: {
+              home: { id: 40, name: 'Team A', logo: 'https://team-a' },
+              away: { id: 50, name: 'Team B', logo: 'https://team-b' },
+            },
+            goals: { home: 2, away: 1 },
+          },
+        ],
+      });
+    }
+
+    if (url.includes('/fixtures/players?fixture=9001&team=40')) {
+      return jsonResponse({
+        response: [
+          {
+            players: [
+              {
+                players: [
+                  {
+                    player: { id: 278 },
+                    statistics: [
+                      {
+                        games: { minutes: 90, rating: '7.8', substitute: false },
+                        goals: { total: 1, assists: 0 },
+                        cards: { yellow: 1, red: 0 },
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const firstResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/players/278/matches?teamId=40&season=2025&last=2',
+  });
+  const secondResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/players/278/matches?last=2&season=2025&teamId=40',
+  });
+
+  assert.equal(firstResponse.statusCode, 200);
+  assert.equal(secondResponse.statusCode, 200);
+  assert.equal(calls.length, 2);
 });
 
 test('GET /v1/players/:id/seasons proxies upstream endpoint', async t => {

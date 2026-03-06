@@ -333,8 +333,8 @@ export function PlayerMatchesTab({ matches, onPressMatch, onPressCompetition, on
     );
 
     return (
-        <View style={styles.container}>
-            <FlashList
+            <View style={styles.container} testID="player-matches-tab">
+                <FlashList
                 data={matches}
                 keyExtractor={(item) => item.fixtureId}
                 renderItem={renderItem}

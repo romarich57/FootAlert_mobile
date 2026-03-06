@@ -47,27 +47,30 @@ function createStyles(colors: ThemeColors) {
 }
 
 function TabItem({
-    label,
-    selected,
-    onPress,
-    styles,
+  label,
+  selected,
+  onPress,
+  styles,
+  testID,
 }: {
-    label: string;
-    selected: boolean;
-    onPress: () => void;
-    styles: ReturnType<typeof createStyles>;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  styles: ReturnType<typeof createStyles>;
+  testID: string;
 }) {
-    return (
-        <AppPressable
-            accessibilityRole="tab"
-            accessibilityLabel={label}
-            accessibilityState={{ selected }}
-            onPress={onPress}
-            style={[styles.tabButton, selected && styles.tabButtonSelected]}
-        >
-            <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
-        </AppPressable>
-    );
+  return (
+    <AppPressable
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.tabButton, selected && styles.tabButtonSelected]}
+      testID={testID}
+    >
+      <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
+    </AppPressable>
+  );
 }
 
 export function PlayerTabs({
@@ -88,30 +91,34 @@ export function PlayerTabs({
     const resolvedCarriereLabel = carriereLabel ?? t('playerDetails.tabs.career');
 
     return (
-        <View style={styles.container} accessibilityRole="tablist">
+        <View style={styles.container} accessibilityRole="tablist" testID="player-details-tabs">
             <TabItem
                 label={resolvedProfilLabel}
                 selected={selectedTab === 'profil'}
                 onPress={() => onChangeTab('profil')}
                 styles={styles}
+                testID="player-details-tab-profil"
             />
             <TabItem
                 label={resolvedMatchsLabel}
                 selected={selectedTab === 'matchs'}
                 onPress={() => onChangeTab('matchs')}
                 styles={styles}
+                testID="player-details-tab-matchs"
             />
             <TabItem
                 label={resolvedStatsLabel}
                 selected={selectedTab === 'stats'}
                 onPress={() => onChangeTab('stats')}
                 styles={styles}
+                testID="player-details-tab-stats"
             />
             <TabItem
                 label={resolvedCarriereLabel}
                 selected={selectedTab === 'carriere'}
                 onPress={() => onChangeTab('carriere')}
                 styles={styles}
+                testID="player-details-tab-carriere"
             />
         </View>
     );

@@ -144,6 +144,37 @@ export type PlayerSeasonStatsDataset = {
     byCompetition: PlayerCompetitionSeasonStats[];
 };
 
+export type PlayerStatsCatalogSelection = {
+    leagueId: string | null;
+    season: number | null;
+};
+
+export type PlayerStatsCatalogCompetition = {
+    leagueId: string | null;
+    leagueName: string | null;
+    leagueLogo: string | null;
+    type: string | null;
+    country: string | null;
+    seasons: number[];
+    currentSeason: number | null;
+};
+
+export type PlayerApiOverviewResponse = {
+    profile: PlayerProfile | null;
+    characteristics: PlayerCharacteristics | null;
+    positions: PlayerPositionsData | null;
+    seasonStats: PlayerSeasonStats | null;
+    seasonStatsDataset: PlayerSeasonStatsDataset | null;
+    profileCompetitionStats: PlayerProfileCompetitionStats | null;
+    trophiesByClub: PlayerTrophiesByClub;
+};
+
+export type PlayerApiStatsCatalogResponse = {
+    competitions: PlayerStatsCatalogCompetition[];
+    defaultSelection: PlayerStatsCatalogSelection;
+    availableSeasons: number[];
+};
+
 export type PlayerMatchPerformance = {
     fixtureId: string;
     date: string | null;

@@ -12,7 +12,6 @@ import type {
   TeamApiStatisticsDto,
   TeamApiTeamDetailsDto,
   TeamOverviewData,
-  TeamApiTrophyDto,
   TeamApiTransferDto,
 } from '@domain/contracts/teams.types';
 
@@ -142,11 +141,4 @@ export async function fetchTeamTransfers(
   signal?: AbortSignal,
 ): Promise<TeamApiTransferDto[]> {
   return teamsReadService.fetchTeamTransfers<TeamApiTransferDto>(teamId, signal);
-}
-
-export async function fetchTeamTrophies(
-  teamId: string,
-  signal?: AbortSignal,
-): Promise<TeamApiTrophyDto[]> {
-  return teamsReadService.fetchTeamTrophies<TeamApiTrophyDto>(teamId, signal);
 }

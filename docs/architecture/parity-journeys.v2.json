@@ -36,7 +36,6 @@
         "/v1/teams/{id}/players",
         "/v1/teams/{id}/squad",
         "/v1/teams/{id}/transfers",
-        "/v1/teams/{id}/trophies",
         "/v1/teams/standings"
       ],
       "acceptance": {

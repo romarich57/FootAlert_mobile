@@ -112,16 +112,23 @@ export function mapPlayerMatchPerformance(
   };
 
   let playerTeamId: string | null = null;
+  // Because the fetcher unwraps response[0] (which is the team object),
+  // performanceDto here is effectively { team: {...}, players: [...] }.
+  // We need to treat it as such, ignoring the incorrect top-level DTO typing.
+  const teamObject = performanceDto as unknown as {
+    team?: { id?: number };
+    players?: Array<{
+      player?: { id?: number };
+      statistics?: PlayerApiMatchStat[];
+    }>;
+  } | null;
 
-  if (performanceDto?.players) {
-    for (const teamTeam of performanceDto.players) {
-      const matchPlayer = teamTeam.players?.find(p => String(p.player?.id) === playerId);
-      if (matchPlayer && matchPlayer.statistics && matchPlayer.statistics.length > 0) {
-        playerTeamId = toId(teamTeam.team?.id);
-        const s = resolvePrimaryMatchStatistic(matchPlayer.statistics);
-        if (!s) {
-          continue;
-        }
+  if (teamObject?.players) {
+    const matchPlayer = teamObject.players.find(p => String(p.player?.id) === playerId);
+    if (matchPlayer && matchPlayer.statistics && matchPlayer.statistics.length > 0) {
+      playerTeamId = toId(teamObject.team?.id);
+      const s = resolvePrimaryMatchStatistic(matchPlayer.statistics);
+      if (s) {
         playerStats = {
           minutes: normalizeNumber(s.games?.minutes),
           rating: normalizeRating(s.games?.rating, 1),
@@ -138,7 +145,6 @@ export function mapPlayerMatchPerformance(
               ? s.games.substitute === false
               : null,
         };
-        break;
       }
     }
   }

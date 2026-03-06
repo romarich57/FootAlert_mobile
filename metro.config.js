@@ -46,6 +46,19 @@ const config = {
         return resolveMetroRequest(context, '@noble/hashes/crypto', platform);
       }
 
+      if (
+        moduleName.startsWith('.') &&
+        moduleName.endsWith('.js') &&
+        typeof context.originModulePath === 'string' &&
+        context.originModulePath.includes(`${path.sep}app-core${path.sep}`)
+      ) {
+        try {
+          return resolveMetroRequest(context, moduleName.slice(0, -3), platform);
+        } catch (e) {
+          // ignore and fallback
+        }
+      }
+
       return resolveMetroRequest(context, moduleName, platform);
     },
   },

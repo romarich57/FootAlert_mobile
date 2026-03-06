@@ -4,6 +4,7 @@ type PlayersServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;
 };
+export declare const PLAYER_MATCHES_LIMIT = 99;
 export declare function createPlayersReadService({ http, telemetry }: PlayersServiceDependencies): {
     fetchPlayerDetails<T = unknown>(playerId: string, season: number, signal?: AbortSignal): Promise<T | null>;
     fetchPlayerSeasons(playerId: string, signal?: AbortSignal): Promise<number[]>;
@@ -12,6 +13,8 @@ export declare function createPlayersReadService({ http, telemetry }: PlayersSer
         seasons: TSeason[];
         teams: TTeam[];
     }>;
+    fetchPlayerOverview<T = unknown>(playerId: string, season: number, signal?: AbortSignal): Promise<T | null>;
+    fetchPlayerStatsCatalog<T = unknown>(playerId: string, signal?: AbortSignal): Promise<T | null>;
     fetchTeamFixtures<T = unknown>(teamId: string, season: number, amount?: number, signal?: AbortSignal): Promise<T[]>;
     fetchFixturePlayerStats<T = unknown>(fixtureId: string, teamId: string, signal?: AbortSignal): Promise<T | null>;
     fetchPlayerMatchesAggregate<T = unknown>(playerId: string, teamId: string, season: number, amount?: number, signal?: AbortSignal): Promise<T[]>;

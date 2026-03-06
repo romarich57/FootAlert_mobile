@@ -9,7 +9,6 @@ import { TeamOverviewTab } from '@ui/features/teams/components/TeamOverviewTab';
 import { TeamSquadTab } from '@ui/features/teams/components/TeamSquadTab';
 import { TeamStandingsTab } from '@ui/features/teams/components/TeamStandingsTab';
 import { TeamStatsTab } from '@ui/features/teams/components/TeamStatsTab';
-import { TeamTrophiesTab } from '@ui/features/teams/components/TeamTrophiesTab';
 import { TeamTransfersTab } from '@ui/features/teams/components/TeamTransfersTab';
 import type {
   TeamDetailsTab,
@@ -20,7 +19,6 @@ import type {
   TeamSquadData,
   TeamStandingsData,
   TeamStatsData,
-  TeamTrophiesData,
   TeamTransfersData,
 } from '@ui/features/teams/types/teams.types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -67,7 +65,6 @@ type TeamDetailsTabContentProps = {
   statsQuery: UseQueryResult<TeamStatsData>;
   transfersQuery: UseQueryResult<TeamTransfersData>;
   squadQuery: UseQueryResult<TeamSquadData>;
-  trophiesQuery: UseQueryResult<TeamTrophiesData>;
 };
 
 export function TeamDetailsTabContent({
@@ -87,7 +84,6 @@ export function TeamDetailsTabContent({
   statsQuery,
   transfersQuery,
   squadQuery,
-  trophiesQuery,
 }: TeamDetailsTabContentProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -199,13 +195,5 @@ export function TeamDetailsTabContent({
     );
   }
 
-  return (
-    <TeamTrophiesTab
-      data={trophiesQuery.data}
-      isLoading={trophiesQuery.isLoading}
-      isError={trophiesQuery.isError}
-      hasFetched={trophiesQuery.isFetched}
-      onRetry={() => trophiesQuery.refetch().catch(() => undefined)}
-    />
-  );
+  return null;
 }

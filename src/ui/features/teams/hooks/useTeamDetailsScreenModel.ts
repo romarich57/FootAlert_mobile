@@ -16,7 +16,6 @@ import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
 import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
 import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
-import { useTeamTrophies } from '@ui/features/teams/hooks/useTeamTrophies';
 import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import { resolveTeamStatsVisibility } from '@ui/features/teams/components/stats/teamStatsSelectors';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
@@ -95,7 +94,6 @@ export function useTeamDetailsScreenModel() {
   const isStatsTabActive = activeTab === 'stats';
   const isTransfersTabActive = activeTab === 'transfers';
   const isSquadTabActive = activeTab === 'squad';
-  const isTrophiesTabActive = activeTab === 'trophies';
   const standingsCompetitions = useMemo(
     () => competitions.filter(item => isLeagueCompetition(item.type)),
     [competitions],
@@ -177,11 +175,6 @@ export function useTeamDetailsScreenModel() {
     enabled: Boolean(safeTeamId) && isSquadTabActive,
   });
 
-  const trophiesQuery = useTeamTrophies({
-    teamId,
-    enabled: Boolean(safeTeamId) && isTrophiesTabActive,
-  });
-
   const activeRequestCount = useMemo(() => {
     let count = 1; // Team context query.
 
@@ -203,9 +196,6 @@ export function useTeamDetailsScreenModel() {
     if (safeTeamId && isSquadTabActive) {
       count += 1;
     }
-    if (safeTeamId && isTrophiesTabActive) {
-      count += 1;
-    }
 
     return count;
   }, [
@@ -216,7 +206,6 @@ export function useTeamDetailsScreenModel() {
     isStandingsTabActive,
     isStatsTabActive,
     isTransfersTabActive,
-    isTrophiesTabActive,
     safeTeamId,
   ]);
 
@@ -245,11 +234,6 @@ export function useTeamDetailsScreenModel() {
     selectedSeason,
     teamId,
   ]);
-
-  const hasTrophiesData = useMemo(
-    () => (trophiesQuery.data?.groups ?? []).some(group => group.placements.length > 0),
-    [trophiesQuery.data?.groups],
-  );
 
   useEffect(() => {
     if (activeTab !== 'standings') {
@@ -405,10 +389,6 @@ export function useTeamDetailsScreenModel() {
     hasData: hasSquadData,
     query: squadQuery,
   });
-  const showTrophiesTab = shouldDisplayDataTab({
-    hasData: hasTrophiesData,
-    query: trophiesQuery,
-  });
 
   const tabs = useMemo(() => {
     const computedTabs: Array<{ key: TeamDetailsTab; label: string }> = [
@@ -435,10 +415,6 @@ export function useTeamDetailsScreenModel() {
       computedTabs.push({ key: 'squad' as const, label: t('teamDetails.tabs.squad') });
     }
 
-    if (showTrophiesTab) {
-      computedTabs.push({ key: 'trophies' as const, label: t('teamDetails.tabs.trophies') });
-    }
-
     return computedTabs;
   }, [
     showMatchesTab,
@@ -446,7 +422,6 @@ export function useTeamDetailsScreenModel() {
     showStatsTab,
     showTransfersTab,
     showSquadTab,
-    showTrophiesTab,
     t,
   ]);
 
@@ -477,7 +452,7 @@ export function useTeamDetailsScreenModel() {
     if (activeTab === 'squad') {
       return squadQuery.dataUpdatedAt;
     }
-    return trophiesQuery.dataUpdatedAt;
+    return 0;
   }, [
     activeTab,
     matchesQuery.dataUpdatedAt,
@@ -486,7 +461,6 @@ export function useTeamDetailsScreenModel() {
     standingsQuery.dataUpdatedAt,
     statsQuery.dataUpdatedAt,
     transfersQuery.dataUpdatedAt,
-    trophiesQuery.dataUpdatedAt,
   ]);
 
   const lastUpdatedAt = useMemo(() => {
@@ -498,7 +472,6 @@ export function useTeamDetailsScreenModel() {
       statsQuery.dataUpdatedAt,
       transfersQuery.dataUpdatedAt,
       squadQuery.dataUpdatedAt,
-      trophiesQuery.dataUpdatedAt,
     );
     return maxUpdatedAt > 0 ? maxUpdatedAt : null;
   }, [
@@ -509,7 +482,6 @@ export function useTeamDetailsScreenModel() {
     standingsQuery.dataUpdatedAt,
     statsQuery.dataUpdatedAt,
     transfersQuery.dataUpdatedAt,
-    trophiesQuery.dataUpdatedAt,
   ]);
 
   const hasCachedData = hasContextCachedData || activeTabDataUpdatedAt > 0;
@@ -536,7 +508,6 @@ export function useTeamDetailsScreenModel() {
     statsQuery,
     transfersQuery,
     squadQuery,
-    trophiesQuery,
     setLeague,
     setLeagueSeason,
     setSeason,

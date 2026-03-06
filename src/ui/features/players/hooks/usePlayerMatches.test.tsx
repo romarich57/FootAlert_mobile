@@ -81,7 +81,7 @@ describe('usePlayerMatches', () => {
       '278',
       '40',
       2025,
-      15,
+      99,
       expect.anything(),
     );
     expect(fixturesSpy).not.toHaveBeenCalled();
@@ -137,7 +137,7 @@ describe('usePlayerMatches', () => {
     });
 
     expect(result.current.matches).toHaveLength(1);
-    expect(playersApi.fetchTeamFixtures).toHaveBeenCalledWith('40', 2025, 15, expect.anything());
+    expect(playersApi.fetchTeamFixtures).toHaveBeenCalledWith('40', 2025, 99, expect.anything());
     expect(playersApi.fetchFixturePlayerStats).toHaveBeenCalledWith(
       '9001',
       '40',

@@ -9,7 +9,6 @@ import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
 import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
 import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
-import { useTeamTrophies } from '@ui/features/teams/hooks/useTeamTrophies';
 import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 
 jest.mock('@react-navigation/native', () => {
@@ -51,10 +50,6 @@ jest.mock('@ui/features/teams/hooks/useTeamStats', () => ({
   useTeamStats: jest.fn(),
 }));
 
-jest.mock('@ui/features/teams/hooks/useTeamTrophies', () => ({
-  useTeamTrophies: jest.fn(),
-}));
-
 jest.mock('@ui/features/teams/hooks/useTeamTransfers', () => ({
   useTeamTransfers: jest.fn(),
 }));
@@ -82,7 +77,6 @@ const mockedUseTeamOverview = jest.mocked(useTeamOverview);
 const mockedUseTeamSquad = jest.mocked(useTeamSquad);
 const mockedUseTeamStandings = jest.mocked(useTeamStandings);
 const mockedUseTeamStats = jest.mocked(useTeamStats);
-const mockedUseTeamTrophies = jest.mocked(useTeamTrophies);
 const mockedUseTeamTransfers = jest.mocked(useTeamTransfers);
 const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 
@@ -168,9 +162,6 @@ describe('useTeamDetailsScreenModel', () => {
       players: [],
       coach: null,
     }));
-    mockedUseTeamTrophies.mockReturnValue(makeQueryState({
-      groups: [],
-    }));
   });
 
   it('enables overview query only on initial tab and toggles enabled flags when switching tabs', () => {
@@ -207,11 +198,14 @@ describe('useTeamDetailsScreenModel', () => {
         enabled: false,
       }),
     );
-    expect(mockedUseTeamTrophies).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        enabled: false,
-      }),
-    );
+    expect(result.current.tabs.map(tab => tab.key)).toEqual([
+      'overview',
+      'matches',
+      'standings',
+      'stats',
+      'transfers',
+      'squad',
+    ]);
 
     act(() => {
       result.current.handleChangeTab('matches');
@@ -242,5 +236,13 @@ describe('useTeamDetailsScreenModel', () => {
         enabled: false,
       }),
     );
+    expect(result.current.tabs.map(tab => tab.key)).toEqual([
+      'overview',
+      'matches',
+      'standings',
+      'stats',
+      'transfers',
+      'squad',
+    ]);
   });
 });

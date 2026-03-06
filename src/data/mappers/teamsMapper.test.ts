@@ -8,7 +8,6 @@ import {
   mapTeamDetails,
   mapTeamLeaguesToCompetitionOptions,
   mapTransfersToTeamTransfers,
-  mapTrophiesToTeamTrophies,
   resolveDefaultTeamSelection,
 } from '@data/mappers/teamsMapper';
 
@@ -146,53 +145,6 @@ describe('teamsMapper', () => {
     expect(mapped.arrivals).toHaveLength(1);
     expect(mapped.departures).toHaveLength(0);
     expect(mapped.arrivals[0].direction).toBe('arrival');
-  });
-
-  it('keeps trophy competitions in API order while sorting placements inside each competition', () => {
-    const mapped = mapTrophiesToTeamTrophies([
-      { league: 'Premier League', country: 'England', place: 'Runner-up', season: '2024/25' },
-      { league: 'Premier League', country: 'England', place: 'Winner', season: '2003/04' },
-      { league: 'Premier League', country: 'England', place: 'Champion', season: '1937/38' },
-      { league: 'FA Cup', country: 'England', place: 'Winner', season: '2020' },
-      { league: 'Community Shield', country: 'England', place: 'Runner-up', season: '2017/18' },
-      { league: 'FA Cup', country: 'England', place: 'Runner-up', season: '2019/20' },
-    ]);
-
-    expect(mapped.groups.map(group => group.competition)).toEqual([
-      'Premier League',
-      'FA Cup',
-      'Community Shield',
-    ]);
-
-    expect(mapped.groups[0]?.placements.map(placement => placement.place)).toEqual([
-      'champion',
-      'runnerUp',
-    ]);
-  });
-
-  it('merges winner/champion and runner-up/vice-champion with descending season order', () => {
-    const mapped = mapTrophiesToTeamTrophies([
-      { league: 'Test Cup', country: 'Europe', place: 'Champion', season: '1999/00' },
-      { league: 'Test Cup', country: 'Europe', place: 'Winner', season: '2003/04' },
-      { league: 'Test Cup', country: 'Europe', place: 'Winner', season: '2025' },
-      { league: 'Test Cup', country: 'Europe', place: 'Vice-champion', season: '2024/25' },
-      { league: 'Test Cup', country: 'Europe', place: 'Runner-up', season: '2001/02' },
-    ]);
-
-    expect(mapped.totalWins).toBe(3);
-    expect(mapped.groups).toHaveLength(1);
-    expect(mapped.groups[0]?.placements).toEqual([
-      {
-        place: 'champion',
-        count: 3,
-        seasons: ['2025', '2003/04', '1999/00'],
-      },
-      {
-        place: 'runnerUp',
-        count: 2,
-        seasons: ['2024/25', '2001/02'],
-      },
-    ]);
   });
 
   it('deduplicates repeated transfers with same player/date/type/source/target', () => {

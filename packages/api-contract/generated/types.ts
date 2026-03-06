@@ -734,6 +734,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/players/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregated player overview for mobile details screens */
+        get: operations["getPlayerOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/players/{id}/seasons": {
         parameters: {
             query?: never;
@@ -743,6 +760,23 @@ export type paths = {
         };
         /** Get player seasons */
         get: operations["getPlayerSeasons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/players/{id}/stats-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregated player stats catalog for mobile details screens */
+        get: operations["getPlayerStatsCatalog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1319,6 +1353,150 @@ export type components = {
             } | null;
             response: components["schemas"]["FlexibleObject"][];
         };
+        PlayerOverviewCharacteristics: {
+            attack: number | null;
+            chances: number | null;
+            defense: number | null;
+            dribbles: number | null;
+            duels: number | null;
+            touches: number | null;
+        };
+        PlayerOverviewCompetitionSeasonStats: {
+            leagueId: string | null;
+            leagueLogo: string | null;
+            leagueName: string | null;
+            season: number | null;
+            stats: components["schemas"]["PlayerOverviewSeasonStats"];
+        };
+        PlayerOverviewCompetitionStats: {
+            assists: number | null;
+            goals: number | null;
+            leagueId: string | null;
+            leagueLogo: string | null;
+            leagueName: string | null;
+            matches: number | null;
+            rating: string | null;
+            season: number | null;
+        };
+        PlayerOverviewLeagueRef: {
+            id: string | null;
+            logo: string | null;
+            name: string | null;
+            season: number | null;
+        };
+        PlayerOverviewPositionPoint: {
+            appearances: number | null;
+            code: string;
+            id: string;
+            isPrimary: boolean;
+            label: string;
+            minutes: number | null;
+            score: number;
+            shortLabel: string;
+            x: number;
+            y: number;
+        };
+        PlayerOverviewPositions: {
+            all: components["schemas"]["PlayerOverviewPositionPoint"][];
+            others: components["schemas"]["PlayerOverviewPositionPoint"][];
+            primary: components["schemas"]["PlayerOverviewPositionPoint"] | null;
+        };
+        PlayerOverviewProfile: {
+            age: number | null;
+            dateOfBirth: string | null;
+            foot: string | null;
+            height: string | null;
+            id: string | null;
+            league: components["schemas"]["PlayerOverviewLeagueRef"];
+            name: string | null;
+            nationality: string | null;
+            number: number | null;
+            photo: string | null;
+            position: string | null;
+            team: components["schemas"]["PlayerOverviewTeamRef"];
+            transferValue: string | null;
+            weight: string | null;
+        };
+        PlayerOverviewResponse: {
+            characteristics: components["schemas"]["PlayerOverviewCharacteristics"] | null;
+            positions: components["schemas"]["PlayerOverviewPositions"] | null;
+            profile: components["schemas"]["PlayerOverviewProfile"] | null;
+            profileCompetitionStats: components["schemas"]["PlayerOverviewCompetitionStats"] | null;
+            seasonStats: components["schemas"]["PlayerOverviewSeasonStats"] | null;
+            seasonStatsDataset: components["schemas"]["PlayerOverviewSeasonStatsDataset"] | null;
+            trophiesByClub: components["schemas"]["PlayerOverviewTrophyClubGroup"][];
+        };
+        PlayerOverviewSeasonStats: {
+            assists: number | null;
+            blocks: number | null;
+            dribblesAttempts: number | null;
+            dribblesBeaten: number | null;
+            dribblesSuccess: number | null;
+            duelsTotal: number | null;
+            duelsWon: number | null;
+            foulsCommitted: number | null;
+            foulsDrawn: number | null;
+            goals: number | null;
+            goalsConceded: number | null;
+            interceptions: number | null;
+            keyPasses: number | null;
+            matches: number | null;
+            minutes: number | null;
+            passes: number | null;
+            passesAccuracy: number | null;
+            penaltiesCommitted: number | null;
+            penaltiesMissed: number | null;
+            penaltiesWon: number | null;
+            penaltyGoals: number | null;
+            rating: string | null;
+            redCards: number | null;
+            saves: number | null;
+            shots: number | null;
+            shotsOnTarget: number | null;
+            starts: number | null;
+            tackles: number | null;
+            yellowCards: number | null;
+        };
+        PlayerOverviewSeasonStatsDataset: {
+            byCompetition: components["schemas"]["PlayerOverviewCompetitionSeasonStats"][];
+            overall: components["schemas"]["PlayerOverviewSeasonStats"];
+        };
+        PlayerOverviewTeamRef: {
+            id: string | null;
+            logo: string | null;
+            name: string | null;
+        };
+        PlayerOverviewTrophyClubGroup: {
+            clubId: string | null;
+            clubLogo: string | null;
+            clubName: string | null;
+            competitions: components["schemas"]["PlayerOverviewTrophyCompetitionGroup"][];
+            total: number;
+        };
+        PlayerOverviewTrophyCompetitionGroup: {
+            competition: string;
+            count: number;
+            country: string | null;
+            seasons: string[];
+        };
+        PlayerStatsCatalogCompetition: {
+            country: string | null;
+            currentSeason: number | null;
+            leagueId: string | null;
+            leagueLogo: string | null;
+            leagueName: string | null;
+            seasons: number[];
+            type: string | null;
+        };
+        PlayerStatsCatalogResponse: {
+            availableSeasons: number[];
+            competitions: components["schemas"]["PlayerStatsCatalogCompetition"][];
+            defaultSelection: components["schemas"]["PlayerStatsCatalogSelection"];
+        };
+        PlayerStatsCatalogSelection: {
+            leagueId: string | null;
+            season: number | null;
+        };
         ProblemResponse: {
             details?: {
                 [key: string]: unknown;
@@ -1618,6 +1796,24 @@ export type components = {
                 "application/json": components["schemas"]["PagedEnvelope"];
             };
         };
+        /** @description Aggregated player overview payload */
+        PlayerOverviewResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PlayerOverviewResponse"];
+            };
+        };
+        /** @description Aggregated player stats catalog payload */
+        PlayerStatsCatalogResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PlayerStatsCatalogResponse"];
+            };
+        };
         /** @description Error payload */
         ProblemResponse: {
             headers: {
@@ -1666,6 +1862,7 @@ export type components = {
         OptionalSeasonQuery: number;
         OptionalStatisticsPeriodQuery: "all" | "first" | "second";
         OptionalTimezoneQuery: string;
+        PlayerAggregateLastQuery: number;
         PlayerIdPath: string;
         PlayerStatsTypeQuery: "topscorers" | "topassists" | "topyellowcards" | "topredcards";
         QQuery: string;
@@ -2508,7 +2705,7 @@ export interface operations {
     getPlayerMatches: {
         parameters: {
             query: {
-                last?: components["parameters"]["OptionalLastQuery"];
+                last?: components["parameters"]["PlayerAggregateLastQuery"];
                 season: components["parameters"]["SeasonQuery"];
                 teamId: components["parameters"]["TeamIdQuery"];
             };
@@ -2523,6 +2720,23 @@ export interface operations {
             200: components["responses"]["ListEnvelopeResponse"];
         };
     };
+    getPlayerOverview: {
+        parameters: {
+            query: {
+                season: components["parameters"]["SeasonQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PlayerOverviewResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
     getPlayerSeasons: {
         parameters: {
             query?: never;
@@ -2535,6 +2749,21 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ListEnvelopeResponse"];
+        };
+    };
+    getPlayerStatsCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PlayerStatsCatalogResponse"];
+            400: components["responses"]["ProblemResponse"];
         };
     };
     getPlayerTrophies: {
@@ -2569,7 +2798,7 @@ export interface operations {
     getPlayerTeamFixtures: {
         parameters: {
             query: {
-                last?: components["parameters"]["OptionalLastQuery"];
+                last?: components["parameters"]["PlayerAggregateLastQuery"];
                 season: components["parameters"]["SeasonQuery"];
             };
             header?: never;

@@ -22,6 +22,8 @@ const DEFAULT_FOLLOWS_MAX_FOLLOWED_TEAMS = 30;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_PLAYERS = 30;
 const DEFAULT_FOLLOWS_MAX_FOLLOWED_LEAGUES = 30;
 const DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES = false;
+const DEFAULT_MOBILE_ENABLE_PLAYER_OVERVIEW_AGGREGATE = false;
+const DEFAULT_MOBILE_ENABLE_PLAYER_STATS_CATALOG_AGGREGATE = false;
 const DEFAULT_NOTIFICATIONS_MATCH_BACKEND_ENABLED = true;
 const DEFAULT_MOBILE_AUTH_ATTESTATION_MODE = 'provider';
 const DEFAULT_MOBILE_ATTESTATION_STRATEGY = 'strict';
@@ -73,6 +75,8 @@ export type AppEnv = {
   followsMaxFollowedPlayers: number;
   followsMaxFollowedLeagues: number;
   mobileEnableBffPlayerAggregates: boolean;
+  mobileEnablePlayerOverviewAggregate: boolean;
+  mobileEnablePlayerStatsCatalogAggregate: boolean;
   notificationsMatchBackendEnabled: boolean;
 };
 
@@ -473,6 +477,20 @@ export const appEnv: AppEnv = {
   mobileEnableBffPlayerAggregates: readBooleanConfig(
     Config.MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
     DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
+  ),
+  mobileEnablePlayerOverviewAggregate: readBooleanConfig(
+    Config.MOBILE_ENABLE_PLAYER_OVERVIEW_AGGREGATE,
+    readBooleanConfig(
+      Config.MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
+      DEFAULT_MOBILE_ENABLE_PLAYER_OVERVIEW_AGGREGATE,
+    ),
+  ),
+  mobileEnablePlayerStatsCatalogAggregate: readBooleanConfig(
+    Config.MOBILE_ENABLE_PLAYER_STATS_CATALOG_AGGREGATE,
+    readBooleanConfig(
+      Config.MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
+      DEFAULT_MOBILE_ENABLE_PLAYER_STATS_CATALOG_AGGREGATE,
+    ),
   ),
   notificationsMatchBackendEnabled: readBooleanConfig(
     Config.NOTIFICATIONS_MATCH_BACKEND_ENABLED,

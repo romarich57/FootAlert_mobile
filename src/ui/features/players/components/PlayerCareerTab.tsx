@@ -143,7 +143,7 @@ export function PlayerCareerTab({ seasons, teams, nationality, onPressTeam }: Pl
   ]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="player-career-tab">
       <FlashList
         data={contentItems}
         keyExtractor={item => item.key}

@@ -12,6 +12,5 @@ export {
   mapTeamLeaguesToCompetitionOptions,
   mapTeamStatisticsToStats,
   mapTransfersToTeamTransfers,
-  mapTrophiesToTeamTrophies,
   resolveDefaultTeamSelection,
 } from './teams';

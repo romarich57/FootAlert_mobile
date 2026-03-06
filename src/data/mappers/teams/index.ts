@@ -25,5 +25,3 @@ export {
 export { mapTransfersToTeamTransfers } from './transfersMapper';
 
 export { mapSquadToTeamSquad } from './squadMapper';
-
-export { mapTrophiesToTeamTrophies } from './trophiesMapper';
