@@ -49,6 +49,10 @@ export type SearchGlobalApiResponse = {
   competitions: SearchGlobalApiCompetition[];
   players: SearchGlobalApiPlayer[];
   matches: SearchGlobalApiMatch[];
+  meta: {
+    partial: boolean;
+    degradedSources: string[];
+  };
 };
 
 export async function searchGlobal(

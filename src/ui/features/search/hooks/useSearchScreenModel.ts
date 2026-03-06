@@ -4,16 +4,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { appEnv } from '@data/config/env';
-import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
-import { searchLeaguesByName } from '@data/endpoints/competitionsApi';
-import { searchPlayersByName, searchTeamsByName } from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
-import {
-  getCurrentSeasonYear,
-  mapPlayerSearchResults,
-  mapTeamSearchResults,
-} from '@data/mappers/followsMapper';
+import { getCurrentSeasonYear } from '@data/mappers/followsMapper';
 import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
@@ -48,30 +41,6 @@ const EMPTY_RESULTS: SearchGlobalResults = {
   competitions: [],
   matches: [],
 };
-
-function mapCompetitionResults(
-  payload: Awaited<ReturnType<typeof searchLeaguesByName>>,
-  limit: number,
-): SearchCompetitionResult[] {
-  const results: SearchCompetitionResult[] = [];
-
-  payload.forEach(dto => {
-    const mapped = mapLeagueDtoToCompetition(dto);
-    if (!mapped) {
-      return;
-    }
-
-    results.push({
-      competitionId: mapped.id,
-      competitionName: mapped.name,
-      competitionLogo: mapped.logo,
-      country: mapped.countryName,
-      type: mapped.type,
-    });
-  });
-
-  return results.slice(0, limit);
-}
 
 function mapMatchResults(
   payload: Awaited<ReturnType<typeof searchGlobal>>['matches'],
@@ -112,65 +81,48 @@ export function useSearchScreenModel() {
     queryKey: queryKeys.search.global(debouncedQuery, timezone, season, resultsLimit),
     enabled: hasEnoughChars,
     queryFn: async ({ signal }): Promise<SearchGlobalResults> => {
-      try {
-        const payload = await searchGlobal(
-          debouncedQuery,
-          timezone,
-          season,
-          resultsLimit,
-          signal,
-        );
+      const payload = await searchGlobal(
+        debouncedQuery,
+        timezone,
+        season,
+        resultsLimit,
+        signal,
+      );
 
-        return {
-          teams: payload.teams.map(item => ({
-            teamId: item.id,
-            teamName: item.name,
-            teamLogo: item.logo,
-            country: item.country,
-          })),
-          players: payload.players.map(item => ({
-            playerId: item.id,
-            playerName: item.name,
-            playerPhoto: item.photo,
-            position: item.position,
-            teamName: item.teamName,
-            teamLogo: item.teamLogo,
-            leagueName: item.leagueName,
-          })),
-          competitions: payload.competitions.map(item => ({
-            competitionId: item.id,
-            competitionName: item.name,
-            competitionLogo: item.logo,
-            country: item.country,
-            type: item.type,
-          })),
-          matches: mapMatchResults(payload.matches, resultsLimit),
-        };
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw error;
-        }
-
-        getMobileTelemetry().trackEvent('search_global_fallback_triggered', {
-          reason: error instanceof Error ? 'http_error' : 'parse_error',
+      if (payload.meta.partial) {
+        getMobileTelemetry().trackEvent('search_global_partial_response', {
           queryLength: debouncedQuery.length,
           season,
           limit: resultsLimit,
+          degradedSources: payload.meta.degradedSources.join(','),
         });
-
-        const [teamsPayload, playersPayload, competitionsPayload] = await Promise.all([
-          searchTeamsByName(debouncedQuery, signal),
-          searchPlayersByName(debouncedQuery, season, signal),
-          searchLeaguesByName(debouncedQuery, signal),
-        ]);
-
-        return {
-          teams: mapTeamSearchResults(teamsPayload, resultsLimit),
-          players: mapPlayerSearchResults(playersPayload, resultsLimit),
-          competitions: mapCompetitionResults(competitionsPayload, resultsLimit),
-          matches: [],
-        };
       }
+
+      return {
+        teams: payload.teams.map(item => ({
+          teamId: item.id,
+          teamName: item.name,
+          teamLogo: item.logo,
+          country: item.country,
+        })),
+        players: payload.players.map(item => ({
+          playerId: item.id,
+          playerName: item.name,
+          playerPhoto: item.photo,
+          position: item.position,
+          teamName: item.teamName,
+          teamLogo: item.teamLogo,
+          leagueName: item.leagueName,
+        })),
+        competitions: payload.competitions.map(item => ({
+          competitionId: item.id,
+          competitionName: item.name,
+          competitionLogo: item.logo,
+          country: item.country,
+          type: item.type,
+        })),
+        matches: mapMatchResults(payload.matches, resultsLimit),
+      };
     },
   });
 

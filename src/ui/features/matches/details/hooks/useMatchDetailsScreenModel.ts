@@ -469,13 +469,20 @@ function formatKickoffWithDate(dateIso: string | null | undefined, locale: strin
   });
 }
 
-function shouldRetryMatchDetailsRequest(maxRetries: number) {
+function shouldRetryMatchDetailsRequest(maxRetries: number | boolean | undefined) {
+  const retryLimit =
+    typeof maxRetries === 'number'
+      ? maxRetries
+      : maxRetries === false
+        ? 0
+        : 2;
+
   return (failureCount: number, error: unknown): boolean => {
     if (error instanceof ApiError && error.status === 404) {
       return false;
     }
 
-    return failureCount < maxRetries;
+    return failureCount < retryLimit;
   };
 }
 
@@ -1213,9 +1220,11 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.details,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.details.retry),
   });
+
+  const fixture = fixtureQuery.data ?? null;
+  const lifecycleState = useMemo(() => toLifecycleState(fixture), [fixture]);
 
   const lineupsQuery = useQuery({
     queryKey: queryKeys.matchLineups(safeMatchId ?? 'invalid'),
@@ -1224,15 +1233,13 @@ export function useMatchDetailsScreenModel() {
       fetchFixtureLineups({
         fixtureId: safeMatchId ?? '',
         signal,
-      }),
+    }),
     ...featureQueryOptions.matches.lineups,
-    // Always remount-refetch to avoid persisted pre-match empty cache.
-    refetchOnMount: 'always',
+    // Pre-match lineups can legitimately transition from empty persisted cache to available.
+    refetchOnMount: lifecycleState === 'pre_match' ? 'always' : false,
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.lineups.retry),
   });
 
-  const fixture = fixtureQuery.data ?? null;
-  const lifecycleState = useMemo(() => toLifecycleState(fixture), [fixture]);
   const { homeTeamId, awayTeamId } = useMemo(() => pickTeamIdsFromFixture(fixture), [fixture]);
   const season = useMemo(() => extractFixtureSeason(fixture), [fixture]);
   const leagueId = fixture?.league?.id;
@@ -1259,7 +1266,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.events,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.events.retry),
   });
 
@@ -1273,7 +1279,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.statistics,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.statistics.retry),
   });
 
@@ -1289,7 +1294,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.statistics,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.statistics.retry),
   });
 
@@ -1303,7 +1307,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.statistics,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.statistics.retry),
   });
 
@@ -1343,7 +1346,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.headToHead,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.headToHead.retry),
   });
 
@@ -1357,7 +1359,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.playersStats,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.playersStats.retry),
   });
 
@@ -1371,7 +1372,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.matches.playersStats,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.matches.playersStats.retry),
   });
 
@@ -1405,7 +1405,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.teams.matches,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.matches.retry),
   });
 
@@ -1426,7 +1425,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.teams.matches,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.matches.retry),
   });
 
@@ -1445,7 +1443,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.teams.stats,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.stats.retry),
   });
 
@@ -1464,7 +1461,6 @@ export function useMatchDetailsScreenModel() {
         signal,
       }),
     ...featureQueryOptions.teams.stats,
-    refetchOnMount: 'always',
     retry: shouldRetryMatchDetailsRequest(featureQueryOptions.teams.stats.retry),
   });
 
@@ -1756,6 +1752,13 @@ export function useMatchDetailsScreenModel() {
   const isOffline = netInfo.isConnected === false || netInfo.isInternetReachable === false;
   const networkLiteMode = isOffline || netInfo.details?.isConnectionExpensive === true;
   const batteryLiteMode = powerState.lowPowerMode === true;
+  const activeBundle =
+    activeTab === 'primary'
+      ? 'primary'
+      : activeTab === 'timeline' || activeTab === 'lineups' || activeTab === 'stats'
+        ? 'live'
+        : 'context';
+  const refreshVisibleBundlesEnabled = activeBundle !== 'context';
 
   const refetchLiveData = useCallback(async () => {
     const refetchTasks: Array<() => Promise<unknown>> = [fixtureQuery.refetch];
@@ -1795,6 +1798,7 @@ export function useMatchDetailsScreenModel() {
     const durationMs = Date.now() - startedAtMs;
     getMobileTelemetry().trackEvent('match_details.refetch.duration', {
       activeTab,
+      bundle: activeBundle,
       lifecycleState,
       queryCount: refetchTasks.length,
       durationMs,
@@ -1812,6 +1816,7 @@ export function useMatchDetailsScreenModel() {
   }, [
     absencesQuery,
     activeTab,
+    activeBundle,
     awayPlayersStatsQuery,
     eventsQuery,
     fixtureQuery,
@@ -1833,7 +1838,7 @@ export function useMatchDetailsScreenModel() {
   ]);
 
   useMatchesRefresh({
-    enabled: isFocused && Boolean(safeMatchId) && !isOffline,
+    enabled: isFocused && Boolean(safeMatchId) && !isOffline && refreshVisibleBundlesEnabled,
     hasLiveMatches: lifecycleState === 'live',
     isSlowNetwork: networkLiteMode,
     networkLiteMode,
@@ -1841,7 +1846,7 @@ export function useMatchDetailsScreenModel() {
     refetch: refetchLiveData,
   });
 
-  const retryAll = useCallback(() => {
+  const retryVisibleQueries = useCallback(() => {
     const retry = (enabled: boolean, callback: () => Promise<unknown>) => {
       if (!enabled) {
         return;
@@ -1983,11 +1988,13 @@ export function useMatchDetailsScreenModel() {
       matchId: safeMatchId,
       lifecycleState,
       activeTab,
+      bundle: activeBundle,
       enabledQueries: queryPolicy.enabledQueryCount,
       loadDurationMs: Date.now() - loadWindowStartedAtRef.current,
     });
   }, [
     activeTab,
+    activeBundle,
     isAnyDetailsQueryFetching,
     isInitialLoading,
     lifecycleState,
@@ -2269,7 +2276,7 @@ export function useMatchDetailsScreenModel() {
     isInitialLoading,
     isInitialError,
     isLiveRefreshing: summaryIsFetching,
-    onRetryAll: retryAll,
+    onRetryAll: retryVisibleQueries,
     onRefreshLineups,
     handlePressMatch,
     handlePressTeam,

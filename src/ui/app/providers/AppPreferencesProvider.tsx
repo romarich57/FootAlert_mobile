@@ -5,12 +5,6 @@ import {
   loadAppPreferences,
   updateAppPreferences,
 } from '@data/storage/appPreferencesStorage';
-import { isNetworkRequestFailedError } from '@data/api/http/client';
-import {
-  startPushNotificationRuntime,
-  stopPushNotificationRuntime,
-  syncPushTokenRegistration,
-} from '@data/notifications/pushTokenLifecycle';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { DEFAULT_LANGUAGE, resolveDeviceLanguage } from '@/shared/i18n/language';
 import i18n from '@ui/shared/i18n';
@@ -110,47 +104,6 @@ export function AppPreferencesProvider({
     preferences.measurementSystem,
     preferences.notificationsEnabled,
   ]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    syncPushTokenRegistration({
-      notificationsEnabled: preferences.notificationsEnabled,
-      locale: preferences.language,
-    }).catch(error => {
-      if (isNetworkRequestFailedError(error)) {
-        getMobileTelemetry().addBreadcrumb('notifications.sync.deferred', {
-          reason: 'network_unavailable',
-        });
-        return;
-      }
-
-      getMobileTelemetry().trackError(error, {
-        feature: 'notifications.sync',
-      });
-    });
-  }, [isHydrated, preferences.language, preferences.notificationsEnabled]);
-
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-
-    startPushNotificationRuntime({
-      notificationsEnabled: preferences.notificationsEnabled,
-      locale: preferences.language,
-    }).catch(error => {
-      getMobileTelemetry().trackError(error, {
-        feature: 'notifications.runtime',
-      });
-    });
-
-    return () => {
-      stopPushNotificationRuntime();
-    };
-  }, [isHydrated, preferences.language, preferences.notificationsEnabled]);
 
   const applyPreferenceUpdate = useCallback(
     async (partial: Partial<Omit<AppPreferences, 'updatedAt'>>) => {

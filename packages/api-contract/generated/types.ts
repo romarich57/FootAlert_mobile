@@ -172,6 +172,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/follows/players/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregated cards for followed players */
+        get: operations["getFollowPlayerCards"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/follows/search/competitions": {
         parameters: {
             query?: never;
@@ -249,6 +266,23 @@ export type paths = {
         };
         /** Get next fixture for followed team */
         get: operations["getFollowTeamNextFixture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/follows/teams/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregated cards for followed teams */
+        get: operations["getFollowTeamCards"];
         put?: never;
         post?: never;
         delete?: never;
@@ -870,6 +904,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/teams/{id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get aggregated team overview for mobile details screens */
+        get: operations["getTeamOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/teams/{id}/players": {
         parameters: {
             query?: never;
@@ -1296,9 +1347,14 @@ export type components = {
             name: string;
             type: string;
         };
+        SearchGlobalMeta: {
+            degradedSources: string[];
+            partial: boolean;
+        };
         SearchGlobalResponse: {
             competitions: components["schemas"]["SearchCompetitionResult"][];
             matches: components["schemas"]["SearchMatchResult"][];
+            meta: components["schemas"]["SearchGlobalMeta"];
             players: components["schemas"]["SearchPlayerResult"][];
             teams: components["schemas"]["SearchTeamResult"][];
         };
@@ -1335,6 +1391,130 @@ export type components = {
             id: string;
             logo: string;
             name: string;
+        };
+        TeamFormEntry: {
+            fixtureId: string;
+            opponentLogo: string | null;
+            opponentName: string | null;
+            /** @enum {string} */
+            result: "W" | "D" | "L" | "";
+            score: string | null;
+        };
+        TeamMatchItem: {
+            awayGoals: number | null;
+            awayTeamId: string | null;
+            awayTeamLogo: string | null;
+            awayTeamName: string | null;
+            date: string | null;
+            fixtureId: string;
+            homeGoals: number | null;
+            homeTeamId: string | null;
+            homeTeamLogo: string | null;
+            homeTeamName: string | null;
+            leagueId: string | null;
+            leagueLogo: string | null;
+            leagueName: string | null;
+            minute: number | null;
+            round: string | null;
+            /** @enum {string} */
+            status: "upcoming" | "live" | "finished";
+            statusLabel: string | null;
+            venue: string | null;
+        };
+        TeamOverviewCoach: {
+            age: number | null;
+            id: string | null;
+            name: string | null;
+            photo: string | null;
+        };
+        TeamOverviewCoachPerformance: {
+            coach: components["schemas"]["TeamOverviewCoach"] | null;
+            draws: number | null;
+            losses: number | null;
+            played: number | null;
+            pointsPerMatch: number | null;
+            winRate: number | null;
+            wins: number | null;
+        };
+        TeamOverviewHistoryPoint: {
+            rank: number | null;
+            season: number;
+        };
+        TeamOverviewMiniStanding: {
+            leagueId: string | null;
+            leagueLogo: string | null;
+            leagueName: string | null;
+            rows: components["schemas"]["TeamStandingRow"][];
+        };
+        TeamOverviewPlayerLeaders: {
+            assisters: components["schemas"]["TeamTopPlayer"][];
+            ratings: components["schemas"]["TeamTopPlayer"][];
+            scorers: components["schemas"]["TeamTopPlayer"][];
+        };
+        TeamOverviewResponse: {
+            coachPerformance: components["schemas"]["TeamOverviewCoachPerformance"] | null;
+            miniStanding: components["schemas"]["TeamOverviewMiniStanding"] | null;
+            nextMatch: components["schemas"]["TeamMatchItem"] | null;
+            playerLeaders: components["schemas"]["TeamOverviewPlayerLeaders"];
+            recentForm: components["schemas"]["TeamFormEntry"][];
+            seasonLineup: components["schemas"]["TeamSeasonLineup"];
+            seasonStats: components["schemas"]["TeamOverviewSeasonStats"];
+            standingHistory: components["schemas"]["TeamOverviewHistoryPoint"][];
+            trophiesCount: number | null;
+            trophyWinsCount: number | null;
+        };
+        TeamOverviewSeasonStats: {
+            conceded: number | null;
+            draws: number | null;
+            goalDiff: number | null;
+            losses: number | null;
+            played: number | null;
+            points: number | null;
+            rank: number | null;
+            scored: number | null;
+            wins: number | null;
+        };
+        TeamSeasonLineup: {
+            attackers: components["schemas"]["TeamTopPlayer"][];
+            defenders: components["schemas"]["TeamTopPlayer"][];
+            estimated: boolean;
+            /** @enum {string} */
+            formation: "4-3-3";
+            goalkeeper: components["schemas"]["TeamTopPlayer"] | null;
+            midfielders: components["schemas"]["TeamTopPlayer"][];
+        };
+        TeamStandingRow: {
+            all: components["schemas"]["TeamStandingStats"];
+            away: components["schemas"]["TeamStandingStats"];
+            form: string | null;
+            goalDiff: number | null;
+            home: components["schemas"]["TeamStandingStats"];
+            isTargetTeam: boolean;
+            played: number | null;
+            points: number | null;
+            rank: number | null;
+            teamId: string | null;
+            teamLogo: string | null;
+            teamName: string | null;
+            update: string | null;
+        };
+        TeamStandingStats: {
+            draw: number | null;
+            goalsAgainst: number | null;
+            goalsFor: number | null;
+            lose: number | null;
+            played: number | null;
+            win: number | null;
+        };
+        TeamTopPlayer: {
+            assists: number | null;
+            goals: number | null;
+            name: string | null;
+            photo: string | null;
+            playerId: string;
+            position: string | null;
+            rating: number | null;
+            teamLogo: string | null;
         };
         TelemetryAttributes: {
             [key: string]: components["schemas"]["TelemetryScalar"];
@@ -1456,11 +1636,22 @@ export type components = {
                 "application/json": components["schemas"]["SearchGlobalResponse"];
             };
         };
+        /** @description Aggregated team overview payload */
+        TeamOverviewResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["TeamOverviewResponse"];
+            };
+        };
     };
     parameters: {
         DateQuery: string;
         FixtureIdPath: string;
+        HistorySeasonsQuery: string;
         IdPath: string;
+        IdsQuery: string;
         LeagueIdQuery: string;
         LeagueIdsQuery: string;
         NotificationDeviceIdQuery: string;
@@ -1672,6 +1863,22 @@ export interface operations {
             200: components["responses"]["ListEnvelopeResponse"];
         };
     };
+    getFollowPlayerCards: {
+        parameters: {
+            query: {
+                ids: components["parameters"]["IdsQuery"];
+                season: components["parameters"]["SeasonQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
+        };
+    };
     searchFollowCompetitions: {
         parameters: {
             query: {
@@ -1743,6 +1950,22 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ListEnvelopeResponse"];
+        };
+    };
+    getFollowTeamCards: {
+        parameters: {
+            query: {
+                ids: components["parameters"]["IdsQuery"];
+                timezone: components["parameters"]["TimezoneQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ListEnvelopeResponse"];
+            400: components["responses"]["ProblemResponse"];
         };
     };
     getFollowCompetitionsTrends: {
@@ -2456,6 +2679,26 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ListEnvelopeResponse"];
+        };
+    };
+    getTeamOverview: {
+        parameters: {
+            query: {
+                historySeasons?: components["parameters"]["HistorySeasonsQuery"];
+                leagueId: components["parameters"]["LeagueIdQuery"];
+                season: components["parameters"]["SeasonQuery"];
+                timezone: components["parameters"]["TimezoneQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TeamOverviewResponse"];
+            400: components["responses"]["ProblemResponse"];
         };
     };
     getTeamPlayers: {

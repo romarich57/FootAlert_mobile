@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
-import type { ListEnvelope } from '../domain/network';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { ListEnvelope } from '../domain/network.js';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 
 const listResponseSchema = z
   .object({
@@ -95,6 +95,40 @@ export function createFollowsReadService({ http, telemetry }: FollowsServiceDepe
         signal,
       );
       return items[0] ?? null;
+    },
+
+    fetchTeamCards<T = unknown>(
+      teamIds: string[],
+      timezone: string,
+      signal?: AbortSignal,
+    ): Promise<T[]> {
+      return fetchList(
+        '/follows/teams/cards',
+        {
+          ids: teamIds.join(','),
+          timezone,
+        },
+        'follows.team_cards',
+        '/follows/teams/cards',
+        signal,
+      );
+    },
+
+    fetchPlayerCards<T = unknown>(
+      playerIds: string[],
+      season: number,
+      signal?: AbortSignal,
+    ): Promise<T[]> {
+      return fetchList(
+        '/follows/players/cards',
+        {
+          ids: playerIds.join(','),
+          season,
+        },
+        'follows.player_cards',
+        '/follows/players/cards',
+        signal,
+      );
     },
 
     fetchTeamsTrends<T = unknown>(leagueIds: string, season: number, signal?: AbortSignal): Promise<T[]> {

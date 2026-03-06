@@ -45,6 +45,7 @@
     "footalert-bff/**",
     "web/**",
     "desktop/**",
+    "site_vitrine/**",
     "packages/api-contract/**"
   ]
 }

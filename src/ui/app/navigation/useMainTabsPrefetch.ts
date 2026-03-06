@@ -1,20 +1,18 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePowerState } from 'react-native-device-info';
 
 import { appEnv } from '@data/config/env';
 import { fetchAllLeagues } from '@data/endpoints/competitionsApi';
 import {
-  fetchNextFixtureForTeam,
-  fetchPlayerSeasonStats,
-  fetchTeamById,
+  fetchFollowedPlayerCards,
+  fetchFollowedTeamCards,
   fetchTrendingPlayers,
   fetchTrendingTeams,
 } from '@data/endpoints/followsApi';
 import {
   getCurrentSeasonYear,
-  mapPlayerSeasonToFollowedCard,
-  mapTeamDetailsAndFixtureToFollowedCard,
   mapTrendingPlayersFromTopScorers,
   mapTrendingTeamsFromStandings,
 } from '@data/mappers/followsMapper';
@@ -23,7 +21,6 @@ import {
   loadFollowedTeamIds,
 } from '@data/storage/followsStorage';
 import { buildMatchesQueryResult, MATCHES_QUERY_STALE_TIME_MS, shouldRetryMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
-import { mapWithConcurrency } from '@ui/shared/query/mapWithConcurrency';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import type { MainTabParamList } from '@ui/app/navigation/types';
 import { TOP_COMPETITION_IDS } from '@/shared/constants';
@@ -36,7 +33,6 @@ type TabListener = {
 
 export const TAB_PREFETCH_COOLDOWN_MS = 20_000;
 
-const FOLLOWS_CARDS_CONCURRENCY = 3;
 const COMPETITIONS_CATALOG_STALE_TIME_MS = 10 * 60_000;
 
 function toApiDateString(date: Date): string {
@@ -53,6 +49,7 @@ function getTopLeagueIds(): string[] {
 export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
   const queryClient = useQueryClient();
   const netInfo = useNetInfo();
+  const powerState = usePowerState();
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
     [],
@@ -106,15 +103,7 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
         queryClient.prefetchQuery({
           queryKey: queryKeys.follows.followedTeamCards(sortedTeamIds, timezone),
           staleTime: appEnv.followsTeamNextFixtureTtlMs,
-          queryFn: async ({ signal }) => {
-            return mapWithConcurrency(sortedTeamIds, FOLLOWS_CARDS_CONCURRENCY, async teamId => {
-              const [teamDetails, nextFixture] = await Promise.all([
-                fetchTeamById(teamId, signal),
-                fetchNextFixtureForTeam(teamId, timezone, signal),
-              ]);
-              return mapTeamDetailsAndFixtureToFollowedCard(teamId, teamDetails, nextFixture);
-            });
-          },
+          queryFn: ({ signal }) => fetchFollowedTeamCards(sortedTeamIds, timezone, signal),
         }),
       );
     }
@@ -124,12 +113,7 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
         queryClient.prefetchQuery({
           queryKey: queryKeys.follows.followedPlayerCards(sortedPlayerIds, season),
           staleTime: appEnv.followsPlayerStatsTtlMs,
-          queryFn: async ({ signal }) => {
-            return mapWithConcurrency(sortedPlayerIds, FOLLOWS_CARDS_CONCURRENCY, async playerId => {
-              const payload = await fetchPlayerSeasonStats(playerId, season, signal);
-              return mapPlayerSeasonToFollowedCard(playerId, payload, season);
-            });
-          },
+          queryFn: ({ signal }) => fetchFollowedPlayerCards(sortedPlayerIds, season, signal),
         }),
       );
     }
@@ -178,6 +162,8 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
   const triggerTabPrefetch = useCallback((tabName: PrefetchTabName) => {
     const isOffline =
       netInfo.isConnected === false || netInfo.isInternetReachable === false;
+    const networkLiteMode = isOffline || netInfo.details?.isConnectionExpensive === true;
+    const batteryLiteMode = powerState.lowPowerMode === true;
     if (isOffline) {
       return;
     }
@@ -195,17 +181,25 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
     }
 
     if (tabName === 'Competitions') {
+      if (networkLiteMode || batteryLiteMode) {
+        return;
+      }
       prefetchCompetitionsTab().catch(() => undefined);
       return;
     }
 
+    if (networkLiteMode || batteryLiteMode) {
+      return;
+    }
     prefetchFollowsTab().catch(() => undefined);
   }, [
     netInfo.isConnected,
     netInfo.isInternetReachable,
+    netInfo.details?.isConnectionExpensive,
     prefetchCompetitionsTab,
     prefetchFollowsTab,
     prefetchMatchesTab,
+    powerState.lowPowerMode,
   ]);
 
   return useMemo(

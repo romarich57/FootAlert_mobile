@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 const listResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),
@@ -10,6 +10,7 @@ const optionalResponseSchema = z
     response: z.unknown().optional(),
 })
     .passthrough();
+const objectResponseSchema = z.object({}).passthrough();
 const pagedResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),
@@ -116,6 +117,25 @@ export function createTeamsReadService({ http, telemetry }) {
                 endpoint: `/teams/${teamId}/stats`,
             });
             return (payload.response ?? null);
+        },
+        async fetchTeamOverview(params, signal) {
+            const rawPayload = await http.get(`/teams/${encodeURIComponent(params.teamId)}/overview`, {
+                leagueId: params.leagueId,
+                season: params.season,
+                timezone: params.timezone,
+                historySeasons: params.historySeasons && params.historySeasons.length > 0
+                    ? params.historySeasons.join(',')
+                    : undefined,
+            }, { signal });
+            const payload = parseRuntimePayloadOrFallback({
+                schema: objectResponseSchema,
+                payload: rawPayload,
+                fallback: {},
+                telemetry,
+                feature: 'teams.overview',
+                endpoint: `/teams/${params.teamId}/overview`,
+            });
+            return payload;
         },
         async fetchTeamAdvancedStats(leagueId, season, teamId, signal) {
             const rawPayload = await http.get(`/teams/${encodeURIComponent(teamId)}/advanced-stats`, {

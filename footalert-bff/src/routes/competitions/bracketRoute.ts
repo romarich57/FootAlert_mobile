@@ -5,7 +5,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
-import { withCache } from '../../lib/cache.js';
+import { buildCanonicalCacheKey, withCache } from '../../lib/cache.js';
 import { parseOrThrow } from '../../lib/validation.js';
 
 import { buildCompetitionBracket } from './bracketMapper.js';
@@ -33,12 +33,10 @@ export function registerCompetitionBracketRoute(app: FastifyInstance): void {
       const params = parseOrThrow(competitionIdParamsSchema, request.params);
       const query = parseOrThrow(seasonQuerySchema, request.query);
 
-      // Clé de cache identique à celle de matchesRoute pour bénéficier du cache chaud.
-      // matchesRoute utilise `competition:matches:${request.url}` où request.url
-      // vaut `/v1/competitions/${id}/matches?season=${season}`.
-      // On reconstruit cette clé manuellement depuis les params validés.
-      const matchesUrl = `/v1/competitions/${params.id}/matches?season=${String(query.season)}`;
-      const cacheKey = `competition:matches:${matchesUrl}`;
+      const cacheKey = buildCanonicalCacheKey('competition:matches:upstream', {
+        competitionId: params.id,
+        season: query.season,
+      });
 
       const payload = await withCache<FixturesEnvelope>(cacheKey, BRACKET_CACHE_TTL_MS, () =>
         apiFootballGet<FixturesEnvelope>(

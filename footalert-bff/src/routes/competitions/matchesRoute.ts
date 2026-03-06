@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
-import { withCache } from '../../lib/cache.js';
+import { buildCanonicalCacheKey, withCache } from '../../lib/cache.js';
 import {
   PaginationCursorCodec,
   computePaginationFiltersHash,
@@ -39,8 +39,11 @@ export function registerCompetitionMatchesRoute(app: FastifyInstance): void {
     const query = parseOrThrow(seasonQuerySchema, request.query);
     const isCursorPagination = typeof query.limit === 'number' || typeof query.cursor === 'string';
 
-    const cacheKey = `competition:matches:${request.url}`;
-    const payload = await withCache(cacheKey, 90_000, () =>
+    const upstreamCacheKey = buildCanonicalCacheKey('competition:matches:upstream', {
+      competitionId: params.id,
+      season: query.season,
+    });
+    const payload = await withCache(upstreamCacheKey, 90_000, () =>
       apiFootballGet<CompetitionMatchesEnvelope>(
         `/fixtures?league=${encodeURIComponent(params.id)}&season=${encodeURIComponent(String(query.season))}`,
       ),

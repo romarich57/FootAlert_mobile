@@ -48,6 +48,7 @@ const CACHE_CONTROL_BY_ROUTE: Record<string, string> = {
   '/v1/competitions/:id/matches': CACHE_CONTROL_SHORT,
   '/v1/teams/:id/fixtures': CACHE_CONTROL_SHORT,
   '/v1/teams/:id/next-fixture': CACHE_CONTROL_SHORT,
+  '/v1/teams/:id/overview': CACHE_CONTROL_SHORT,
   '/v1/follows/teams/:teamId/next-fixture': CACHE_CONTROL_SHORT,
   '/v1/players/:id/matches': CACHE_CONTROL_SHORT,
   '/v1/players/team/:teamId/fixtures': CACHE_CONTROL_SHORT,

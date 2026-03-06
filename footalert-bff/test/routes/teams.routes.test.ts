@@ -464,6 +464,284 @@ test('GET /v1/teams/:id/next-fixture proxies upstream endpoint with timezone', a
   );
 });
 
+test('GET /v1/teams/:id/overview returns the aggregated team overview payload', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const pathname = url.pathname;
+
+    if (pathname.endsWith('/fixtures') && url.searchParams.get('next') === '1') {
+      return jsonResponse({
+        response: [
+          {
+            fixture: {
+              id: 8003,
+              date: '2025-09-01T19:00:00.000Z',
+              venue: { name: 'Camp Nou' },
+              status: { short: 'NS', long: 'Not Started', elapsed: null },
+            },
+            league: { id: 140, name: 'La Liga', logo: 'laliga.png', round: 'Round 4' },
+            teams: {
+              home: { id: 529, name: 'Barcelona', logo: 'barca.png' },
+              away: { id: 541, name: 'Valencia', logo: 'valencia.png' },
+            },
+            goals: { home: null, away: null },
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/fixtures') && url.searchParams.get('league') === '140') {
+      return jsonResponse({
+        response: [
+          {
+            fixture: {
+              id: 8001,
+              date: '2025-08-18T19:00:00.000Z',
+              venue: { name: 'Camp Nou' },
+              status: { short: 'FT', long: 'Match Finished', elapsed: 90 },
+            },
+            league: { id: 140, name: 'La Liga', logo: 'laliga.png', round: 'Round 1' },
+            teams: {
+              home: { id: 529, name: 'Barcelona', logo: 'barca.png' },
+              away: { id: 530, name: 'Atletico', logo: 'atletico.png' },
+            },
+            goals: { home: 2, away: 1 },
+          },
+          {
+            fixture: {
+              id: 8002,
+              date: '2025-08-25T19:00:00.000Z',
+              venue: { name: 'Camp Nou' },
+              status: { short: 'NS', long: 'Not Started', elapsed: null },
+            },
+            league: { id: 140, name: 'La Liga', logo: 'laliga.png', round: 'Round 2' },
+            teams: {
+              home: { id: 531, name: 'Sevilla', logo: 'sevilla.png' },
+              away: { id: 529, name: 'Barcelona', logo: 'barca.png' },
+            },
+            goals: { home: null, away: null },
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/standings')) {
+      const season = Number(url.searchParams.get('season'));
+      const rankBySeason = new Map([
+        [2025, 2],
+        [2024, 1],
+        [2023, 2],
+        [2022, 3],
+        [2021, 4],
+      ]);
+      const targetRank = rankBySeason.get(season) ?? 2;
+
+      return jsonResponse({
+        response: [
+          {
+            league: {
+              id: 140,
+              name: 'La Liga',
+              logo: 'laliga.png',
+              standings: [
+                [
+                  {
+                    rank: 1,
+                    team: { id: 500, name: 'Real Madrid', logo: 'rm.png' },
+                    points: 70,
+                    goalsDiff: 30,
+                    group: 'La Liga',
+                    form: 'WWWWW',
+                    all: { played: 25, win: 22, draw: 4, lose: 1, goals: { for: 65, against: 20 } },
+                    home: { played: 13, win: 11, draw: 2, lose: 0, goals: { for: 35, against: 9 } },
+                    away: { played: 12, win: 11, draw: 2, lose: 1, goals: { for: 30, against: 11 } },
+                    update: '2025-03-01',
+                  },
+                  {
+                    rank: targetRank,
+                    team: { id: 529, name: 'Barcelona', logo: 'barca.png' },
+                    points: 60,
+                    goalsDiff: 20,
+                    group: 'La Liga',
+                    form: 'WWDLW',
+                    all: { played: 25, win: 19, draw: 3, lose: 3, goals: { for: 58, against: 38 } },
+                    home: { played: 13, win: 10, draw: 2, lose: 1, goals: { for: 30, against: 12 } },
+                    away: { played: 12, win: 9, draw: 1, lose: 2, goals: { for: 28, against: 26 } },
+                    update: '2025-03-01',
+                  },
+                  {
+                    rank: 3,
+                    team: { id: 540, name: 'Villarreal', logo: 'villareal.png' },
+                    points: 54,
+                    goalsDiff: 11,
+                    group: 'La Liga',
+                    form: 'WDLWW',
+                    all: { played: 25, win: 16, draw: 6, lose: 3, goals: { for: 47, against: 36 } },
+                    home: { played: 13, win: 9, draw: 2, lose: 2, goals: { for: 25, against: 18 } },
+                    away: { played: 12, win: 7, draw: 4, lose: 1, goals: { for: 22, against: 18 } },
+                    update: '2025-03-01',
+                  },
+                  {
+                    rank: 4,
+                    team: { id: 541, name: 'Valencia', logo: 'valencia.png' },
+                    points: 50,
+                    goalsDiff: 5,
+                    group: 'La Liga',
+                    form: 'WDWLW',
+                    all: { played: 25, win: 15, draw: 5, lose: 5, goals: { for: 43, against: 38 } },
+                    home: { played: 13, win: 8, draw: 2, lose: 3, goals: { for: 23, against: 18 } },
+                    away: { played: 12, win: 7, draw: 3, lose: 2, goals: { for: 20, against: 20 } },
+                    update: '2025-03-01',
+                  },
+                ],
+              ],
+            },
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/teams/statistics')) {
+      return jsonResponse({
+        response: {
+          league: { id: 140, name: 'La Liga' },
+          fixtures: {
+            played: { total: 25 },
+            wins: { total: 19 },
+            draws: { total: 3 },
+            loses: { total: 3 },
+          },
+          goals: {
+            for: { total: { total: 58 } },
+            against: { total: { total: 38 } },
+          },
+        },
+      });
+    }
+
+    if (pathname.endsWith('/players')) {
+      return jsonResponse({
+        response: [
+          {
+            player: { id: 1, name: 'Marc', photo: 'gk.png' },
+            statistics: [
+              {
+                team: { id: 529, logo: 'barca.png' },
+                league: { id: 140, season: 2025 },
+                games: { position: 'Goalkeeper', rating: '7.1', minutes: 2100, appearences: 25 },
+                goals: { total: 0, assists: 0 },
+              },
+            ],
+          },
+          {
+            player: { id: 2, name: 'Jules', photo: 'def.png' },
+            statistics: [
+              {
+                team: { id: 529, logo: 'barca.png' },
+                league: { id: 140, season: 2025 },
+                games: { position: 'Defender', rating: '7.0', minutes: 2000, appearences: 24 },
+                goals: { total: 2, assists: 1 },
+              },
+            ],
+          },
+          {
+            player: { id: 3, name: 'Pedri', photo: 'mid.png' },
+            statistics: [
+              {
+                team: { id: 529, logo: 'barca.png' },
+                league: { id: 140, season: 2025 },
+                games: { position: 'Midfielder', rating: '7.5', minutes: 1950, appearences: 23 },
+                goals: { total: 4, assists: 6 },
+              },
+            ],
+          },
+          {
+            player: { id: 4, name: 'Lamine', photo: 'att1.png' },
+            statistics: [
+              {
+                team: { id: 529, logo: 'barca.png' },
+                league: { id: 140, season: 2025 },
+                games: { position: 'Attacker', rating: '8.2', minutes: 1980, appearences: 24 },
+                goals: { total: 18, assists: 7 },
+              },
+            ],
+          },
+          {
+            player: { id: 5, name: 'Lewy', photo: 'att2.png' },
+            statistics: [
+              {
+                team: { id: 529, logo: 'barca.png' },
+                league: { id: 140, season: 2025 },
+                games: { position: 'Forward', rating: '7.9', minutes: 1800, appearences: 22 },
+                goals: { total: 14, assists: 4 },
+              },
+            ],
+          },
+        ],
+        paging: { current: 1, total: 1 },
+      });
+    }
+
+    if (pathname.endsWith('/coachs')) {
+      return jsonResponse({
+        response: [
+          {
+            id: 900,
+            name: 'Coach Name',
+            photo: 'coach.png',
+            age: 55,
+            career: [{ team: { id: 529 }, end: null }],
+          },
+        ],
+      });
+    }
+
+    if (pathname.endsWith('/trophies')) {
+      return jsonResponse({
+        response: [
+          { league: 'La Liga', place: 'Winner', season: '2024' },
+          { league: 'Copa del Rey', place: 'Runner Up', season: '2023' },
+          { league: 'Super Cup', place: 'Champion', season: '2025' },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/529/overview?leagueId=140&season=2025&timezone=Europe/Paris&historySeasons=2024,2023,2022,2021,2020',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.nextMatch.fixtureId, '8003');
+  assert.equal(payload.seasonStats.rank, 2);
+  assert.equal(payload.miniStanding.rows.length, 3);
+  assert.equal(payload.miniStanding.rows.some(row => row.isTargetTeam), true);
+  assert.deepEqual(
+    payload.standingHistory,
+    [
+      { season: 2025, rank: 2 },
+      { season: 2024, rank: 1 },
+      { season: 2023, rank: 2 },
+      { season: 2022, rank: 3 },
+      { season: 2021, rank: 4 },
+    ],
+  );
+  assert.equal(payload.coachPerformance.coach.name, 'Coach Name');
+  assert.equal(payload.playerLeaders.scorers[0].playerId, '4');
+  assert.equal(payload.trophiesCount, 3);
+  assert.equal(payload.trophyWinsCount, 2);
+  assert.equal(
+    calls.some(call => String(call.input).includes('season=2020')),
+    false,
+  );
+});
+
 test('GET /v1/teams/:id/stats proxies team statistics endpoint', async t => {
   const calls = installFetchMock(async () =>
     jsonResponse({

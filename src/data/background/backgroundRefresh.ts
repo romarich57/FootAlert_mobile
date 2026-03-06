@@ -10,9 +10,32 @@ const BG_REFRESH_TASK_ID = 'com.footalert.app.refresh';
 const BG_MIN_FETCH_INTERVAL_MINUTES = 15;
 
 let hasRegisteredBackgroundRefresh = false;
+let lastBackgroundRefreshRunAtMs = 0;
 
 export type BackgroundRefreshPolicy = 'ios-only';
 export const BACKGROUND_REFRESH_POLICY: BackgroundRefreshPolicy = 'ios-only';
+
+export type BackgroundRefreshEligibilityReason =
+  | 'allowed'
+  | 'unsupported_platform'
+  | 'already_registered'
+  | 'not_hydrated'
+  | 'offline'
+  | 'low_power_mode'
+  | 'recent_run';
+
+export type BackgroundRefreshEligibilityInput = {
+  isHydrated?: boolean;
+  isOnline?: boolean;
+  lowPowerMode?: boolean;
+  nowMs?: number;
+  minIntervalMs?: number;
+};
+
+export type BackgroundRefreshEligibilityResult = {
+  allowed: boolean;
+  reason: BackgroundRefreshEligibilityReason;
+};
 
 function toApiDateString(date: Date): string {
   const year = date.getFullYear();
@@ -37,22 +60,80 @@ async function runBackgroundRefresh(): Promise<void> {
     }),
   ]);
 
+  lastBackgroundRefreshRunAtMs = Date.now();
   getMobileTelemetry().addBreadcrumb('background.refresh.completed', {
     date: today,
     timezone,
   });
 }
 
-export async function registerBackgroundRefresh(): Promise<void> {
+export function isBackgroundRefreshEligible(
+  input: BackgroundRefreshEligibilityInput = {},
+): BackgroundRefreshEligibilityResult {
+  const nowMs = input.nowMs ?? Date.now();
+  const minIntervalMs = input.minIntervalMs ?? appEnv.matchesBatterySaverRefreshIntervalMs;
+
   if (Platform.OS !== 'ios') {
-    getMobileTelemetry().addBreadcrumb('background.refresh.skipped', {
-      policy: BACKGROUND_REFRESH_POLICY,
-      platform: Platform.OS,
-    });
-    return;
+    return {
+      allowed: false,
+      reason: 'unsupported_platform',
+    };
   }
 
   if (hasRegisteredBackgroundRefresh) {
+    return {
+      allowed: false,
+      reason: 'already_registered',
+    };
+  }
+
+  if (input.isHydrated === false) {
+    return {
+      allowed: false,
+      reason: 'not_hydrated',
+    };
+  }
+
+  if (input.isOnline === false) {
+    return {
+      allowed: false,
+      reason: 'offline',
+    };
+  }
+
+  if (input.lowPowerMode === true) {
+    return {
+      allowed: false,
+      reason: 'low_power_mode',
+    };
+  }
+
+  if (
+    lastBackgroundRefreshRunAtMs > 0 &&
+    nowMs - lastBackgroundRefreshRunAtMs < minIntervalMs
+  ) {
+    return {
+      allowed: false,
+      reason: 'recent_run',
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: 'allowed',
+  };
+}
+
+export async function registerBackgroundRefresh(
+  input: BackgroundRefreshEligibilityInput = {},
+): Promise<void> {
+  const eligibility = isBackgroundRefreshEligible(input);
+  if (!eligibility.allowed) {
+    getMobileTelemetry().addBreadcrumb('background.refresh.skipped', {
+      policy: BACKGROUND_REFRESH_POLICY,
+      platform: Platform.OS,
+      reason: eligibility.reason,
+    });
     return;
   }
 
@@ -102,4 +183,9 @@ export async function registerBackgroundRefresh(): Promise<void> {
       feature: 'background.refresh.register',
     });
   }
+}
+
+export function resetBackgroundRefreshStateForTests(): void {
+  hasRegisteredBackgroundRefresh = false;
+  lastBackgroundRefreshRunAtMs = 0;
 }

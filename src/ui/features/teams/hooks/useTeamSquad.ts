@@ -51,7 +51,6 @@ export function useTeamSquad({ teamId, enabled = true }: UseTeamSquadParams) {
   return useQuery<TeamSquadData>({
     queryKey: queryKeys.teams.squad(teamId),
     enabled: enabled && Boolean(teamId),
-    refetchOnMount: 'always',
     placeholderData: previousData => previousData,
     structuralSharing: (oldData, newData) =>
       mergeTeamSquadData(oldData as TeamSquadData | undefined, newData as TeamSquadData),

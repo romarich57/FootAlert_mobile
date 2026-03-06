@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
-import type { ListEnvelope, OptionalEnvelope, PagedEnvelope } from '../domain/network';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { ListEnvelope, OptionalEnvelope, PagedEnvelope } from '../domain/network.js';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 
 const listResponseSchema = z
   .object({
@@ -16,6 +16,8 @@ const optionalResponseSchema = z
     response: z.unknown().optional(),
   })
   .passthrough();
+
+const objectResponseSchema = z.object({}).passthrough();
 
 const pagedResponseSchema = z
   .object({
@@ -186,6 +188,41 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
       });
 
       return ((payload as OptionalEnvelope<T>).response ?? null) as T | null;
+    },
+
+    async fetchTeamOverview<T = unknown>(
+      params: {
+        teamId: string;
+        leagueId: string;
+        season: number;
+        timezone: string;
+        historySeasons?: number[];
+      },
+      signal?: AbortSignal,
+    ): Promise<T> {
+      const rawPayload = await http.get<unknown>(
+        `/teams/${encodeURIComponent(params.teamId)}/overview`,
+        {
+          leagueId: params.leagueId,
+          season: params.season,
+          timezone: params.timezone,
+          historySeasons:
+            params.historySeasons && params.historySeasons.length > 0
+              ? params.historySeasons.join(',')
+              : undefined,
+        },
+        { signal },
+      );
+      const payload = parseRuntimePayloadOrFallback({
+        schema: objectResponseSchema,
+        payload: rawPayload,
+        fallback: {},
+        telemetry,
+        feature: 'teams.overview',
+        endpoint: `/teams/${params.teamId}/overview`,
+      });
+
+      return payload as T;
     },
 
     async fetchTeamAdvancedStats<T = unknown>(

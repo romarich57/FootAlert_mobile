@@ -30,6 +30,12 @@ export const optionalSeasonQuerySchema = z
   })
   .strict();
 
+export const requiredSeasonQuerySchema = z
+  .object({
+    season: seasonSchema,
+  })
+  .strict();
+
 export const playerStatsQuerySchema = z
   .object({
     season: seasonSchema,

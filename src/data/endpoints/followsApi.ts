@@ -1,6 +1,8 @@
 import { createFollowsReadService } from '@app-core/services/followsService';
 import type {
   FollowsApiFixtureDto,
+  FollowedPlayerCard,
+  FollowedTeamCard,
   FollowsApiPlayerSearchDto,
   FollowsApiPlayerSeasonDto,
   FollowsApiStandingDto,
@@ -60,6 +62,22 @@ export async function fetchPlayerSeasonStats(
   signal?: AbortSignal,
 ): Promise<FollowsApiPlayerSeasonDto | null> {
   return followsReadService.fetchPlayerSeason<FollowsApiPlayerSeasonDto>(playerId, season, signal);
+}
+
+export async function fetchFollowedTeamCards(
+  teamIds: string[],
+  timezone: string,
+  signal?: AbortSignal,
+): Promise<FollowedTeamCard[]> {
+  return followsReadService.fetchTeamCards<FollowedTeamCard>(teamIds, timezone, signal);
+}
+
+export async function fetchFollowedPlayerCards(
+  playerIds: string[],
+  season: number,
+  signal?: AbortSignal,
+): Promise<FollowedPlayerCard[]> {
+  return followsReadService.fetchPlayerCards<FollowedPlayerCard>(playerIds, season, signal);
 }
 
 export async function fetchTrendingTeams(

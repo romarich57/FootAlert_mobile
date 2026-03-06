@@ -4,7 +4,7 @@ import { apiFootballGet } from '../../lib/apiFootballClient.js';
 import { withCache } from '../../lib/cache.js';
 import { parseOrThrow } from '../../lib/validation.js';
 
-import { competitionIdParamsSchema, optionalSeasonQuerySchema } from './schemas.js';
+import { competitionIdParamsSchema, requiredSeasonQuerySchema } from './schemas.js';
 import { buildPlayerStatsPath } from './transfersMapper.js';
 
 // Type interne pour le cast des réponses API-Football player-stats
@@ -33,17 +33,8 @@ export function registerCompetitionTotwRoute(app: FastifyInstance): void {
     },
     async request => {
       const params = parseOrThrow(competitionIdParamsSchema, request.params);
-
-      // Réutilisation de optionalSeasonQuerySchema : season obligatoire en pratique
-      // mais le schéma existant l'accepte comme optionnel — on le valide manuellement ci-dessous
-      const rawQuery = parseOrThrow(optionalSeasonQuerySchema, request.query);
-
-      // Fail-fast : la saison est requise pour les stats de joueurs
-      if (rawQuery.season === undefined) {
-        throw Object.assign(new Error('Le paramètre season est requis'), { statusCode: 400 });
-      }
-
-      const season = rawQuery.season;
+      const query = parseOrThrow(requiredSeasonQuerySchema, request.query);
+      const season = query.season;
 
       // Clé de cache stable par compétition et saison
       const cacheKey = `competition:totw:${params.id}:${season}`;

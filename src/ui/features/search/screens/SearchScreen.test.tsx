@@ -21,6 +21,10 @@ jest.mock('@data/endpoints/searchApi', () => ({
     players: [],
     competitions: [],
     matches: [],
+    meta: {
+      partial: false,
+      degradedSources: [],
+    },
   })),
 }));
 
@@ -52,6 +56,10 @@ describe('SearchScreen', () => {
       players: [],
       competitions: [],
       matches: [],
+      meta: {
+        partial: false,
+        degradedSources: [],
+      },
     });
 
     renderScreen();
@@ -86,6 +94,10 @@ describe('SearchScreen', () => {
       ],
       competitions: [],
       matches: [],
+      meta: {
+        partial: false,
+        degradedSources: [],
+      },
     });
 
     renderScreen();

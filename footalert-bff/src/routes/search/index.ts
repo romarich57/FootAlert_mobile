@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
-import { withCache } from '../../lib/cache.js';
+import { buildCanonicalCacheKey, withCache } from '../../lib/cache.js';
 import { mapWithConcurrency } from '../../lib/concurrency/mapWithConcurrency.js';
 import { seasonSchema, timezoneSchema } from '../../lib/schemas.js';
 import { parseOrThrow } from '../../lib/validation.js';
@@ -149,6 +149,19 @@ type SearchMatchResult = {
   awayGoals: number | null;
 };
 
+type SearchGlobalMeta = {
+  partial: boolean;
+  degradedSources: string[];
+};
+
+type SearchGlobalPayload = {
+  teams: SearchTeamResult[];
+  players: SearchPlayerResult[];
+  competitions: SearchCompetitionResult[];
+  matches: SearchMatchResult[];
+  meta: SearchGlobalMeta;
+};
+
 function toSafeNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -289,23 +302,35 @@ export async function registerSearchRoutes(app: FastifyInstance): Promise<void> 
     const query = parseOrThrow(searchGlobalQuerySchema, request.query);
     const limit = query.limit ?? DEFAULT_LIMIT;
 
-    return withCache(`search:global:${request.url}`, 30_000, async () => {
+    return withCache<SearchGlobalPayload>(
+      buildCanonicalCacheKey('search:global', {
+        query: query.q,
+        timezone: query.timezone,
+        season: query.season ?? null,
+        limit,
+      }),
+      30_000,
+      async () => {
+      const degradedSources = new Set<string>();
       const [teamsPayload, playersPayload, competitionsPayload] = await Promise.all([
         apiFootballGet<TeamSearchApiResponse>(
           `/teams?search=${encodeURIComponent(query.q)}`,
         ).catch(err => {
+          degradedSources.add('teams');
           request.log.warn({ endpoint: '/teams', err: (err as Error).message }, 'api.upstream.failure');
           return { response: [] };
         }),
         apiFootballGet<PlayerProfilesApiResponse>(
           `/players/profiles?search=${encodeURIComponent(query.q)}`,
         ).catch(err => {
+          degradedSources.add('players');
           request.log.warn({ endpoint: '/players/profiles', err: (err as Error).message }, 'api.upstream.failure');
           return { response: [] };
         }),
         apiFootballGet<LeaguesSearchApiResponse>(
           `/leagues?search=${encodeURIComponent(query.q)}`,
         ).catch(err => {
+          degradedSources.add('competitions');
           request.log.warn({ endpoint: '/leagues', err: (err as Error).message }, 'api.upstream.failure');
           return { response: [] };
         }),
@@ -336,6 +361,7 @@ export async function registerSearchRoutes(app: FastifyInstance): Promise<void> 
           return apiFootballGet<TeamFixturesApiResponse>(
             `/fixtures?${searchParams.toString()}`,
           ).catch(err => {
+            degradedSources.add('matches');
             request.log.warn({ endpoint: '/fixtures', teamId, err: (err as Error).message }, 'api.upstream.failure');
             return { response: [] };
           });
@@ -352,7 +378,15 @@ export async function registerSearchRoutes(app: FastifyInstance): Promise<void> 
         players,
         competitions,
         matches,
+        meta: {
+          partial: degradedSources.size > 0,
+          degradedSources: Array.from(degradedSources).sort(),
+        },
       };
-    });
+    },
+      {
+        shouldCache: payload => !payload.meta.partial,
+      },
+    );
   });
 }

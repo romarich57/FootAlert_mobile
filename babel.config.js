@@ -11,7 +11,7 @@ module.exports = {
           '@data': './src/data',
           '@ui': './src/ui',
           '@domain': './src/domain',
-          '@app-core': './packages/app-core/src',
+          '@app-core': './packages/app-core/dist',
           '@api-contract': './packages/api-contract/generated',
         },
       },

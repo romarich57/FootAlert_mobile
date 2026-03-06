@@ -5,12 +5,18 @@ import { Redis as IORedis } from 'ioredis';
 const RETRIABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 const UPSTREAM_QUOTA_BUCKET_WINDOW_MS = 60_000;
 const UPSTREAM_QUOTA_BUCKET_EXPIRE_MS = 70_000;
+const CIRCUIT_FAILURE_THRESHOLD = 3;
+const CIRCUIT_RATE_LIMIT_THRESHOLD = 2;
 
 let quotaRedisClient: IORedis | null = null;
 let quotaRedisReady = false;
 let localQuotaMinute = -1;
 let localQuotaUsed = 0;
-let circuitOpenUntilMs = 0;
+const circuitStateByFamily = new Map<string, {
+  openUntilMs: number;
+  consecutiveFailures: number;
+  consecutiveRateLimits: number;
+}>();
 
 function readNonNegativeInt(rawValue: string | undefined, fallback: number): number {
   if (!rawValue) {
@@ -88,6 +94,37 @@ function buildUrl(pathWithQuery: string): string {
   return `${env.apiFootballBaseUrl}${pathWithQuery}`;
 }
 
+function buildParsedPath(pathWithQuery: string): URL {
+  return new URL(pathWithQuery, env.apiFootballBaseUrl);
+}
+
+function resolveCircuitFamily(pathWithQuery: string): string {
+  const parsedUrl = buildParsedPath(pathWithQuery);
+  const pathname = parsedUrl.pathname;
+
+  if (
+    (pathname === '/teams' && parsedUrl.searchParams.has('search')) ||
+    (pathname === '/leagues' && parsedUrl.searchParams.has('search')) ||
+    (pathname === '/players/profiles' && parsedUrl.searchParams.has('search'))
+  ) {
+    return 'search';
+  }
+
+  if (pathname === '/standings') {
+    return 'standings';
+  }
+
+  if (pathname === '/fixtures' || pathname.startsWith('/fixtures/')) {
+    return 'fixtures';
+  }
+
+  if (pathname.startsWith('/players')) {
+    return 'player-stats';
+  }
+
+  return 'general';
+}
+
 function currentMinuteBucket(now = Date.now()): number {
   return Math.floor(now / UPSTREAM_QUOTA_BUCKET_WINDOW_MS);
 }
@@ -160,30 +197,73 @@ async function consumeUpstreamQuota(): Promise<boolean> {
   return consumeLocalQuota(upstreamGlobalRpmLimit);
 }
 
-function isCircuitOpen(now = Date.now()): boolean {
-  return now < circuitOpenUntilMs;
+function getCircuitState(family: string) {
+  const state = circuitStateByFamily.get(family);
+  if (state) {
+    return state;
+  }
+
+  const nextState = {
+    openUntilMs: 0,
+    consecutiveFailures: 0,
+    consecutiveRateLimits: 0,
+  };
+  circuitStateByFamily.set(family, nextState);
+  return nextState;
 }
 
-function openCircuit(statusCode: number): void {
+function isCircuitOpen(family: string, now = Date.now()): boolean {
+  return now < getCircuitState(family).openUntilMs;
+}
+
+function recordCircuitSuccess(family: string): void {
+  const state = getCircuitState(family);
+  state.openUntilMs = 0;
+  state.consecutiveFailures = 0;
+  state.consecutiveRateLimits = 0;
+}
+
+function recordCircuitFailure(family: string, statusCode: number): void {
   if (statusCode !== 429 && statusCode < 500) {
     return;
   }
 
+  const state = getCircuitState(family);
+
+  if (statusCode === 429) {
+    state.consecutiveRateLimits += 1;
+  } else {
+    state.consecutiveRateLimits = 0;
+  }
+
+  state.consecutiveFailures += 1;
+
+  if (
+    state.consecutiveFailures < CIRCUIT_FAILURE_THRESHOLD &&
+    state.consecutiveRateLimits < CIRCUIT_RATE_LIMIT_THRESHOLD
+  ) {
+    return;
+  }
+
   const nextOpenUntil = Date.now() + resolveUpstreamCircuitBreakerWindowMs();
-  circuitOpenUntilMs = Math.max(circuitOpenUntilMs, nextOpenUntil);
+  state.openUntilMs = Math.max(state.openUntilMs, nextOpenUntil);
 }
 
 export async function apiFootballGet<T>(
   pathWithQuery: string,
   signal?: AbortSignal,
 ): Promise<T> {
-  if (isCircuitOpen()) {
+  const circuitFamily = resolveCircuitFamily(pathWithQuery);
+
+  if (isCircuitOpen(circuitFamily)) {
+    const state = getCircuitState(circuitFamily);
     throw new UpstreamBffError(
       429,
       'UPSTREAM_CIRCUIT_OPEN',
       'API-Football circuit breaker is open. Retry later.',
       {
-        openUntilMs: circuitOpenUntilMs,
+        family: circuitFamily,
+        openUntilMs: state.openUntilMs,
       },
     );
   }
@@ -218,7 +298,7 @@ export async function apiFootballGet<T>(
 
       if (!response.ok) {
         const responseBody = normalizeBody(await response.text());
-        openCircuit(response.status);
+        recordCircuitFailure(circuitFamily, response.status);
         if (attempt < env.apiMaxRetries && shouldRetryStatus(response.status)) {
           await sleep(150 * (attempt + 1));
           continue;
@@ -232,7 +312,7 @@ export async function apiFootballGet<T>(
         );
       }
 
-      circuitOpenUntilMs = 0;
+      recordCircuitSuccess(circuitFamily);
       return (await response.json()) as T;
     } catch (error) {
       if (error instanceof UpstreamBffError) {
@@ -243,12 +323,12 @@ export async function apiFootballGet<T>(
       const canRetry = attempt < env.apiMaxRetries;
 
       if (canRetry && (isAbortError(error) || error instanceof TypeError)) {
-        openCircuit(503);
+        recordCircuitFailure(circuitFamily, 503);
         await sleep(150 * (attempt + 1));
         continue;
       }
 
-      openCircuit(503);
+      recordCircuitFailure(circuitFamily, 503);
       throw new UpstreamBffError(
         502,
         'UPSTREAM_UNAVAILABLE',
@@ -269,7 +349,7 @@ export async function apiFootballGet<T>(
 export function resetApiFootballClientGuardsForTests(): void {
   localQuotaMinute = -1;
   localQuotaUsed = 0;
-  circuitOpenUntilMs = 0;
+  circuitStateByFamily.clear();
   quotaRedisReady = false;
   if (quotaRedisClient) {
     quotaRedisClient.removeAllListeners();

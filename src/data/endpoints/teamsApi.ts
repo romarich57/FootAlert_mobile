@@ -11,6 +11,7 @@ import type {
   TeamApiStandingsDto,
   TeamApiStatisticsDto,
   TeamApiTeamDetailsDto,
+  TeamOverviewData,
   TeamApiTrophyDto,
   TeamApiTransferDto,
 } from '@domain/contracts/teams.types';
@@ -77,6 +78,21 @@ export async function fetchTeamStatistics(
     teamId,
     signal,
   );
+}
+
+type FetchTeamOverviewParams = {
+  teamId: string;
+  leagueId: string;
+  season: number;
+  timezone: string;
+  historySeasons?: number[];
+};
+
+export async function fetchTeamOverview(
+  params: FetchTeamOverviewParams,
+  signal?: AbortSignal,
+): Promise<TeamOverviewData> {
+  return teamsReadService.fetchTeamOverview<TeamOverviewData>(params, signal);
 }
 
 export async function fetchTeamAdvancedStats(

@@ -6,28 +6,14 @@ import {
   useAppPreferences,
 } from '@ui/app/providers/AppPreferencesProvider';
 import i18n from '@ui/shared/i18n';
-import {
-  startPushNotificationRuntime,
-  stopPushNotificationRuntime,
-  syncPushTokenRegistration,
-} from '@data/notifications/pushTokenLifecycle';
 import { loadAppPreferences, updateAppPreferences } from '@data/storage/appPreferencesStorage';
 import type { AppPreferences } from '@/shared/types/preferences.types';
-
-jest.mock('@data/notifications/pushTokenLifecycle', () => ({
-  startPushNotificationRuntime: jest.fn(async () => undefined),
-  stopPushNotificationRuntime: jest.fn(() => undefined),
-  syncPushTokenRegistration: jest.fn(async () => undefined),
-}));
 
 jest.mock('@data/storage/appPreferencesStorage', () => ({
   loadAppPreferences: jest.fn(),
   updateAppPreferences: jest.fn(),
 }));
 
-const mockedStartPushNotificationRuntime = jest.mocked(startPushNotificationRuntime);
-const mockedStopPushNotificationRuntime = jest.mocked(stopPushNotificationRuntime);
-const mockedSyncPushTokenRegistration = jest.mocked(syncPushTokenRegistration);
 const mockedLoadAppPreferences = jest.mocked(loadAppPreferences);
 const mockedUpdateAppPreferences = jest.mocked(updateAppPreferences);
 
@@ -47,9 +33,6 @@ function wrapper({ children }: React.PropsWithChildren) {
 describe('AppPreferencesProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedStartPushNotificationRuntime.mockResolvedValue(undefined);
-    mockedStopPushNotificationRuntime.mockImplementation(() => undefined);
-    mockedSyncPushTokenRegistration.mockResolvedValue(undefined);
     mockedLoadAppPreferences.mockResolvedValue(initialPreferences);
     mockedUpdateAppPreferences.mockImplementation(async partial => ({
       ...initialPreferences,

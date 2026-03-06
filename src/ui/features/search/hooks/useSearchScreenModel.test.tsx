@@ -4,8 +4,6 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { appEnv } from '@data/config/env';
-import { searchLeaguesByName } from '@data/endpoints/competitionsApi';
-import { searchPlayersByName, searchTeamsByName } from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
 import { useSearchScreenModel } from '@ui/features/search/hooks/useSearchScreenModel';
 
@@ -17,28 +15,20 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
-jest.mock('@data/endpoints/followsApi', () => ({
-  searchTeamsByName: jest.fn(async () => []),
-  searchPlayersByName: jest.fn(async () => []),
-}));
-
-jest.mock('@data/endpoints/competitionsApi', () => ({
-  searchLeaguesByName: jest.fn(async () => []),
-}));
-
 jest.mock('@data/endpoints/searchApi', () => ({
   searchGlobal: jest.fn(async () => ({
     teams: [],
     players: [],
     competitions: [],
     matches: [],
+    meta: {
+      partial: false,
+      degradedSources: [],
+    },
   })),
 }));
 
 const mockedUseNavigation = jest.mocked(useNavigation);
-const mockedSearchTeamsByName = jest.mocked(searchTeamsByName);
-const mockedSearchPlayersByName = jest.mocked(searchPlayersByName);
-const mockedSearchLeaguesByName = jest.mocked(searchLeaguesByName);
 const mockedSearchGlobal = jest.mocked(searchGlobal);
 
 function createWrapper() {
@@ -85,6 +75,10 @@ describe('useSearchScreenModel', () => {
       players: [],
       competitions: [],
       matches: [],
+      meta: {
+        partial: false,
+        degradedSources: [],
+      },
     });
 
     const { result } = renderHook(() => useSearchScreenModel(), {
@@ -152,6 +146,10 @@ describe('useSearchScreenModel', () => {
         players: [],
         competitions: [],
         matches: [],
+        meta: {
+          partial: false,
+          degradedSources: [],
+        },
       });
     });
 
@@ -165,11 +163,8 @@ describe('useSearchScreenModel', () => {
     });
   });
 
-  it('exposes error state when global search and fallback fail', async () => {
+  it('exposes error state when global search fails', async () => {
     mockedSearchGlobal.mockRejectedValueOnce(new Error('global failed'));
-    mockedSearchTeamsByName.mockRejectedValueOnce(new Error('fallback failed'));
-    mockedSearchPlayersByName.mockResolvedValueOnce([]);
-    mockedSearchLeaguesByName.mockResolvedValueOnce([]);
 
     const { result } = renderHook(() => useSearchScreenModel(), {
       wrapper: createWrapper(),
@@ -182,7 +177,6 @@ describe('useSearchScreenModel', () => {
 
     await waitFor(() => {
       expect(mockedSearchGlobal).toHaveBeenCalled();
-      expect(mockedSearchTeamsByName).toHaveBeenCalled();
     });
 
     await waitFor(() => {
@@ -191,7 +185,7 @@ describe('useSearchScreenModel', () => {
     });
   });
 
-  it('does not trigger fallback calls when global search is aborted', async () => {
+  it('surfaces the aborted global search as an error state without results', async () => {
     const abortError = new Error('aborted');
     abortError.name = 'AbortError';
     mockedSearchGlobal.mockRejectedValueOnce(abortError);
@@ -213,8 +207,8 @@ describe('useSearchScreenModel', () => {
       expect(result.current.isError).toBe(true);
     });
 
-    expect(mockedSearchTeamsByName).not.toHaveBeenCalled();
-    expect(mockedSearchPlayersByName).not.toHaveBeenCalled();
-    expect(mockedSearchLeaguesByName).not.toHaveBeenCalled();
+    expect(result.current.teamResults).toEqual([]);
+    expect(result.current.playerResults).toEqual([]);
+    expect(result.current.competitionResults).toEqual([]);
   });
 });

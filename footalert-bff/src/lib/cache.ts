@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Redis as IORedis } from 'ioredis';
 
-import { BffError, UpstreamBffError } from './errors.js';
+import { UpstreamBffError } from './errors.js';
 
 type CacheEntry<T> = {
   expiresAt: number;
@@ -48,6 +48,10 @@ type ParsedCacheValue<T> = {
   fresh: boolean;
 };
 
+type WithCacheOptions<T> = {
+  shouldCache?: (value: T) => boolean;
+};
+
 function toPositiveInt(value: number, fallback: number): number {
   if (!Number.isFinite(value) || value <= 0) {
     return fallback;
@@ -83,6 +87,38 @@ function hashCacheKey(rawKey: string): string {
   }
 
   return `sha256:${createHash('sha256').update(rawKey).digest('hex')}`;
+}
+
+function stableSerializeCacheValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(item => stableSerializeCacheValue(item)).join(',')}]`;
+  }
+
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
+      .map(([key, nestedValue]) => `${key}:${stableSerializeCacheValue(nestedValue)}`)
+      .join(',')}}`;
+  }
+
+  if (value === null) {
+    return 'null';
+  }
+
+  return String(value);
+}
+
+export function buildCanonicalCacheKey(
+  routeName: string,
+  params: Record<string, unknown>,
+): string {
+  const serializedParams = Object.entries(params)
+    .filter(([, value]) => typeof value !== 'undefined')
+    .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
+    .map(([key, value]) => `${key}=${stableSerializeCacheValue(value)}`)
+    .join('&');
+
+  return serializedParams.length > 0 ? `${routeName}:${serializedParams}` : routeName;
 }
 
 function applyTtlJitter(ttlMs: number): number {
@@ -545,10 +581,17 @@ function shouldFallbackToStale(error: unknown): boolean {
   return error.statusCode === 429 || error.statusCode >= 500;
 }
 
-async function produceAndCache<T>(key: string, ttlMs: number, producer: () => Promise<T>): Promise<T> {
+async function produceAndCache<T>(
+  key: string,
+  ttlMs: number,
+  producer: () => Promise<T>,
+  options?: WithCacheOptions<T>,
+): Promise<T> {
   try {
     const value = await producer();
-    await setCachedValue(key, value, ttlMs);
+    if (options?.shouldCache?.(value) ?? true) {
+      await setCachedValue(key, value, ttlMs);
+    }
     return value;
   } catch (error) {
     if (shouldFallbackToStale(error)) {
@@ -696,6 +739,7 @@ export async function withCache<T>(
   key: string,
   ttlMs: number,
   producer: () => Promise<T>,
+  options?: WithCacheOptions<T>,
 ): Promise<T> {
   const cached = await getFreshCachedValue<T>(key);
   if (cached !== null) {
@@ -709,12 +753,12 @@ export async function withCache<T>(
 
   const pendingPromise = (async () => {
     if (cacheBackend !== 'redis' || !redisUrl) {
-      return produceAndCache(key, ttlMs, producer);
+      return produceAndCache(key, ttlMs, producer, options);
     }
 
     ensureRedisClient();
     if (!redisClient || !redisReady) {
-      return produceAndCache(key, ttlMs, producer);
+      return produceAndCache(key, ttlMs, producer, options);
     }
 
     const lock = await acquireRedisLock(key);
@@ -725,7 +769,7 @@ export async function withCache<T>(
           return cachedAfterLock;
         }
 
-        return produceAndCache(key, ttlMs, producer);
+        return produceAndCache(key, ttlMs, producer, options);
       } finally {
         await releaseRedisLock(lock);
       }
@@ -741,11 +785,7 @@ export async function withCache<T>(
       return staleValue;
     }
 
-    throw new BffError(
-      503,
-      'CACHE_LOCK_TIMEOUT',
-      'Cache lock wait timed out and no stale data is available.',
-    );
+    return produceAndCache(key, ttlMs, producer, options);
   })()
     .finally(() => {
       clearInFlight(key);

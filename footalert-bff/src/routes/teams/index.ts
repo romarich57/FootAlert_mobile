@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { env } from '../../config/env.js';
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
-import { withCache } from '../../lib/cache.js';
+import { buildCanonicalCacheKey, withCache } from '../../lib/cache.js';
 import {
   PaginationCursorCodec,
   computePaginationFiltersHash,
@@ -24,10 +24,15 @@ import {
   type ApiFootballUnknownListResponse,
 } from './helpers.js';
 import {
+  fetchTeamOverviewPayload,
+  parseOverviewHistorySeasons,
+} from './overview.js';
+import {
   statsQuerySchema,
   standingsQuerySchema,
   teamFixturesQuerySchema,
   teamIdParamsSchema,
+  teamOverviewQuerySchema,
   teamPlayersQuerySchema,
 } from './schemas.js';
 import { fetchNormalizedTeamTransfers } from './transfers.js';
@@ -223,6 +228,32 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
       apiFootballGet(
         `/fixtures?team=${encodeURIComponent(params.id)}&next=1&timezone=${encodeURIComponent(query.timezone)}`,
       ),
+    );
+  });
+
+  app.get('/v1/teams/:id/overview', async request => {
+    const params = parseOrThrow(teamIdParamsSchema, request.params);
+    const query = parseOrThrow(teamOverviewQuerySchema, request.query);
+    const historySeasons = parseOverviewHistorySeasons(query.historySeasons);
+
+    return withCache(
+      buildCanonicalCacheKey('team:overview', {
+        teamId: params.id,
+        leagueId: query.leagueId,
+        season: query.season,
+        timezone: query.timezone,
+        historySeasons: historySeasons?.join(','),
+      }),
+      45_000,
+      () =>
+        fetchTeamOverviewPayload({
+          teamId: params.id,
+          leagueId: query.leagueId,
+          season: query.season,
+          timezone: query.timezone,
+          historySeasons,
+          logger: request.log,
+        }),
     );
   });
 

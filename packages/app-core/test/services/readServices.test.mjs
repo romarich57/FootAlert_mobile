@@ -63,6 +63,28 @@ describe('read services path/query normalization', () => {
     });
   });
 
+  it('teams service forwards overview aggregation query fields', async () => {
+    const { http, calls } = createHttpRecorder([{}]);
+    const service = createTeamsReadService({ http, telemetry: noopTelemetry });
+
+    await service.fetchTeamOverview({
+      teamId: '529',
+      leagueId: '140',
+      season: 2025,
+      timezone: 'Europe/Paris',
+      historySeasons: [2024, 2023, 2022],
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, '/teams/529/overview');
+    assert.deepEqual(calls[0].query, {
+      leagueId: '140',
+      season: 2025,
+      timezone: 'Europe/Paris',
+      historySeasons: '2024,2023,2022',
+    });
+  });
+
   it('competitions service forwards optional cursor/limit when provided', async () => {
     const { http, calls } = createHttpRecorder([{ response: [] }]);
     const service = createCompetitionsReadService({ http, telemetry: noopTelemetry });

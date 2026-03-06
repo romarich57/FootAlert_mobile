@@ -457,6 +457,10 @@ export function useMatchesScreenModel() {
     navigation.navigate('SearchPlaceholder');
   }, [navigation]);
 
+  const openManageHiddenModal = useCallback(() => {
+    setIsManageHiddenModalVisible(true);
+  }, []);
+
   const hasCachedData = Boolean(matchesQuery.data);
   const showLoading = matchesQuery.isLoading && !hasCachedData;
   const showError = matchesQuery.isError && !hasCachedData;
@@ -502,6 +506,7 @@ export function useMatchesScreenModel() {
     handleUnhideCompetition: unhideCompetition,
     hiddenCompetitions,
     isManageHiddenModalVisible,
+    openManageHiddenModal,
     closeManageHiddenModal: () => setIsManageHiddenModalVisible(false),
     refetch: () =>
       matchesQuery.refetch().catch(() => {

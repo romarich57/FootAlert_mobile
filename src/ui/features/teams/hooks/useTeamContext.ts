@@ -9,6 +9,7 @@ import {
 } from '@data/mappers/teamsMapper';
 import type { TeamCompetitionOption, TeamSelection } from '@ui/features/teams/types/teams.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type UseTeamContextParams = {
   teamId: string;
@@ -23,16 +24,14 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
   const teamQuery = useQuery({
     queryKey: queryKeys.teams.details(teamId),
     enabled: Boolean(teamId),
-    staleTime: 60_000,
-    refetchOnMount: 'always',
+    ...featureQueryOptions.teams.details,
     queryFn: ({ signal }) => fetchTeamDetails(teamId, signal),
   });
 
   const leaguesQuery = useQuery({
     queryKey: queryKeys.teams.leagues(teamId),
     enabled: Boolean(teamId),
-    staleTime: 10 * 60_000,
-    refetchOnMount: 'always',
+    ...featureQueryOptions.teams.leagues,
     queryFn: ({ signal }) => fetchTeamLeagues(teamId, signal),
   });
 

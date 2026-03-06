@@ -33,6 +33,15 @@ export const standingsQuerySchema = z
 
 export const statsQuerySchema = standingsQuerySchema;
 
+export const teamOverviewQuerySchema = z
+  .object({
+    leagueId: numericStringSchema,
+    season: seasonSchema,
+    timezone: timezoneSchema,
+    historySeasons: z.string().trim().min(1).max(256).optional(),
+  })
+  .strict();
+
 export const teamPlayersQuerySchema = z
   .object({
     leagueId: numericStringSchema,

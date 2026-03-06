@@ -19,6 +19,9 @@ export type SecureTransportOptions = {
 };
 
 const DEFAULT_SECURE_TRANSPORT_TIMEOUT_MS = 30_000;
+type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
+type FetchBody = Exclude<FetchInit['body'], null | undefined>;
+type FetchSignal = Exclude<FetchInit['signal'], undefined>;
 
 export class SecureTransportError extends Error {
   constructor(message: string) {
@@ -40,7 +43,7 @@ function withTimeout(
   signal: AbortSignal | undefined,
   timeoutMs: number,
 ): {
-  signal: AbortSignal;
+  signal: FetchSignal;
   cleanup: () => void;
 } {
   const controller = new AbortController();
@@ -57,7 +60,7 @@ function withTimeout(
   }
 
   return {
-    signal: controller.signal,
+    signal: controller.signal as FetchSignal,
     cleanup: () => {
       clearTimeout(timeout);
       if (isAbortListenerAttached) {
@@ -69,7 +72,7 @@ function withTimeout(
 
 function buildRequestPayload(
   body: unknown,
-): { body: RequestInit['body']; isJsonBody: boolean } {
+): { body: FetchInit['body']; isJsonBody: boolean } {
   if (typeof body === 'undefined') {
     return {
       body: undefined,
@@ -83,13 +86,13 @@ function buildRequestPayload(
     || body instanceof Blob
   ) {
     return {
-      body,
+      body: body as FetchBody,
       isJsonBody: false,
     };
   }
 
   return {
-    body: JSON.stringify(body),
+    body: JSON.stringify(body) as FetchBody,
     isJsonBody: true,
   };
 }
@@ -111,12 +114,13 @@ export async function secureFetch(
 
   try {
     await ensureSslPinning(request.url);
-    return await fetch(request.url, {
+    const fetchInit: FetchInit = {
       method: request.method,
       headers: requestHeaders,
       body: payload.body,
       signal: timeoutController.signal,
-    });
+    };
+    return await fetch(request.url, fetchInit);
   } catch (error) {
     const trackedError =
       error instanceof Error

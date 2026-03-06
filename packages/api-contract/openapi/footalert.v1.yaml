@@ -414,6 +414,24 @@ paths:
       - web
       - desktop
 
+  /v1/teams/{id}/overview:
+    get:
+      summary: Get aggregated team overview for mobile details screens
+      operationId: getTeamOverview
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/LeagueIdQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+        - $ref: '#/components/parameters/TimezoneQuery'
+        - $ref: '#/components/parameters/HistorySeasonsQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/TeamOverviewResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
   /v1/teams/{id}/advanced-stats:
     get:
       summary: Get advanced team stats
@@ -686,6 +704,21 @@ paths:
       - web
       - desktop
 
+  /v1/follows/teams/cards:
+    get:
+      summary: Get aggregated cards for followed teams
+      operationId: getFollowTeamCards
+      parameters:
+        - $ref: '#/components/parameters/IdsQuery'
+        - $ref: '#/components/parameters/TimezoneQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
   /v1/follows/players/{playerId}/season/{season}:
     get:
       summary: Get followed player stats by season
@@ -700,6 +733,21 @@ paths:
       - mobile
       - web
       - desktop
+
+  /v1/follows/players/cards:
+    get:
+      summary: Get aggregated cards for followed players
+      operationId: getFollowPlayerCards
+      parameters:
+        - $ref: '#/components/parameters/IdsQuery'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ListEnvelopeResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/follows/trends/teams:
     get:
@@ -1417,6 +1465,22 @@ components:
         type: string
         description: Comma-separated league ids
         pattern: '^[0-9]+(,[0-9]+)*$'
+    IdsQuery:
+      name: ids
+      in: query
+      required: true
+      schema:
+        type: string
+        description: Comma-separated numeric ids
+        pattern: '^[1-9]\\d*(,[1-9]\\d*)*$'
+    HistorySeasonsQuery:
+      name: historySeasons
+      in: query
+      required: false
+      schema:
+        type: string
+        description: Optional comma-separated list of historical seasons
+        pattern: '^\\d{4}(,\\d{4})*$'
     PlayerStatsTypeQuery:
       name: type
       in: query
@@ -1492,6 +1556,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/SearchGlobalResponse'
+    TeamOverviewResponse:
+      description: Aggregated team overview payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TeamOverviewResponse'
 
   schemas:
     TrendCompetitionItem:
@@ -1728,7 +1798,7 @@ components:
             - type: 'null'
     SearchGlobalResponse:
       type: object
-      required: [ teams, competitions, players, matches ]
+      required: [ teams, competitions, players, matches, meta ]
       properties:
         teams:
           type: array
@@ -1746,6 +1816,458 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchMatchResult'
+        meta:
+          $ref: '#/components/schemas/SearchGlobalMeta'
+    SearchGlobalMeta:
+      type: object
+      required: [ partial, degradedSources ]
+      properties:
+        partial:
+          type: boolean
+        degradedSources:
+          type: array
+          items:
+            type: string
+    TeamMatchItem:
+      type: object
+      required:
+        [
+          fixtureId,
+          leagueId,
+          leagueName,
+          leagueLogo,
+          date,
+          round,
+          venue,
+          status,
+          statusLabel,
+          minute,
+          homeTeamId,
+          homeTeamName,
+          homeTeamLogo,
+          awayTeamId,
+          awayTeamName,
+          awayTeamLogo,
+          homeGoals,
+          awayGoals,
+        ]
+      properties:
+        fixtureId:
+          type: string
+        leagueId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        date:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        round:
+          oneOf:
+            - type: string
+            - type: 'null'
+        venue:
+          oneOf:
+            - type: string
+            - type: 'null'
+        status:
+          type: string
+          enum: [ upcoming, live, finished ]
+        statusLabel:
+          oneOf:
+            - type: string
+            - type: 'null'
+        minute:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        homeTeamId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        homeTeamName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        homeTeamLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        awayTeamId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        awayTeamName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        awayTeamLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        homeGoals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        awayGoals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    TeamFormEntry:
+      type: object
+      required: [ fixtureId, result, score, opponentName, opponentLogo ]
+      properties:
+        fixtureId:
+          type: string
+        result:
+          type: string
+          enum: [ W, D, L, '' ]
+        score:
+          oneOf:
+            - type: string
+            - type: 'null'
+        opponentName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        opponentLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+    TeamOverviewSeasonStats:
+      type: object
+      required: [ rank, points, played, goalDiff, wins, draws, losses, scored, conceded ]
+      properties:
+        rank:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        points:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        played:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        goalDiff:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        wins:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        draws:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        losses:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        scored:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        conceded:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    TeamStandingStats:
+      type: object
+      required: [ played, win, draw, lose, goalsFor, goalsAgainst ]
+      properties:
+        played:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        win:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        draw:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        lose:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        goalsFor:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        goalsAgainst:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    TeamStandingRow:
+      type: object
+      required:
+        [ rank, teamId, teamName, teamLogo, played, goalDiff, points, isTargetTeam, form, update, all, home, away ]
+      properties:
+        rank:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        teamId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        teamName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        teamLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        played:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        goalDiff:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        points:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        isTargetTeam:
+          type: boolean
+        form:
+          oneOf:
+            - type: string
+            - type: 'null'
+        update:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        all:
+          $ref: '#/components/schemas/TeamStandingStats'
+        home:
+          $ref: '#/components/schemas/TeamStandingStats'
+        away:
+          $ref: '#/components/schemas/TeamStandingStats'
+    TeamOverviewMiniStanding:
+      type: object
+      required: [ leagueId, leagueName, leagueLogo, rows ]
+      properties:
+        leagueId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueName:
+          oneOf:
+            - type: string
+            - type: 'null'
+        leagueLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamStandingRow'
+    TeamOverviewHistoryPoint:
+      type: object
+      required: [ season, rank ]
+      properties:
+        season:
+          type: integer
+        rank:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    TeamOverviewCoach:
+      type: object
+      required: [ id, name, photo, age ]
+      properties:
+        id:
+          oneOf:
+            - type: string
+            - type: 'null'
+        name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        photo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        age:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    TeamOverviewCoachPerformance:
+      type: object
+      required: [ coach, winRate, pointsPerMatch, played, wins, draws, losses ]
+      properties:
+        coach:
+          oneOf:
+            - $ref: '#/components/schemas/TeamOverviewCoach'
+            - type: 'null'
+        winRate:
+          oneOf:
+            - type: number
+            - type: 'null'
+        pointsPerMatch:
+          oneOf:
+            - type: number
+            - type: 'null'
+        played:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        wins:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        draws:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        losses:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    TeamTopPlayer:
+      type: object
+      required: [ playerId, name, photo, teamLogo, position, goals, assists, rating ]
+      properties:
+        playerId:
+          type: string
+        name:
+          oneOf:
+            - type: string
+            - type: 'null'
+        photo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        teamLogo:
+          oneOf:
+            - type: string
+            - type: 'null'
+        position:
+          oneOf:
+            - type: string
+            - type: 'null'
+        goals:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        assists:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        rating:
+          oneOf:
+            - type: number
+            - type: 'null'
+    TeamSeasonLineup:
+      type: object
+      required: [ formation, estimated, goalkeeper, defenders, midfielders, attackers ]
+      properties:
+        formation:
+          type: string
+          enum: [ 4-3-3 ]
+        estimated:
+          type: boolean
+        goalkeeper:
+          oneOf:
+            - $ref: '#/components/schemas/TeamTopPlayer'
+            - type: 'null'
+        defenders:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamTopPlayer'
+        midfielders:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamTopPlayer'
+        attackers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamTopPlayer'
+    TeamOverviewPlayerLeaders:
+      type: object
+      required: [ ratings, scorers, assisters ]
+      properties:
+        ratings:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamTopPlayer'
+        scorers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamTopPlayer'
+        assisters:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamTopPlayer'
+    TeamOverviewResponse:
+      type: object
+      required:
+        [
+          nextMatch,
+          recentForm,
+          seasonStats,
+          seasonLineup,
+          miniStanding,
+          standingHistory,
+          coachPerformance,
+          playerLeaders,
+          trophiesCount,
+          trophyWinsCount,
+        ]
+      properties:
+        nextMatch:
+          oneOf:
+            - $ref: '#/components/schemas/TeamMatchItem'
+            - type: 'null'
+        recentForm:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamFormEntry'
+        seasonStats:
+          $ref: '#/components/schemas/TeamOverviewSeasonStats'
+        seasonLineup:
+          $ref: '#/components/schemas/TeamSeasonLineup'
+        miniStanding:
+          oneOf:
+            - $ref: '#/components/schemas/TeamOverviewMiniStanding'
+            - type: 'null'
+        standingHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamOverviewHistoryPoint'
+        coachPerformance:
+          oneOf:
+            - $ref: '#/components/schemas/TeamOverviewCoachPerformance'
+            - type: 'null'
+        playerLeaders:
+          $ref: '#/components/schemas/TeamOverviewPlayerLeaders'
+        trophiesCount:
+          oneOf:
+            - type: integer
+            - type: 'null'
+        trophyWinsCount:
+          oneOf:
+            - type: integer
+            - type: 'null'
     MobileSessionChallengeRequest:
       type: object
       additionalProperties: false

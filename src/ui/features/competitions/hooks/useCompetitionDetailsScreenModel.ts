@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useNetInfo } from '@react-native-community/netinfo';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePowerState } from 'react-native-device-info';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
@@ -26,6 +28,8 @@ export function useCompetitionDetailsScreenModel() {
   const route = useRoute<CompetitionDetailsScreenRouteProp>();
   const navigation = useNavigation<CompetitionDetailsScreenNavigationProp>();
   const queryClient = useQueryClient();
+  const netInfo = useNetInfo();
+  const powerState = usePowerState();
 
   const { competitionId, competition: routeCompetition } = route.params;
   const safeCompetitionId = sanitizeNumericEntityId(competitionId);
@@ -91,6 +95,10 @@ export function useCompetitionDetailsScreenModel() {
   const competitionKind = competitionBracketData?.competitionKind;
   const hasBracketRounds = (competitionBracketData?.bracket?.length ?? 0) > 0;
   const isCupOnlyCompetition = competitionKind === 'cup';
+  const isOffline =
+    netInfo.isConnected === false || netInfo.isInternetReachable === false;
+  const networkLiteMode = isOffline || netInfo.details?.isConnectionExpensive === true;
+  const batteryLiteMode = powerState.lowPowerMode === true;
   const standingsTabLabelKey = isCupOnlyCompetition
     ? 'competitionDetails.tabs.bracket'
     : 'competitionDetails.tabs.standings';
@@ -100,34 +108,52 @@ export function useCompetitionDetailsScreenModel() {
       return;
     }
 
+    if (isOffline || networkLiteMode || batteryLiteMode) {
+      return;
+    }
+
     const leagueId = numericCompetitionId;
     const season = actualSeason;
 
-    void queryClient.prefetchQuery({
-      queryKey: queryKeys.competitions.standings(leagueId, season),
-      queryFn: ({ signal }) =>
-        fetchLeagueStandings(leagueId, season, signal).then(dto => mapStandingDtoToGroups(dto)),
-      staleTime: featureQueryOptions.competitions.standings.staleTime,
-    });
+    if (activeTab === 'standings' && !isCupOnlyCompetition) {
+      void queryClient.prefetchQuery({
+        queryKey: queryKeys.competitions.standings(leagueId, season),
+        queryFn: ({ signal }) =>
+          fetchLeagueStandings(leagueId, season, signal).then(dto => mapStandingDtoToGroups(dto)),
+        staleTime: featureQueryOptions.competitions.standings.staleTime,
+      });
+    }
 
-    void queryClient.prefetchInfiniteQuery({
-      queryKey: queryKeys.competitions.fixtures(leagueId, season),
-      queryFn: async ({ pageParam, signal }) => {
-        const page = await fetchLeagueFixturesPage(leagueId, season, signal, {
-          limit: 50,
-          cursor: pageParam as string | undefined,
-        });
-        return {
-          items: mapFixturesDtoToFixtures(page.items),
-          hasMore: page.pageInfo?.hasMore ?? false,
-          nextCursor: page.pageInfo?.nextCursor ?? null,
-        };
-      },
-      initialPageParam: undefined as string | undefined,
-      staleTime: featureQueryOptions.competitions.fixtures.staleTime,
-    });
+    if (activeTab === 'matches') {
+      void queryClient.prefetchInfiniteQuery({
+        queryKey: queryKeys.competitions.fixtures(leagueId, season),
+        queryFn: async ({ pageParam, signal }) => {
+          const page = await fetchLeagueFixturesPage(leagueId, season, signal, {
+            limit: 50,
+            cursor: pageParam as string | undefined,
+          });
+          return {
+            items: mapFixturesDtoToFixtures(page.items),
+            hasMore: page.pageInfo?.hasMore ?? false,
+            nextCursor: page.pageInfo?.nextCursor ?? null,
+          };
+        },
+        initialPageParam: undefined as string | undefined,
+        staleTime: featureQueryOptions.competitions.fixtures.staleTime,
+      });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numericCompetitionId, actualSeason, seasonsLoading]);
+  }, [
+    activeTab,
+    actualSeason,
+    batteryLiteMode,
+    isCupOnlyCompetition,
+    isOffline,
+    networkLiteMode,
+    numericCompetitionId,
+    queryClient,
+    seasonsLoading,
+  ]);
 
   const tabs = useMemo<CompetitionTabKey[]>(() => {
     const showStandingsTab = !isCupOnlyCompetition || hasBracketRounds;

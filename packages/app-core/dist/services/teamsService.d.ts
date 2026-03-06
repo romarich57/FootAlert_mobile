@@ -1,6 +1,6 @@
-import type { HttpAdapter } from '../adapters/http';
-import type { TelemetryAdapter } from '../adapters/telemetry';
-import type { PagedEnvelope } from '../domain/network';
+import type { HttpAdapter } from '../adapters/http.js';
+import type { TelemetryAdapter } from '../adapters/telemetry.js';
+import type { PagedEnvelope } from '../domain/network.js';
 type TeamsServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;
@@ -18,6 +18,13 @@ export declare function createTeamsReadService({ http, telemetry }: TeamsService
     fetchTeamNextFixture<T = unknown>(teamId: string, timezone: string, signal?: AbortSignal): Promise<T | null>;
     fetchLeagueStandings<T = unknown>(leagueId: string, season: number, signal?: AbortSignal): Promise<T | null>;
     fetchTeamStatistics<T = unknown>(leagueId: string, season: number, teamId: string, signal?: AbortSignal): Promise<T | null>;
+    fetchTeamOverview<T = unknown>(params: {
+        teamId: string;
+        leagueId: string;
+        season: number;
+        timezone: string;
+        historySeasons?: number[];
+    }, signal?: AbortSignal): Promise<T>;
     fetchTeamAdvancedStats<T = unknown>(leagueId: string, season: number, teamId: string, signal?: AbortSignal): Promise<T | null>;
     fetchTeamPlayers<T = unknown>(params: {
         teamId: string;

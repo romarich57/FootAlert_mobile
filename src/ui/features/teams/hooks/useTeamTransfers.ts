@@ -40,7 +40,6 @@ export function useTeamTransfers({ teamId, season, enabled = true }: UseTeamTran
   return useQuery<TeamTransfersData>({
     queryKey: queryKeys.teams.transfers(teamId, season),
     enabled: enabled && Boolean(teamId),
-    refetchOnMount: 'always',
     ...featureQueryOptions.teams.transfers,
     queryFn: ({ signal }) =>
       fetchTeamTransfersData({

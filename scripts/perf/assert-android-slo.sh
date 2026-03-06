@@ -5,6 +5,7 @@ summary_file="${1:-}"
 p50_threshold_ms="${2:-750}"
 p95_threshold_ms="${3:-1200}"
 jank_threshold_percent="${4:-6}"
+pss_threshold_mb="${5:-220}"
 
 if [[ -z "$summary_file" ]]; then
   summary_file="$(find perf-results -type f -name 'audit-summary.txt' -print 2>/dev/null | sort | tail -n 1 || true)"
@@ -47,6 +48,25 @@ extract_jank_percent() {
   return 1
 }
 
+extract_total_pss_kb() {
+  local file="$1"
+  local source_line
+
+  source_line="$(grep -E 'Journey TOTAL PSS:|TOTAL PSS:' "$file" | tail -n 1 || true)"
+  if [[ -z "$source_line" ]]; then
+    return 1
+  fi
+
+  local pss_kb
+  pss_kb="$(printf '%s\n' "$source_line" | sed -E 's/.*TOTAL PSS:[[:space:]]*([0-9]+).*/\1/' || true)"
+  if [[ -n "$pss_kb" && "$pss_kb" != "$source_line" ]]; then
+    printf '%s\n' "$pss_kb"
+    return 0
+  fi
+
+  return 1
+}
+
 assert_less_than() {
   local label="$1"
   local actual="$2"
@@ -64,7 +84,11 @@ assert_less_than() {
 p50_ms="$(extract_key_value "p50_ms" "$summary_file" || true)"
 p95_ms="$(extract_key_value "p95_ms" "$summary_file" || true)"
 jank_percent="$(extract_jank_percent "$summary_file" || true)"
-total_pss_line="$(grep -E 'Journey TOTAL PSS:|TOTAL PSS:' "$summary_file" | tail -n 1 || true)"
+total_pss_kb="$(extract_total_pss_kb "$summary_file" || true)"
+total_pss_mb=""
+if [[ -n "$total_pss_kb" ]]; then
+  total_pss_mb="$(awk "BEGIN { printf \"%.1f\", $total_pss_kb / 1024 }")"
+fi
 
 if [[ -z "$p50_ms" || -z "$p95_ms" || -z "$jank_percent" ]]; then
   echo "[perf][slo] unable to parse required metrics from $summary_file"
@@ -74,14 +98,20 @@ fi
 
 echo "[perf][slo] summary_file=$summary_file"
 echo "[perf][slo] parsed p50_ms=$p50_ms p95_ms=$p95_ms jank_percent=$jank_percent"
-if [[ -n "$total_pss_line" ]]; then
-  echo "[perf][slo] parsed ${total_pss_line}"
+if [[ -n "$total_pss_kb" && -n "$total_pss_mb" ]]; then
+  echo "[perf][slo] parsed total_pss_kb=$total_pss_kb total_pss_mb=$total_pss_mb"
 fi
 
 failed=0
 assert_less_than "cold_start_p50_ms" "$p50_ms" "$p50_threshold_ms" failed
 assert_less_than "cold_start_p95_ms" "$p95_ms" "$p95_threshold_ms" failed
 assert_less_than "janky_frames_percent" "$jank_percent" "$jank_threshold_percent" failed
+if [[ -n "$total_pss_mb" ]]; then
+  assert_less_than "total_pss_mb" "$total_pss_mb" "$pss_threshold_mb" failed
+else
+  echo "[perf][slo] FAIL total_pss_mb actual=unavailable threshold=$pss_threshold_mb"
+  failed=1
+fi
 
 if [[ "$failed" -ne 0 ]]; then
   exit 1

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parseRuntimePayloadOrFallback } from '../runtime/validation';
+import { parseRuntimePayloadOrFallback } from '../runtime/validation.js';
 const listResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),
@@ -36,6 +36,18 @@ export function createFollowsReadService({ http, telemetry }) {
         async fetchPlayerSeason(playerId, season, signal) {
             const items = await fetchList(`/follows/players/${encodeURIComponent(playerId)}/season/${season}`, undefined, 'follows.player_season', `/follows/players/${playerId}/season/${season}`, signal);
             return items[0] ?? null;
+        },
+        fetchTeamCards(teamIds, timezone, signal) {
+            return fetchList('/follows/teams/cards', {
+                ids: teamIds.join(','),
+                timezone,
+            }, 'follows.team_cards', '/follows/teams/cards', signal);
+        },
+        fetchPlayerCards(playerIds, season, signal) {
+            return fetchList('/follows/players/cards', {
+                ids: playerIds.join(','),
+                season,
+            }, 'follows.player_cards', '/follows/players/cards', signal);
         },
         fetchTeamsTrends(leagueIds, season, signal) {
             return fetchList('/follows/trends/teams', { leagueIds, season }, 'follows.trends.teams', '/follows/trends/teams', signal);

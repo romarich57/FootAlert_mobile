@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { apiFootballGet } from '../lib/apiFootballClient.js';
-import { withCache } from '../lib/cache.js';
+import { buildCanonicalCacheKey, withCache } from '../lib/cache.js';
 import { mapWithConcurrency } from '../lib/concurrency/mapWithConcurrency.js';
 import {
   commaSeparatedNumericIdsSchema,
@@ -14,6 +14,8 @@ import { parseOrThrow } from '../lib/validation.js';
 
 const TRENDS_MAX_LEAGUE_IDS = 10;
 const TRENDS_MAX_CONCURRENCY = 3;
+const FOLLOW_CARDS_MAX_IDS = 50;
+const FOLLOW_CARDS_CONCURRENCY = 3;
 
 const searchQuerySchema = z
   .object({
@@ -60,6 +62,124 @@ type PlayerProfilesResponse = {
     };
   }>;
 };
+
+type TeamDetailsResponse = {
+  response?: Array<{
+    team?: {
+      id?: number;
+      name?: string;
+      logo?: string;
+    };
+  }>;
+};
+
+type TeamNextFixtureResponse = {
+  response?: Array<{
+    fixture?: {
+      id?: number;
+      date?: string;
+    };
+    teams?: {
+      home?: {
+        id?: number;
+        name?: string;
+        logo?: string;
+      };
+      away?: {
+        id?: number;
+        name?: string;
+        logo?: string;
+      };
+    };
+  }>;
+};
+
+type PlayerSeasonResponse = {
+  response?: Array<{
+    player?: {
+      id?: number;
+      name?: string;
+      photo?: string;
+    };
+    statistics?: Array<{
+      team?: {
+        name?: string;
+        logo?: string;
+      };
+      league?: {
+        name?: string;
+      };
+      games?: {
+        position?: string;
+      };
+      goals?: {
+        total?: number | null;
+        assists?: number | null;
+      };
+    }>;
+  }>;
+};
+
+const cardsTeamIdsQuerySchema = z
+  .object({
+    ids: commaSeparatedNumericIdsSchema({
+      maxItems: FOLLOW_CARDS_MAX_IDS,
+    }),
+    timezone: timezoneSchema,
+  })
+  .strict();
+
+const cardsPlayerIdsQuerySchema = z
+  .object({
+    ids: commaSeparatedNumericIdsSchema({
+      maxItems: FOLLOW_CARDS_MAX_IDS,
+    }),
+    season: seasonSchema,
+  })
+  .strict();
+
+function mapTeamCard(
+  teamId: string,
+  detailsPayload: TeamDetailsResponse,
+  nextFixturePayload: TeamNextFixtureResponse,
+) {
+  const team = detailsPayload.response?.[0]?.team;
+  const nextFixture = nextFixturePayload.response?.[0];
+  const homeTeamId = nextFixture?.teams?.home?.id;
+  const isHomeTeam = String(homeTeamId ?? '') === teamId;
+  const opponent = isHomeTeam ? nextFixture?.teams?.away : nextFixture?.teams?.home;
+
+  return {
+    teamId,
+    teamName: team?.name ?? '',
+    teamLogo: team?.logo ?? '',
+    nextMatch: nextFixture?.fixture?.id && nextFixture?.fixture?.date
+      ? {
+        fixtureId: String(nextFixture.fixture.id),
+        opponentTeamName: opponent?.name ?? '',
+        opponentTeamLogo: opponent?.logo ?? '',
+        startDate: nextFixture.fixture.date,
+      }
+      : null,
+  };
+}
+
+function mapPlayerCard(playerId: string, payload: PlayerSeasonResponse) {
+  const item = payload.response?.[0];
+  const firstStats = item?.statistics?.[0];
+
+  return {
+    playerId,
+    playerName: item?.player?.name ?? '',
+    playerPhoto: item?.player?.photo ?? '',
+    position: firstStats?.games?.position ?? '',
+    teamName: firstStats?.team?.name ?? '',
+    teamLogo: firstStats?.team?.logo ?? '',
+    leagueName: firstStats?.league?.name ?? '',
+    goals: typeof firstStats?.goals?.total === 'number' ? firstStats.goals.total : null,
+    assists: typeof firstStats?.goals?.assists === 'number' ? firstStats.goals.assists : null,
+  };
+}
 
 // Top 20 compétitions mondiales (liste curative)
 const TOP_COMPETITIONS: Array<{
@@ -192,6 +312,46 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
     );
   });
 
+  app.get('/v1/follows/teams/cards', async request => {
+    const query = parseOrThrow(cardsTeamIdsQuerySchema, request.query);
+
+    return withCache(
+      buildCanonicalCacheKey('follows:team-cards', {
+        ids: query.ids,
+        timezone: query.timezone,
+      }),
+      45_000,
+      async () => {
+        const cards = await mapWithConcurrency(query.ids, FOLLOW_CARDS_CONCURRENCY, async teamId => {
+          const [detailsPayload, nextFixturePayload] = await Promise.all([
+            withCache<TeamDetailsResponse>(
+              buildCanonicalCacheKey('follows:team-details', { teamId }),
+              120_000,
+              () => apiFootballGet(`/teams?id=${encodeURIComponent(teamId)}`),
+            ),
+            withCache<TeamNextFixtureResponse>(
+              buildCanonicalCacheKey('follows:team-next-fixture', {
+                teamId,
+                timezone: query.timezone,
+              }),
+              45_000,
+              () =>
+                apiFootballGet(
+                  `/fixtures?team=${encodeURIComponent(teamId)}&next=1&timezone=${encodeURIComponent(query.timezone)}`,
+                ),
+            ),
+          ]);
+
+          return mapTeamCard(teamId, detailsPayload, nextFixturePayload);
+        });
+
+        return {
+          response: cards,
+        };
+      },
+    );
+  });
+
   app.get('/v1/follows/players/:playerId/season/:season', async request => {
     const params = parseOrThrow(playerSeasonParamsSchema, request.params);
     parseOrThrow(z.object({}).strict(), request.query);
@@ -200,6 +360,39 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
       apiFootballGet(
         `/players?id=${encodeURIComponent(params.playerId)}&season=${encodeURIComponent(String(params.season))}`,
       ),
+    );
+  });
+
+  app.get('/v1/follows/players/cards', async request => {
+    const query = parseOrThrow(cardsPlayerIdsQuerySchema, request.query);
+
+    return withCache(
+      buildCanonicalCacheKey('follows:player-cards', {
+        ids: query.ids,
+        season: query.season,
+      }),
+      60_000,
+      async () => {
+        const cards = await mapWithConcurrency(query.ids, FOLLOW_CARDS_CONCURRENCY, async playerId => {
+          const payload = await withCache<PlayerSeasonResponse>(
+            buildCanonicalCacheKey('follows:player-season', {
+              playerId,
+              season: query.season,
+            }),
+            60_000,
+            () =>
+              apiFootballGet(
+                `/players?id=${encodeURIComponent(playerId)}&season=${encodeURIComponent(String(query.season))}`,
+              ),
+          );
+
+          return mapPlayerCard(playerId, payload);
+        });
+
+        return {
+          response: cards,
+        };
+      },
     );
   });
 

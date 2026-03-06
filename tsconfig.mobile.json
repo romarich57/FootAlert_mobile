@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/Pods",
+    "footalert-bff/**",
+    "web/**",
+    "desktop/**",
+    "site_vitrine/**",
+    "packages/api-contract/**"
+  ]
+}

@@ -2,13 +2,9 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
-import { fetchPlayerSeasonStats } from '@data/endpoints/followsApi';
-import {
-  getCurrentSeasonYear,
-  mapPlayerSeasonToFollowedCard,
-} from '@data/mappers/followsMapper';
+import { fetchFollowedPlayerCards } from '@data/endpoints/followsApi';
+import { getCurrentSeasonYear } from '@data/mappers/followsMapper';
 import type { FollowedPlayerCard } from '@ui/features/follows/types/follows.types';
-import { mapWithConcurrency } from '@ui/shared/query/mapWithConcurrency';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type UseFollowedPlayersCardsParams = {
@@ -27,13 +23,7 @@ export function useFollowedPlayersCards({
     queryKey: queryKeys.follows.followedPlayerCards(sortedPlayerIds, season),
     enabled: enabled && sortedPlayerIds.length > 0,
     staleTime: appEnv.followsPlayerStatsTtlMs,
-    queryFn: async ({ signal }): Promise<FollowedPlayerCard[]> => {
-      const cards = await mapWithConcurrency(sortedPlayerIds, 3, async playerId => {
-        const payload = await fetchPlayerSeasonStats(playerId, season, signal);
-        return mapPlayerSeasonToFollowedCard(playerId, payload, season);
-      });
-
-      return cards;
-    },
+    queryFn: ({ signal }): Promise<FollowedPlayerCard[]> =>
+      fetchFollowedPlayerCards(sortedPlayerIds, season, signal),
   });
 }

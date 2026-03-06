@@ -45,10 +45,13 @@ jobs:
       - name: API contract check
         run: npm run contract:check
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: mobile:typecheck
+        run: npm run mobile:typecheck
 
-      - name: Tests
+      - name: mobile:contract-runtime
+        run: npm run mobile:contract-runtime
+
+      - name: mobile:test
         run: npm run test -- --runInBand --detectOpenHandles --openHandlesTimeout=1000 --forceExit
 
       - name: ASO metadata validation
@@ -87,7 +90,6 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: [quality, mobile-security]
-    continue-on-error: true
     timeout-minutes: 120
 
     steps:
@@ -130,7 +132,7 @@ jobs:
           script: |
             adb devices -l
             npm run perf:android:audit:smoke
-            npm run perf:android:audit:slo -- "" 750 1200 6
+            npm run perf:android:audit:slo -- "" 750 1200 6 220
 
       - name: Write perf smoke summary
         run: |
@@ -141,10 +143,17 @@ jobs:
           fi
           p50="$(grep '^p50_ms=' "$summary_file" | tail -n 1 | cut -d'=' -f2)"
           p95="$(grep '^p95_ms=' "$summary_file" | tail -n 1 | cut -d'=' -f2)"
+          pss_kb="$(grep -E 'Journey TOTAL PSS:|TOTAL PSS:' "$summary_file" | tail -n 1 | sed -E 's/.*TOTAL PSS:[[:space:]]*([0-9]+).*/\1/' || true)"
+          if [[ -n "$pss_kb" ]]; then
+            pss_mb="$(awk "BEGIN { printf \"%.1f\", $pss_kb / 1024 }")"
+          else
+            pss_mb="n/a"
+          fi
           echo "### Android perf smoke" >> "$GITHUB_STEP_SUMMARY"
           echo "- summary: $summary_file" >> "$GITHUB_STEP_SUMMARY"
           echo "- cold_start_p50_ms: ${p50:-n/a}" >> "$GITHUB_STEP_SUMMARY"
           echo "- cold_start_p95_ms: ${p95:-n/a}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- total_pss_mb: ${pss_mb}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve perf smoke artifact directory
         id: perf_smoke_dir
@@ -229,6 +238,23 @@ jobs:
 
       - name: Run iOS cold-start smoke
         run: bash scripts/perf/run-ios-cold-start.sh ci-smoke 5
+
+      - name: Snapshot iOS perf baseline
+        run: |
+          summary_file="$(find perf-results/ios -type f -name 'summary.txt' | sort | tail -n 1)"
+          if [[ -z "$summary_file" ]]; then
+            echo "No iOS perf summary found to snapshot"
+            exit 1
+          fi
+          run_dir="$(dirname "$summary_file")"
+          device="$(grep '^device=' "$summary_file" | tail -n 1 | cut -d'=' -f2 | tr ' /' '__')"
+          build_label="debug-simulator"
+          baseline_dir="perf-results/baseline/ios/${device}/${build_label}/$(date +%F)"
+          mkdir -p "$baseline_dir"
+          cp "$summary_file" "$baseline_dir/summary.txt"
+          if [[ -d "$run_dir/logs" ]]; then
+            cp -R "$run_dir/logs" "$baseline_dir/logs"
+          fi
 
       - name: Resolve iOS perf artifact directory
         id: ios_perf_dir
@@ -332,7 +358,7 @@ jobs:
           script: |
             adb devices -l
             npm run perf:android:audit
-            npm run perf:android:audit:slo -- "" 750 1200 6
+            npm run perf:android:audit:slo -- "" 750 1200 6 220
 
       - name: Compare Android perf against baseline
         run: |
