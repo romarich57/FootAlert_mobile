@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { UseQueryResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useNavigation,
@@ -19,10 +18,14 @@ import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
 import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
 import { fetchTeamStatsCoreData, useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
 import { fetchTeamTransfersData, useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
-import { resolveTeamStatsVisibility } from '@ui/features/teams/components/stats/teamStatsSelectors';
-import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
+import type {
+  TeamCompetitionOption,
+  TeamDetailsTab,
+  TeamSelection,
+} from '@ui/features/teams/types/teams.types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
+import { resolveDefaultTeamSelection } from '@data/mappers/teamsMapper';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
@@ -33,10 +36,32 @@ function isLeagueCompetition(type: string | null | undefined): boolean {
   return (type ?? '').trim().toLowerCase() === 'league';
 }
 
-type QueryStateLike = Pick<
-  UseQueryResult<unknown>,
-  'isLoading' | 'isFetching' | 'isError' | 'isFetched' | 'isFetchedAfterMount'
->;
+type TeamDetailsContentSelection = {
+  leagueId: string | null;
+  season: number | null;
+};
+
+type TeamDetailsStandingsSelection = {
+  leagueId: string | null;
+  season: number | null;
+};
+
+type TeamDetailsTabAvailability = {
+  matches: boolean;
+  standings: boolean;
+  stats: boolean;
+  transfers: boolean;
+  squad: boolean;
+};
+
+type TeamDetailsSelectionGroup = 'content' | 'standings' | 'transfers' | 'none';
+
+type ActiveSelectionContext = {
+  selectionGroup: TeamDetailsSelectionGroup;
+  leagueId: string | null;
+  season: number | null;
+  selectionFingerprint: string;
+};
 
 type IdleRequestHandle = number;
 type IdleRequestOptions = {
@@ -83,27 +108,80 @@ function scheduleDeferredTask(task: () => void): DeferredTaskHandle {
   };
 }
 
-function shouldDisplayDataTab({
-  hasData,
-  query,
-}: {
-  hasData: boolean;
-  query: QueryStateLike;
-}): boolean {
-  if (query.isError) {
-    return true;
+function areSelectionsEqual(first: TeamSelection, second: TeamSelection): boolean {
+  return first.leagueId === second.leagueId && first.season === second.season;
+}
+
+function resolveCompetitionFallbackSelection(
+  competition: TeamCompetitionOption | null | undefined,
+): TeamSelection {
+  if (!competition) {
+    return {
+      leagueId: null,
+      season: null,
+    };
   }
 
-  if (query.isLoading || query.isFetching) {
-    return true;
+  return {
+    leagueId: competition.leagueId,
+    season: competition.currentSeason ?? competition.seasons[0] ?? null,
+  };
+}
+
+function reconcileCompetitionSelection(
+  selection: TeamSelection,
+  competitions: TeamCompetitionOption[],
+  fallbackSelection: TeamSelection,
+): TeamSelection {
+  if (competitions.length === 0) {
+    return {
+      leagueId: null,
+      season: null,
+    };
   }
 
-  const hasFetchedAfterMount = query.isFetchedAfterMount ?? query.isFetched;
-  if (!hasFetchedAfterMount) {
-    return true;
+  if (!selection.leagueId || typeof selection.season !== 'number') {
+    return fallbackSelection;
   }
 
-  return hasData;
+  const selectedCompetition = competitions.find(item => item.leagueId === selection.leagueId);
+  if (!selectedCompetition) {
+    return fallbackSelection;
+  }
+
+  if (selectedCompetition.seasons.includes(selection.season)) {
+    return selection;
+  }
+
+  return resolveCompetitionFallbackSelection(selectedCompetition);
+}
+
+function reconcileSeasonValue(
+  season: number | null,
+  seasons: number[],
+  fallbackSeason: number | null,
+): number | null {
+  if (seasons.length === 0) {
+    return null;
+  }
+
+  if (typeof season === 'number' && seasons.includes(season)) {
+    return season;
+  }
+
+  if (typeof fallbackSeason === 'number' && seasons.includes(fallbackSeason)) {
+    return fallbackSeason;
+  }
+
+  return seasons[0] ?? null;
+}
+
+function buildSelectionFingerprint(
+  selectionGroup: TeamDetailsSelectionGroup,
+  leagueId: string | null,
+  season: number | null,
+): string {
+  return [selectionGroup, leagueId ?? 'none', season ?? 'none'].join(':');
 }
 
 export function useTeamDetailsScreenModel() {
@@ -127,11 +205,7 @@ export function useTeamDetailsScreenModel() {
     team,
     timezone,
     competitions,
-    selectedLeagueId,
-    selectedSeason,
-    setLeague,
-    setLeagueSeason,
-    setSeason,
+    defaultSelection,
     isLoading: isContextLoading,
     isError: isContextError,
     lastUpdatedAt: contextLastUpdatedAt,
@@ -139,86 +213,106 @@ export function useTeamDetailsScreenModel() {
     refetch: refetchContext,
   } = useTeamContext({ teamId });
 
-  const hasLeagueSelection = Boolean(selectedLeagueId) && typeof selectedSeason === 'number';
+  const standingsCompetitions = useMemo(
+    () => competitions.filter(item => isLeagueCompetition(item.type)),
+    [competitions],
+  );
+  const defaultStandingsSelection = useMemo<TeamDetailsStandingsSelection>(
+    () => resolveDefaultTeamSelection(standingsCompetitions),
+    [standingsCompetitions],
+  );
+  const [contentSelection, setContentSelection] = useState<TeamDetailsContentSelection>(defaultSelection);
+  const [standingsSelection, setStandingsSelection] =
+    useState<TeamDetailsStandingsSelection>(defaultStandingsSelection);
+  const [transfersSeason, setTransfersSeasonState] = useState<number | null>(defaultSelection.season);
+
+  useEffect(() => {
+    setContentSelection(current => {
+      const nextSelection = reconcileCompetitionSelection(current, competitions, defaultSelection);
+      return areSelectionsEqual(current, nextSelection) ? current : nextSelection;
+    });
+  }, [competitions, defaultSelection]);
+
+  useEffect(() => {
+    setStandingsSelection(current => {
+      const nextSelection = reconcileCompetitionSelection(
+        current,
+        standingsCompetitions,
+        defaultStandingsSelection,
+      );
+      return areSelectionsEqual(current, nextSelection) ? current : nextSelection;
+    });
+  }, [defaultStandingsSelection, standingsCompetitions]);
+
+  const allSeasons = useMemo(
+    () => Array.from(new Set(competitions.flatMap(item => item.seasons))).sort((first, second) => second - first),
+    [competitions],
+  );
+
+  useEffect(() => {
+    const fallbackSeason = defaultSelection.season ?? allSeasons[0] ?? null;
+    setTransfersSeasonState(current => reconcileSeasonValue(current, allSeasons, fallbackSeason));
+  }, [allSeasons, defaultSelection.season]);
+
+  const hasContentSelection =
+    Boolean(contentSelection.leagueId) && typeof contentSelection.season === 'number';
+  const hasStandingsSelection =
+    Boolean(standingsSelection.leagueId) && typeof standingsSelection.season === 'number';
   const isOverviewTabActive = activeTab === 'overview';
   const isMatchesTabActive = activeTab === 'matches';
   const isStandingsTabActive = activeTab === 'standings';
   const isStatsTabActive = activeTab === 'stats';
   const isTransfersTabActive = activeTab === 'transfers';
   const isSquadTabActive = activeTab === 'squad';
-  const standingsCompetitions = useMemo(
-    () => competitions.filter(item => isLeagueCompetition(item.type)),
-    [competitions],
-  );
   const standingsSeasons = useMemo(() => {
-    if (activeTab !== 'standings') {
-      return [];
-    }
-
     const selectedStandingsCompetition =
-      standingsCompetitions.find(item => item.leagueId === selectedLeagueId) ??
+      standingsCompetitions.find(item => item.leagueId === standingsSelection.leagueId) ??
       standingsCompetitions[0] ??
       null;
 
     return selectedStandingsCompetition?.seasons ?? [];
-  }, [activeTab, selectedLeagueId, standingsCompetitions]);
+  }, [standingsCompetitions, standingsSelection.leagueId]);
 
   const selectedCompetitionSeasons = useMemo(() => {
-    const selectedCompetition = competitions.find(item => item.leagueId === selectedLeagueId) ?? null;
+    const selectedCompetition =
+      competitions.find(item => item.leagueId === contentSelection.leagueId) ?? null;
     return selectedCompetition?.seasons ?? [];
-  }, [competitions, selectedLeagueId]);
-
-  useEffect(() => {
-    if (activeTab !== 'standings') {
-      return;
-    }
-
-    if (standingsCompetitions.length === 0) {
-      return;
-    }
-
-    const selectedCompetition = competitions.find(item => item.leagueId === selectedLeagueId) ?? null;
-    if (selectedCompetition && isLeagueCompetition(selectedCompetition.type)) {
-      return;
-    }
-
-    setLeague(standingsCompetitions[0].leagueId);
-  }, [activeTab, competitions, selectedLeagueId, setLeague, standingsCompetitions]);
+  }, [competitions, contentSelection.leagueId]);
 
   const overviewQuery = useTeamOverview({
     teamId,
-    leagueId: selectedLeagueId,
-    season: selectedSeason,
+    leagueId: contentSelection.leagueId,
+    season: contentSelection.season,
     timezone,
     competitionSeasons: selectedCompetitionSeasons,
-    enabled: hasLeagueSelection && isOverviewTabActive,
+    enabled: hasContentSelection && isOverviewTabActive,
   });
 
   const matchesQuery = useTeamMatches({
     teamId,
-    leagueId: selectedLeagueId,
-    season: selectedSeason,
+    leagueId: contentSelection.leagueId,
+    season: contentSelection.season,
     timezone,
-    enabled: hasLeagueSelection && isMatchesTabActive,
+    enabled: hasContentSelection && isMatchesTabActive,
   });
 
   const standingsQuery = useTeamStandings({
     teamId,
-    leagueId: selectedLeagueId,
-    season: selectedSeason,
-    enabled: hasLeagueSelection && isStandingsTabActive,
+    leagueId: standingsSelection.leagueId,
+    season: standingsSelection.season,
+    enabled: hasStandingsSelection && isStandingsTabActive,
   });
 
   const statsQuery = useTeamStats({
     teamId,
-    leagueId: selectedLeagueId,
-    season: selectedSeason,
-    enabled: hasLeagueSelection && isStatsTabActive,
+    leagueId: contentSelection.leagueId,
+    season: contentSelection.season,
+    enabled: hasContentSelection && isStatsTabActive,
   });
 
   const transfersQuery = useTeamTransfers({
     teamId,
-    season: selectedSeason,
+    season: transfersSeason,
     enabled: Boolean(safeTeamId) && isTransfersTabActive,
   });
 
@@ -230,19 +324,19 @@ export function useTeamDetailsScreenModel() {
   const activeRequestCount = useMemo(() => {
     let count = 1; // Team context query.
 
-    if (hasLeagueSelection && isOverviewTabActive) {
+    if (hasContentSelection && isOverviewTabActive) {
       count += 2;
     }
-    if (hasLeagueSelection && isMatchesTabActive) {
+    if (hasContentSelection && isMatchesTabActive) {
       count += 1;
     }
-    if (hasLeagueSelection && isStandingsTabActive) {
+    if (hasStandingsSelection && isStandingsTabActive) {
       count += 1;
     }
-    if (hasLeagueSelection && isStatsTabActive) {
+    if (hasContentSelection && isStatsTabActive) {
       count += 3;
     }
-    if (safeTeamId && isTransfersTabActive) {
+    if (safeTeamId && isTransfersTabActive && typeof transfersSeason === 'number') {
       count += 1;
     }
     if (safeTeamId && isSquadTabActive) {
@@ -251,7 +345,8 @@ export function useTeamDetailsScreenModel() {
 
     return count;
   }, [
-    hasLeagueSelection,
+    hasContentSelection,
+    hasStandingsSelection,
     isMatchesTabActive,
     isOverviewTabActive,
     isSquadTabActive,
@@ -259,19 +354,29 @@ export function useTeamDetailsScreenModel() {
     isStatsTabActive,
     isTransfersTabActive,
     safeTeamId,
+    transfersSeason,
   ]);
 
   useEffect(() => {
-    if (!safeTeamId || !selectedLeagueId || typeof selectedSeason !== 'number' || !timezone) {
+    if (
+      !safeTeamId ||
+      !contentSelection.leagueId ||
+      typeof contentSelection.season !== 'number' ||
+      !timezone
+    ) {
       return;
     }
 
-    const historySeasons = selectedCompetitionSeasons.filter(item => item !== selectedSeason).slice(0, 5);
+    const historySeasons = selectedCompetitionSeasons
+      .filter(item => item !== contentSelection.season)
+      .slice(0, 5);
+    const leagueId = contentSelection.leagueId;
+    const season = contentSelection.season;
     const historySeasonsKey = historySeasons.join(',');
     const prefetchContextKey = [
       teamId,
-      selectedLeagueId,
-      selectedSeason,
+      leagueId,
+      season,
       timezone,
       historySeasonsKey,
     ].join(':');
@@ -284,8 +389,8 @@ export function useTeamDetailsScreenModel() {
       queryClient.prefetchQuery({
         queryKey: queryKeys.teams.overview(
           teamId,
-          selectedLeagueId,
-          selectedSeason,
+          leagueId,
+          season,
           timezone,
           historySeasonsKey,
         ),
@@ -293,8 +398,8 @@ export function useTeamDetailsScreenModel() {
           fetchTeamOverview(
             {
               teamId,
-              leagueId: selectedLeagueId,
-              season: selectedSeason,
+              leagueId,
+              season,
               timezone,
               historySeasons,
             },
@@ -303,11 +408,11 @@ export function useTeamDetailsScreenModel() {
         ...featureQueryOptions.teams.overview,
       }),
       queryClient.prefetchQuery({
-        queryKey: queryKeys.teams.transfers(teamId, selectedSeason),
+        queryKey: queryKeys.teams.transfers(teamId, transfersSeason),
         queryFn: ({ signal }) =>
           fetchTeamTransfersData({
             teamId,
-            season: selectedSeason,
+            season: transfersSeason,
             signal,
           }),
         ...featureQueryOptions.teams.transfers,
@@ -318,18 +423,24 @@ export function useTeamDetailsScreenModel() {
     queryClient,
     safeTeamId,
     selectedCompetitionSeasons,
-    selectedLeagueId,
-    selectedSeason,
+    contentSelection.leagueId,
+    contentSelection.season,
     teamId,
+    transfersSeason,
     timezone,
   ]);
 
   useEffect(() => {
-    if (!safeTeamId || !selectedLeagueId || typeof selectedSeason !== 'number' || !overviewQuery.coreData) {
+    if (
+      !safeTeamId ||
+      !contentSelection.leagueId ||
+      typeof contentSelection.season !== 'number' ||
+      !overviewQuery.coreData
+    ) {
       return;
     }
 
-    const statsPrefetchKey = [teamId, selectedLeagueId, selectedSeason].join(':');
+    const statsPrefetchKey = [teamId, contentSelection.leagueId, contentSelection.season].join(':');
     if (prefetchedStatsCoreKeyRef.current === statsPrefetchKey) {
       return;
     }
@@ -337,12 +448,16 @@ export function useTeamDetailsScreenModel() {
 
     const scheduledTask = scheduleDeferredTask(() => {
       void queryClient.prefetchQuery({
-        queryKey: queryKeys.teams.statsCore(teamId, selectedLeagueId, selectedSeason),
+        queryKey: queryKeys.teams.statsCore(
+          teamId,
+          contentSelection.leagueId,
+          contentSelection.season,
+        ),
         queryFn: ({ signal }) =>
           fetchTeamStatsCoreData({
             teamId,
-            leagueId: selectedLeagueId,
-            season: selectedSeason,
+            leagueId: contentSelection.leagueId,
+            season: contentSelection.season,
             signal,
           }),
         ...featureQueryOptions.teams.statsCore,
@@ -356,9 +471,60 @@ export function useTeamDetailsScreenModel() {
     overviewQuery.coreData,
     queryClient,
     safeTeamId,
-    selectedLeagueId,
-    selectedSeason,
+    contentSelection.leagueId,
+    contentSelection.season,
     teamId,
+  ]);
+
+  const activeSelectionContext = useMemo<ActiveSelectionContext>(() => {
+    if (activeTab === 'overview' || activeTab === 'matches' || activeTab === 'stats') {
+      return {
+        selectionGroup: 'content',
+        leagueId: contentSelection.leagueId,
+        season: contentSelection.season,
+        selectionFingerprint: buildSelectionFingerprint(
+          'content',
+          contentSelection.leagueId,
+          contentSelection.season,
+        ),
+      };
+    }
+
+    if (activeTab === 'standings') {
+      return {
+        selectionGroup: 'standings',
+        leagueId: standingsSelection.leagueId,
+        season: standingsSelection.season,
+        selectionFingerprint: buildSelectionFingerprint(
+          'standings',
+          standingsSelection.leagueId,
+          standingsSelection.season,
+        ),
+      };
+    }
+
+    if (activeTab === 'transfers') {
+      return {
+        selectionGroup: 'transfers',
+        leagueId: null,
+        season: transfersSeason,
+        selectionFingerprint: buildSelectionFingerprint('transfers', null, transfersSeason),
+      };
+    }
+
+    return {
+      selectionGroup: 'none',
+      leagueId: null,
+      season: null,
+      selectionFingerprint: buildSelectionFingerprint('none', null, null),
+    };
+  }, [
+    activeTab,
+    contentSelection.leagueId,
+    contentSelection.season,
+    standingsSelection.leagueId,
+    standingsSelection.season,
+    transfersSeason,
   ]);
 
   useEffect(() => {
@@ -366,7 +532,12 @@ export function useTeamDetailsScreenModel() {
       return;
     }
 
-    const telemetryKey = `${teamId}|${activeTab}|${selectedLeagueId ?? 'none'}|${selectedSeason ?? 'none'}|${activeRequestCount}`;
+    const telemetryKey = [
+      teamId,
+      activeTab,
+      activeSelectionContext.selectionFingerprint,
+      activeRequestCount,
+    ].join('|');
     if (requestCountTelemetryKeyRef.current === telemetryKey) {
       return;
     }
@@ -375,70 +546,70 @@ export function useTeamDetailsScreenModel() {
     getMobileTelemetry().trackEvent('team_details.request_count', {
       activeTab,
       queryCount: activeRequestCount,
-      hasLeagueSelection,
+      hasLeagueSelection: hasContentSelection,
+      selectionGroup: activeSelectionContext.selectionGroup,
+      selectionFingerprint: activeSelectionContext.selectionFingerprint,
     });
   }, [
     activeRequestCount,
+    activeSelectionContext.selectionFingerprint,
+    activeSelectionContext.selectionGroup,
     activeTab,
-    hasLeagueSelection,
+    hasContentSelection,
     safeTeamId,
-    selectedLeagueId,
-    selectedSeason,
     teamId,
-  ]);
-
-  useEffect(() => {
-    if (activeTab !== 'standings') {
-      return;
-    }
-
-    if (!selectedLeagueId || typeof selectedSeason !== 'number') {
-      return;
-    }
-
-    if (standingsQuery.isLoading) {
-      return;
-    }
-
-    const hasRows = (standingsQuery.data?.groups ?? []).some(group => group.rows.length > 0);
-    if (hasRows) {
-      return;
-    }
-
-    const selectedCompetition = competitions.find(c => c.leagueId === selectedLeagueId);
-    if (!selectedCompetition) {
-      return;
-    }
-
-    const currentSeasonIndex = selectedCompetition.seasons.indexOf(selectedSeason);
-    if (currentSeasonIndex === -1) {
-      return;
-    }
-
-    const fallbackCandidates = [
-      ...selectedCompetition.seasons.slice(currentSeasonIndex + 1),
-      ...selectedCompetition.seasons.slice(0, currentSeasonIndex).reverse(),
-    ];
-
-    const fallbackSeason = fallbackCandidates.find(season => season !== selectedSeason);
-
-    if (typeof fallbackSeason === 'number') {
-      setSeason(fallbackSeason);
-    }
-  }, [
-    activeTab,
-    selectedLeagueId,
-    selectedSeason,
-    standingsQuery.data,
-    standingsQuery.isError,
-    standingsQuery.isLoading,
-    competitions,
-    setSeason,
   ]);
 
   const handleChangeTab = useCallback((tab: TeamDetailsTab) => {
     setActiveTab(tab);
   }, []);
+
+  const setContentLeagueSeason = useCallback(
+    (leagueId: string, season: number) => {
+      const selectedCompetition = competitions.find(item => item.leagueId === leagueId) ?? null;
+      const fallbackSelection = resolveCompetitionFallbackSelection(selectedCompetition);
+      const nextSelection = selectedCompetition?.seasons.includes(season)
+        ? { leagueId, season }
+        : fallbackSelection;
+
+      setContentSelection(current =>
+        areSelectionsEqual(current, nextSelection) ? current : nextSelection,
+      );
+    },
+    [competitions],
+  );
+
+  const setStandingsSeason = useCallback(
+    (season: number) => {
+      setStandingsSelection(current => {
+        const selectedCompetition =
+          standingsCompetitions.find(item => item.leagueId === current.leagueId) ??
+          standingsCompetitions[0] ??
+          null;
+        const fallbackSelection = resolveCompetitionFallbackSelection(selectedCompetition);
+        const nextSelection =
+          selectedCompetition?.seasons.includes(season)
+            ? {
+                leagueId: selectedCompetition.leagueId,
+                season,
+              }
+            : fallbackSelection;
+
+        return areSelectionsEqual(current, nextSelection) ? current : nextSelection;
+      });
+    },
+    [standingsCompetitions],
+  );
+
+  const setTransfersSeason = useCallback(
+    (season: number) => {
+      setTransfersSeasonState(current => {
+        const nextSeason = reconcileSeasonValue(season, allSeasons, defaultSelection.season);
+        return current === nextSeason ? current : nextSeason;
+      });
+    },
+    [allSeasons, defaultSelection.season],
+  );
 
   const handlePressMatch = useCallback(
     (matchId: string) => {
@@ -492,90 +663,55 @@ export function useTeamDetailsScreenModel() {
     setIsNotificationModalOpen(false);
   }, []);
 
-  const hasMatchesData = useMemo(
-    () => (matchesQuery.data?.all.length ?? 0) > 0,
-    [matchesQuery.data?.all.length],
-  );
-  const hasStandingsData = useMemo(
-    () => (standingsQuery.data?.groups ?? []).some(group => group.rows.length > 0),
-    [standingsQuery.data?.groups],
-  );
-  const hasStatsData = useMemo(() => {
-    const visibility = resolveTeamStatsVisibility(statsQuery.data);
+  const tabAvailability = useMemo<TeamDetailsTabAvailability>(() => {
+    const contextReady =
+      Boolean(safeTeamId) &&
+      (hasContextCachedData || !isContextLoading) &&
+      (!isContextError || hasContextCachedData);
 
-    return (
-      visibility.pointsCardVisible ||
-      visibility.goalsCardVisible ||
-      visibility.playersCardVisible ||
-      (statsQuery.data?.comparisonMetrics.length ?? 0) > 0
-    );
-  }, [statsQuery.data]);
-  const hasTransfersData = useMemo(
-    () =>
-      (transfersQuery.data?.arrivals.length ?? 0) > 0 ||
-      (transfersQuery.data?.departures.length ?? 0) > 0,
-    [transfersQuery.data?.arrivals.length, transfersQuery.data?.departures.length],
-  );
-  const hasSquadData = useMemo(
-    () => (squadQuery.data?.players.length ?? 0) > 0 || Boolean(squadQuery.data?.coach),
-    [squadQuery.data?.coach, squadQuery.data?.players.length],
-  );
-
-  const showMatchesTab = hasLeagueSelection && shouldDisplayDataTab({
-    hasData: hasMatchesData,
-    query: matchesQuery,
-  });
-  const showStandingsTab = hasLeagueSelection && shouldDisplayDataTab({
-    hasData: hasStandingsData,
-    query: standingsQuery,
-  });
-  const showStatsTab = hasLeagueSelection && shouldDisplayDataTab({
-    hasData: hasStatsData,
-    query: statsQuery,
-  });
-  const showTransfersTab = shouldDisplayDataTab({
-    hasData: hasTransfersData,
-    query: transfersQuery,
-  });
-  const showSquadTab = shouldDisplayDataTab({
-    hasData: hasSquadData,
-    query: squadQuery,
-  });
+    return {
+      matches: hasContentSelection,
+      standings: standingsCompetitions.length > 0,
+      stats: hasContentSelection,
+      transfers: contextReady,
+      squad: contextReady,
+    };
+  }, [
+    hasContentSelection,
+    hasContextCachedData,
+    isContextError,
+    isContextLoading,
+    safeTeamId,
+    standingsCompetitions.length,
+  ]);
 
   const tabs = useMemo(() => {
     const computedTabs: Array<{ key: TeamDetailsTab; label: string }> = [
       { key: 'overview' as const, label: t('teamDetails.tabs.overview') },
     ];
 
-    if (showMatchesTab) {
+    if (tabAvailability.matches) {
       computedTabs.push({ key: 'matches' as const, label: t('teamDetails.tabs.matches') });
     }
 
-    if (showStandingsTab) {
+    if (tabAvailability.standings) {
       computedTabs.push({ key: 'standings' as const, label: t('teamDetails.tabs.standings') });
     }
 
-    if (showStatsTab) {
+    if (tabAvailability.stats) {
       computedTabs.push({ key: 'stats' as const, label: t('teamDetails.tabs.stats') });
     }
 
-    if (showTransfersTab) {
+    if (tabAvailability.transfers) {
       computedTabs.push({ key: 'transfers' as const, label: t('teamDetails.tabs.transfers') });
     }
 
-    if (showSquadTab) {
+    if (tabAvailability.squad) {
       computedTabs.push({ key: 'squad' as const, label: t('teamDetails.tabs.squad') });
     }
 
     return computedTabs;
-  }, [
-    showMatchesTab,
-    showStandingsTab,
-    showStatsTab,
-    showTransfersTab,
-    showSquadTab,
-    t,
-  ]);
+  }, [t, tabAvailability.matches, tabAvailability.squad, tabAvailability.standings, tabAvailability.stats, tabAvailability.transfers]);
 
   useEffect(() => {
     if (tabs.some(tab => tab.key === activeTab)) {
@@ -645,24 +781,31 @@ export function useTeamDetailsScreenModel() {
     activeTab,
     tabs,
     competitions,
+    allSeasons,
+    contentSelection,
+    standingsSelection,
+    transfersSeason,
     standingsSeasons,
-    selectedLeagueId,
-    selectedSeason,
+    selectedLeagueId: activeSelectionContext.leagueId,
+    selectedSeason: activeSelectionContext.season,
+    selectionGroup: activeSelectionContext.selectionGroup,
+    selectionFingerprint: activeSelectionContext.selectionFingerprint,
     isContextLoading,
     isContextError,
     hasCachedData,
     lastUpdatedAt,
     isFollowed,
-    hasLeagueSelection,
+    hasContentSelection,
+    hasStandingsSelection,
     overviewQuery,
     matchesQuery,
     standingsQuery,
     statsQuery,
     transfersQuery,
     squadQuery,
-    setLeague,
-    setLeagueSeason,
-    setSeason,
+    setContentLeagueSeason,
+    setStandingsSeason,
+    setTransfersSeason,
     refetchContext,
     handleChangeTab,
     handlePressMatch,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchTeamDetails, fetchTeamLeagues } from '@data/endpoints/teamsApi';
@@ -47,66 +47,6 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     [competitions],
   );
 
-  const [selection, setSelection] = useState<TeamSelection>(defaultSelection);
-
-  useEffect(() => {
-    if (selection.leagueId === null && selection.season === null) {
-      setSelection(defaultSelection);
-      return;
-    }
-
-    const selectedCompetition = competitions.find(item => item.leagueId === selection.leagueId);
-
-    if (!selectedCompetition) {
-      setSelection(defaultSelection);
-      return;
-    }
-
-    const seasonStillAvailable = selectedCompetition.seasons.includes(selection.season ?? -1);
-    if (!seasonStillAvailable) {
-      setSelection({
-        leagueId: selectedCompetition.leagueId,
-        season: selectedCompetition.currentSeason ?? selectedCompetition.seasons[0] ?? null,
-      });
-    }
-  }, [competitions, defaultSelection, selection.leagueId, selection.season]);
-
-  const seasonsForSelectedLeague = useMemo(() => {
-    const selectedCompetition = competitions.find(item => item.leagueId === selection.leagueId);
-    return selectedCompetition?.seasons ?? [];
-  }, [competitions, selection.leagueId]);
-
-  const setLeague = useCallback(
-    (leagueId: string) => {
-      const selectedCompetition = competitions.find(item => item.leagueId === leagueId);
-      setSelection({
-        leagueId,
-        season: selectedCompetition?.currentSeason ?? selectedCompetition?.seasons[0] ?? null,
-      });
-    },
-    [competitions],
-  );
-
-  const setLeagueSeason = useCallback(
-    (leagueId: string, season: number) => {
-      const selectedCompetition = competitions.find(item => item.leagueId === leagueId);
-      const fallbackSeason = selectedCompetition?.currentSeason ?? selectedCompetition?.seasons[0] ?? null;
-
-      setSelection({
-        leagueId,
-        season: selectedCompetition?.seasons.includes(season) ? season : fallbackSeason,
-      });
-    },
-    [competitions],
-  );
-
-  const setSeason = useCallback((season: number) => {
-    setSelection(current => ({
-      ...current,
-      season,
-    }));
-  }, []);
-
   const refetch = useCallback(() => {
     teamQuery.refetch().catch(() => undefined);
     leaguesQuery.refetch().catch(() => undefined);
@@ -119,12 +59,7 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     team,
     timezone,
     competitions,
-    selectedLeagueId: selection.leagueId,
-    selectedSeason: selection.season,
-    seasonsForSelectedLeague,
-    setLeague,
-    setLeagueSeason,
-    setSeason,
+    defaultSelection,
     isLoading: teamQuery.isLoading || leaguesQuery.isLoading,
     isError: teamQuery.isError || leaguesQuery.isError,
     lastUpdatedAt: lastUpdatedAt > 0 ? lastUpdatedAt : null,

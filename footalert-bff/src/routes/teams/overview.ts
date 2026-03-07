@@ -10,7 +10,8 @@ import { fetchTeamTrophiesWithFallback } from './trophies.js';
 
 const TEAM_OVERVIEW_TTL_MS = 45_000;
 const TEAM_OVERVIEW_LONG_TTL_MS = 120_000;
-const TEAM_PLAYERS_MAX_PAGES = 4;
+const TEAM_PLAYERS_MAX_PAGES = 6;
+const TEAM_PLAYERS_TARGET_ITEMS = 120;
 
 type TeamMatchStatus = 'upcoming' | 'live' | 'finished';
 
@@ -980,7 +981,11 @@ async function fetchOverviewPlayers(
 ): Promise<TeamApiPlayerDto[]> {
   const aggregated: TeamApiPlayerDto[] = [];
 
-  for (let page = 1; page <= TEAM_PLAYERS_MAX_PAGES; page += 1) {
+  for (
+    let page = 1;
+    page <= TEAM_PLAYERS_MAX_PAGES && aggregated.length < TEAM_PLAYERS_TARGET_ITEMS;
+    page += 1
+  ) {
     const pagePayload = await withCache(
       buildCanonicalCacheKey('team:overview:players:page', { teamId, leagueId, season, page }),
       60_000,
@@ -995,7 +1000,8 @@ async function fetchOverviewPlayers(
       break;
     }
 
-    aggregated.push(...pageItems);
+    const remainingItems = TEAM_PLAYERS_TARGET_ITEMS - aggregated.length;
+    aggregated.push(...pageItems.slice(0, Math.max(0, remainingItems)));
 
     const totalPages = toNumber(pagePayload.paging?.total);
     if (typeof totalPages === 'number' && page >= totalPages) {

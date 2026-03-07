@@ -221,15 +221,11 @@ export function TeamDetailsScreen() {
     ? new Date(offlineUi.lastUpdatedAt).toISOString()
     : null;
 
-  const allSeasons = useMemo(
-    () => Array.from(new Set(model.competitions.flatMap(c => c.seasons))).sort((a, b) => b - a),
-    [model.competitions]
-  );
   const standingsLogoUri = useMemo(
     () =>
-      model.competitions.find(competition => competition.leagueId === model.selectedLeagueId)?.leagueLogo ??
+      model.competitions.find(competition => competition.leagueId === model.standingsSelection.leagueId)?.leagueLogo ??
       null,
-    [model.competitions, model.selectedLeagueId],
+    [model.competitions, model.standingsSelection.leagueId],
   );
 
   useEffect(() => {
@@ -253,20 +249,34 @@ export function TeamDetailsScreen() {
   }, [model.activeTab, resolveTabCacheState]);
 
   useEffect(() => {
-    if (!model.teamId || !model.selectedLeagueId || typeof model.selectedSeason !== 'number') {
-      return;
-    }
-
     const teamId = model.teamId;
-    const leagueId = model.selectedLeagueId;
-    const season = model.selectedSeason;
 
     const trackTabTti = (tab: 'overview' | 'stats' | 'transfers', phase: 'core' | 'full', updatedAt: number) => {
       if (updatedAt <= 0) {
         return;
       }
 
-      const telemetryKey = [teamId, tab, phase, leagueId, season, updatedAt].join(':');
+      const selectionContext =
+        tab === 'transfers'
+          ? {
+              selectionGroup: 'transfers',
+              leagueId: null,
+              season: model.transfersSeason,
+              selectionFingerprint: ['transfers', 'none', model.transfersSeason ?? 'none'].join(':'),
+            }
+          : {
+              selectionGroup: 'content',
+              leagueId: model.contentSelection.leagueId,
+              season: model.contentSelection.season,
+              selectionFingerprint: ['content', model.contentSelection.leagueId ?? 'none', model.contentSelection.season ?? 'none'].join(':'),
+            };
+      const telemetryKey = [
+        teamId,
+        tab,
+        phase,
+        selectionContext.selectionFingerprint,
+        updatedAt,
+      ].join(':');
       if (trackedTabTtiKeysRef.current.has(telemetryKey)) {
         return;
       }
@@ -276,9 +286,11 @@ export function TeamDetailsScreen() {
         teamId,
         tab,
         phase,
-        leagueId,
-        season,
+        leagueId: selectionContext.leagueId,
+        season: selectionContext.season,
         cacheState: tabCacheStateRef.current,
+        selectionGroup: selectionContext.selectionGroup,
+        selectionFingerprint: selectionContext.selectionFingerprint,
         value: Date.now() - tabLoadStartedAtRef.current,
       });
     };
@@ -328,12 +340,12 @@ export function TeamDetailsScreen() {
     }
   }, [
     model.activeTab,
+    model.contentSelection.leagueId,
+    model.contentSelection.season,
     model.overviewQuery.coreData,
     model.overviewQuery.coreUpdatedAt,
     model.overviewQuery.isLeadersLoading,
     model.overviewQuery.leadersUpdatedAt,
-    model.selectedLeagueId,
-    model.selectedSeason,
     model.statsQuery.advancedUpdatedAt,
     model.statsQuery.coreData,
     model.statsQuery.coreUpdatedAt,
@@ -346,6 +358,7 @@ export function TeamDetailsScreen() {
     model.statsQuery.isPlayersLoading,
     model.statsQuery.playersUpdatedAt,
     model.teamId,
+    model.transfersSeason,
     model.transfersQuery.dataUpdatedAt,
     model.transfersQuery.isFetched,
     model.transfersQuery.isLoading,
@@ -375,37 +388,52 @@ export function TeamDetailsScreen() {
       });
     };
 
-    if (model.selectedLeagueId && typeof model.selectedSeason === 'number') {
+    if (model.contentSelection.leagueId && typeof model.contentSelection.season === 'number') {
+      const contentSelectionFingerprint = [
+        'content',
+        model.contentSelection.leagueId,
+        model.contentSelection.season,
+      ].join(':');
       trackDatasetReady('overview-leaders', model.overviewQuery.leadersUpdatedAt, {
-        leagueId: model.selectedLeagueId,
-        season: model.selectedSeason,
+        leagueId: model.contentSelection.leagueId,
+        season: model.contentSelection.season,
+        selectionGroup: 'content',
+        selectionFingerprint: contentSelectionFingerprint,
         sourceUpdatedAt: model.overviewQuery.leadersData?.sourceUpdatedAt ?? null,
       });
       trackDatasetReady('stats-players', model.statsQuery.playersUpdatedAt, {
-        leagueId: model.selectedLeagueId,
-        season: model.selectedSeason,
+        leagueId: model.contentSelection.leagueId,
+        season: model.contentSelection.season,
+        selectionGroup: 'content',
+        selectionFingerprint: contentSelectionFingerprint,
       });
       trackDatasetReady('advanced-stats', model.statsQuery.advancedUpdatedAt, {
-        leagueId: model.selectedLeagueId,
-        season: model.selectedSeason,
+        leagueId: model.contentSelection.leagueId,
+        season: model.contentSelection.season,
+        selectionGroup: 'content',
+        selectionFingerprint: contentSelectionFingerprint,
         sourceUpdatedAt: model.statsQuery.advancedData?.sourceUpdatedAt ?? null,
       });
     }
 
-    if (typeof model.selectedSeason === 'number') {
+    if (typeof model.transfersSeason === 'number') {
+      const transfersSelectionFingerprint = ['transfers', 'none', model.transfersSeason].join(':');
       trackDatasetReady('transfers', model.transfersQuery.dataUpdatedAt, {
-        season: model.selectedSeason,
+        season: model.transfersSeason,
+        selectionGroup: 'transfers',
+        selectionFingerprint: transfersSelectionFingerprint,
       });
     }
   }, [
+    model.contentSelection.leagueId,
+    model.contentSelection.season,
     model.overviewQuery.leadersData?.sourceUpdatedAt,
     model.overviewQuery.leadersUpdatedAt,
-    model.selectedLeagueId,
-    model.selectedSeason,
     model.statsQuery.advancedData?.sourceUpdatedAt,
     model.statsQuery.advancedUpdatedAt,
     model.statsQuery.playersUpdatedAt,
     model.teamId,
+    model.transfersSeason,
     model.transfersQuery.dataUpdatedAt,
   ]);
 
@@ -449,9 +477,9 @@ export function TeamDetailsScreen() {
         model.activeTab !== 'standings' ? (
         <TeamCompetitionSeasonSelector
           competitions={model.competitions}
-          selectedLeagueId={model.selectedLeagueId}
-          selectedSeason={model.selectedSeason}
-          onSelect={model.setLeagueSeason}
+          selectedLeagueId={model.contentSelection.leagueId}
+          selectedSeason={model.contentSelection.season}
+          onSelect={model.setContentLeagueSeason}
           modalTitle={t('teamDetails.filters.selectCompetitionSeason')}
           doneLabel={t('common.done')}
         />
@@ -459,17 +487,17 @@ export function TeamDetailsScreen() {
 
       {!offlineUi.showOfflineNoCache && model.activeTab === 'transfers' ? (
         <TeamSeasonDropdown
-          seasons={allSeasons}
-          selectedSeason={model.selectedSeason}
-          onSelectSeason={model.setSeason}
+          seasons={model.allSeasons}
+          selectedSeason={model.transfersSeason}
+          onSelectSeason={model.setTransfersSeason}
         />
       ) : null}
 
       {!offlineUi.showOfflineNoCache && model.activeTab === 'standings' ? (
         <TeamSeasonDropdown
           seasons={model.standingsSeasons}
-          selectedSeason={model.selectedSeason}
-          onSelectSeason={model.setSeason}
+          selectedSeason={model.standingsSelection.season}
+          onSelectSeason={model.setStandingsSeason}
           logoUri={standingsLogoUri}
         />
       ) : null}
@@ -502,9 +530,10 @@ export function TeamDetailsScreen() {
             activeTab={model.activeTab}
             teamId={model.teamId}
             team={model.team}
-            hasLeagueSelection={model.hasLeagueSelection}
+            hasContentSelection={model.hasContentSelection}
+            hasStandingsSelection={model.hasStandingsSelection}
             competitions={model.competitions}
-            selectedSeason={model.selectedSeason}
+            selectedSeason={model.contentSelection.season}
             labels={{
               noSelection: t('teamDetails.states.noSelection'),
             }}

@@ -833,6 +833,71 @@ test('GET /v1/teams/:id/overview-leaders paginates players and returns leaders p
   );
 });
 
+test('GET /v1/teams/:id/overview-leaders continues pagination beyond page 4', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/players')) {
+      const page = Number(url.searchParams.get('page'));
+
+      if (page >= 1 && page <= 5) {
+        return jsonResponse({
+          response: [
+            {
+              player: { id: page, name: `Depth Player ${page}`, photo: `depth-${page}.png` },
+              statistics: [
+                {
+                  team: { id: 529, logo: 'barca.png' },
+                  league: { id: 140, season: 2025 },
+                  games: { position: 'Defender', rating: '6.8', minutes: 400, appearences: 7 },
+                  goals: { total: 0, assists: 0 },
+                },
+              ],
+            },
+          ],
+          paging: { current: page, total: 6 },
+        });
+      }
+
+      if (page === 6) {
+        return jsonResponse({
+          response: [
+            {
+              player: { id: 600, name: 'Deep Scorer', photo: 'deep.png' },
+              statistics: [
+                {
+                  team: { id: 529, logo: 'barca.png' },
+                  league: { id: 140, season: 2025 },
+                  games: { position: 'Attacker', rating: '8.8', minutes: 1900, appearences: 24 },
+                  goals: { total: 23, assists: 8 },
+                },
+              ],
+            },
+          ],
+          paging: { current: 6, total: 6 },
+        });
+      }
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/529/overview-leaders?leagueId=140&season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.playerLeaders.scorers[0].playerId, '600');
+  assert.equal(
+    calls.some(call => String(call.input).includes('page=6')),
+    true,
+  );
+});
+
 test('GET /v1/teams/:id/stats proxies team statistics endpoint', async t => {
   const calls = installFetchMock(async () =>
     jsonResponse({
@@ -905,4 +970,58 @@ test('GET /v1/teams/:id/squad merges squad and coach payloads', async t => {
   assert.equal(response.json().response[0].players.length, 1);
   assert.equal(response.json().response[0].coach.name, 'Coach 1');
   assert.equal(calls.length, 2);
+});
+
+test('GET /v1/teams/:id/squad returns players when coach upstream fails', async t => {
+  const app = await buildApp(t);
+  installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/players/squads')) {
+      return jsonResponse({
+        response: [{ players: [{ id: 1, name: 'Only Player' }] }],
+      });
+    }
+
+    throw new Error('coach upstream down');
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/40/squad',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().response[0].players.length, 1);
+  assert.equal(response.json().response[0].coach, null);
+});
+
+test('GET /v1/teams/:id/squad returns coach when squad upstream fails', async t => {
+  const app = await buildApp(t);
+  installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/players/squads')) {
+      throw new Error('squad upstream down');
+    }
+
+    return jsonResponse({
+      response: [
+        {
+          id: 99,
+          name: 'Coach Fallback',
+          career: [{ team: { id: 40 }, end: null }],
+        },
+      ],
+    });
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/40/squad',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().response[0].players.length, 0);
+  assert.equal(response.json().response[0].coach.name, 'Coach Fallback');
 });

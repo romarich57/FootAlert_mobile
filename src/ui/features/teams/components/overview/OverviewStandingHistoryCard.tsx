@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { toDisplayNumber, toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
+import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import { AppImage } from '@ui/shared/media/AppImage';
 
 import {
+  buildHistoryDisplayPoints,
   computeHistoryVisualPoints,
   resolveHistoryRankColor,
   toCompactSeasonLabel,
@@ -29,9 +30,14 @@ export function OverviewStandingHistoryCard({
   historyLeague,
 }: OverviewStandingHistoryCardProps) {
   const [historyChartWidth, setHistoryChartWidth] = useState(0);
+  const historyDisplayPoints = useMemo(
+    () => buildHistoryDisplayPoints(historyPoints),
+    [historyPoints],
+  );
+  const effectiveChartWidth = historyChartWidth > 0 ? historyChartWidth : Math.max(240, historyPoints.length * 56);
   const historyVisualPoints = useMemo<HistoryVisualPoint[]>(
-    () => computeHistoryVisualPoints(historyPoints, historyChartWidth),
-    [historyChartWidth, historyPoints],
+    () => computeHistoryVisualPoints(historyDisplayPoints, effectiveChartWidth),
+    [effectiveChartWidth, historyDisplayPoints],
   );
 
   return (
@@ -83,6 +89,7 @@ export function OverviewStandingHistoryCard({
               const horizontalWidth = Math.max(2, point.x - previous.x);
               const verticalTop = Math.min(previous.y, point.y);
               const verticalHeight = Math.max(2, Math.abs(point.y - previous.y));
+              const hasMissingRank = previous.isMissing || point.isMissing;
 
               return (
                 <View key={`history-connection-${point.season}`}>
@@ -93,6 +100,7 @@ export function OverviewStandingHistoryCard({
                         left: previous.x,
                         top: previous.y,
                         width: horizontalWidth,
+                        backgroundColor: hasMissingRank ? 'rgba(148,163,184,0.55)' : 'rgba(114,234,193,0.8)',
                       },
                     ]}
                   />
@@ -103,6 +111,7 @@ export function OverviewStandingHistoryCard({
                         left: point.x,
                         top: verticalTop,
                         height: verticalHeight,
+                        backgroundColor: hasMissingRank ? 'rgba(148,163,184,0.35)' : 'rgba(114,234,193,0.45)',
                       },
                     ]}
                   />
@@ -116,6 +125,11 @@ export function OverviewStandingHistoryCard({
               return (
                 <View
                   key={`history-point-${point.season}`}
+                  accessibilityLabel={
+                    point.isMissing
+                      ? `${toCompactSeasonLabel(point.season)} ${t('teamDetails.overview.rankUnavailable')}`
+                      : undefined
+                  }
                   style={[
                     styles.historyItem,
                     {
@@ -127,7 +141,7 @@ export function OverviewStandingHistoryCard({
                   ]}
                 >
                   <Text style={[styles.historyItemText, { color: rankColor.text }]}>
-                    {toDisplayNumber(point.rank)}
+                    {point.label}
                   </Text>
                 </View>
               );

@@ -574,7 +574,7 @@ describe('TeamOverviewTab', () => {
     expect(screen.queryByText(i18n.t('teamDetails.states.error'))).toBeNull();
   });
 
-  it('does not render dash placeholders for standing history when ranks are missing', () => {
+  it('renders explicit neutral placeholders when standing history ranks are missing', () => {
     renderWithAppProviders(
       <TeamOverviewTab
         team={team}
@@ -585,6 +585,9 @@ describe('TeamOverviewTab', () => {
           standingHistory: [
             { season: 2025, rank: null },
             { season: 2024, rank: null },
+            { season: 2023, rank: 2 },
+            { season: 2022, rank: 1 },
+            { season: 2021, rank: 3 },
           ],
         }}
         isLoading={false}
@@ -598,6 +601,6 @@ describe('TeamOverviewTab', () => {
       />,
     );
 
-    expect(screen.queryByText('-')).toBeNull();
+    expect(screen.getAllByText('?')).toHaveLength(2);
   });
 });

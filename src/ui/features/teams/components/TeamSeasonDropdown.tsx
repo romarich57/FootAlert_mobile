@@ -103,6 +103,17 @@ function createStyles(colors: ThemeColors) {
     });
 }
 
+function scheduleAfterModalClose(task: () => void) {
+    if (typeof globalThis.requestAnimationFrame === 'function') {
+        globalThis.requestAnimationFrame(() => {
+            task();
+        });
+        return;
+    }
+
+    setTimeout(task, 0);
+}
+
 export const TeamSeasonDropdown = memo(function TeamSeasonDropdown({
     seasons,
     selectedSeason,
@@ -120,8 +131,10 @@ export const TeamSeasonDropdown = memo(function TeamSeasonDropdown({
 
     const handleSelect = useCallback(
         (season: number) => {
-            onSelectSeason(season);
             setIsOpen(false);
+            scheduleAfterModalClose(() => {
+                onSelectSeason(season);
+            });
         },
         [onSelectSeason],
     );

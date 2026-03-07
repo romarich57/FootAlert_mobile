@@ -19,9 +19,18 @@ export type TeamOverviewListItemKey =
 export type HistoryVisualPoint = {
   season: number;
   rank: number | null;
+  isMissing: boolean;
+  label: string;
   x: number;
   y: number;
   isLatest: boolean;
+};
+
+export type OverviewHistoryDisplayPoint = {
+  season: number;
+  rank: number | null;
+  isMissing: boolean;
+  label: string;
 };
 
 export function toDecimal(value: number | null | undefined, precision = 1): string {
@@ -176,8 +185,19 @@ export function resolveHistoryRankColor(
   };
 }
 
-export function computeHistoryVisualPoints(
+export function buildHistoryDisplayPoints(
   historyPoints: Array<{ season: number; rank: number | null }>,
+): OverviewHistoryDisplayPoint[] {
+  return historyPoints.map(point => ({
+    season: point.season,
+    rank: point.rank,
+    isMissing: typeof point.rank !== 'number',
+    label: typeof point.rank === 'number' ? toDisplayNumber(point.rank) : '?',
+  }));
+}
+
+export function computeHistoryVisualPoints(
+  historyPoints: OverviewHistoryDisplayPoint[],
   historyChartWidth: number,
 ): HistoryVisualPoint[] {
   if (historyPoints.length === 0 || historyChartWidth <= 0) {
@@ -208,6 +228,8 @@ export function computeHistoryVisualPoints(
     return {
       season: point.season,
       rank: point.rank,
+      isMissing: point.isMissing,
+      label: point.label,
       x,
       y,
       isLatest: index === historyPoints.length - 1,

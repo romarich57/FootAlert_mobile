@@ -198,6 +198,17 @@ function buildSeasonGroups(competitions: TeamCompetitionOption[]): SeasonGroupIt
     .filter(group => group.competitions.length > 0);
 }
 
+function scheduleAfterModalClose(task: () => void) {
+  if (typeof globalThis.requestAnimationFrame === 'function') {
+    globalThis.requestAnimationFrame(() => {
+      task();
+    });
+    return;
+  }
+
+  setTimeout(task, 0);
+}
+
 export function TeamCompetitionSeasonSelector({
   competitions,
   selectedLeagueId,
@@ -209,6 +220,9 @@ export function TeamCompetitionSeasonSelector({
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [isOpen, setIsOpen] = useState(false);
+  const handleClose = () => {
+    setIsOpen(false);
+  };
 
   const seasonGroups = useMemo(() => buildSeasonGroups(competitions), [competitions]);
   const selectedCompetition =
@@ -243,13 +257,13 @@ export function TeamCompetitionSeasonSelector({
         <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textMuted} />
       </Pressable>
 
-      <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setIsOpen(false)}>
+      <Modal visible={isOpen} transparent animationType="fade" onRequestClose={handleClose}>
+        <Pressable style={styles.modalOverlay} onPress={handleClose}>
           <Pressable style={styles.modalSheet} onPress={event => event.stopPropagation()}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{modalTitle}</Text>
               <Pressable
-                onPress={() => setIsOpen(false)}
+                onPress={handleClose}
                 style={styles.closeButton}
                 hitSlop={DEFAULT_HIT_SLOP}
               >
@@ -270,8 +284,10 @@ export function TeamCompetitionSeasonSelector({
                       <Pressable
                         key={`${competition.leagueId}-${group.season}`}
                         onPress={() => {
-                          onSelect(competition.leagueId, group.season);
-                          setIsOpen(false);
+                          handleClose();
+                          scheduleAfterModalClose(() => {
+                            onSelect(competition.leagueId, group.season);
+                          });
                         }}
                         hitSlop={DEFAULT_HIT_SLOP}
                         style={[styles.competitionRow, isActive ? styles.competitionRowActive : null]}
@@ -305,7 +321,7 @@ export function TeamCompetitionSeasonSelector({
 
             <View style={styles.modalFooter}>
               <Pressable
-                onPress={() => setIsOpen(false)}
+                onPress={handleClose}
                 style={styles.doneButton}
                 hitSlop={DEFAULT_HIT_SLOP}
               >

@@ -55,7 +55,7 @@ type TeamSquadRecord = {
     name: string | null;
     photo: string | null;
     age: number | null;
-  };
+  } | null;
 } & Record<string, unknown>;
 
 type TeamCoachDto = {
@@ -423,14 +423,42 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
     parseOrThrow(z.object({}).strict(), request.query);
 
     return withCache(`team:squad:${request.url}`, 120_000, async () => {
-      const [squadRes, coachRes] = await Promise.all([
+      const [squadResult, coachResult] = await Promise.allSettled([
         apiFootballGet<{ response?: TeamSquadRecord[] }>(
           `/players/squads?team=${encodeURIComponent(params.id)}`,
         ),
         apiFootballGet<{ response?: TeamCoachDto[] }>(`/coachs?team=${encodeURIComponent(params.id)}`),
       ]);
 
+      if (squadResult.status === 'rejected' && coachResult.status === 'rejected') {
+        throw squadResult.reason instanceof Error
+          ? squadResult.reason
+          : coachResult.reason instanceof Error
+            ? coachResult.reason
+            : new Error('Unable to load team squad datasets');
+      }
+
+      const squadRes =
+        squadResult.status === 'fulfilled'
+          ? squadResult.value
+          : ({
+              response: [
+                {
+                  players: [],
+                },
+              ],
+            } satisfies { response?: TeamSquadRecord[] });
+      const coachRes =
+        coachResult.status === 'fulfilled'
+          ? coachResult.value
+          : ({
+              response: [],
+            } satisfies { response?: TeamCoachDto[] });
+
       const squadData: TeamSquadRecord = squadRes.response?.[0] ?? { players: [] };
+      if (!Array.isArray(squadData.players)) {
+        squadData.players = [];
+      }
       const coaches = coachRes.response ?? [];
       const teamIdAsNumber = Number(params.id);
 
@@ -446,6 +474,8 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
           photo: typeof currentCoach.photo === 'string' ? currentCoach.photo : null,
           age: typeof currentCoach.age === 'number' ? currentCoach.age : null,
         };
+      } else {
+        squadData.coach = null;
       }
 
       return {

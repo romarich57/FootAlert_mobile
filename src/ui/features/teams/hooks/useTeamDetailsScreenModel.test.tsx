@@ -167,15 +167,27 @@ describe('useTeamDetailsScreenModel', () => {
       competitions: [
         {
           leagueId: '39',
+          leagueName: 'Premier League',
+          leagueLogo: null,
           seasons: [2025, 2024],
           type: 'league',
+          country: 'England',
+          currentSeason: 2025,
+        },
+        {
+          leagueId: '2',
+          leagueName: 'Champions League',
+          leagueLogo: null,
+          seasons: [2025, 2024],
+          type: 'cup',
+          country: 'Europe',
+          currentSeason: 2025,
         },
       ],
-      selectedLeagueId: '39',
-      selectedSeason: 2025,
-      setLeague: jest.fn(),
-      setLeagueSeason: jest.fn(),
-      setSeason: jest.fn(),
+      defaultSelection: {
+        leagueId: '39',
+        season: 2025,
+      },
       isLoading: false,
       isError: false,
       hasCachedData: true,
@@ -350,5 +362,128 @@ describe('useTeamDetailsScreenModel', () => {
         queryKey: ['team_stats_core', '529', '39', 2025],
       }),
     );
+  });
+
+  it('keeps content, standings, and transfers selections independent', () => {
+    const { result } = renderHook(() => useTeamDetailsScreenModel());
+
+    expect(result.current.contentSelection).toEqual({
+      leagueId: '39',
+      season: 2025,
+    });
+    expect(result.current.standingsSelection).toEqual({
+      leagueId: '39',
+      season: 2025,
+    });
+    expect(result.current.transfersSeason).toBe(2025);
+
+    act(() => {
+      result.current.setContentLeagueSeason('2', 2024);
+    });
+
+    expect(result.current.contentSelection).toEqual({
+      leagueId: '2',
+      season: 2024,
+    });
+    expect(result.current.standingsSelection).toEqual({
+      leagueId: '39',
+      season: 2025,
+    });
+    expect(result.current.transfersSeason).toBe(2025);
+
+    act(() => {
+      result.current.setStandingsSeason(2024);
+    });
+
+    expect(result.current.standingsSelection).toEqual({
+      leagueId: '39',
+      season: 2024,
+    });
+    expect(result.current.contentSelection).toEqual({
+      leagueId: '2',
+      season: 2024,
+    });
+    expect(result.current.transfersSeason).toBe(2025);
+
+    act(() => {
+      result.current.setTransfersSeason(2024);
+    });
+
+    expect(result.current.transfersSeason).toBe(2024);
+    expect(result.current.standingsSelection).toEqual({
+      leagueId: '39',
+      season: 2024,
+    });
+    expect(result.current.contentSelection).toEqual({
+      leagueId: '2',
+      season: 2024,
+    });
+  });
+
+  it('keeps the stats tab active and visible when the current selection resolves to an empty dataset', () => {
+    const { result, rerender } = renderHook(() => useTeamDetailsScreenModel());
+
+    act(() => {
+      result.current.handleChangeTab('stats');
+    });
+
+    expect(result.current.activeTab).toBe('stats');
+    expect(result.current.tabs.some(tab => tab.key === 'stats')).toBe(true);
+
+    mockedUseTeamStats.mockReturnValue({
+      ...makeQueryState(undefined),
+      data: undefined,
+      coreData: undefined,
+      coreUpdatedAt: 0,
+      playersData: undefined,
+      advancedData: undefined,
+      playersUpdatedAt: 0,
+      advancedUpdatedAt: 0,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      isCoreLoading: false,
+      isPlayersLoading: false,
+      isAdvancedLoading: false,
+      isPlayersFetching: false,
+      isAdvancedFetching: false,
+      isPlayersError: false,
+      isAdvancedError: false,
+    } as never);
+
+    act(() => {
+      rerender(undefined);
+    });
+
+    expect(result.current.activeTab).toBe('stats');
+    expect(result.current.tabs.some(tab => tab.key === 'stats')).toBe(true);
+  });
+
+  it('keeps the matches tab active and visible when the current selection resolves to an empty dataset', () => {
+    const { result, rerender } = renderHook(() => useTeamDetailsScreenModel());
+
+    act(() => {
+      result.current.handleChangeTab('matches');
+    });
+
+    expect(result.current.activeTab).toBe('matches');
+    expect(result.current.tabs.some(tab => tab.key === 'matches')).toBe(true);
+
+    mockedUseTeamMatches.mockReturnValue({
+      ...makeQueryState({
+        all: [],
+        live: [],
+        upcoming: [],
+        past: [],
+      }),
+      isFetched: true,
+      isFetchedAfterMount: true,
+    } as never);
+
+    act(() => {
+      rerender(undefined);
+    });
+
+    expect(result.current.activeTab).toBe('matches');
+    expect(result.current.tabs.some(tab => tab.key === 'matches')).toBe(true);
   });
 });

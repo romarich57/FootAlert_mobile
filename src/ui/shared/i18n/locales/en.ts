@@ -418,6 +418,7 @@ export const en = {
       estimatedLineup: 'Estimated 4-3-3',
       miniStanding: 'Standings',
       standingHistory: 'Standings history',
+      rankUnavailable: 'rank unavailable',
       coachPerformance: 'Coach win rate',
       coachWinRate: 'Win rate',
       coachPointsPerMatch: 'Points / match',

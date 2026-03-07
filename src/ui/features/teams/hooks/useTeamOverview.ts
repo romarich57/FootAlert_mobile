@@ -75,93 +75,6 @@ const EMPTY_OVERVIEW_LEADERS: TeamOverviewLeadersData = {
   sourceUpdatedAt: null,
 };
 
-function hasLineupPlayers(lineup: TeamOverviewLeadersData['seasonLineup'] | null | undefined): boolean {
-  return (
-    Boolean(lineup?.goalkeeper) ||
-    (lineup?.defenders.length ?? 0) > 0 ||
-    (lineup?.midfielders.length ?? 0) > 0 ||
-    (lineup?.attackers.length ?? 0) > 0
-  );
-}
-
-function hasLeaderPlayers(leaders: TeamOverviewLeadersData['playerLeaders']): boolean {
-  return leaders.ratings.length > 0 || leaders.scorers.length > 0 || leaders.assisters.length > 0;
-}
-
-function mergeStandingHistoryWithFallback(
-  previousHistory: TeamOverviewCoreData['standingHistory'],
-  nextHistory: TeamOverviewCoreData['standingHistory'],
-): TeamOverviewCoreData['standingHistory'] {
-  if (previousHistory.length === 0) {
-    return nextHistory;
-  }
-
-  const previousBySeason = new Map(previousHistory.map(item => [item.season, item.rank]));
-  return nextHistory.map(item => ({
-    season: item.season,
-    rank: item.rank ?? previousBySeason.get(item.season) ?? null,
-  }));
-}
-
-function mergeSeasonStatsWithFallback(
-  previousStats: TeamOverviewCoreData['seasonStats'],
-  nextStats: TeamOverviewCoreData['seasonStats'],
-): TeamOverviewCoreData['seasonStats'] {
-  return {
-    rank: nextStats.rank ?? previousStats.rank,
-    points: nextStats.points ?? previousStats.points,
-    played: nextStats.played ?? previousStats.played,
-    goalDiff: nextStats.goalDiff ?? previousStats.goalDiff,
-    wins: nextStats.wins ?? previousStats.wins,
-    draws: nextStats.draws ?? previousStats.draws,
-    losses: nextStats.losses ?? previousStats.losses,
-    scored: nextStats.scored ?? previousStats.scored,
-    conceded: nextStats.conceded ?? previousStats.conceded,
-  };
-}
-
-function mergeOverviewCoreData(
-  previousData: TeamOverviewCoreData | undefined,
-  nextData: TeamOverviewCoreData,
-): TeamOverviewCoreData {
-  if (!previousData) {
-    return nextData;
-  }
-
-  const nextHasMiniStandingRows = (nextData.miniStanding?.rows.length ?? 0) > 0;
-  const nextHasRecentForm = nextData.recentForm.length > 0;
-
-  return {
-    ...nextData,
-    nextMatch: nextData.nextMatch ?? previousData.nextMatch,
-    recentForm: nextHasRecentForm ? nextData.recentForm : previousData.recentForm,
-    seasonStats: mergeSeasonStatsWithFallback(previousData.seasonStats, nextData.seasonStats),
-    miniStanding: nextHasMiniStandingRows ? nextData.miniStanding : previousData.miniStanding,
-    standingHistory: mergeStandingHistoryWithFallback(previousData.standingHistory, nextData.standingHistory),
-    coachPerformance: nextData.coachPerformance ?? previousData.coachPerformance,
-    trophiesCount: nextData.trophiesCount ?? previousData.trophiesCount,
-    trophyWinsCount: nextData.trophyWinsCount ?? previousData.trophyWinsCount,
-  };
-}
-
-function mergeOverviewLeadersData(
-  previousData: TeamOverviewLeadersData | undefined,
-  nextData: TeamOverviewLeadersData,
-): TeamOverviewLeadersData {
-  if (!previousData) {
-    return nextData;
-  }
-
-  const nextHasLineupPlayers = hasLineupPlayers(nextData.seasonLineup);
-  const nextHasLeaders = hasLeaderPlayers(nextData.playerLeaders);
-
-  return {
-    seasonLineup: nextHasLineupPlayers ? nextData.seasonLineup : previousData.seasonLineup,
-    playerLeaders: nextHasLeaders ? nextData.playerLeaders : previousData.playerLeaders,
-    sourceUpdatedAt: nextData.sourceUpdatedAt ?? previousData.sourceUpdatedAt,
-  };
-}
-
 export function useTeamOverview({
   teamId,
   leagueId,
@@ -186,9 +99,6 @@ export function useTeamOverview({
   const coreQuery = useQuery<TeamOverviewCoreData>({
     queryKey: queryKeys.teams.overview(teamId, leagueId, season, timezone, historySeasonsKey),
     enabled: isCoreEnabled,
-    placeholderData: previousData => previousData,
-    structuralSharing: (oldData, newData) =>
-      mergeOverviewCoreData(oldData as TeamOverviewCoreData | undefined, newData as TeamOverviewCoreData),
     ...featureQueryOptions.teams.overview,
     queryFn: async ({ signal }): Promise<TeamOverviewCoreData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {
@@ -218,12 +128,6 @@ export function useTeamOverview({
   const leadersQuery = useQuery<TeamOverviewLeadersData>({
     queryKey: queryKeys.teams.overviewLeaders(teamId, leagueId, season),
     enabled: isLeadersEnabled,
-    placeholderData: previousData => previousData,
-    structuralSharing: (oldData, newData) =>
-      mergeOverviewLeadersData(
-        oldData as TeamOverviewLeadersData | undefined,
-        newData as TeamOverviewLeadersData,
-      ),
     ...featureQueryOptions.teams.overviewLeaders,
     queryFn: async ({ signal }): Promise<TeamOverviewLeadersData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {

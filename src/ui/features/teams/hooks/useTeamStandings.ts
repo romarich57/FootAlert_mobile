@@ -48,7 +48,6 @@ export function useTeamStandings({
     queryKey: queryKeys.teams.standings(teamId, leagueId, season),
     enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
     refetchOnMount: false,
-    placeholderData: previousData => previousData,
     ...featureQueryOptions.teams.standings,
     queryFn: ({ signal }) =>
       fetchTeamStandingsData({

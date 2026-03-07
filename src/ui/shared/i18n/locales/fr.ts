@@ -419,6 +419,7 @@ export const fr = {
       estimatedLineup: '4-3-3 estimé',
       miniStanding: 'Classement',
       standingHistory: 'Historique des classements',
+      rankUnavailable: 'classement indisponible',
       coachPerformance: 'Pourcentage de victoires de l’entraîneur',
       coachWinRate: 'Taux de victoire',
       coachPointsPerMatch: 'Pts / match',

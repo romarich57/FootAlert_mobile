@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
 import { TeamCompetitionSeasonSelector } from '@ui/features/teams/components/TeamCompetitionSeasonSelector';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
@@ -25,6 +25,15 @@ describe('TeamCompetitionSeasonSelector', () => {
       currentSeason: 2025,
     },
   ];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
 
   it('renders selected competition and season in trigger', () => {
     renderWithAppProviders(
@@ -78,6 +87,9 @@ describe('TeamCompetitionSeasonSelector', () => {
 
     fireEvent.press(screen.getByTestId('team-competition-season-trigger'));
     fireEvent.press(screen.getByTestId('team-competition-season-option-2-2024'));
+    act(() => {
+      jest.runAllTimers();
+    });
 
     expect(onSelect).toHaveBeenCalledWith('2', 2024);
   });

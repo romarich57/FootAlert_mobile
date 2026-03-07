@@ -126,89 +126,6 @@ function mergeComparisonMetrics(
   return Array.from(metricsByKey.values());
 }
 
-function mergeTeamStatsCoreData(
-  previousData: TeamStatsCoreData | undefined,
-  nextData: TeamStatsCoreData,
-): TeamStatsCoreData {
-  if (!previousData) {
-    return nextData;
-  }
-
-  return {
-    ...nextData,
-    rank: nextData.rank ?? previousData.rank,
-    points: nextData.points ?? previousData.points,
-    played: nextData.played ?? previousData.played,
-    wins: nextData.wins ?? previousData.wins,
-    draws: nextData.draws ?? previousData.draws,
-    losses: nextData.losses ?? previousData.losses,
-    goalsFor: nextData.goalsFor ?? previousData.goalsFor,
-    goalsAgainst: nextData.goalsAgainst ?? previousData.goalsAgainst,
-    homePlayed: nextData.homePlayed ?? previousData.homePlayed,
-    homeWins: nextData.homeWins ?? previousData.homeWins,
-    homeDraws: nextData.homeDraws ?? previousData.homeDraws,
-    homeLosses: nextData.homeLosses ?? previousData.homeLosses,
-    awayPlayed: nextData.awayPlayed ?? previousData.awayPlayed,
-    awayWins: nextData.awayWins ?? previousData.awayWins,
-    awayDraws: nextData.awayDraws ?? previousData.awayDraws,
-    awayLosses: nextData.awayLosses ?? previousData.awayLosses,
-    expectedGoalsFor: nextData.expectedGoalsFor ?? previousData.expectedGoalsFor,
-    pointsByVenue: {
-      home: nextData.pointsByVenue.home ?? previousData.pointsByVenue.home,
-      away: nextData.pointsByVenue.away ?? previousData.pointsByVenue.away,
-    },
-    goalsForPerMatch: nextData.goalsForPerMatch ?? previousData.goalsForPerMatch,
-    goalsAgainstPerMatch: nextData.goalsAgainstPerMatch ?? previousData.goalsAgainstPerMatch,
-    cleanSheets: nextData.cleanSheets ?? previousData.cleanSheets,
-    failedToScore: nextData.failedToScore ?? previousData.failedToScore,
-    comparisonMetrics:
-      nextData.comparisonMetrics.length > 0
-        ? nextData.comparisonMetrics
-        : previousData.comparisonMetrics,
-    goalBreakdown: nextData.goalBreakdown.length > 0 ? nextData.goalBreakdown : previousData.goalBreakdown,
-  };
-}
-
-function mergeTeamStatsPlayersData(
-  previousData: TeamStatsPlayersData | undefined,
-  nextData: TeamStatsPlayersData,
-): TeamStatsPlayersData {
-  if (!previousData) {
-    return nextData;
-  }
-
-  const hasNextPlayers = nextData.topPlayers.length > 0;
-  const hasNextCategoryPlayers =
-    nextData.topPlayersByCategory.ratings.length > 0 ||
-    nextData.topPlayersByCategory.scorers.length > 0 ||
-    nextData.topPlayersByCategory.assisters.length > 0;
-
-  return {
-    topPlayers: hasNextPlayers ? nextData.topPlayers : previousData.topPlayers,
-    topPlayersByCategory: hasNextCategoryPlayers
-      ? nextData.topPlayersByCategory
-      : previousData.topPlayersByCategory,
-  };
-}
-
-function mergeTeamStatsAdvancedData(
-  previousData: TeamStatsAdvancedData | undefined,
-  nextData: TeamStatsAdvancedData,
-): TeamStatsAdvancedData {
-  if (!previousData) {
-    return nextData;
-  }
-
-  return {
-    comparisonMetrics:
-      nextData.comparisonMetrics.length > 0
-        ? nextData.comparisonMetrics
-        : previousData.comparisonMetrics,
-    expectedGoalsFor: nextData.expectedGoalsFor ?? previousData.expectedGoalsFor,
-    sourceUpdatedAt: nextData.sourceUpdatedAt ?? previousData.sourceUpdatedAt,
-  };
-}
-
 type FetchTeamStatsCoreDataParams = {
   teamId: string;
   leagueId: string | null;
@@ -350,9 +267,6 @@ export function useTeamStats({
     queryKey: queryKeys.teams.statsCore(teamId, leagueId, season),
     enabled: isCoreEnabled,
     refetchOnMount: false,
-    placeholderData: previousData => previousData,
-    structuralSharing: (oldData, newData) =>
-      mergeTeamStatsCoreData(oldData as TeamStatsCoreData | undefined, newData as TeamStatsCoreData),
     ...featureQueryOptions.teams.statsCore,
     queryFn: ({ signal }) =>
       fetchTeamStatsCoreData({
@@ -369,12 +283,6 @@ export function useTeamStats({
     queryKey: queryKeys.teams.statsPlayers(teamId, leagueId, season),
     enabled: enrichmentEnabled,
     refetchOnMount: false,
-    placeholderData: previousData => previousData,
-    structuralSharing: (oldData, newData) =>
-      mergeTeamStatsPlayersData(
-        oldData as TeamStatsPlayersData | undefined,
-        newData as TeamStatsPlayersData,
-      ),
     ...featureQueryOptions.teams.statsPlayers,
     queryFn: ({ signal }) =>
       fetchTeamStatsPlayersData({
@@ -389,12 +297,6 @@ export function useTeamStats({
     queryKey: queryKeys.teams.statsAdvanced(teamId, leagueId, season),
     enabled: enrichmentEnabled,
     refetchOnMount: false,
-    placeholderData: previousData => previousData,
-    structuralSharing: (oldData, newData) =>
-      mergeTeamStatsAdvancedData(
-        oldData as TeamStatsAdvancedData | undefined,
-        newData as TeamStatsAdvancedData,
-      ),
     ...featureQueryOptions.teams.statsAdvanced,
     queryFn: ({ signal }) =>
       fetchTeamStatsAdvancedData({

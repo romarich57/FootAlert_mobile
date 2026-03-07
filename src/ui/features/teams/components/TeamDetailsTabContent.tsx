@@ -50,7 +50,8 @@ type TeamDetailsTabContentProps = {
   activeTab: TeamDetailsTab;
   teamId: string;
   team: TeamIdentity;
-  hasLeagueSelection: boolean;
+  hasContentSelection: boolean;
+  hasStandingsSelection: boolean;
   competitions: TeamCompetitionOption[];
   selectedSeason: number | null;
   labels: {
@@ -71,7 +72,8 @@ export function TeamDetailsTabContent({
   activeTab,
   teamId,
   team,
-  hasLeagueSelection,
+  hasContentSelection,
+  hasStandingsSelection,
   competitions,
   selectedSeason,
   labels,
@@ -97,7 +99,7 @@ export function TeamDetailsTabContent({
   );
 
   if (activeTab === 'overview') {
-    if (!hasLeagueSelection) {
+    if (!hasContentSelection) {
       return renderEmptySelection;
     }
 
@@ -121,7 +123,7 @@ export function TeamDetailsTabContent({
   }
 
   if (activeTab === 'matches') {
-    if (!hasLeagueSelection) {
+    if (!hasContentSelection) {
       return renderEmptySelection;
     }
 
@@ -140,7 +142,7 @@ export function TeamDetailsTabContent({
   }
 
   if (activeTab === 'standings') {
-    if (!hasLeagueSelection) {
+    if (!hasStandingsSelection) {
       return renderEmptySelection;
     }
 
@@ -156,7 +158,7 @@ export function TeamDetailsTabContent({
   }
 
   if (activeTab === 'stats') {
-    if (!hasLeagueSelection) {
+    if (!hasContentSelection) {
       return renderEmptySelection;
     }
 

@@ -111,12 +111,10 @@ describe('TeamDetailsScreen', () => {
           currentSeason: 2025,
         },
       ],
-      selectedLeagueId: '140',
-      selectedSeason: 2025,
-      seasonsForSelectedLeague: [2025, 2024],
-      setLeague: jest.fn(),
-      setLeagueSeason: jest.fn(),
-      setSeason: jest.fn(),
+      defaultSelection: {
+        leagueId: '140',
+        season: 2025,
+      },
       isLoading: false,
       isError: false,
       lastUpdatedAt: 1_771_000_000_000,
@@ -372,7 +370,7 @@ describe('TeamDetailsScreen', () => {
     expect(screen.getByText(i18n.t('teamDetails.tabs.squad'))).toBeTruthy();
   });
 
-  it('hides tabs whose datasets are fetched and empty', () => {
+  it('keeps data tabs visible even when their datasets are fetched and empty', () => {
     mockedUseTeamMatches.mockReturnValue({
       data: { all: [], upcoming: [], live: [], past: [] },
       isLoading: false,
@@ -448,11 +446,11 @@ describe('TeamDetailsScreen', () => {
     renderScreen();
 
     expect(screen.getByLabelText(i18n.t('teamDetails.tabs.overview'))).toBeTruthy();
-    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.matches'))).toBeNull();
-    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.standings'))).toBeNull();
-    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.stats'))).toBeNull();
-    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.transfers'))).toBeNull();
-    expect(screen.queryByLabelText(i18n.t('teamDetails.tabs.squad'))).toBeNull();
+    expect(screen.getByLabelText(i18n.t('teamDetails.tabs.matches'))).toBeTruthy();
+    expect(screen.getByLabelText(i18n.t('teamDetails.tabs.standings'))).toBeTruthy();
+    expect(screen.getByLabelText(i18n.t('teamDetails.tabs.stats'))).toBeTruthy();
+    expect(screen.getByLabelText(i18n.t('teamDetails.tabs.transfers'))).toBeTruthy();
+    expect(screen.getByLabelText(i18n.t('teamDetails.tabs.squad'))).toBeTruthy();
   });
 
   it('enables matches query after opening matches tab', () => {
@@ -525,12 +523,10 @@ describe('TeamDetailsScreen', () => {
       },
       timezone: 'Europe/Paris',
       competitions: [],
-      selectedLeagueId: null,
-      selectedSeason: null,
-      seasonsForSelectedLeague: [],
-      setLeague: jest.fn(),
-      setLeagueSeason: jest.fn(),
-      setSeason: jest.fn(),
+      defaultSelection: {
+        leagueId: null,
+        season: null,
+      },
       isLoading: false,
       isError: false,
       lastUpdatedAt: null,
