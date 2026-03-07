@@ -313,4 +313,70 @@ describe('useSearchScreenModel', () => {
     expect(mockedSearchTeamsByName).not.toHaveBeenCalled();
     expect(mockedSearchGlobal).not.toHaveBeenCalled();
   });
+
+  it('shows team seed suggestions immediately while the empty-query discovery request is still pending', async () => {
+    const deferred = createDeferred<Awaited<ReturnType<typeof fetchDiscoveryTeams>>>();
+    mockedFetchDiscoveryTeams.mockImplementationOnce(() => deferred.promise);
+
+    const { result } = renderHook(() => useSearchScreenModel(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleSelectTab('teams');
+    });
+
+    await waitFor(() => {
+      expect(result.current.teamResults).toEqual([
+        {
+          teamId: '529',
+          teamName: 'Barcelona',
+          teamLogo: 'https://media.api-sports.io/football/teams/529.png',
+          country: 'Spain',
+        },
+        {
+          teamId: '541',
+          teamName: 'Real Madrid',
+          teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+          country: 'Spain',
+        },
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+      ]);
+    });
+
+    act(() => {
+      deferred.resolve({
+        items: [
+          {
+            teamId: '50',
+            teamName: 'Manchester City',
+            teamLogo: 'city.png',
+            country: 'England',
+            activeFollowersCount: 5,
+            recentNet30d: 2,
+            totalFollowAdds: 20,
+          },
+        ],
+        meta: {
+          source: 'dynamic',
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.teamResults).toEqual([
+        {
+          teamId: '50',
+          teamName: 'Manchester City',
+          teamLogo: 'city.png',
+          country: 'England',
+        },
+      ]);
+    });
+  });
 });

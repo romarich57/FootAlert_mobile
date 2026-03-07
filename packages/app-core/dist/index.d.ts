@@ -2,6 +2,7 @@ export * from './adapters/http.js';
 export * from './adapters/telemetry.js';
 export * from './domain/network.js';
 export * from './domain/parity.js';
+export * from './follows/discoverySeeds.js';
 export * from './runtime/validation.js';
 export * from './security/requestSignaturePayload.js';
 export * from './services/competitionsService.js';

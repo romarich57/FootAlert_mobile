@@ -1,7 +1,7 @@
 export const QUERY_STALE_TIME_MS = 30_000;
 export const QUERY_GC_TIME_MS = 30 * 60_000;
-export const QUERY_PERSIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-export const APP_CACHE_SCHEMA_VERSION = 'v3';
+export const QUERY_PERSIST_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+export const APP_CACHE_SCHEMA_VERSION = 'v4';
 export const QUERY_PERSIST_CACHE_KEY = `footalert-query-cache-${APP_CACHE_SCHEMA_VERSION}`;
 
 export type QueryRetryValue = boolean | number;

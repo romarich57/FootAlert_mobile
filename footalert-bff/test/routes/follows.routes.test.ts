@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { FOLLOW_DISCOVERY_SEED_PLAYERS, FOLLOW_DISCOVERY_SEED_TEAMS } from '@footalert/app-core';
+
 import {
   buildApp,
   buildMobileSessionAuthorizationHeader,
@@ -384,6 +386,80 @@ test('GET /v1/follows/discovery/teams falls back to legacy results when no dynam
     ],
     meta: {
       source: 'legacy_fill',
+    },
+  });
+});
+
+test('GET /v1/follows/discovery/teams returns static seeds when dynamic and legacy sources are empty', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/follows/discovery/teams?limit=2',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.ok(calls.length > 0);
+  assert.deepEqual(response.json(), {
+    items: FOLLOW_DISCOVERY_SEED_TEAMS.slice(0, 2),
+    meta: {
+      source: 'static_seed',
+    },
+  });
+});
+
+test('GET /v1/follows/discovery/players returns hybrid results when dynamic ranking is partial and seeds complete the list', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const followResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/follows/events',
+    headers: buildMobileSessionAuthorizationHeader({ subject: 'device-player-1' }),
+    payload: {
+      entityKind: 'player',
+      entityId: '9999',
+      action: 'follow',
+      source: 'player_details',
+      entitySnapshot: {
+        playerName: 'Dynamic Player',
+        playerPhoto: 'dynamic.png',
+        position: 'Attacker',
+        teamName: 'Dynamic FC',
+        teamLogo: 'dynamic-team.png',
+        leagueName: 'Dynamic League',
+      },
+    },
+  });
+
+  assert.equal(followResponse.statusCode, 200);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/follows/discovery/players?limit=2',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.ok(calls.length > 0);
+  assert.deepEqual(response.json(), {
+    items: [
+      {
+        playerId: '9999',
+        playerName: 'Dynamic Player',
+        playerPhoto: 'dynamic.png',
+        position: 'Attacker',
+        teamName: 'Dynamic FC',
+        teamLogo: 'dynamic-team.png',
+        leagueName: 'Dynamic League',
+        activeFollowersCount: 1,
+        recentNet30d: 1,
+        totalFollowAdds: 1,
+      },
+      FOLLOW_DISCOVERY_SEED_PLAYERS[0],
+    ],
+    meta: {
+      source: 'hybrid',
     },
   });
 });

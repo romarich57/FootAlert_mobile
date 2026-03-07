@@ -10,7 +10,7 @@ export type FollowEventSource =
   | 'player_details'
   | 'search_tab';
 export type FollowEventState = 'followed' | 'unfollowed';
-export type FollowDiscoverySource = 'dynamic' | 'legacy_fill' | 'hybrid';
+export type FollowDiscoverySource = 'dynamic' | 'legacy_fill' | 'hybrid' | 'static_seed';
 
 export type FollowTeamSnapshot = {
   teamName: string;

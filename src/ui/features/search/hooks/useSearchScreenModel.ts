@@ -23,6 +23,7 @@ import type {
   FollowDiscoveryPlayerItem,
   FollowDiscoveryTeamItem,
 } from '@ui/features/follows/types/follows.types';
+import { buildFollowDiscoveryPlaceholderResponse } from '@ui/features/follows/utils/discoverySeeds';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import type {
   SearchCompetitionResult,
@@ -84,6 +85,8 @@ export function useSearchScreenModel() {
   const [selectedTab, setSelectedTab] = useState<SearchEntityTab>('all');
   const [query, setQuery] = useState('');
   const trackedRequestKeyRef = useRef<string | null>(null);
+  const discoveryTelemetryKeyRef = useRef<string | null>(null);
+  const discoverySeedVisibleTabRef = useRef<SearchEntityTab | null>(null);
   const season = getCurrentSeasonYear();
   const trimmedQuery = query.trim();
   const isEntitySearchTab = selectedTab === 'teams' || selectedTab === 'players';
@@ -97,14 +100,22 @@ export function useSearchScreenModel() {
     queryKey: queryKeys.follows.discovery(selectedTab === 'players' ? 'players' : 'teams', resultsLimit),
     enabled: isEntitySearchTab && trimmedQuery.length === 0,
     staleTime: appEnv.followsTrendsTtlMs,
-    placeholderData: previousData => previousData,
-    queryFn: ({ signal }) => {
+    queryFn: ({ signal }): Promise<
+      | { items: FollowDiscoveryTeamItem[]; meta: { source: string } }
+      | { items: FollowDiscoveryPlayerItem[]; meta: { source: string } }
+    > => {
       if (selectedTab === 'teams') {
         return fetchDiscoveryTeams(resultsLimit, signal);
       }
 
       return fetchDiscoveryPlayers(resultsLimit, signal);
     },
+    placeholderData: previousData =>
+      previousData ??
+      buildFollowDiscoveryPlaceholderResponse(
+        selectedTab === 'players' ? 'players' : 'teams',
+        resultsLimit,
+      ),
   });
 
   const searchQuery = useQuery({
@@ -196,6 +207,55 @@ export function useSearchScreenModel() {
       limit: resultsLimit,
     });
   }, [debouncedQuery, hasEnoughChars, resultsLimit, season, selectedTab, timezone]);
+
+  useEffect(() => {
+    if (!isEntitySearchTab || trimmedQuery.length > 0 || !discoveryQuery.data) {
+      return;
+    }
+
+    const source = discoveryQuery.data.meta.source;
+    const itemCount = discoveryQuery.data.items.length;
+    const telemetryKey = `${selectedTab}|${source}|${itemCount}|${discoveryQuery.isPlaceholderData ? 'placeholder' : 'resolved'}|${discoveryQuery.dataUpdatedAt}`;
+    if (discoveryTelemetryKeyRef.current === telemetryKey) {
+      return;
+    }
+    discoveryTelemetryKeyRef.current = telemetryKey;
+
+    getMobileTelemetry().trackEvent('follows.discovery_source', {
+      screen: 'search',
+      tab: selectedTab,
+      source,
+      itemCount,
+    });
+
+    if (discoveryQuery.isPlaceholderData && source === 'static_seed') {
+      discoverySeedVisibleTabRef.current = selectedTab;
+      getMobileTelemetry().trackEvent('follows.discovery_seed_rendered', {
+        screen: 'search',
+        tab: selectedTab,
+        source,
+        itemCount,
+      });
+      return;
+    }
+
+    if (discoverySeedVisibleTabRef.current === selectedTab && source !== 'static_seed') {
+      discoverySeedVisibleTabRef.current = null;
+      getMobileTelemetry().trackEvent('follows.discovery_remote_replaced', {
+        screen: 'search',
+        tab: selectedTab,
+        source,
+        itemCount,
+      });
+    }
+  }, [
+    discoveryQuery.data,
+    discoveryQuery.dataUpdatedAt,
+    discoveryQuery.isPlaceholderData,
+    isEntitySearchTab,
+    selectedTab,
+    trimmedQuery.length,
+  ]);
 
   const handleClearQuery = useCallback(() => {
     setQuery('');

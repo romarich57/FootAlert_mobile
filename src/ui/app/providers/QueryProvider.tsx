@@ -8,7 +8,6 @@ import {
 import {
   PersistQueryClientProvider,
 } from '@tanstack/react-query-persist-client';
-import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -18,6 +17,10 @@ import {
   QUERY_PERSIST_CACHE_KEY,
   QUERY_PERSIST_MAX_AGE_MS,
 } from '@ui/shared/query/queryOptions';
+import {
+  safeAsyncStoragePersister,
+  shouldDehydrateQuery,
+} from '@ui/shared/query/queryPersistence';
 
 type QueryProviderProps = PropsWithChildren<{
   enablePersistence?: boolean;
@@ -98,7 +101,7 @@ export function QueryProvider({
       return null;
     }
 
-    return createAsyncStoragePersister({
+    return safeAsyncStoragePersister({
       storage: AsyncStorage,
       key: QUERY_PERSIST_CACHE_KEY,
     });
@@ -115,6 +118,10 @@ export function QueryProvider({
         persister,
         maxAge: QUERY_PERSIST_MAX_AGE_MS,
         buster: APP_CACHE_SCHEMA_VERSION,
+        dehydrateOptions: {
+          shouldDehydrateQuery,
+          shouldDehydrateMutation: () => false,
+        },
       }}
     >
       {children}
