@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import type { TeamStatsData, TeamTopPlayer } from '@ui/features/teams/types/teams.types';
@@ -15,6 +15,7 @@ type TeamTopPlayersSectionProps = {
   styles: TeamStatsTabStyles;
   colors: ThemeColors;
   t: (key: string) => string;
+  isLoading?: boolean;
   onPressPlayer: (playerId: string) => void;
   localizePosition: (value: string | null | undefined) => string;
 };
@@ -97,43 +98,55 @@ export function TeamTopPlayersSection({
   styles,
   colors,
   t,
+  isLoading = false,
   onPressPlayer,
   localizePosition,
 }: TeamTopPlayersSectionProps) {
+  const hasPlayers =
+    (data?.topPlayersByCategory?.ratings.length ?? 0) > 0 ||
+    (data?.topPlayersByCategory?.scorers.length ?? 0) > 0 ||
+    (data?.topPlayersByCategory?.assisters.length ?? 0) > 0;
+
   return (
     <>
       <Text style={styles.sectionTitle}>{t('teamDetails.stats.topPlayers')}</Text>
-      <View style={styles.playersGrid}>
-        <PlayerCategoryCard
-          title={t('teamDetails.stats.categories.rating')}
-          players={data?.topPlayersByCategory?.ratings ?? []}
-          valueSelector={player => formatDecimal(player.rating, 2)}
-          localizePosition={localizePosition}
-          onPressPlayer={onPressPlayer}
-          colors={colors}
-          styles={styles}
-        />
+      {hasPlayers ? (
+        <View style={styles.playersGrid}>
+          <PlayerCategoryCard
+            title={t('teamDetails.stats.categories.rating')}
+            players={data?.topPlayersByCategory?.ratings ?? []}
+            valueSelector={player => formatDecimal(player.rating, 2)}
+            localizePosition={localizePosition}
+            onPressPlayer={onPressPlayer}
+            colors={colors}
+            styles={styles}
+          />
 
-        <PlayerCategoryCard
-          title={t('teamDetails.stats.categories.scorers')}
-          players={data?.topPlayersByCategory?.scorers ?? []}
-          valueSelector={player => toDisplayNumber(player.goals)}
-          localizePosition={localizePosition}
-          onPressPlayer={onPressPlayer}
-          colors={colors}
-          styles={styles}
-        />
+          <PlayerCategoryCard
+            title={t('teamDetails.stats.categories.scorers')}
+            players={data?.topPlayersByCategory?.scorers ?? []}
+            valueSelector={player => toDisplayNumber(player.goals)}
+            localizePosition={localizePosition}
+            onPressPlayer={onPressPlayer}
+            colors={colors}
+            styles={styles}
+          />
 
-        <PlayerCategoryCard
-          title={t('teamDetails.stats.categories.assisters')}
-          players={data?.topPlayersByCategory?.assisters ?? []}
-          valueSelector={player => toDisplayNumber(player.assists)}
-          localizePosition={localizePosition}
-          onPressPlayer={onPressPlayer}
-          colors={colors}
-          styles={styles}
-        />
-      </View>
+          <PlayerCategoryCard
+            title={t('teamDetails.stats.categories.assisters')}
+            players={data?.topPlayersByCategory?.assisters ?? []}
+            valueSelector={player => toDisplayNumber(player.assists)}
+            localizePosition={localizePosition}
+            onPressPlayer={onPressPlayer}
+            colors={colors}
+            styles={styles}
+          />
+        </View>
+      ) : isLoading ? (
+        <View style={styles.stateCard}>
+          <ActivityIndicator size="small" color={colors.primary} style={styles.loadingIndicator} />
+        </View>
+      ) : null}
     </>
   );
 }

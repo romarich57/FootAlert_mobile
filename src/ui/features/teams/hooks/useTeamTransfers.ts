@@ -32,14 +32,15 @@ export async function fetchTeamTransfersData({
     return EMPTY_TEAM_TRANSFERS;
   }
 
-  const payload = await fetchTeamTransfers(teamId, signal);
-  return mapTransfersToTeamTransfers(payload, teamId, season);
+  const payload = await fetchTeamTransfers(teamId, season, signal);
+  return mapTransfersToTeamTransfers(payload, teamId, null);
 }
 
 export function useTeamTransfers({ teamId, season, enabled = true }: UseTeamTransfersParams) {
   return useQuery<TeamTransfersData>({
     queryKey: queryKeys.teams.transfers(teamId, season),
     enabled: enabled && Boolean(teamId),
+    placeholderData: previousData => previousData,
     ...featureQueryOptions.teams.transfers,
     queryFn: ({ signal }) =>
       fetchTeamTransfersData({

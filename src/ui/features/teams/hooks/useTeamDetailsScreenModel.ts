@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useNavigation,
   useRoute,
@@ -8,6 +9,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
+import { fetchTeamOverview } from '@data/endpoints/teamsApi';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import { useTeamContext } from '@ui/features/teams/hooks/useTeamContext';
@@ -15,12 +17,14 @@ import { useTeamMatches } from '@ui/features/teams/hooks/useTeamMatches';
 import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
 import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
-import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
-import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
+import { fetchTeamStatsCoreData, useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
+import { fetchTeamTransfersData, useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import { resolveTeamStatsVisibility } from '@ui/features/teams/components/stats/teamStatsSelectors';
 import type { TeamDetailsTab } from '@ui/features/teams/types/teams.types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
+import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
@@ -33,6 +37,51 @@ type QueryStateLike = Pick<
   UseQueryResult<unknown>,
   'isLoading' | 'isFetching' | 'isError' | 'isFetched' | 'isFetchedAfterMount'
 >;
+
+type IdleRequestHandle = number;
+type IdleRequestOptions = {
+  timeout?: number;
+};
+type IdleRequestDeadline = {
+  readonly didTimeout: boolean;
+  timeRemaining: () => number;
+};
+type IdleRequestCallback = (deadline: IdleRequestDeadline) => void;
+type GlobalWithIdleCallbacks = typeof globalThis & {
+  requestIdleCallback?: (
+    callback: IdleRequestCallback,
+    options?: IdleRequestOptions,
+  ) => IdleRequestHandle;
+  cancelIdleCallback?: (handle: IdleRequestHandle) => void;
+};
+type DeferredTaskHandle = {
+  cancel: () => void;
+};
+
+function scheduleDeferredTask(task: () => void): DeferredTaskHandle {
+  const globalScope = globalThis as GlobalWithIdleCallbacks;
+
+  if (typeof globalScope.requestIdleCallback === 'function') {
+    const idleHandle = globalScope.requestIdleCallback(() => {
+      task();
+    }, { timeout: 250 });
+
+    return {
+      cancel: () => {
+        if (typeof globalScope.cancelIdleCallback === 'function') {
+          globalScope.cancelIdleCallback(idleHandle);
+        }
+      },
+    };
+  }
+
+  const timeoutHandle = setTimeout(task, 0);
+  return {
+    cancel: () => {
+      clearTimeout(timeoutHandle);
+    },
+  };
+}
 
 function shouldDisplayDataTab({
   hasData,
@@ -61,11 +110,14 @@ export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
   const navigation = useNavigation<TeamDetailsNavigation>();
   const route = useRoute<TeamDetailsRoute>();
+  const queryClient = useQueryClient();
   const safeTeamId = sanitizeNumericEntityId(route.params.teamId);
   const teamId = safeTeamId ?? '';
 
   const [activeTab, setActiveTab] = useState<TeamDetailsTab>('overview');
   const requestCountTelemetryKeyRef = useRef<string | null>(null);
+  const prefetchedContextKeyRef = useRef<string | null>(null);
+  const prefetchedStatsCoreKeyRef = useRef<string | null>(null);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
   const { followedTeamIds, toggleTeamFollow } = useFollowsActions();
@@ -179,7 +231,7 @@ export function useTeamDetailsScreenModel() {
     let count = 1; // Team context query.
 
     if (hasLeagueSelection && isOverviewTabActive) {
-      count += 1;
+      count += 2;
     }
     if (hasLeagueSelection && isMatchesTabActive) {
       count += 1;
@@ -188,7 +240,7 @@ export function useTeamDetailsScreenModel() {
       count += 1;
     }
     if (hasLeagueSelection && isStatsTabActive) {
-      count += 1;
+      count += 3;
     }
     if (safeTeamId && isTransfersTabActive) {
       count += 1;
@@ -207,6 +259,106 @@ export function useTeamDetailsScreenModel() {
     isStatsTabActive,
     isTransfersTabActive,
     safeTeamId,
+  ]);
+
+  useEffect(() => {
+    if (!safeTeamId || !selectedLeagueId || typeof selectedSeason !== 'number' || !timezone) {
+      return;
+    }
+
+    const historySeasons = selectedCompetitionSeasons.filter(item => item !== selectedSeason).slice(0, 5);
+    const historySeasonsKey = historySeasons.join(',');
+    const prefetchContextKey = [
+      teamId,
+      selectedLeagueId,
+      selectedSeason,
+      timezone,
+      historySeasonsKey,
+    ].join(':');
+    if (prefetchedContextKeyRef.current === prefetchContextKey) {
+      return;
+    }
+    prefetchedContextKeyRef.current = prefetchContextKey;
+
+    void Promise.allSettled([
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.teams.overview(
+          teamId,
+          selectedLeagueId,
+          selectedSeason,
+          timezone,
+          historySeasonsKey,
+        ),
+        queryFn: ({ signal }) =>
+          fetchTeamOverview(
+            {
+              teamId,
+              leagueId: selectedLeagueId,
+              season: selectedSeason,
+              timezone,
+              historySeasons,
+            },
+            signal,
+          ),
+        ...featureQueryOptions.teams.overview,
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.teams.transfers(teamId, selectedSeason),
+        queryFn: ({ signal }) =>
+          fetchTeamTransfersData({
+            teamId,
+            season: selectedSeason,
+            signal,
+          }),
+        ...featureQueryOptions.teams.transfers,
+      }),
+    ]);
+  }, [
+    prefetchedContextKeyRef,
+    queryClient,
+    safeTeamId,
+    selectedCompetitionSeasons,
+    selectedLeagueId,
+    selectedSeason,
+    teamId,
+    timezone,
+  ]);
+
+  useEffect(() => {
+    if (!safeTeamId || !selectedLeagueId || typeof selectedSeason !== 'number' || !overviewQuery.coreData) {
+      return;
+    }
+
+    const statsPrefetchKey = [teamId, selectedLeagueId, selectedSeason].join(':');
+    if (prefetchedStatsCoreKeyRef.current === statsPrefetchKey) {
+      return;
+    }
+    prefetchedStatsCoreKeyRef.current = statsPrefetchKey;
+
+    const scheduledTask = scheduleDeferredTask(() => {
+      void queryClient.prefetchQuery({
+        queryKey: queryKeys.teams.statsCore(teamId, selectedLeagueId, selectedSeason),
+        queryFn: ({ signal }) =>
+          fetchTeamStatsCoreData({
+            teamId,
+            leagueId: selectedLeagueId,
+            season: selectedSeason,
+            signal,
+          }),
+        ...featureQueryOptions.teams.statsCore,
+      });
+    });
+
+    return () => {
+      scheduledTask.cancel();
+    };
+  }, [
+    overviewQuery.coreData,
+    queryClient,
+    safeTeamId,
+    selectedLeagueId,
+    selectedSeason,
+    teamId,
   ]);
 
   useEffect(() => {

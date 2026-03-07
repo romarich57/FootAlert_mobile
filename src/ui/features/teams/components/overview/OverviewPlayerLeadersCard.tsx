@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import type { TeamOverviewPlayerLeaders } from '@ui/features/teams/types/teams.types';
 import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
@@ -17,12 +17,14 @@ type OverviewPlayerLeadersCardProps = {
   styles: TeamOverviewStyles;
   t: (key: string) => string;
   leaderSections: LeaderSection[];
+  isLoading?: boolean;
 };
 
 export function OverviewPlayerLeadersCard({
   styles,
   t,
   leaderSections,
+  isLoading = false,
 }: OverviewPlayerLeadersCardProps) {
   const hasAnyLeaders = leaderSections.some(section => section.players.length > 0);
 
@@ -80,6 +82,10 @@ export function OverviewPlayerLeadersCard({
               </View>
             );
           })}
+        </View>
+      ) : isLoading ? (
+        <View style={styles.stateCard}>
+          <ActivityIndicator size="small" style={styles.loadingIndicator} />
         </View>
       ) : (
         <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>

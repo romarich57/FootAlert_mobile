@@ -120,18 +120,29 @@ export type TeamOverviewPlayerLeaders = {
   assisters: TeamTopPlayer[];
 };
 
-export type TeamOverviewData = {
+export type TeamOverviewCoreData = {
   nextMatch: TeamMatchItem | null;
   recentForm: TeamFormEntry[];
   seasonStats: TeamOverviewSeasonStats;
-  seasonLineup: TeamSeasonLineup;
   miniStanding: TeamOverviewMiniStanding | null;
   standingHistory: TeamOverviewHistoryPoint[];
   coachPerformance: TeamOverviewCoachPerformance | null;
-  playerLeaders: TeamOverviewPlayerLeaders;
   trophiesCount: number | null;
   trophyWinsCount: number | null;
 };
+
+export type TeamOverviewLeadersData = {
+  seasonLineup: TeamSeasonLineup;
+  playerLeaders: TeamOverviewPlayerLeaders;
+  sourceUpdatedAt: string | null;
+};
+
+export type TeamOverviewData = TeamOverviewCoreData & TeamOverviewLeadersData;
+
+export type TeamStatsCoreData = Omit<
+  TeamStatsData,
+  'topPlayersByCategory' | 'topPlayers'
+>;
 
 export type TeamMatchesData = {
   all: TeamMatchItem[];
@@ -545,6 +556,7 @@ export type TeamAdvancedStatsDto = {
   teamId?: number;
   leagueId?: number;
   season?: number;
+  sourceUpdatedAt?: string | null;
   metrics?: {
     possession?: TeamAdvancedMetricDto | null;
     shotsOnTargetPerMatch?: TeamAdvancedMetricDto | null;

@@ -137,6 +137,21 @@ export function createTeamsReadService({ http, telemetry }) {
             });
             return payload;
         },
+        async fetchTeamOverviewLeaders(params, signal) {
+            const rawPayload = await http.get(`/teams/${encodeURIComponent(params.teamId)}/overview-leaders`, {
+                leagueId: params.leagueId,
+                season: params.season,
+            }, { signal });
+            const payload = parseRuntimePayloadOrFallback({
+                schema: objectResponseSchema,
+                payload: rawPayload,
+                fallback: {},
+                telemetry,
+                feature: 'teams.overview_leaders',
+                endpoint: `/teams/${params.teamId}/overview-leaders`,
+            });
+            return payload;
+        },
         async fetchTeamAdvancedStats(leagueId, season, teamId, signal) {
             const rawPayload = await http.get(`/teams/${encodeURIComponent(teamId)}/advanced-stats`, {
                 leagueId,
@@ -186,15 +201,17 @@ export function createTeamsReadService({ http, telemetry }) {
             });
             return (payload.response[0] ?? null);
         },
-        async fetchTeamTransfers(teamId, signal) {
-            const rawPayload = await http.get(`/teams/${encodeURIComponent(teamId)}/transfers`, undefined, { signal });
+        async fetchTeamTransfers(params, signal) {
+            const rawPayload = await http.get(`/teams/${encodeURIComponent(params.teamId)}/transfers`, {
+                season: params.season,
+            }, { signal });
             const payload = parseRuntimePayloadOrFallback({
                 schema: listResponseSchema,
                 payload: rawPayload,
                 fallback: { response: [] },
                 telemetry,
                 feature: 'teams.transfers',
-                endpoint: `/teams/${teamId}/transfers`,
+                endpoint: `/teams/${params.teamId}/transfers`,
             });
             return payload.response;
         },

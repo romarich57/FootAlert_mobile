@@ -7,7 +7,34 @@ import {
   toTransferTimestamp,
 } from './helpers.js';
 
-export async function fetchNormalizedTeamTransfers(teamId: string): Promise<{ response: unknown[] }> {
+function isDateInSeason(dateValue: string | null, season: number | undefined): boolean {
+  if (!dateValue || typeof season !== 'number') {
+    return true;
+  }
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return true;
+  }
+
+  const seasonStart = new Date(Date.UTC(season, 6, 1, 0, 0, 0));
+  const seasonEnd = new Date(Date.UTC(season + 1, 5, 30, 23, 59, 59));
+  return parsedDate >= seasonStart && parsedDate <= seasonEnd;
+}
+
+export function resolveTransfersCacheTtlMs(season: number | undefined, now = new Date()): number {
+  if (typeof season !== 'number') {
+    return 6 * 60 * 60_000;
+  }
+
+  const currentSeason = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+  return season >= currentSeason ? 6 * 60 * 60_000 : 24 * 60 * 60_000;
+}
+
+export async function fetchNormalizedTeamTransfers(
+  teamId: string,
+  season?: number,
+): Promise<{ response: unknown[] }> {
   const data = await apiFootballGet<{ response?: unknown[] }>(
     `/transfers?team=${encodeURIComponent(teamId)}`,
   );
@@ -36,6 +63,10 @@ export async function fetchNormalizedTeamTransfers(teamId: string): Promise<{ re
       const transferDate = transferDateRaw ? normalizeTransferDate(transferDateRaw) : null;
       const transferType = typeof transfer.type === 'string' ? transfer.type.trim() : '';
       if (!transferDate || !transferType) {
+        continue;
+      }
+
+      if (!isDateInSeason(transferDate, season)) {
         continue;
       }
 

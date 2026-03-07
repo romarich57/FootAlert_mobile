@@ -29,16 +29,9 @@ export function OverviewStandingHistoryCard({
   historyLeague,
 }: OverviewStandingHistoryCardProps) {
   const [historyChartWidth, setHistoryChartWidth] = useState(0);
-  const validHistoryPoints = useMemo(
-    () =>
-      historyPoints.filter(
-        point => typeof point.rank === 'number' && Number.isFinite(point.rank),
-      ),
-    [historyPoints],
-  );
   const historyVisualPoints = useMemo<HistoryVisualPoint[]>(
-    () => computeHistoryVisualPoints(validHistoryPoints, historyChartWidth),
-    [historyChartWidth, validHistoryPoints],
+    () => computeHistoryVisualPoints(historyPoints, historyChartWidth),
+    [historyChartWidth, historyPoints],
   );
 
   return (
@@ -60,7 +53,7 @@ export function OverviewStandingHistoryCard({
           </View>
         ) : null}
       </View>
-      {validHistoryPoints.length > 0 ? (
+      {historyPoints.length > 0 ? (
         <View style={styles.historyChart}>
           <View
             style={styles.historyGraphCanvas}
@@ -72,7 +65,7 @@ export function OverviewStandingHistoryCard({
             }}
           >
             <View style={styles.historyColumns}>
-              {validHistoryPoints.map((point, index, array) => (
+              {historyPoints.map((point, index, array) => (
                 <View
                   key={`history-col-${point.season}`}
                   style={[
@@ -126,8 +119,8 @@ export function OverviewStandingHistoryCard({
                   style={[
                     styles.historyItem,
                     {
-                      left: point.x - 18,
-                      top: point.y - 18,
+                      left: point.x - 15,
+                      top: point.y - 15,
                       backgroundColor: rankColor.fill,
                       borderColor: rankColor.border,
                     },
@@ -142,7 +135,7 @@ export function OverviewStandingHistoryCard({
           </View>
 
           <View style={styles.historySeasonRow}>
-            {validHistoryPoints.map((point, index, array) => (
+            {historyPoints.map((point, index, array) => (
               <View
                 key={`history-season-${point.season}`}
                 style={[

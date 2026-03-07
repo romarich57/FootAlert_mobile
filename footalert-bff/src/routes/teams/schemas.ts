@@ -33,6 +33,12 @@ export const standingsQuerySchema = z
 
 export const statsQuerySchema = standingsQuerySchema;
 
+export const teamTransfersQuerySchema = z
+  .object({
+    season: seasonSchema.optional(),
+  })
+  .strict();
+
 export const teamOverviewQuerySchema = z
   .object({
     leagueId: numericStringSchema,
@@ -51,3 +57,5 @@ export const teamPlayersQuerySchema = z
     cursor: paginationCursorSchema.optional(),
   })
   .strict();
+
+export const teamOverviewLeadersQuerySchema = standingsQuerySchema;

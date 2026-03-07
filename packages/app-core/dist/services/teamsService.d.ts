@@ -25,6 +25,11 @@ export declare function createTeamsReadService({ http, telemetry }: TeamsService
         timezone: string;
         historySeasons?: number[];
     }, signal?: AbortSignal): Promise<T>;
+    fetchTeamOverviewLeaders<T = unknown>(params: {
+        teamId: string;
+        leagueId: string;
+        season: number;
+    }, signal?: AbortSignal): Promise<T>;
     fetchTeamAdvancedStats<T = unknown>(leagueId: string, season: number, teamId: string, signal?: AbortSignal): Promise<T | null>;
     fetchTeamPlayers<T = unknown>(params: {
         teamId: string;
@@ -35,7 +40,10 @@ export declare function createTeamsReadService({ http, telemetry }: TeamsService
         cursor?: string;
     }, signal?: AbortSignal): Promise<PagedEnvelope<T>>;
     fetchTeamSquad<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T | null>;
-    fetchTeamTransfers<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T[]>;
+    fetchTeamTransfers<T = unknown>(params: {
+        teamId: string;
+        season?: number;
+    }, signal?: AbortSignal): Promise<T[]>;
     fetchTeamTrophies<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T[]>;
 };
 export {};

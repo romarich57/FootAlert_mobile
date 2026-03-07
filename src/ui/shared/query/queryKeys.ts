@@ -38,6 +38,11 @@ export const queryKeys = {
       timezone: string,
       historySeasonsKey: string,
     ) => ['team_overview', teamId, leagueId, season, timezone, historySeasonsKey] as const,
+    overviewLeaders: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+    ) => ['team_overview_leaders', teamId, leagueId, season] as const,
     matches: (
       teamId: string,
       leagueId: string | null,
@@ -54,6 +59,21 @@ export const queryKeys = {
       leagueId: string | null,
       season: number | null,
     ) => ['team_stats', teamId, leagueId, season] as const,
+    statsCore: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+    ) => ['team_stats_core', teamId, leagueId, season] as const,
+    statsPlayers: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+    ) => ['team_stats_players', teamId, leagueId, season] as const,
+    statsAdvanced: (
+      teamId: string,
+      leagueId: string | null,
+      season: number | null,
+    ) => ['team_stats_advanced', teamId, leagueId, season] as const,
     transfers: (teamId: string, season: number | null) =>
       ['team_transfers', teamId, season] as const,
     squad: (teamId: string) => ['team_squad', teamId] as const,

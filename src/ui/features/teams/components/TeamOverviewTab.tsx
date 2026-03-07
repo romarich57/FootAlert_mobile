@@ -32,6 +32,7 @@ type TeamOverviewTabProps = {
   data: TeamOverviewData | undefined;
   isLoading: boolean;
   isFetching: boolean;
+  isLeadersLoading?: boolean;
   isError: boolean;
   hasFetched: boolean;
   hasFetchedAfterMount: boolean;
@@ -60,6 +61,7 @@ export function TeamOverviewTab({
   data,
   isLoading,
   isFetching,
+  isLeadersLoading = false,
   isError,
   hasFetched,
   hasFetchedAfterMount,
@@ -233,6 +235,7 @@ export function TeamOverviewTab({
                 t={t}
                 seasonStatCards={seasonStatCards}
                 seasonLineup={data?.seasonLineup}
+                isLineupLoading={isLeadersLoading}
               />
             );
           }
@@ -274,6 +277,7 @@ export function TeamOverviewTab({
                 styles={styles}
                 t={t}
                 leaderSections={leaderSections}
+                isLoading={isLeadersLoading}
               />
             );
           }

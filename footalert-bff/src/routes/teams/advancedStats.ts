@@ -80,6 +80,7 @@ export type TeamAdvancedStatsPayload = {
   teamId: number;
   leagueId: number;
   season: number;
+  sourceUpdatedAt: string | null;
   metrics: Record<TeamAdvancedMetricKey, TeamAdvancedMetricPayload | null>;
 };
 
@@ -217,6 +218,7 @@ function buildMetricPayload(
 export async function computeLeagueAdvancedTeamStats(leagueId: string, season: number): Promise<{
   leagueId: number;
   season: number;
+  sourceUpdatedAt: string;
   rankings: Record<TeamAdvancedMetricKey, TeamAdvancedMetricRankEntry[]>;
 }> {
   const [fixturesPayload, standingsPayload] = await Promise.all([
@@ -298,6 +300,7 @@ export async function computeLeagueAdvancedTeamStats(leagueId: string, season: n
   return {
     leagueId: Number(leagueId),
     season,
+    sourceUpdatedAt: new Date().toISOString(),
     rankings: {
       possession: metricRankEntriesFromAccumulator(metricAccumulators.possession, teamProfiles),
       shotsOnTargetPerMatch: metricRankEntriesFromAccumulator(
@@ -317,12 +320,14 @@ export function buildTeamAdvancedStatsPayload(
   teamId: number,
   leagueId: number,
   season: number,
+  sourceUpdatedAt: string | null,
   rankings: Record<TeamAdvancedMetricKey, TeamAdvancedMetricRankEntry[]>,
 ): TeamAdvancedStatsPayload {
   return {
     teamId,
     leagueId,
     season,
+    sourceUpdatedAt,
     metrics: {
       possession: buildMetricPayload(rankings.possession, teamId),
       shotsOnTargetPerMatch: buildMetricPayload(rankings.shotsOnTargetPerMatch, teamId),

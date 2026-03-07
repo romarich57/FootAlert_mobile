@@ -620,6 +620,76 @@ function clearInFlight(key: string): void {
   inFlight.delete(hashCacheKey(key));
 }
 
+function createCacheFillPromise<T>(
+  key: string,
+  ttlMs: number,
+  producer: () => Promise<T>,
+  options?: WithCacheOptions<T>,
+): Promise<T> {
+  const pendingPromise = (async () => {
+    if (cacheBackend !== 'redis' || !redisUrl) {
+      options?.onEvent?.('miss');
+      return produceAndCache(key, ttlMs, producer, options);
+    }
+
+    ensureRedisClient();
+    if (!redisClient || !redisReady) {
+      options?.onEvent?.('miss');
+      return produceAndCache(key, ttlMs, producer, options);
+    }
+
+    const lock = await acquireRedisLock(key);
+    if (lock) {
+      try {
+        const cachedAfterLock = await getFreshCachedValue<T>(key);
+        if (cachedAfterLock !== null) {
+          options?.onEvent?.('hit');
+          return cachedAfterLock;
+        }
+
+        options?.onEvent?.('miss');
+        return produceAndCache(key, ttlMs, producer, options);
+      } finally {
+        await releaseRedisLock(lock);
+      }
+    }
+
+    const coalescedValue = await waitForFreshCacheFill<T>(key);
+    if (coalescedValue !== null) {
+      options?.onEvent?.('hit');
+      return coalescedValue;
+    }
+
+    const staleValue = await getStaleCachedValue<T>(key);
+    if (staleValue !== null) {
+      options?.onEvent?.('stale');
+      return staleValue;
+    }
+
+    options?.onEvent?.('miss');
+    return produceAndCache(key, ttlMs, producer, options);
+  })()
+    .finally(() => {
+      clearInFlight(key);
+    });
+
+  setInFlight(key, pendingPromise);
+  return pendingPromise;
+}
+
+function triggerBackgroundCacheRefresh<T>(
+  key: string,
+  ttlMs: number,
+  producer: () => Promise<T>,
+  options?: WithCacheOptions<T>,
+): void {
+  if (getInFlight(key)) {
+    return;
+  }
+
+  void createCacheFillPromise(key, ttlMs, producer, options).catch(() => undefined);
+}
+
 export function configureCache(config: Partial<CacheConfig>): void {
   memoryCache.configure(config);
 
@@ -755,55 +825,35 @@ export async function withCache<T>(
     return existingPromise;
   }
 
-  const pendingPromise = (async () => {
-    if (cacheBackend !== 'redis' || !redisUrl) {
-      options?.onEvent?.('miss');
-      return produceAndCache(key, ttlMs, producer, options);
-    }
+  return createCacheFillPromise(key, ttlMs, producer, options);
+}
 
-    ensureRedisClient();
-    if (!redisClient || !redisReady) {
-      options?.onEvent?.('miss');
-      return produceAndCache(key, ttlMs, producer, options);
-    }
+export async function withCacheStaleWhileRevalidate<T>(
+  key: string,
+  ttlMs: number,
+  producer: () => Promise<T>,
+  options?: WithCacheOptions<T>,
+): Promise<T> {
+  const cached = await getFreshCachedValue<T>(key);
+  if (cached !== null) {
+    options?.onEvent?.('hit');
+    return cached;
+  }
 
-    const lock = await acquireRedisLock(key);
-    if (lock) {
-      try {
-        const cachedAfterLock = await getFreshCachedValue<T>(key);
-        if (cachedAfterLock !== null) {
-          options?.onEvent?.('hit');
-          return cachedAfterLock;
-        }
+  const staleValue = await getStaleCachedValue<T>(key);
+  if (staleValue !== null) {
+    options?.onEvent?.('stale');
+    triggerBackgroundCacheRefresh(key, ttlMs, producer, options);
+    return staleValue;
+  }
 
-        options?.onEvent?.('miss');
-        return produceAndCache(key, ttlMs, producer, options);
-      } finally {
-        await releaseRedisLock(lock);
-      }
-    }
+  const existingPromise = getInFlight<T>(key);
+  if (existingPromise) {
+    options?.onEvent?.('hit');
+    return existingPromise;
+  }
 
-    const coalescedValue = await waitForFreshCacheFill<T>(key);
-    if (coalescedValue !== null) {
-      options?.onEvent?.('hit');
-      return coalescedValue;
-    }
-
-    const staleValue = await getStaleCachedValue<T>(key);
-    if (staleValue !== null) {
-      options?.onEvent?.('stale');
-      return staleValue;
-    }
-
-    options?.onEvent?.('miss');
-    return produceAndCache(key, ttlMs, producer, options);
-  })()
-    .finally(() => {
-      clearInFlight(key);
-    });
-
-  setInFlight(key, pendingPromise);
-  return pendingPromise;
+  return createCacheFillPromise(key, ttlMs, producer, options);
 }
 
 export function resetCacheForTests(): void {

@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import type { TeamOverviewData, TeamTopPlayer } from '@ui/features/teams/types/teams.types';
@@ -22,6 +22,7 @@ type OverviewSeasonOverviewCardProps = {
   t: (key: string) => string;
   seasonStatCards: SeasonStatCard[];
   seasonLineup: TeamOverviewData['seasonLineup'] | null | undefined;
+  isLineupLoading?: boolean;
 };
 
 function PlayerBubble({
@@ -56,6 +57,7 @@ export function OverviewSeasonOverviewCard({
   t,
   seasonStatCards,
   seasonLineup,
+  isLineupLoading = false,
 }: OverviewSeasonOverviewCardProps) {
   return (
     <View style={styles.card}>
@@ -118,6 +120,10 @@ export function OverviewSeasonOverviewCard({
           <View style={styles.lineupRow}>
             <PlayerBubble player={seasonLineup?.goalkeeper ?? null} styles={styles} />
           </View>
+        </View>
+      ) : isLineupLoading ? (
+        <View style={styles.stateCard}>
+          <ActivityIndicator size="small" color={colors.primary} style={styles.loadingIndicator} />
         </View>
       ) : (
         <Text style={styles.stateText}>{t('teamDetails.states.empty')}</Text>

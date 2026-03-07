@@ -1,4 +1,5 @@
 import React from 'react';
+import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen } from '@testing-library/react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -50,6 +51,7 @@ const mockedUseTeamSquad = jest.mocked(useTeamSquad);
 const navigateMock = jest.fn();
 const pushMock = jest.fn();
 const goBackMock = jest.fn();
+let prefetchQuerySpy: jest.SpyInstance;
 
 function renderScreen() {
   return renderWithAppProviders(<TeamDetailsScreen />);
@@ -58,6 +60,9 @@ function renderScreen() {
 describe('TeamDetailsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    prefetchQuerySpy = jest
+      .spyOn(QueryClient.prototype, 'prefetchQuery')
+      .mockResolvedValue(undefined);
 
     mockedUseNavigation.mockReturnValue({
       navigate: navigateMock,
@@ -349,6 +354,10 @@ describe('TeamDetailsScreen', () => {
       refetch: jest.fn(async () => undefined),
     } as never);
 
+  });
+
+  afterEach(() => {
+    prefetchQuerySpy.mockRestore();
   });
 
   it('renders team header and tabs', () => {

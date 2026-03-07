@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import {
   hydrateNotificationToggles,
   type AlertTypeMap,
 } from '@data/notifications/subscriptionMappings';
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import {
   TeamCompetitionSeasonSelector,
   TeamDetailsTabContent,
@@ -111,6 +112,30 @@ export function TeamDetailsScreen() {
 
   const model = useTeamDetailsScreenModel();
   const queryClient = useQueryClient();
+  const screenOpenedAtRef = useRef(Date.now());
+  const tabLoadStartedAtRef = useRef(Date.now());
+  const lastTrackedTabRef = useRef(model.activeTab);
+  const trackedTabTtiKeysRef = useRef(new Set<string>());
+  const trackedDatasetKeysRef = useRef(new Set<string>());
+  const tabCacheStateRef = useRef<'cold' | 'warm'>('cold');
+
+  const resolveTabCacheState = useCallback((tab: typeof model.activeTab): 'cold' | 'warm' => {
+    if (tab === 'overview') {
+      return model.overviewQuery.coreUpdatedAt > 0 ? 'warm' : 'cold';
+    }
+    if (tab === 'stats') {
+      return model.statsQuery.coreUpdatedAt > 0 ? 'warm' : 'cold';
+    }
+    if (tab === 'transfers') {
+      return model.transfersQuery.dataUpdatedAt > 0 ? 'warm' : 'cold';
+    }
+
+    return 'cold';
+  }, [
+    model.overviewQuery.coreUpdatedAt,
+    model.statsQuery.coreUpdatedAt,
+    model.transfersQuery.dataUpdatedAt,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,9 +143,14 @@ export function TeamDetailsScreen() {
       // Invalide uniquement les queries stale des onglets teams pour éviter les refetch inutiles
       const filters = { stale: true } as const;
       queryClient.invalidateQueries({ queryKey: ['team_overview', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_overview_leaders', model.teamId], ...filters });
       queryClient.invalidateQueries({ queryKey: ['team_matches', model.teamId], ...filters });
       queryClient.invalidateQueries({ queryKey: ['team_stats', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_stats_core', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_stats_players', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_stats_advanced', model.teamId], ...filters });
       queryClient.invalidateQueries({ queryKey: ['team_standings', model.teamId], ...filters });
+      queryClient.invalidateQueries({ queryKey: ['team_transfers', model.teamId], ...filters });
     }, [queryClient, model.teamId]),
   );
   const [notificationPrefs, setNotificationPrefs] = useState<TeamNotificationPrefs>({
@@ -201,6 +231,183 @@ export function TeamDetailsScreen() {
       null,
     [model.competitions, model.selectedLeagueId],
   );
+
+  useEffect(() => {
+    screenOpenedAtRef.current = Date.now();
+    tabLoadStartedAtRef.current = Date.now();
+    lastTrackedTabRef.current = model.activeTab;
+    trackedTabTtiKeysRef.current.clear();
+    trackedDatasetKeysRef.current.clear();
+    tabCacheStateRef.current = resolveTabCacheState(model.activeTab);
+  }, [model.teamId, resolveTabCacheState]);
+
+  useEffect(() => {
+    if (lastTrackedTabRef.current === model.activeTab) {
+      return;
+    }
+
+    lastTrackedTabRef.current = model.activeTab;
+    tabLoadStartedAtRef.current = Date.now();
+    trackedTabTtiKeysRef.current.clear();
+    tabCacheStateRef.current = resolveTabCacheState(model.activeTab);
+  }, [model.activeTab, resolveTabCacheState]);
+
+  useEffect(() => {
+    if (!model.teamId || !model.selectedLeagueId || typeof model.selectedSeason !== 'number') {
+      return;
+    }
+
+    const teamId = model.teamId;
+    const leagueId = model.selectedLeagueId;
+    const season = model.selectedSeason;
+
+    const trackTabTti = (tab: 'overview' | 'stats' | 'transfers', phase: 'core' | 'full', updatedAt: number) => {
+      if (updatedAt <= 0) {
+        return;
+      }
+
+      const telemetryKey = [teamId, tab, phase, leagueId, season, updatedAt].join(':');
+      if (trackedTabTtiKeysRef.current.has(telemetryKey)) {
+        return;
+      }
+      trackedTabTtiKeysRef.current.add(telemetryKey);
+
+      getMobileTelemetry().trackEvent('team_details.tab_tti', {
+        teamId,
+        tab,
+        phase,
+        leagueId,
+        season,
+        cacheState: tabCacheStateRef.current,
+        value: Date.now() - tabLoadStartedAtRef.current,
+      });
+    };
+
+    if (model.activeTab === 'overview' && model.overviewQuery.coreData) {
+      trackTabTti('overview', 'core', model.overviewQuery.coreUpdatedAt);
+    }
+
+    if (
+      model.activeTab === 'overview' &&
+      model.overviewQuery.leadersUpdatedAt > 0 &&
+      !model.overviewQuery.isLeadersLoading
+    ) {
+      trackTabTti('overview', 'full', model.overviewQuery.leadersUpdatedAt);
+    }
+
+    if (
+      model.activeTab === 'stats' &&
+      model.statsQuery.coreData &&
+      !model.statsQuery.isCoreLoading
+    ) {
+      trackTabTti('stats', 'core', model.statsQuery.coreUpdatedAt);
+    }
+
+    if (
+      model.activeTab === 'stats' &&
+      !model.statsQuery.isPlayersLoading &&
+      !model.statsQuery.isPlayersFetching &&
+      !model.statsQuery.isAdvancedLoading &&
+      !model.statsQuery.isAdvancedFetching &&
+      (model.statsQuery.playersUpdatedAt > 0 || model.statsQuery.isPlayersError) &&
+      (model.statsQuery.advancedUpdatedAt > 0 || model.statsQuery.isAdvancedError)
+    ) {
+      trackTabTti(
+        'stats',
+        'full',
+        Math.max(model.statsQuery.playersUpdatedAt, model.statsQuery.advancedUpdatedAt),
+      );
+    }
+
+    if (
+      model.activeTab === 'transfers' &&
+      model.transfersQuery.isFetched &&
+      !model.transfersQuery.isLoading
+    ) {
+      trackTabTti('transfers', 'core', model.transfersQuery.dataUpdatedAt);
+    }
+  }, [
+    model.activeTab,
+    model.overviewQuery.coreData,
+    model.overviewQuery.coreUpdatedAt,
+    model.overviewQuery.isLeadersLoading,
+    model.overviewQuery.leadersUpdatedAt,
+    model.selectedLeagueId,
+    model.selectedSeason,
+    model.statsQuery.advancedUpdatedAt,
+    model.statsQuery.coreData,
+    model.statsQuery.coreUpdatedAt,
+    model.statsQuery.isAdvancedError,
+    model.statsQuery.isAdvancedFetching,
+    model.statsQuery.isAdvancedLoading,
+    model.statsQuery.isCoreLoading,
+    model.statsQuery.isPlayersError,
+    model.statsQuery.isPlayersFetching,
+    model.statsQuery.isPlayersLoading,
+    model.statsQuery.playersUpdatedAt,
+    model.teamId,
+    model.transfersQuery.dataUpdatedAt,
+    model.transfersQuery.isFetched,
+    model.transfersQuery.isLoading,
+  ]);
+
+  useEffect(() => {
+    if (!model.teamId) {
+      return;
+    }
+
+    const trackDatasetReady = (dataset: string, updatedAt: number, payload: Record<string, unknown>) => {
+      if (updatedAt <= 0) {
+        return;
+      }
+
+      const telemetryKey = [model.teamId, dataset, updatedAt].join(':');
+      if (trackedDatasetKeysRef.current.has(telemetryKey)) {
+        return;
+      }
+      trackedDatasetKeysRef.current.add(telemetryKey);
+
+      getMobileTelemetry().trackEvent('team_details.dataset_ready', {
+        teamId: model.teamId,
+        dataset,
+        value: Date.now() - screenOpenedAtRef.current,
+        ...payload,
+      });
+    };
+
+    if (model.selectedLeagueId && typeof model.selectedSeason === 'number') {
+      trackDatasetReady('overview-leaders', model.overviewQuery.leadersUpdatedAt, {
+        leagueId: model.selectedLeagueId,
+        season: model.selectedSeason,
+        sourceUpdatedAt: model.overviewQuery.leadersData?.sourceUpdatedAt ?? null,
+      });
+      trackDatasetReady('stats-players', model.statsQuery.playersUpdatedAt, {
+        leagueId: model.selectedLeagueId,
+        season: model.selectedSeason,
+      });
+      trackDatasetReady('advanced-stats', model.statsQuery.advancedUpdatedAt, {
+        leagueId: model.selectedLeagueId,
+        season: model.selectedSeason,
+        sourceUpdatedAt: model.statsQuery.advancedData?.sourceUpdatedAt ?? null,
+      });
+    }
+
+    if (typeof model.selectedSeason === 'number') {
+      trackDatasetReady('transfers', model.transfersQuery.dataUpdatedAt, {
+        season: model.selectedSeason,
+      });
+    }
+  }, [
+    model.overviewQuery.leadersData?.sourceUpdatedAt,
+    model.overviewQuery.leadersUpdatedAt,
+    model.selectedLeagueId,
+    model.selectedSeason,
+    model.statsQuery.advancedData?.sourceUpdatedAt,
+    model.statsQuery.advancedUpdatedAt,
+    model.statsQuery.playersUpdatedAt,
+    model.teamId,
+    model.transfersQuery.dataUpdatedAt,
+  ]);
 
   if (!model.isValidTeamId) {
     return (

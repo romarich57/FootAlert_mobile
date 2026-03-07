@@ -10,15 +10,15 @@ import { TeamSquadTab } from '@ui/features/teams/components/TeamSquadTab';
 import { TeamStandingsTab } from '@ui/features/teams/components/TeamStandingsTab';
 import { TeamStatsTab } from '@ui/features/teams/components/TeamStatsTab';
 import { TeamTransfersTab } from '@ui/features/teams/components/TeamTransfersTab';
+import type { TeamOverviewQueryResult } from '@ui/features/teams/hooks/useTeamOverview';
+import type { TeamStatsQueryResult } from '@ui/features/teams/hooks/useTeamStats';
 import type {
   TeamDetailsTab,
   TeamCompetitionOption,
   TeamIdentity,
   TeamMatchesData,
-  TeamOverviewData,
   TeamSquadData,
   TeamStandingsData,
-  TeamStatsData,
   TeamTransfersData,
 } from '@ui/features/teams/types/teams.types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
@@ -59,10 +59,10 @@ type TeamDetailsTabContentProps = {
   onPressMatch: (matchId: string) => void;
   onPressTeam: (teamId: string) => void;
   onPressPlayer: (playerId: string) => void;
-  overviewQuery: UseQueryResult<TeamOverviewData>;
+  overviewQuery: TeamOverviewQueryResult;
   matchesQuery: UseQueryResult<TeamMatchesData>;
   standingsQuery: UseQueryResult<TeamStandingsData>;
-  statsQuery: UseQueryResult<TeamStatsData>;
+  statsQuery: TeamStatsQueryResult;
   transfersQuery: UseQueryResult<TeamTransfersData>;
   squadQuery: UseQueryResult<TeamSquadData>;
 };
@@ -109,6 +109,7 @@ export function TeamDetailsTabContent({
         data={overviewQuery.data}
         isLoading={overviewQuery.isLoading}
         isFetching={overviewQuery.isFetching}
+        isLeadersLoading={overviewQuery.isLeadersLoading}
         isError={overviewQuery.isError}
         hasFetched={overviewQuery.isFetched}
         hasFetchedAfterMount={overviewQuery.isFetchedAfterMount}
@@ -165,6 +166,8 @@ export function TeamDetailsTabContent({
         isLoading={statsQuery.isLoading}
         isError={statsQuery.isError}
         hasFetched={statsQuery.isFetched}
+        isPlayersLoading={statsQuery.isPlayersLoading}
+        isAdvancedLoading={statsQuery.isAdvancedLoading}
         onRetry={() => statsQuery.refetch().catch(() => undefined)}
         onPressPlayer={onPressPlayer}
       />

@@ -3,7 +3,11 @@ import { z } from 'zod';
 
 import { env } from '../../config/env.js';
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
-import { buildCanonicalCacheKey, withCache } from '../../lib/cache.js';
+import {
+  buildCanonicalCacheKey,
+  withCache,
+  withCacheStaleWhileRevalidate,
+} from '../../lib/cache.js';
 import {
   PaginationCursorCodec,
   computePaginationFiltersHash,
@@ -24,7 +28,8 @@ import {
   type ApiFootballUnknownListResponse,
 } from './helpers.js';
 import {
-  fetchTeamOverviewPayload,
+  fetchTeamOverviewCorePayload,
+  fetchTeamOverviewLeadersPayload,
   parseOverviewHistorySeasons,
 } from './overview.js';
 import {
@@ -32,10 +37,15 @@ import {
   standingsQuerySchema,
   teamFixturesQuerySchema,
   teamIdParamsSchema,
+  teamOverviewLeadersQuerySchema,
   teamOverviewQuerySchema,
   teamPlayersQuerySchema,
+  teamTransfersQuerySchema,
 } from './schemas.js';
-import { fetchNormalizedTeamTransfers } from './transfers.js';
+import {
+  fetchNormalizedTeamTransfers,
+  resolveTransfersCacheTtlMs,
+} from './transfers.js';
 import { fetchTeamTrophiesWithFallback } from './trophies.js';
 
 type TeamSquadRecord = {
@@ -246,13 +256,33 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
       }),
       45_000,
       () =>
-        fetchTeamOverviewPayload({
+        fetchTeamOverviewCorePayload({
           teamId: params.id,
           leagueId: query.leagueId,
           season: query.season,
           timezone: query.timezone,
           historySeasons,
           logger: request.log,
+        }),
+    );
+  });
+
+  app.get('/v1/teams/:id/overview-leaders', async request => {
+    const params = parseOrThrow(teamIdParamsSchema, request.params);
+    const query = parseOrThrow(teamOverviewLeadersQuerySchema, request.query);
+
+    return withCache(
+      buildCanonicalCacheKey('team:overview-leaders', {
+        teamId: params.id,
+        leagueId: query.leagueId,
+        season: query.season,
+      }),
+      60_000,
+      () =>
+        fetchTeamOverviewLeadersPayload({
+          teamId: params.id,
+          leagueId: query.leagueId,
+          season: query.season,
         }),
     );
   });
@@ -307,7 +337,7 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
       const query = parseOrThrow(statsQuerySchema, request.query);
       const teamId = toNumericId(params.id) ?? Number(params.id);
 
-      const leagueSeasonStats = await withCache(
+      const leagueSeasonStats = await withCacheStaleWhileRevalidate(
         `team:advancedstats:league:${query.leagueId}:season:${query.season}`,
         TEAM_ADVANCED_STATS_CACHE_TTL_MS,
         () => computeLeagueAdvancedTeamStats(query.leagueId, query.season),
@@ -318,6 +348,7 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
           teamId,
           leagueSeasonStats.leagueId,
           leagueSeasonStats.season,
+          leagueSeasonStats.sourceUpdatedAt,
           leagueSeasonStats.rankings,
         ),
       };
@@ -426,10 +457,17 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/v1/teams/:id/transfers', async request => {
     const params = parseOrThrow(teamIdParamsSchema, request.params);
-    parseOrThrow(z.object({}).strict(), request.query);
+    const query = parseOrThrow(teamTransfersQuerySchema, request.query);
+    const cacheTtlMs = resolveTransfersCacheTtlMs(query.season);
 
-    return withCache(`team:transfers:v2:${request.url}`, 120_000, () =>
-      fetchNormalizedTeamTransfers(params.id),
+    return withCache(
+      buildCanonicalCacheKey('team:transfers:v3', {
+        teamId: params.id,
+        season: query.season,
+      }),
+      cacheTtlMs,
+      () =>
+        fetchNormalizedTeamTransfers(params.id, query.season),
     );
   });
 

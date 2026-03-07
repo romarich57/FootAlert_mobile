@@ -11,6 +11,8 @@ import type {
   TeamApiStandingsDto,
   TeamApiStatisticsDto,
   TeamApiTeamDetailsDto,
+  TeamOverviewCoreData,
+  TeamOverviewLeadersData,
   TeamOverviewData,
   TeamApiTransferDto,
 } from '@domain/contracts/teams.types';
@@ -90,8 +92,21 @@ type FetchTeamOverviewParams = {
 export async function fetchTeamOverview(
   params: FetchTeamOverviewParams,
   signal?: AbortSignal,
-): Promise<TeamOverviewData> {
-  return teamsReadService.fetchTeamOverview<TeamOverviewData>(params, signal);
+): Promise<TeamOverviewCoreData> {
+  return teamsReadService.fetchTeamOverview<TeamOverviewCoreData>(params, signal);
+}
+
+type FetchTeamOverviewLeadersParams = {
+  teamId: string;
+  leagueId: string;
+  season: number;
+};
+
+export async function fetchTeamOverviewLeaders(
+  params: FetchTeamOverviewLeadersParams,
+  signal?: AbortSignal,
+): Promise<TeamOverviewLeadersData> {
+  return teamsReadService.fetchTeamOverviewLeaders<TeamOverviewLeadersData>(params, signal);
 }
 
 export async function fetchTeamAdvancedStats(
@@ -138,7 +153,14 @@ export async function fetchTeamSquad(
 
 export async function fetchTeamTransfers(
   teamId: string,
+  season: number | null,
   signal?: AbortSignal,
 ): Promise<TeamApiTransferDto[]> {
-  return teamsReadService.fetchTeamTransfers<TeamApiTransferDto>(teamId, signal);
+  return teamsReadService.fetchTeamTransfers<TeamApiTransferDto>(
+    {
+      teamId,
+      season: typeof season === 'number' ? season : undefined,
+    },
+    signal,
+  );
 }

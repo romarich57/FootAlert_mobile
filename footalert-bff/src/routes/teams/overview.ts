@@ -10,7 +10,6 @@ import { fetchTeamTrophiesWithFallback } from './trophies.js';
 
 const TEAM_OVERVIEW_TTL_MS = 45_000;
 const TEAM_OVERVIEW_LONG_TTL_MS = 120_000;
-const TEAM_PLAYERS_PAGE_SIZE = 50;
 const TEAM_PLAYERS_MAX_PAGES = 4;
 
 type TeamMatchStatus = 'upcoming' | 'live' | 'finished';
@@ -123,11 +122,16 @@ type TeamSeasonLineup = {
   attackers: TeamTopPlayer[];
 };
 
-type TeamOverviewResponse = {
+type TeamOverviewPlayerLeaders = {
+  ratings: TeamTopPlayer[];
+  scorers: TeamTopPlayer[];
+  assisters: TeamTopPlayer[];
+};
+
+type TeamOverviewCoreResponse = {
   nextMatch: TeamMatchItem | null;
   recentForm: TeamFormEntry[];
   seasonStats: TeamOverviewSeasonStats;
-  seasonLineup: TeamSeasonLineup;
   miniStanding: {
     leagueId: string | null;
     leagueName: string | null;
@@ -139,13 +143,14 @@ type TeamOverviewResponse = {
     rank: number | null;
   }>;
   coachPerformance: TeamOverviewCoachPerformance | null;
-  playerLeaders: {
-    ratings: TeamTopPlayer[];
-    scorers: TeamTopPlayer[];
-    assisters: TeamTopPlayer[];
-  };
   trophiesCount: number | null;
   trophyWinsCount: number | null;
+};
+
+type TeamOverviewLeadersResponse = {
+  seasonLineup: TeamSeasonLineup;
+  playerLeaders: TeamOverviewPlayerLeaders;
+  sourceUpdatedAt: string | null;
 };
 
 type TeamApiFixtureDto = {
@@ -335,6 +340,12 @@ type FetchOverviewParams = {
   timezone: string;
   historySeasons?: number[];
   logger: WarnLogger;
+};
+
+type FetchOverviewLeadersParams = {
+  teamId: string;
+  leagueId: string;
+  season: number;
 };
 
 type PlayerLineCategory = 'goalkeeper' | 'defender' | 'midfielder' | 'attacker' | 'other';
@@ -851,8 +862,13 @@ function isWinnerTrophy(place: string | null): boolean {
 }
 
 function buildHistorySeasons(currentSeason: number, historySeasons: number[] | undefined): number[] {
-  const raw = [currentSeason, ...(historySeasons ?? [])];
-  return Array.from(new Set(raw.filter(year => Number.isFinite(year))))
+  const fallbackSeasons = Array.from({ length: 5 }, (_, index) => currentSeason - (index + 1));
+  const raw = historySeasons && historySeasons.length > 0 ? historySeasons : fallbackSeasons;
+  return Array.from(
+    new Set(
+      raw.filter(year => Number.isFinite(year) && year !== currentSeason),
+    ),
+  )
     .sort((first, second) => second - first)
     .slice(0, 5);
 }
@@ -982,7 +998,7 @@ async function fetchOverviewPlayers(
     aggregated.push(...pageItems);
 
     const totalPages = toNumber(pagePayload.paging?.total);
-    if ((typeof totalPages === 'number' && page >= totalPages) || pageItems.length < TEAM_PLAYERS_PAGE_SIZE) {
+    if (typeof totalPages === 'number' && page >= totalPages) {
       break;
     }
   }
@@ -1037,28 +1053,57 @@ async function fetchOverviewTrophies(
   );
 }
 
-export async function fetchTeamOverviewPayload({
+function buildOverviewLeadersPayload(
+  playersPayload: TeamApiPlayerDto[],
+  playerContext: {
+    teamId: string;
+    leagueId: string;
+    season: number;
+  },
+  sourceUpdatedAt: string | null,
+): TeamOverviewLeadersResponse {
+  const topPlayers = mapPlayersToTopPlayers(playersPayload, playerContext, 30);
+  const topPlayersByCategory = mapPlayersToTopPlayersByCategory(playersPayload, playerContext, 5);
+
+  return {
+    seasonLineup: buildEstimatedLineup(topPlayers),
+    playerLeaders: {
+      ratings: topPlayersByCategory.ratings.slice(0, 3),
+      scorers: topPlayersByCategory.scorers.slice(0, 3),
+      assisters: topPlayersByCategory.assisters.slice(0, 3),
+    },
+    sourceUpdatedAt,
+  };
+}
+
+export async function fetchTeamOverviewLeadersPayload({
+  teamId,
+  leagueId,
+  season,
+}: FetchOverviewLeadersParams): Promise<TeamOverviewLeadersResponse> {
+  const playersPayload = await fetchOverviewPlayers(teamId, leagueId, season);
+
+  return buildOverviewLeadersPayload(
+    playersPayload,
+    { teamId, leagueId, season },
+    new Date().toISOString(),
+  );
+}
+
+export async function fetchTeamOverviewCorePayload({
   teamId,
   leagueId,
   season,
   timezone,
   historySeasons,
   logger,
-}: FetchOverviewParams): Promise<TeamOverviewResponse> {
-  const [
-    fixturesResult,
-    nextFixtureResult,
-    standingsResult,
-    statisticsResult,
-    playersResult,
-    coachResult,
-    trophiesResult,
-  ] = await Promise.allSettled([
+}: FetchOverviewParams): Promise<TeamOverviewCoreResponse> {
+  const [fixturesResult, nextFixtureResult, standingsResult, statisticsResult, coachResult, trophiesResult] =
+    await Promise.allSettled([
     fetchOverviewFixtures(teamId, leagueId, season, timezone),
     fetchOverviewNextFixture(teamId, timezone),
     fetchOverviewStandings(leagueId, season),
     fetchOverviewStatistics(teamId, leagueId, season),
-    fetchOverviewPlayers(teamId, leagueId, season),
     fetchOverviewCoach(teamId),
     fetchOverviewTrophies(teamId, logger),
   ]);
@@ -1077,15 +1122,10 @@ export async function fetchTeamOverviewPayload({
     );
   }
 
-  if (playersResult.status === 'rejected') {
-    throw toSettledError([playersResult], 'Unable to load overview players dataset');
-  }
-
   const fixturesPayload = fixturesResult.status === 'fulfilled' ? fixturesResult.value : [];
   const nextFixturePayload = nextFixtureResult.status === 'fulfilled' ? nextFixtureResult.value : null;
   const standingsPayload = standingsResult.status === 'fulfilled' ? standingsResult.value : null;
   const statisticsPayload = statisticsResult.status === 'fulfilled' ? statisticsResult.value : null;
-  const playersPayload = playersResult.status === 'fulfilled' ? playersResult.value : [];
   const coach = coachResult.status === 'fulfilled' ? coachResult.value : null;
   const trophiesPayload = trophiesResult.status === 'fulfilled' ? trophiesResult.value : [];
 
@@ -1095,10 +1135,6 @@ export async function fetchTeamOverviewPayload({
   const seasonStats = buildSeasonStats(statisticsPayload, standingRow);
   const currentStandingRows = resolveCurrentStandingRows(standings.groups);
   const miniStandingRows = buildMiniStandingRows(currentStandingRows);
-
-  const playerContext = { teamId, leagueId, season };
-  const topPlayers = mapPlayersToTopPlayers(playersPayload, playerContext, 30);
-  const topPlayersByCategory = mapPlayersToTopPlayersByCategory(playersPayload, playerContext, 5);
   const coachPerformance = buildCoachPerformance(coach, seasonStats);
 
   const resolvedHistorySeasons = buildHistorySeasons(season, historySeasons);
@@ -1144,7 +1180,6 @@ export async function fetchTeamOverviewPayload({
     nextMatch,
     recentForm: mapRecentTeamForm(matchesData.past, teamId, 5),
     seasonStats,
-    seasonLineup: buildEstimatedLineup(topPlayers),
     miniStanding:
       miniStandingRows.length > 0
         ? {
@@ -1156,11 +1191,6 @@ export async function fetchTeamOverviewPayload({
         : null,
     standingHistory,
     coachPerformance,
-    playerLeaders: {
-      ratings: topPlayersByCategory.ratings.slice(0, 3),
-      scorers: topPlayersByCategory.scorers.slice(0, 3),
-      assisters: topPlayersByCategory.assisters.slice(0, 3),
-    },
     trophiesCount: trophiesPayload.length,
     trophyWinsCount: trophiesPayload.filter(item => isWinnerTrophy(toText(item.place))).length,
   };

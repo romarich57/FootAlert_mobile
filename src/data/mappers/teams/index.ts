@@ -17,6 +17,7 @@ export {
 } from './standingsMapper';
 
 export {
+  mapTeamAdvancedComparisonMetrics,
   mapPlayersToTopPlayers,
   mapPlayersToTopPlayersByCategory,
   mapTeamStatisticsToStats,

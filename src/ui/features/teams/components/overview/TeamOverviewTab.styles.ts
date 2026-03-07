@@ -483,15 +483,15 @@ export function createTeamOverviewStyles(colors: ThemeColors) {
     },
     historyItem: {
       position: 'absolute',
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
       borderWidth: 2,
       alignItems: 'center',
       justifyContent: 'center',
     },
     historyItemText: {
-      fontSize: 15,
+      fontSize: 12,
       fontWeight: '800',
     },
     historySeasonRow: {
@@ -516,7 +516,7 @@ export function createTeamOverviewStyles(colors: ThemeColors) {
     },
     historySeasonText: {
       color: colors.textMuted,
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '700',
       textAlign: 'center',
     },

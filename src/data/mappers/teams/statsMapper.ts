@@ -358,9 +358,15 @@ function buildComparisonMetrics(
     ),
   ].filter((metric): metric is TeamComparisonMetric => metric !== null);
 
+  return [...fromStandings, ...mapTeamAdvancedComparisonMetrics(advancedStats)];
+}
+
+export function mapTeamAdvancedComparisonMetrics(
+  advancedStats: TeamAdvancedStatsDto | null,
+): TeamComparisonMetric[] {
   const advancedMetrics = advancedStats?.metrics;
 
-  const fromAdvanced = [
+  return [
     mapAdvancedComparisonMetric('possession', advancedMetrics?.possession ?? null),
     mapAdvancedComparisonMetric(
       'shotsOnTargetPerMatch',
@@ -372,8 +378,6 @@ function buildComparisonMetrics(
       advancedMetrics?.expectedGoalsPerMatch ?? null,
     ),
   ].filter((metric): metric is TeamComparisonMetric => metric !== null);
-
-  return [...fromStandings, ...fromAdvanced];
 }
 
 const EMPTY_TOP_PLAYERS_BY_CATEGORY: TeamTopPlayersByCategory = {

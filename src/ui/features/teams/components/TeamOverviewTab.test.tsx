@@ -432,6 +432,7 @@ const baseData: TeamOverviewData = {
       },
     ],
   },
+  sourceUpdatedAt: null,
   trophiesCount: 15,
   trophyWinsCount: 10,
 };

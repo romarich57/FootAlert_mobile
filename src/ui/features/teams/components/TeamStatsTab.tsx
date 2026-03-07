@@ -20,6 +20,8 @@ type TeamStatsTabProps = {
   isLoading: boolean;
   isError: boolean;
   hasFetched?: boolean;
+  isPlayersLoading?: boolean;
+  isAdvancedLoading?: boolean;
   onRetry: () => void;
   onPressPlayer: (playerId: string) => void;
 };
@@ -34,6 +36,8 @@ export function TeamStatsTab({
   isLoading,
   isError,
   hasFetched = true,
+  isPlayersLoading = false,
+  isAdvancedLoading = false,
   onRetry,
   onPressPlayer,
 }: TeamStatsTabProps) {
@@ -50,7 +54,7 @@ export function TeamStatsTab({
     visibility.playersCardVisible ||
     comparisonMetrics.length > 0;
 
-  const shouldShowLoadingState = (isLoading || !hasFetched) && !hasContentData;
+  const shouldShowLoadingState = (isLoading || !hasFetched) && !visibility.pointsCardVisible && !visibility.goalsCardVisible;
   const shouldShowErrorState = isError && !hasContentData;
   const localizePosition = useCallback(
     (value: string | null | undefined) => localizePlayerPosition(value, t),
@@ -95,7 +99,7 @@ export function TeamStatsTab({
       });
     }
 
-    if (!shouldShowLoadingState && !shouldShowErrorState && visibility.playersCardVisible) {
+    if (!shouldShowLoadingState && !shouldShowErrorState && (visibility.playersCardVisible || isPlayersLoading)) {
       items.push({
         key: 'top-players',
         content: (
@@ -104,6 +108,7 @@ export function TeamStatsTab({
             styles={styles}
             colors={colors}
             t={t}
+            isLoading={isPlayersLoading}
             onPressPlayer={onPressPlayer}
             localizePosition={localizePosition}
           />
@@ -111,7 +116,7 @@ export function TeamStatsTab({
       });
     }
 
-    if (!shouldShowLoadingState && !shouldShowErrorState && comparisonMetrics.length > 0) {
+    if (!shouldShowLoadingState && !shouldShowErrorState && (comparisonMetrics.length > 0 || isAdvancedLoading)) {
       items.push({
         key: 'comparison-metrics',
         content: (
@@ -120,6 +125,7 @@ export function TeamStatsTab({
             styles={styles}
             colors={colors}
             t={t}
+            isLoading={isAdvancedLoading}
           />
         ),
       });
@@ -149,6 +155,8 @@ export function TeamStatsTab({
     colors,
     comparisonMetrics,
     data,
+    isAdvancedLoading,
+    isPlayersLoading,
     localizePosition,
     onPressPlayer,
     onRetry,

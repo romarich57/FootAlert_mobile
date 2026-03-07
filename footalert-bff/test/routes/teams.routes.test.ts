@@ -173,7 +173,7 @@ test('GET /v1/teams/:id/trophies returns explicit empty response when ID and nam
   assert.equal(String(calls[1].input), 'https://api-football.test/teams?id=777');
 });
 
-test('GET /v1/teams/:id/transfers deduplicates one-day-apart duplicates by keeping latest date', async t => {
+test('GET /v1/teams/:id/transfers filters by season and deduplicates one-day-apart duplicates by keeping latest date', async t => {
   const calls = installFetchMock(async call => {
     const url = new URL(String(call.input));
 
@@ -184,6 +184,14 @@ test('GET /v1/teams/:id/transfers deduplicates one-day-apart duplicates by keepi
             player: { id: 2032, name: 'J. Strand Larsen' },
             update: '2026-02-01',
             transfers: [
+              {
+                date: '2024-05-01',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 52, name: 'Crystal Palace', logo: 'cp.png' },
+                  out: { id: 39, name: 'Wolves', logo: 'wolves.png' },
+                },
+              },
               {
                 date: '2026-01-31',
                 type: 'Transfer',
@@ -202,6 +210,20 @@ test('GET /v1/teams/:id/transfers deduplicates one-day-apart duplicates by keepi
               },
             ],
           },
+          {
+            player: { id: 3001, name: 'Old Player' },
+            update: '2024-05-01',
+            transfers: [
+              {
+                date: '2024-05-01',
+                type: 'Transfer',
+                teams: {
+                  in: { id: 39, name: 'Wolves', logo: 'wolves.png' },
+                  out: { id: 70, name: 'Old Team', logo: 'old.png' },
+                },
+              },
+            ],
+          },
         ],
       });
     }
@@ -213,7 +235,7 @@ test('GET /v1/teams/:id/transfers deduplicates one-day-apart duplicates by keepi
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/teams/39/transfers',
+    url: '/v1/teams/39/transfers?season=2025',
   });
 
   assert.equal(response.statusCode, 200);
@@ -301,6 +323,7 @@ test('GET /v1/teams/:id/advanced-stats aggregates fixture statistics and returns
   assert.equal(payload.response.metrics.shotsOnTargetPerMatch?.value, 6);
   assert.equal(payload.response.metrics.shotsPerMatch?.value, 12);
   assert.equal(payload.response.metrics.expectedGoalsPerMatch?.value, 1.9);
+  assert.equal(typeof payload.response.sourceUpdatedAt, 'string');
 
   assert.equal(calls.length, 3);
 });
@@ -379,6 +402,7 @@ test('GET /v1/teams/:id/advanced-stats reuses league-season cache for other team
   assert.equal(secondPayload.response.teamId, 20);
   assert.equal(secondPayload.response.metrics.possession?.value, 45);
   assert.equal(secondPayload.response.metrics.possession?.rank, 2);
+  assert.equal(typeof secondPayload.response.sourceUpdatedAt, 'string');
   assert.equal(calls.length, 3);
 });
 
@@ -464,7 +488,7 @@ test('GET /v1/teams/:id/next-fixture proxies upstream endpoint with timezone', a
   );
 });
 
-test('GET /v1/teams/:id/overview returns the aggregated team overview payload', async t => {
+test('GET /v1/teams/:id/overview returns the core team overview payload without players', async t => {
   const calls = installFetchMock(async call => {
     const url = new URL(String(call.input));
     const pathname = url.pathname;
@@ -533,6 +557,7 @@ test('GET /v1/teams/:id/overview returns the aggregated team overview payload', 
         [2023, 2],
         [2022, 3],
         [2021, 4],
+        [2020, 5],
       ]);
       const targetRank = rankBySeason.get(season) ?? 2;
 
@@ -713,7 +738,7 @@ test('GET /v1/teams/:id/overview returns the aggregated team overview payload', 
 
   const response = await app.inject({
     method: 'GET',
-    url: '/v1/teams/529/overview?leagueId=140&season=2025&timezone=Europe/Paris&historySeasons=2024,2023,2022,2021,2020',
+    url: '/v1/teams/529/overview?leagueId=140&season=2025&timezone=Europe/Paris&historySeasons=2025,2024,2023,2022,2021,2020',
   });
 
   assert.equal(response.statusCode, 200);
@@ -725,20 +750,86 @@ test('GET /v1/teams/:id/overview returns the aggregated team overview payload', 
   assert.deepEqual(
     payload.standingHistory,
     [
-      { season: 2025, rank: 2 },
       { season: 2024, rank: 1 },
       { season: 2023, rank: 2 },
       { season: 2022, rank: 3 },
       { season: 2021, rank: 4 },
+      { season: 2020, rank: 5 },
     ],
   );
   assert.equal(payload.coachPerformance.coach.name, 'Coach Name');
-  assert.equal(payload.playerLeaders.scorers[0].playerId, '4');
   assert.equal(payload.trophiesCount, 3);
   assert.equal(payload.trophyWinsCount, 2);
   assert.equal(
     calls.some(call => String(call.input).includes('season=2020')),
+    true,
+  );
+  assert.equal(
+    calls.some(call => String(call.input).includes('/players?')),
     false,
+  );
+});
+
+test('GET /v1/teams/:id/overview-leaders paginates players and returns leaders payload', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/players') && url.searchParams.get('page') === '1') {
+      return jsonResponse({
+        response: [
+          {
+            player: { id: 1, name: 'Marc', photo: 'gk.png' },
+            statistics: [
+              {
+                team: { id: 529, logo: 'barca.png' },
+                league: { id: 140, season: 2025 },
+                games: { position: 'Goalkeeper', rating: '7.1', minutes: 2100, appearences: 25 },
+                goals: { total: 0, assists: 0 },
+              },
+            ],
+          },
+        ],
+        paging: { current: 1, total: 2 },
+      });
+    }
+
+    if (url.pathname.endsWith('/players') && url.searchParams.get('page') === '2') {
+      return jsonResponse({
+        response: [
+          {
+            player: { id: 99, name: 'Late Scorer', photo: 'late.png' },
+            statistics: [
+              {
+                team: { id: 529, logo: 'barca.png' },
+                league: { id: 140, season: 2025 },
+                games: { position: 'Attacker', rating: '8.4', minutes: 1800, appearences: 21 },
+                goals: { total: 21, assists: 9 },
+              },
+            ],
+          },
+        ],
+        paging: { current: 2, total: 2 },
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/teams/529/overview-leaders?leagueId=140&season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.seasonLineup.goalkeeper?.playerId, '1');
+  assert.equal(payload.playerLeaders.scorers[0].playerId, '99');
+  assert.equal(typeof payload.sourceUpdatedAt, 'string');
+  assert.equal(
+    calls.some(call => String(call.input).includes('page=2')),
+    true,
   );
 });
 

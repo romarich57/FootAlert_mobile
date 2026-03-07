@@ -2,8 +2,8 @@ import { fetchTeamPlayers } from '@data/endpoints/teamsApi';
 import type { TeamApiPlayerDto } from '@ui/features/teams/types/teams.types';
 
 const DEFAULT_TEAM_PLAYERS_PAGE_LIMIT = 50;
-const DEFAULT_TEAM_PLAYERS_MAX_REQUESTS = 10;
-const DEFAULT_TEAM_PLAYERS_TARGET_ITEMS = 200;
+const DEFAULT_TEAM_PLAYERS_MAX_REQUESTS = 4;
+const DEFAULT_TEAM_PLAYERS_TARGET_ITEMS = 120;
 
 type FetchAllTeamPlayersParams = {
   teamId: string;
@@ -24,6 +24,7 @@ export async function fetchAllTeamPlayers({
   maxRequests = DEFAULT_TEAM_PLAYERS_MAX_REQUESTS,
   targetItems = DEFAULT_TEAM_PLAYERS_TARGET_ITEMS,
 }: FetchAllTeamPlayersParams): Promise<TeamApiPlayerDto[]> {
+  // TeamDetails stats only needs enough players to compute leaders, not an exhaustive roster crawl.
   const aggregated: TeamApiPlayerDto[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | undefined;

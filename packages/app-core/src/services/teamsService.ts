@@ -225,6 +225,34 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
       return payload as T;
     },
 
+    async fetchTeamOverviewLeaders<T = unknown>(
+      params: {
+        teamId: string;
+        leagueId: string;
+        season: number;
+      },
+      signal?: AbortSignal,
+    ): Promise<T> {
+      const rawPayload = await http.get<unknown>(
+        `/teams/${encodeURIComponent(params.teamId)}/overview-leaders`,
+        {
+          leagueId: params.leagueId,
+          season: params.season,
+        },
+        { signal },
+      );
+      const payload = parseRuntimePayloadOrFallback({
+        schema: objectResponseSchema,
+        payload: rawPayload,
+        fallback: {},
+        telemetry,
+        feature: 'teams.overview_leaders',
+        endpoint: `/teams/${params.teamId}/overview-leaders`,
+      });
+
+      return payload as T;
+    },
+
     async fetchTeamAdvancedStats<T = unknown>(
       leagueId: string,
       season: number,
@@ -307,10 +335,18 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
       return ((payload as ListEnvelope<T>).response[0] ?? null) as T | null;
     },
 
-    async fetchTeamTransfers<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T[]> {
+    async fetchTeamTransfers<T = unknown>(
+      params: {
+        teamId: string;
+        season?: number;
+      },
+      signal?: AbortSignal,
+    ): Promise<T[]> {
       const rawPayload = await http.get<unknown>(
-        `/teams/${encodeURIComponent(teamId)}/transfers`,
-        undefined,
+        `/teams/${encodeURIComponent(params.teamId)}/transfers`,
+        {
+          season: params.season,
+        },
         { signal },
       );
       const payload = parseRuntimePayloadOrFallback({
@@ -319,7 +355,7 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
         fallback: { response: [] },
         telemetry,
         feature: 'teams.transfers',
-        endpoint: `/teams/${teamId}/transfers`,
+        endpoint: `/teams/${params.teamId}/transfers`,
       });
 
       return (payload as ListEnvelope<T>).response;

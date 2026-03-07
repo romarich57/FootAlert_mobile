@@ -3,6 +3,7 @@ export {
   findTeamStandingRow,
   mapFixtureToTeamMatch,
   mapFixturesToTeamMatches,
+  mapTeamAdvancedComparisonMetrics,
   mapPlayersToTopPlayers,
   mapPlayersToTopPlayersByCategory,
   mapRecentTeamForm,
