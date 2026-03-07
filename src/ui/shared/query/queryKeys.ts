@@ -147,6 +147,8 @@ export const queryKeys = {
       ['follows', 'team-cards', timezone, ...teamIds] as const,
     followedPlayerCards: (playerIds: string[], season: number) =>
       ['follows', 'player-cards', season, ...playerIds] as const,
+    discovery: (tab: FollowEntityTab, limit: number) =>
+      ['follows', 'discovery', tab, limit] as const,
     trends: (tab: FollowEntityTab, season: number, hidden: boolean) =>
       ['follows', 'trends', tab, season, hidden] as const,
   },

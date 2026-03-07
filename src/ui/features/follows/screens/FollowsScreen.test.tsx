@@ -8,7 +8,7 @@ import { FollowsScreen } from '@ui/features/follows/screens/FollowsScreen';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
-import { useFollowsTrends } from '@ui/features/follows/hooks/useFollowsTrends';
+import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
 import i18n from '@ui/shared/i18n';
 
 jest.mock('@react-navigation/native', () => {
@@ -22,7 +22,7 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('@ui/features/follows/hooks/useFollowsActions');
 jest.mock('@ui/features/follows/hooks/useFollowedTeamsCards');
 jest.mock('@ui/features/follows/hooks/useFollowedPlayersCards');
-jest.mock('@ui/features/follows/hooks/useFollowsTrends');
+jest.mock('@ui/features/follows/hooks/useFollowsDiscovery');
 jest.mock('@ui/app/providers/ThemeProvider', () => ({
   useAppTheme: () => ({
     colors: {
@@ -54,7 +54,7 @@ const mockedUseNetInfo = jest.mocked(useNetInfo);
 const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 const mockedUseFollowedTeamsCards = jest.mocked(useFollowedTeamsCards);
 const mockedUseFollowedPlayersCards = jest.mocked(useFollowedPlayersCards);
-const mockedUseFollowsTrends = jest.mocked(useFollowsTrends);
+const mockedUseFollowsDiscovery = jest.mocked(useFollowsDiscovery);
 
 const navigateMock = jest.fn();
 
@@ -134,15 +134,23 @@ describe('FollowsScreen', () => {
       isLoading: false,
     } as never);
 
-    mockedUseFollowsTrends.mockReturnValue({
-      data: [
-        {
-          teamId: '50',
-          teamName: 'Man City',
-          teamLogo: 'city.png',
-          leagueName: 'Premier League',
+    mockedUseFollowsDiscovery.mockReturnValue({
+      data: {
+        items: [
+          {
+            teamId: '50',
+            teamName: 'Man City',
+            teamLogo: 'city.png',
+            country: 'England',
+            activeFollowersCount: 12,
+            recentNet30d: 12,
+            totalFollowAdds: 20,
+          },
+        ],
+        meta: {
+          source: 'dynamic',
         },
-      ],
+      },
       isLoading: false,
     } as never);
   });
@@ -206,13 +214,34 @@ describe('FollowsScreen', () => {
       data: [],
       isLoading: false,
     } as never);
-    mockedUseFollowsTrends.mockReturnValue({
-      data: [],
+    mockedUseFollowsDiscovery.mockReturnValue({
+      data: {
+        items: [],
+        meta: {
+          source: 'dynamic',
+        },
+      },
       isLoading: false,
     } as never);
 
     renderScreen();
 
     expect(screen.getByText(i18n.t('matches.states.offline.title'))).toBeTruthy();
+  });
+
+  it('renders loading instead of empty trends while discovery is still resolving', () => {
+    mockedUseFollowedTeamsCards.mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as never);
+    mockedUseFollowsDiscovery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as never);
+
+    renderScreen();
+
+    expect(screen.getByText(i18n.t('follows.states.loading'))).toBeTruthy();
+    expect(screen.queryByText(i18n.t('follows.states.noTrends'))).toBeNull();
   });
 });

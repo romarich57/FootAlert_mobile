@@ -16,7 +16,7 @@ type Props = {
   selectedTab: OnboardingTab;
   onTabChange: (tab: OnboardingTab) => void;
   followedIds: string[];
-  onToggleFollow: (id: string) => void;
+  onToggleFollow: (item: OnboardingEntityCardData, source: 'trending' | 'search') => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -92,7 +92,7 @@ function TrendingTab({
 }: {
   step: OnboardingStepType;
   followedIds: string[];
-  onToggleFollow: (id: string) => void;
+  onToggleFollow: (item: OnboardingEntityCardData, source: 'trending' | 'search') => void;
   colors: ThemeColors;
 }) {
   const { t } = useTranslation();
@@ -120,7 +120,7 @@ function TrendingTab({
         <OnboardingEntityCard
           item={item}
           isFollowing={followedIds.includes(item.id)}
-          onToggleFollow={onToggleFollow}
+          onToggleFollow={nextItem => onToggleFollow(nextItem, 'trending')}
         />
       )}
       contentContainerStyle={listContentStyle}
@@ -138,7 +138,7 @@ function SearchTab({
 }: {
   step: OnboardingStepType;
   followedIds: string[];
-  onToggleFollow: (id: string) => void;
+  onToggleFollow: (item: OnboardingEntityCardData, source: 'trending' | 'search') => void;
   colors: ThemeColors;
 }) {
   const { t } = useTranslation();
@@ -176,7 +176,7 @@ function SearchTab({
             <OnboardingEntityCard
               item={item}
               isFollowing={followedIds.includes(item.id)}
-              onToggleFollow={onToggleFollow}
+              onToggleFollow={nextItem => onToggleFollow(nextItem, 'search')}
             />
           )}
           contentContainerStyle={listContentStyle}

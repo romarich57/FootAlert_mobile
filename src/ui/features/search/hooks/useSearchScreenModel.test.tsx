@@ -4,6 +4,12 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { appEnv } from '@data/config/env';
+import {
+  fetchDiscoveryPlayers,
+  fetchDiscoveryTeams,
+  searchPlayersByName,
+  searchTeamsByName,
+} from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
 import { useSearchScreenModel } from '@ui/features/search/hooks/useSearchScreenModel';
 
@@ -28,8 +34,19 @@ jest.mock('@data/endpoints/searchApi', () => ({
   })),
 }));
 
+jest.mock('@data/endpoints/followsApi', () => ({
+  fetchDiscoveryPlayers: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  fetchDiscoveryTeams: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  searchPlayersByName: jest.fn(async () => []),
+  searchTeamsByName: jest.fn(async () => []),
+}));
+
 const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedSearchGlobal = jest.mocked(searchGlobal);
+const mockedFetchDiscoveryPlayers = jest.mocked(fetchDiscoveryPlayers);
+const mockedFetchDiscoveryTeams = jest.mocked(fetchDiscoveryTeams);
+const mockedSearchPlayersByName = jest.mocked(searchPlayersByName);
+const mockedSearchTeamsByName = jest.mocked(searchTeamsByName);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -210,5 +227,90 @@ describe('useSearchScreenModel', () => {
     expect(result.current.teamResults).toEqual([]);
     expect(result.current.playerResults).toEqual([]);
     expect(result.current.competitionResults).toEqual([]);
+  });
+
+  it('uses the specialized teams endpoint for the teams tab', async () => {
+    mockedSearchTeamsByName.mockResolvedValueOnce([
+      {
+        team: {
+          id: 529,
+          name: 'Barcelona',
+          logo: 'barca.png',
+          country: 'Spain',
+        },
+      },
+    ]);
+
+    const { result } = renderHook(() => useSearchScreenModel(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleSelectTab('teams');
+      result.current.setQuery('Barca');
+      jest.advanceTimersByTime(260);
+    });
+
+    await waitFor(() => {
+      expect(mockedSearchTeamsByName).toHaveBeenCalledWith(
+        'Barca',
+        expect.anything(),
+      );
+    });
+
+    expect(mockedSearchGlobal).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(result.current.teamResults).toEqual([
+        {
+          teamId: '529',
+          teamName: 'Barcelona',
+          teamLogo: 'barca.png',
+          country: 'Spain',
+        },
+      ]);
+    });
+  });
+
+  it('shows discovery suggestions when teams tab is selected with an empty query', async () => {
+    mockedFetchDiscoveryTeams.mockResolvedValueOnce({
+      items: [
+        {
+          teamId: '529',
+          teamName: 'Barcelona',
+          teamLogo: 'barca.png',
+          country: 'Spain',
+          activeFollowersCount: 120,
+          recentNet30d: 25,
+          totalFollowAdds: 400,
+        },
+      ],
+      meta: {
+        source: 'dynamic',
+      },
+    });
+
+    const { result } = renderHook(() => useSearchScreenModel(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleSelectTab('teams');
+    });
+
+    await waitFor(() => {
+      expect(mockedFetchDiscoveryTeams).toHaveBeenCalled();
+      expect(result.current.teamResults).toEqual([
+        {
+          teamId: '529',
+          teamName: 'Barcelona',
+          teamLogo: 'barca.png',
+          country: 'Spain',
+        },
+      ]);
+    });
+
+    expect(result.current.hasEnoughChars).toBe(false);
+    expect(mockedSearchTeamsByName).not.toHaveBeenCalled();
+    expect(mockedSearchGlobal).not.toHaveBeenCalled();
   });
 });

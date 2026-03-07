@@ -57,6 +57,8 @@ const CACHE_CONTROL_BY_ROUTE: Record<string, string> = {
   '/v1/competitions/search': CACHE_CONTROL_MEDIUM,
   '/v1/follows/search/teams': CACHE_CONTROL_MEDIUM,
   '/v1/follows/search/players': CACHE_CONTROL_MEDIUM,
+  '/v1/follows/discovery/teams': CACHE_CONTROL_MEDIUM,
+  '/v1/follows/discovery/players': CACHE_CONTROL_MEDIUM,
   '/v1/search/global': CACHE_CONTROL_MEDIUM,
   '/v1/follows/trends/teams': CACHE_CONTROL_MEDIUM,
   '/v1/follows/trends/players': CACHE_CONTROL_MEDIUM,

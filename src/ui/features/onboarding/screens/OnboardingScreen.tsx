@@ -7,6 +7,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import type { OnboardingEntityCardData } from '@ui/features/onboarding/components/OnboardingEntityCard';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { StepIndicator } from '@ui/features/onboarding/components/StepIndicator';
@@ -130,13 +131,32 @@ export function OnboardingScreen({ navigation }: Props) {
     return followedPlayerIds;
   }
 
-  function handleToggleFollow(id: string) {
+  function handleToggleFollow(item: OnboardingEntityCardData, source: 'trending' | 'search') {
+    const followSource = source === 'trending' ? 'onboarding_trending' : 'onboarding_search';
+
     if (currentStep === 'teams') {
-      toggleTeamFollow(id).catch(() => undefined);
+      toggleTeamFollow(item.id, {
+        source: followSource,
+        snapshot: {
+          teamName: item.name,
+          teamLogo: item.logo,
+          country: item.country ?? item.subtitle,
+        },
+      }).catch(() => undefined);
     } else if (currentStep === 'competitions') {
-      toggleLeagueFollow(id).catch(() => undefined);
+      toggleLeagueFollow(item.id).catch(() => undefined);
     } else {
-      togglePlayerFollow(id).catch(() => undefined);
+      togglePlayerFollow(item.id, {
+        source: followSource,
+        snapshot: {
+          playerName: item.name,
+          playerPhoto: item.logo,
+          position: item.position ?? null,
+          teamName: item.teamName ?? item.subtitle,
+          teamLogo: item.teamLogo ?? null,
+          leagueName: item.leagueName ?? null,
+        },
+      }).catch(() => undefined);
     }
   }
 

@@ -3,6 +3,12 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { useNavigation, type NavigationProp, type ParamListBase } from '@react-navigation/native';
 
 import { appEnv } from '@data/config/env';
+import {
+  fetchDiscoveryPlayers,
+  fetchDiscoveryTeams,
+  searchPlayersByName,
+  searchTeamsByName,
+} from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
 import { SearchScreen } from '@ui/features/search/screens/SearchScreen';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
@@ -28,8 +34,19 @@ jest.mock('@data/endpoints/searchApi', () => ({
   })),
 }));
 
+jest.mock('@data/endpoints/followsApi', () => ({
+  fetchDiscoveryPlayers: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  fetchDiscoveryTeams: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  searchPlayersByName: jest.fn(async () => []),
+  searchTeamsByName: jest.fn(async () => []),
+}));
+
 const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedSearchGlobal = jest.mocked(searchGlobal);
+const mockedFetchDiscoveryPlayers = jest.mocked(fetchDiscoveryPlayers);
+const mockedFetchDiscoveryTeams = jest.mocked(fetchDiscoveryTeams);
+const mockedSearchPlayersByName = jest.mocked(searchPlayersByName);
+const mockedSearchTeamsByName = jest.mocked(searchTeamsByName);
 
 const navigateMock = jest.fn();
 
@@ -41,6 +58,9 @@ describe('SearchScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockedFetchDiscoveryPlayers.mockResolvedValue({ items: [], meta: { source: 'dynamic' } });
+    mockedFetchDiscoveryTeams.mockResolvedValue({ items: [], meta: { source: 'dynamic' } });
+    mockedSearchTeamsByName.mockResolvedValue([]);
     mockedUseNavigation.mockReturnValue({
       navigate: navigateMock,
     } as unknown as NavigationProp<ParamListBase>);
@@ -75,37 +95,43 @@ describe('SearchScreen', () => {
 
     fireEvent.press(screen.getByTestId('search-result-team-529'));
 
-    expect(navigateMock).toHaveBeenCalledWith('TeamDetails', { teamId: '529' });
+    expect(navigateMock).toHaveBeenCalledWith('TeamDetails', {
+      teamId: '529',
+      followSource: 'search_tab',
+    });
   });
 
   it('navigates to player details from a player result', async () => {
-    mockedSearchGlobal.mockResolvedValueOnce({
-      teams: [],
-      players: [
-        {
-          id: '154',
+    mockedSearchPlayersByName.mockResolvedValueOnce([
+      {
+        player: {
+          id: 154,
           name: 'Cristiano Ronaldo',
           photo: 'cr7.png',
-          position: 'Attacker',
-          teamName: 'Al-Nassr',
-          teamLogo: 'nassr.png',
-          leagueName: 'Saudi Pro League',
         },
-      ],
-      competitions: [],
-      matches: [],
-      meta: {
-        partial: false,
-        degradedSources: [],
+        statistics: [
+          {
+            team: {
+              name: 'Al-Nassr',
+              logo: 'nassr.png',
+            },
+            league: {
+              name: 'Saudi Pro League',
+            },
+            games: {
+              position: 'Attacker',
+            },
+          },
+        ],
       },
-    });
+    ]);
 
     renderScreen();
 
     fireEvent.press(screen.getByTestId('search-screen-tab-players'));
     fireEvent.changeText(screen.getByTestId('search-screen-input'), 'Ronaldo');
     act(() => {
-      jest.advanceTimersByTime(appEnv.followsSearchDebounceMs + 10);
+      jest.advanceTimersByTime(260);
     });
 
     await waitFor(() => {
@@ -114,6 +140,9 @@ describe('SearchScreen', () => {
 
     fireEvent.press(screen.getByTestId('search-result-player-154'));
 
-    expect(navigateMock).toHaveBeenCalledWith('PlayerDetails', { playerId: '154' });
+    expect(navigateMock).toHaveBeenCalledWith('PlayerDetails', {
+      playerId: '154',
+      followSource: 'search_tab',
+    });
   });
 });

@@ -12,7 +12,7 @@ import { MobileAttestationProviderUnavailableError } from '@data/security/mobile
 type QueryValue = string | number | boolean | null | undefined;
 
 type BffGetOptions = HttpGetOptions;
-type BffMutationOptions = HttpMutationOptions;
+type BffMutationOptions = HttpMutationOptions & { scope?: BffSensitiveScope };
 type BffSensitiveScope = 'api:read' | 'notifications:write' | 'telemetry:write' | 'privacy:erase';
 
 function isDevRuntime(): boolean {
@@ -143,10 +143,10 @@ export async function bffPost<TResponse, TBody = unknown>(
   options?: BffMutationOptions,
 ): Promise<TResponse> {
   const url = buildBffUrl(path);
-  let scope: BffSensitiveScope = 'notifications:write';
-  if (path.startsWith('/telemetry')) {
+  let scope: BffSensitiveScope = options?.scope ?? 'notifications:write';
+  if (!options?.scope && path.startsWith('/telemetry')) {
     scope = 'telemetry:write';
-  } else if (path.startsWith('/mobile/privacy')) {
+  } else if (!options?.scope && path.startsWith('/mobile/privacy')) {
     scope = 'privacy:erase';
   }
   const authHeaders = await buildSensitiveMobileAuthHeaders({

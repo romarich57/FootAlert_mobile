@@ -61,12 +61,13 @@ export function FollowsScreen() {
 
   const feedItems = useMemo(
     () =>
-      buildFollowsFeedItems({
-        selectedTab,
-        hideTrends: hideTrendsCurrentTab,
-        teamTrends: asTeamTrends,
-        playerTrends: asPlayerTrends,
-        emptyMessage: search.hasEnoughChars
+        buildFollowsFeedItems({
+          selectedTab,
+          hideTrends: hideTrendsCurrentTab,
+          isDiscoveryLoading: isSectionLoading,
+          teamTrends: asTeamTrends,
+          playerTrends: asPlayerTrends,
+          emptyMessage: search.hasEnoughChars
           ? t('follows.search.empty')
           : t('follows.states.noTrends'),
         search,

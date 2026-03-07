@@ -35,6 +35,7 @@ export type FollowsFeedItem =
 type BuildFeedItemsInput = {
   selectedTab: 'teams' | 'players';
   hideTrends: boolean;
+  isDiscoveryLoading: boolean;
   teamTrends: TrendTeamItem[];
   playerTrends: TrendPlayerItem[];
   emptyMessage: string;
@@ -48,6 +49,7 @@ type BuildFeedItemsInput = {
 export function buildFollowsFeedItems({
   selectedTab,
   hideTrends,
+  isDiscoveryLoading,
   teamTrends,
   playerTrends,
   emptyMessage,
@@ -82,6 +84,10 @@ export function buildFollowsFeedItems({
   }
 
   if (selectedTab === 'teams') {
+    if (isDiscoveryLoading && teamTrends.length === 0) {
+      return [];
+    }
+
     if (teamTrends.length === 0) {
       return [{ type: 'empty', key: 'empty-teams', message: emptyMessage }];
     }
@@ -91,6 +97,10 @@ export function buildFollowsFeedItems({
       key: `trend-team-${item.teamId}`,
       item,
     }));
+  }
+
+  if (isDiscoveryLoading && playerTrends.length === 0) {
+    return [];
   }
 
   if (playerTrends.length === 0) {

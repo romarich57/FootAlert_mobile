@@ -11,12 +11,18 @@ export type OnboardingEntityCardData = {
   name: string;
   logo: string;
   subtitle: string;
+  kind?: 'team' | 'competition' | 'player';
+  country?: string;
+  position?: string;
+  teamName?: string;
+  teamLogo?: string;
+  leagueName?: string;
 };
 
 type Props = {
   item: OnboardingEntityCardData;
   isFollowing: boolean;
-  onToggleFollow: (id: string) => void;
+  onToggleFollow: (item: OnboardingEntityCardData) => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -79,7 +85,7 @@ export const OnboardingEntityCard = memo(function OnboardingEntityCard({
       </View>
       <FollowToggleButton
         isFollowing={isFollowing}
-        onPress={() => onToggleFollow(item.id)}
+        onPress={() => onToggleFollow(item)}
         followLabel={t('follows.actions.follow')}
         unfollowLabel={t('follows.actions.unfollow')}
         accessibilityLabel={

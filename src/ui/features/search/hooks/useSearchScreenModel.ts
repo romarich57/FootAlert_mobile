@@ -4,11 +4,25 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { appEnv } from '@data/config/env';
+import {
+  fetchDiscoveryPlayers,
+  fetchDiscoveryTeams,
+  searchPlayersByName,
+  searchTeamsByName,
+} from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
-import { getCurrentSeasonYear } from '@data/mappers/followsMapper';
+import {
+  getCurrentSeasonYear,
+  mapPlayerSearchResults,
+  mapTeamSearchResults,
+} from '@data/mappers/followsMapper';
 import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import type { RootStackParamList } from '@ui/app/navigation/types';
+import type {
+  FollowDiscoveryPlayerItem,
+  FollowDiscoveryTeamItem,
+} from '@ui/features/follows/types/follows.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import type {
   SearchCompetitionResult,
@@ -72,15 +86,53 @@ export function useSearchScreenModel() {
   const trackedRequestKeyRef = useRef<string | null>(null);
   const season = getCurrentSeasonYear();
   const trimmedQuery = query.trim();
-  const debouncedQuery = useDebouncedValue(trimmedQuery, appEnv.followsSearchDebounceMs);
+  const isEntitySearchTab = selectedTab === 'teams' || selectedTab === 'players';
+  const debounceMs = isEntitySearchTab ? 250 : appEnv.followsSearchDebounceMs;
+  const debouncedQuery = useDebouncedValue(trimmedQuery, debounceMs);
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
   const hasEnoughChars = debouncedQuery.length >= appEnv.followsSearchMinChars;
   const resultsLimit = appEnv.followsSearchResultsLimit;
 
+  const discoveryQuery = useQuery({
+    queryKey: queryKeys.follows.discovery(selectedTab === 'players' ? 'players' : 'teams', resultsLimit),
+    enabled: isEntitySearchTab && trimmedQuery.length === 0,
+    staleTime: appEnv.followsTrendsTtlMs,
+    placeholderData: previousData => previousData,
+    queryFn: ({ signal }) => {
+      if (selectedTab === 'teams') {
+        return fetchDiscoveryTeams(resultsLimit, signal);
+      }
+
+      return fetchDiscoveryPlayers(resultsLimit, signal);
+    },
+  });
+
   const searchQuery = useQuery({
-    queryKey: queryKeys.search.global(debouncedQuery, timezone, season, resultsLimit),
+    queryKey: isEntitySearchTab
+      ? queryKeys.follows.search(selectedTab, debouncedQuery, season)
+      : queryKeys.search.global(debouncedQuery, timezone, season, resultsLimit),
     enabled: hasEnoughChars,
     queryFn: async ({ signal }): Promise<SearchGlobalResults> => {
+      if (selectedTab === 'teams') {
+        const payload = await searchTeamsByName(debouncedQuery, signal);
+        return {
+          teams: mapTeamSearchResults(payload, resultsLimit),
+          players: [],
+          competitions: [],
+          matches: [],
+        };
+      }
+
+      if (selectedTab === 'players') {
+        const payload = await searchPlayersByName(debouncedQuery, season, signal);
+        return {
+          teams: [],
+          players: mapPlayerSearchResults(payload, resultsLimit),
+          competitions: [],
+          matches: [],
+        };
+      }
+
       const payload = await searchGlobal(
         debouncedQuery,
         timezone,
@@ -131,7 +183,7 @@ export function useSearchScreenModel() {
       return;
     }
 
-    const requestKey = `${debouncedQuery}|${timezone}|${season}|${resultsLimit}`;
+    const requestKey = `${selectedTab}|${debouncedQuery}|${timezone}|${season}|${resultsLimit}`;
     if (trackedRequestKeyRef.current === requestKey) {
       return;
     }
@@ -143,7 +195,7 @@ export function useSearchScreenModel() {
       season,
       limit: resultsLimit,
     });
-  }, [debouncedQuery, hasEnoughChars, resultsLimit, season, timezone]);
+  }, [debouncedQuery, hasEnoughChars, resultsLimit, season, selectedTab, timezone]);
 
   const handleClearQuery = useCallback(() => {
     setQuery('');
@@ -155,14 +207,14 @@ export function useSearchScreenModel() {
 
   const handlePressTeam = useCallback(
     (teamId: string) => {
-      safeNavigateEntity(navigation, 'TeamDetails', teamId);
+      safeNavigateEntity(navigation, 'TeamDetails', teamId, { followSource: 'search_tab' });
     },
     [navigation],
   );
 
   const handlePressPlayer = useCallback(
     (playerId: string) => {
-      safeNavigateEntity(navigation, 'PlayerDetails', playerId);
+      safeNavigateEntity(navigation, 'PlayerDetails', playerId, { followSource: 'search_tab' });
     },
     [navigation],
   );
@@ -182,22 +234,68 @@ export function useSearchScreenModel() {
   );
 
   const rawResults = searchQuery.data ?? EMPTY_RESULTS;
+  const discoveryResponse = discoveryQuery.data as
+    | {
+        items?: Array<FollowDiscoveryTeamItem | FollowDiscoveryPlayerItem>;
+      }
+    | undefined;
+  const discoveryItems = discoveryResponse?.items ?? [];
+  const discoveryTeams =
+    selectedTab === 'teams' && !trimmedQuery.length
+      ? (discoveryItems as FollowDiscoveryTeamItem[]).map(item => ({
+          teamId: item.teamId,
+          teamName: item.teamName,
+          teamLogo: item.teamLogo,
+          country: item.country,
+        }))
+      : [];
+  const discoveryPlayers =
+    selectedTab === 'players' && !trimmedQuery.length
+      ? (discoveryItems as FollowDiscoveryPlayerItem[]).map(item => ({
+          playerId: item.playerId,
+          playerName: item.playerName,
+          playerPhoto: item.playerPhoto,
+          position: item.position,
+          teamName: item.teamName,
+          teamLogo: item.teamLogo,
+          leagueName: item.leagueName,
+        }))
+      : [];
   const teamResults: SearchTeamResult[] =
-    selectedTab === 'all' || selectedTab === 'teams' ? rawResults.teams : [];
+    selectedTab === 'teams' && !trimmedQuery.length
+      ? discoveryTeams
+      : selectedTab === 'all' || selectedTab === 'teams'
+        ? rawResults.teams
+        : [];
   const playerResults: SearchPlayerResult[] =
-    selectedTab === 'all' || selectedTab === 'players' ? rawResults.players : [];
+    selectedTab === 'players' && !trimmedQuery.length
+      ? discoveryPlayers
+      : selectedTab === 'all' || selectedTab === 'players'
+        ? rawResults.players
+        : [];
   const competitionResults: SearchCompetitionResult[] =
     selectedTab === 'all' || selectedTab === 'competitions' ? rawResults.competitions : [];
   const matchResults: SearchMatchResult[] =
     selectedTab === 'all' || selectedTab === 'matches' ? rawResults.matches : [];
+
+  const isDiscoveryLoading =
+    isEntitySearchTab &&
+    !trimmedQuery.length &&
+    discoveryQuery.isLoading &&
+    !discoveryQuery.data;
+  const isDiscoveryError =
+    isEntitySearchTab &&
+    !trimmedQuery.length &&
+    discoveryQuery.isError &&
+    !discoveryQuery.data;
 
   return {
     selectedTab,
     query,
     debouncedQuery,
     hasEnoughChars,
-    isLoading: searchQuery.isLoading && hasEnoughChars,
-    isError: searchQuery.isError && hasEnoughChars,
+    isLoading: (searchQuery.isLoading && hasEnoughChars) || isDiscoveryLoading,
+    isError: (searchQuery.isError && hasEnoughChars) || isDiscoveryError,
     teamResults,
     playerResults,
     competitionResults,
@@ -209,6 +307,9 @@ export function useSearchScreenModel() {
     handlePressPlayer,
     handlePressCompetition,
     handlePressMatch,
-    retry: searchQuery.refetch,
+    retry:
+      isEntitySearchTab && !trimmedQuery.length
+        ? discoveryQuery.refetch
+        : searchQuery.refetch,
   };
 }

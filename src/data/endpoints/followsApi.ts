@@ -1,5 +1,11 @@
 import { createFollowsReadService } from '@app-core/services/followsService';
+import { bffGet, bffPost } from '@data/endpoints/bffClient';
 import type {
+  FollowDiscoveryPlayerItem,
+  FollowDiscoveryResponse,
+  FollowDiscoveryTeamItem,
+  FollowEventPayload,
+  FollowEventResponse,
   FollowsApiFixtureDto,
   FollowedPlayerCard,
   FollowedTeamCard,
@@ -108,4 +114,34 @@ export async function fetchTrendingPlayers(
   );
 
   return payload.flatMap(group => group.response ?? []);
+}
+
+export async function fetchDiscoveryTeams(
+  limit: number,
+  signal?: AbortSignal,
+): Promise<FollowDiscoveryResponse<FollowDiscoveryTeamItem>> {
+  return bffGet<FollowDiscoveryResponse<FollowDiscoveryTeamItem>>(
+    '/follows/discovery/teams',
+    { limit },
+    { signal },
+  );
+}
+
+export async function fetchDiscoveryPlayers(
+  limit: number,
+  signal?: AbortSignal,
+): Promise<FollowDiscoveryResponse<FollowDiscoveryPlayerItem>> {
+  return bffGet<FollowDiscoveryResponse<FollowDiscoveryPlayerItem>>(
+    '/follows/discovery/players',
+    { limit },
+    { signal },
+  );
+}
+
+export async function postFollowEvent(payload: FollowEventPayload): Promise<FollowEventResponse> {
+  return bffPost<FollowEventResponse, FollowEventPayload>(
+    '/follows/events',
+    payload,
+    { scope: 'telemetry:write' },
+  );
 }

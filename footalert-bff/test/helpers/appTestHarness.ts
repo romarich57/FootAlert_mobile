@@ -155,6 +155,9 @@ export async function buildApp(
   const { resetMobileSessionRefreshRuntimeForTests } = await import(
     '../../src/lib/mobileSessionRefreshRuntime.ts'
   );
+  const { resetFollowsDiscoveryRuntimeForTests } = await import(
+    '../../src/lib/follows/discoveryRuntime.ts'
+  );
   const { resetNotificationsRuntimeForTests } = await import('../../src/lib/notifications/runtime.ts');
   const { resetNotificationsMetricsForTests } = await import('../../src/lib/notifications/metrics.ts');
   resetCacheForTests();
@@ -163,6 +166,7 @@ export async function buildApp(
   resetMobileAuthMetricsForTests();
   resetApiFootballClientGuardsForTests();
   await resetMobileSessionRefreshRuntimeForTests();
+  await resetFollowsDiscoveryRuntimeForTests();
   await resetNotificationsRuntimeForTests();
   resetNotificationsMetricsForTests();
   const { buildServer } = await import(`../../src/server.ts?case=${Math.random().toString(36).slice(2)}`);

@@ -12,7 +12,7 @@ import { appEnv } from '@data/config/env';
 import type { OnboardingStep } from '@ui/features/onboarding/types/onboarding.types';
 import type { OnboardingEntityCardData } from '@ui/features/onboarding/components/OnboardingEntityCard';
 
-const DEBOUNCE_MS = 500;
+const DEBOUNCE_MS = 250;
 const MIN_CHARS = 2;
 
 type ApiFootballLeague = {
@@ -61,6 +61,8 @@ export function useOnboardingSearch(step: OnboardingStep) {
           name: item.teamName,
           logo: item.teamLogo,
           subtitle: item.country,
+          kind: 'team',
+          country: item.country,
         }));
       }
 
@@ -89,6 +91,11 @@ export function useOnboardingSearch(step: OnboardingStep) {
         name: item.playerName,
         logo: item.playerPhoto,
         subtitle: item.teamName,
+        kind: 'player',
+        position: item.position,
+        teamName: item.teamName,
+        teamLogo: item.teamLogo,
+        leagueName: item.leagueName,
       }));
     },
   });

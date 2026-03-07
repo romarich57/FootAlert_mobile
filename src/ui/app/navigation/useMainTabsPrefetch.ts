@@ -6,16 +6,12 @@ import { usePowerState } from 'react-native-device-info';
 import { appEnv } from '@data/config/env';
 import { fetchAllLeagues } from '@data/endpoints/competitionsApi';
 import {
+  fetchDiscoveryPlayers,
+  fetchDiscoveryTeams,
   fetchFollowedPlayerCards,
   fetchFollowedTeamCards,
-  fetchTrendingPlayers,
-  fetchTrendingTeams,
 } from '@data/endpoints/followsApi';
-import {
-  getCurrentSeasonYear,
-  mapTrendingPlayersFromTopScorers,
-  mapTrendingTeamsFromStandings,
-} from '@data/mappers/followsMapper';
+import { getCurrentSeasonYear } from '@data/mappers/followsMapper';
 import {
   loadFollowedPlayerIds,
   loadFollowedTeamIds,
@@ -23,7 +19,6 @@ import {
 import { buildMatchesQueryResult, MATCHES_QUERY_STALE_TIME_MS, shouldRetryMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import type { MainTabParamList } from '@ui/app/navigation/types';
-import { TOP_COMPETITION_IDS } from '@/shared/constants';
 
 type PrefetchTabName = Extract<keyof MainTabParamList, 'Matches' | 'Competitions' | 'Follows'>;
 
@@ -40,10 +35,6 @@ function toApiDateString(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function getTopLeagueIds(): string[] {
-  return TOP_COMPETITION_IDS.slice(0, appEnv.followsTrendsLeagueCount);
 }
 
 export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
@@ -94,8 +85,6 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
 
     const sortedTeamIds = [...followedTeamIds].sort();
     const sortedPlayerIds = [...followedPlayerIds].sort();
-    const topLeagueIds = getTopLeagueIds();
-
     const prefetchTasks: Array<Promise<unknown>> = [];
 
     if (sortedTeamIds.length > 0) {
@@ -118,43 +107,21 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
       );
     }
 
-    if (topLeagueIds.length > 0 && sortedTeamIds.length > 0) {
-      prefetchTasks.push(
-        queryClient.prefetchQuery({
-          queryKey: queryKeys.follows.trends('teams', season, false),
-          staleTime: appEnv.followsTrendsTtlMs,
-          queryFn: async ({ signal }) => {
-            try {
-              const payload = await fetchTrendingTeams(topLeagueIds, season, signal);
-              return mapTrendingTeamsFromStandings(payload, appEnv.followsTrendsTeamsLimit);
-            } catch {
-              return [];
-            }
-          },
-        }),
-      );
-    }
+    prefetchTasks.push(
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.follows.discovery('teams', appEnv.followsTrendsTeamsLimit),
+        staleTime: appEnv.followsTrendsTtlMs,
+        queryFn: ({ signal }) => fetchDiscoveryTeams(appEnv.followsTrendsTeamsLimit, signal),
+      }),
+    );
 
-    if (topLeagueIds.length > 0 && sortedPlayerIds.length > 0) {
-      prefetchTasks.push(
-        queryClient.prefetchQuery({
-          queryKey: queryKeys.follows.trends('players', season, false),
-          staleTime: appEnv.followsTrendsTtlMs,
-          queryFn: async ({ signal }) => {
-            try {
-              const payload = await fetchTrendingPlayers(topLeagueIds, season, signal);
-              return mapTrendingPlayersFromTopScorers(
-                payload,
-                appEnv.followsTrendsPlayersLimit,
-                season,
-              );
-            } catch {
-              return [];
-            }
-          },
-        }),
-      );
-    }
+    prefetchTasks.push(
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.follows.discovery('players', appEnv.followsTrendsPlayersLimit),
+        staleTime: appEnv.followsTrendsTtlMs,
+        queryFn: ({ signal }) => fetchDiscoveryPlayers(appEnv.followsTrendsPlayersLimit, signal),
+      }),
+    );
 
     await Promise.allSettled(prefetchTasks);
   }, [queryClient, timezone]);

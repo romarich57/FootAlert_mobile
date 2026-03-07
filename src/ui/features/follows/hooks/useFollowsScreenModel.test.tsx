@@ -4,9 +4,9 @@ import { useNavigation } from '@react-navigation/native';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
+import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
 import { useFollowsScreenModel } from '@ui/features/follows/hooks/useFollowsScreenModel';
 import { useFollowsSearch } from '@ui/features/follows/hooks/useFollowsSearch';
-import { useFollowsTrends } from '@ui/features/follows/hooks/useFollowsTrends';
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -28,8 +28,8 @@ jest.mock('@ui/features/follows/hooks/useFollowedPlayersCards', () => ({
   useFollowedPlayersCards: jest.fn(),
 }));
 
-jest.mock('@ui/features/follows/hooks/useFollowsTrends', () => ({
-  useFollowsTrends: jest.fn(),
+jest.mock('@ui/features/follows/hooks/useFollowsDiscovery', () => ({
+  useFollowsDiscovery: jest.fn(),
 }));
 
 jest.mock('@ui/features/follows/hooks/useFollowsSearch', () => ({
@@ -51,7 +51,7 @@ const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 const mockedUseFollowedTeamsCards = jest.mocked(useFollowedTeamsCards);
 const mockedUseFollowedPlayersCards = jest.mocked(useFollowedPlayersCards);
-const mockedUseFollowsTrends = jest.mocked(useFollowsTrends);
+const mockedUseFollowsDiscovery = jest.mocked(useFollowsDiscovery);
 const mockedUseFollowsSearch = jest.mocked(useFollowsSearch);
 
 describe('useFollowsScreenModel', () => {
@@ -85,8 +85,13 @@ describe('useFollowsScreenModel', () => {
       isLoading: false,
       dataUpdatedAt: 0,
     } as never);
-    mockedUseFollowsTrends.mockReturnValue({
-      data: [],
+    mockedUseFollowsDiscovery.mockReturnValue({
+      data: {
+        items: [],
+        meta: {
+          source: 'dynamic',
+        },
+      },
       isLoading: false,
       dataUpdatedAt: 0,
     } as never);
@@ -129,5 +134,17 @@ describe('useFollowsScreenModel', () => {
         enabled: true,
       }),
     );
+  });
+
+  it('keeps section loading active while discovery is still resolving', () => {
+    mockedUseFollowsDiscovery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      dataUpdatedAt: 0,
+    } as never);
+
+    const { result } = renderHook(() => useFollowsScreenModel());
+
+    expect(result.current.isSectionLoading).toBe(true);
   });
 });

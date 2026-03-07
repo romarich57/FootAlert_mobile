@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { groupPlayerTrophiesByClub } from '@data/mappers/playersMapper';
+import type { FollowEventSource } from '@ui/features/follows/types/follows.types';
+import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { usePlayerCareer } from '@ui/features/players/hooks/usePlayerCareer';
 import { usePlayerMatches } from '@ui/features/players/hooks/usePlayerMatches';
 import { usePlayerOverview } from '@ui/features/players/hooks/usePlayerOverview';
@@ -12,11 +14,11 @@ import type {
   PlayerProfileCompetitionStats,
   PlayerSeasonStatsDataset,
 } from '@ui/features/players/types/players.types';
-import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 
 type UsePlayerDetailsScreenModelParams = {
   playerId: string;
   activeTab: PlayerTabType;
+  followSource?: FollowEventSource;
 };
 
 type PlayerStatsSelection = {
@@ -86,6 +88,7 @@ export function selectProfileCompetitionStats(
 export function usePlayerDetailsScreenModel({
   playerId,
   activeTab,
+  followSource,
 }: UsePlayerDetailsScreenModelParams) {
   const currentSeason = useMemo(() => {
     const currentDate = new Date();
@@ -104,12 +107,6 @@ export function usePlayerDetailsScreenModel({
   const isPlayerFollowed = playerId
     ? followedPlayerIds.includes(playerId)
     : false;
-
-  const handleToggleFollow = useCallback(() => {
-    if (playerId) {
-      togglePlayerFollow(playerId);
-    }
-  }, [playerId, togglePlayerFollow]);
 
   const openNotificationModal = useCallback(() => {
     setIsNotificationModalOpen(true);
@@ -139,6 +136,26 @@ export function usePlayerDetailsScreenModel({
   } = usePlayerOverview(playerId, selectedSeason);
 
   const teamId = profile?.team.id ?? '';
+
+  const handleToggleFollow = useCallback(() => {
+    if (!playerId) {
+      return;
+    }
+
+    togglePlayerFollow(playerId, {
+      source: followSource ?? 'player_details',
+      snapshot: profile?.name
+        ? {
+            playerName: profile.name,
+            playerPhoto: profile.photo ?? '',
+            position: profile.position ?? null,
+            teamName: profile.team.name ?? null,
+            teamLogo: profile.team.logo ?? null,
+            leagueName: profile.league.name ?? null,
+          }
+        : undefined,
+    }).catch(() => undefined);
+  }, [followSource, playerId, profile, togglePlayerFollow]);
 
   const {
     matches,

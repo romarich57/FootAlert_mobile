@@ -5,11 +5,10 @@ import { useNetInfo } from '@react-native-community/netinfo';
 
 import { fetchAllLeagues } from '@data/endpoints/competitionsApi';
 import {
-  fetchNextFixtureForTeam,
-  fetchPlayerSeasonStats,
-  fetchTeamById,
-  fetchTrendingPlayers,
-  fetchTrendingTeams,
+  fetchDiscoveryPlayers,
+  fetchDiscoveryTeams,
+  fetchFollowedPlayerCards,
+  fetchFollowedTeamCards,
 } from '@data/endpoints/followsApi';
 import { fetchFixturesByDate } from '@data/endpoints/matchesApi';
 import {
@@ -31,11 +30,10 @@ jest.mock('@data/endpoints/competitionsApi', () => ({
 }));
 
 jest.mock('@data/endpoints/followsApi', () => ({
-  fetchNextFixtureForTeam: jest.fn(async () => null),
-  fetchPlayerSeasonStats: jest.fn(async () => null),
-  fetchTeamById: jest.fn(async () => null),
-  fetchTrendingPlayers: jest.fn(async () => []),
-  fetchTrendingTeams: jest.fn(async () => []),
+  fetchDiscoveryPlayers: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  fetchDiscoveryTeams: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  fetchFollowedPlayerCards: jest.fn(async () => []),
+  fetchFollowedTeamCards: jest.fn(async () => []),
 }));
 
 jest.mock('@data/storage/followsStorage', () => ({
@@ -56,11 +54,10 @@ const mockedFetchFixturesByDate = jest.mocked(fetchFixturesByDate);
 const mockedFetchAllLeagues = jest.mocked(fetchAllLeagues);
 const mockedLoadFollowedTeamIds = jest.mocked(loadFollowedTeamIds);
 const mockedLoadFollowedPlayerIds = jest.mocked(loadFollowedPlayerIds);
-const mockedFetchTeamById = jest.mocked(fetchTeamById);
-const mockedFetchNextFixtureForTeam = jest.mocked(fetchNextFixtureForTeam);
-const mockedFetchPlayerSeasonStats = jest.mocked(fetchPlayerSeasonStats);
-const mockedFetchTrendingTeams = jest.mocked(fetchTrendingTeams);
-const mockedFetchTrendingPlayers = jest.mocked(fetchTrendingPlayers);
+const mockedFetchDiscoveryPlayers = jest.mocked(fetchDiscoveryPlayers);
+const mockedFetchDiscoveryTeams = jest.mocked(fetchDiscoveryTeams);
+const mockedFetchFollowedPlayerCards = jest.mocked(fetchFollowedPlayerCards);
+const mockedFetchFollowedTeamCards = jest.mocked(fetchFollowedTeamCards);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -168,15 +165,14 @@ describe('useMainTabsPrefetch', () => {
     await waitFor(() => {
       expect(mockedLoadFollowedTeamIds).toHaveBeenCalledTimes(1);
       expect(mockedLoadFollowedPlayerIds).toHaveBeenCalledTimes(1);
-      expect(mockedFetchTeamById).toHaveBeenCalledTimes(1);
-      expect(mockedFetchNextFixtureForTeam).toHaveBeenCalledTimes(1);
-      expect(mockedFetchPlayerSeasonStats).toHaveBeenCalledTimes(1);
-      expect(mockedFetchTrendingTeams).toHaveBeenCalledTimes(1);
-      expect(mockedFetchTrendingPlayers).toHaveBeenCalledTimes(1);
+      expect(mockedFetchFollowedTeamCards).toHaveBeenCalledTimes(1);
+      expect(mockedFetchFollowedPlayerCards).toHaveBeenCalledTimes(1);
+      expect(mockedFetchDiscoveryTeams).toHaveBeenCalledTimes(1);
+      expect(mockedFetchDiscoveryPlayers).toHaveBeenCalledTimes(1);
     });
   });
 
-  it('skips follows trends prefetch when no followed ids are stored', async () => {
+  it('still prefetches discovery when no followed ids are stored', async () => {
     mockedLoadFollowedTeamIds.mockResolvedValueOnce([]);
     mockedLoadFollowedPlayerIds.mockResolvedValueOnce([]);
 
@@ -193,10 +189,9 @@ describe('useMainTabsPrefetch', () => {
       expect(mockedLoadFollowedPlayerIds).toHaveBeenCalledTimes(1);
     });
 
-    expect(mockedFetchTeamById).not.toHaveBeenCalled();
-    expect(mockedFetchNextFixtureForTeam).not.toHaveBeenCalled();
-    expect(mockedFetchPlayerSeasonStats).not.toHaveBeenCalled();
-    expect(mockedFetchTrendingTeams).not.toHaveBeenCalled();
-    expect(mockedFetchTrendingPlayers).not.toHaveBeenCalled();
+    expect(mockedFetchFollowedTeamCards).not.toHaveBeenCalled();
+    expect(mockedFetchFollowedPlayerCards).not.toHaveBeenCalled();
+    expect(mockedFetchDiscoveryTeams).toHaveBeenCalledTimes(1);
+    expect(mockedFetchDiscoveryPlayers).toHaveBeenCalledTimes(1);
   });
 });

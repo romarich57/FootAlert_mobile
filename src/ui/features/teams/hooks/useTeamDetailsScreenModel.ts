@@ -191,6 +191,7 @@ export function useTeamDetailsScreenModel() {
   const queryClient = useQueryClient();
   const safeTeamId = sanitizeNumericEntityId(route.params.teamId);
   const teamId = safeTeamId ?? '';
+  const followSource = route.params.followSource ?? 'team_details';
 
   const [activeTab, setActiveTab] = useState<TeamDetailsTab>('overview');
   const requestCountTelemetryKeyRef = useRef<string | null>(null);
@@ -652,8 +653,17 @@ export function useTeamDetailsScreenModel() {
       return;
     }
 
-    toggleTeamFollow(teamId).catch(() => undefined);
-  }, [safeTeamId, teamId, toggleTeamFollow]);
+    toggleTeamFollow(teamId, {
+      source: followSource,
+      snapshot: team.name
+        ? {
+            teamName: team.name,
+            teamLogo: team.logo ?? '',
+            country: team.country ?? null,
+          }
+        : undefined,
+    }).catch(() => undefined);
+  }, [followSource, safeTeamId, team.country, team.logo, team.name, teamId, toggleTeamFollow]);
 
   const openNotificationModal = useCallback(() => {
     setIsNotificationModalOpen(true);

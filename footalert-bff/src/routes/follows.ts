@@ -1,9 +1,16 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { env } from '../config/env.js';
 import { apiFootballGet } from '../lib/apiFootballClient.js';
 import { buildCanonicalCacheKey, withCache } from '../lib/cache.js';
 import { mapWithConcurrency } from '../lib/concurrency/mapWithConcurrency.js';
+import { getFollowsDiscoveryStore } from '../lib/follows/discoveryRuntime.js';
+import type {
+  FollowDiscoveryMetadata,
+  FollowEntityKind,
+} from '../lib/follows/discoveryStore.js';
+import { verifySensitiveMobileAuth } from '../lib/mobileSessionAuth.js';
 import {
   commaSeparatedNumericIdsSchema,
   numericStringSchema,
@@ -16,6 +23,20 @@ const TRENDS_MAX_LEAGUE_IDS = 10;
 const TRENDS_MAX_CONCURRENCY = 3;
 const FOLLOW_CARDS_MAX_IDS = 50;
 const FOLLOW_CARDS_CONCURRENCY = 3;
+const FOLLOW_DISCOVERY_DEFAULT_LIMIT = 8;
+const FOLLOW_DISCOVERY_MAX_LIMIT = 20;
+const FOLLOW_DISCOVERY_CACHE_TTL_MS = 60_000;
+const FOLLOW_DISCOVERY_METADATA_STALE_MS = 24 * 60 * 60 * 1000;
+
+const FOLLOW_EVENT_SOURCES = [
+  'follows_trending',
+  'follows_search',
+  'onboarding_trending',
+  'onboarding_search',
+  'team_details',
+  'player_details',
+  'search_tab',
+] as const;
 
 const searchQuerySchema = z
   .object({
@@ -52,6 +73,54 @@ const trendsQuerySchema = z
   })
   .strict();
 
+const discoveryQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(FOLLOW_DISCOVERY_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+const teamSnapshotSchema = z
+  .object({
+    teamName: z.string().trim().min(1).max(160),
+    teamLogo: z.string().trim().max(2048),
+    country: z.string().trim().max(120).optional(),
+  })
+  .strict();
+
+const playerSnapshotSchema = z
+  .object({
+    playerName: z.string().trim().min(1).max(160),
+    playerPhoto: z.string().trim().max(2048),
+    position: z.string().trim().max(80).optional(),
+    teamName: z.string().trim().max(160).optional(),
+    teamLogo: z.string().trim().max(2048).optional(),
+    leagueName: z.string().trim().max(160).optional(),
+  })
+  .strict();
+
+const followEventSchema = z.discriminatedUnion('entityKind', [
+  z
+    .object({
+      entityKind: z.literal('team'),
+      entityId: numericStringSchema,
+      action: z.enum(['follow', 'unfollow']),
+      source: z.enum(FOLLOW_EVENT_SOURCES),
+      occurredAt: z.string().datetime().optional(),
+      entitySnapshot: teamSnapshotSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      entityKind: z.literal('player'),
+      entityId: numericStringSchema,
+      action: z.enum(['follow', 'unfollow']),
+      source: z.enum(FOLLOW_EVENT_SOURCES),
+      occurredAt: z.string().datetime().optional(),
+      entitySnapshot: playerSnapshotSchema.optional(),
+    })
+    .strict(),
+]);
+
 type PlayerProfilesResponse = {
   response?: Array<{
     player?: {
@@ -69,6 +138,7 @@ type TeamDetailsResponse = {
       id?: number;
       name?: string;
       logo?: string;
+      country?: string;
     };
   }>;
 };
@@ -120,6 +190,68 @@ type PlayerSeasonResponse = {
   }>;
 };
 
+type FollowsApiResponse<T> = {
+  response?: T[];
+};
+
+type FollowsApiStandingDto = {
+  league?: {
+    standings?: Array<
+      Array<{
+        team?: {
+          id?: number;
+          name?: string;
+          logo?: string;
+        };
+      }>
+    >;
+  };
+};
+
+type FollowsApiTopScorerDto = {
+  player?: {
+    id?: number;
+    name?: string;
+    photo?: string;
+  };
+  statistics?: Array<{
+    team?: {
+      name?: string;
+      logo?: string;
+    };
+    league?: {
+      name?: string;
+      season?: number;
+    };
+    games?: {
+      position?: string;
+    };
+  }>;
+};
+
+type FollowDiscoveryTeamItem = {
+  teamId: string;
+  teamName: string;
+  teamLogo: string;
+  country: string;
+  activeFollowersCount: number;
+  recentNet30d: number;
+  totalFollowAdds: number;
+};
+
+type FollowDiscoveryPlayerItem = {
+  playerId: string;
+  playerName: string;
+  playerPhoto: string;
+  position: string;
+  teamName: string;
+  teamLogo: string;
+  leagueName: string;
+  activeFollowersCount: number;
+  recentNet30d: number;
+  totalFollowAdds: number;
+};
+
 const cardsTeamIdsQuerySchema = z
   .object({
     ids: commaSeparatedNumericIdsSchema({
@@ -137,6 +269,252 @@ const cardsPlayerIdsQuerySchema = z
     season: seasonSchema,
   })
   .strict();
+
+function getCurrentSeasonYear(now = new Date()): number {
+  return now.getUTCMonth() + 1 >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+}
+
+function getLegacyDiscoveryLeagueIds(): string[] {
+  return TOP_COMPETITIONS
+    .filter(item => item.type === 'League')
+    .slice(0, 5)
+    .map(item => item.competitionId);
+}
+
+function toSafeNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function rejectUnauthorizedFollowEventRequest(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): { subject: string } | null {
+  const authResult = verifySensitiveMobileAuth(request, {
+    requiredScope: 'telemetry:write',
+    jwtSecret: env.mobileSessionJwtSecret,
+    minIntegrity: 'device',
+  });
+
+  if (!authResult.ok) {
+    reply.code(authResult.failure.statusCode).send({
+      error: authResult.failure.code,
+      message: authResult.failure.message,
+    });
+    return null;
+  }
+
+  return {
+    subject: authResult.context.subject,
+  };
+}
+
+function toMetadataFromSnapshot(
+  entityKind: FollowEntityKind,
+  snapshot: z.infer<typeof teamSnapshotSchema> | z.infer<typeof playerSnapshotSchema>,
+): FollowDiscoveryMetadata {
+  if (entityKind === 'team') {
+    const typedSnapshot = snapshot as z.infer<typeof teamSnapshotSchema>;
+    return {
+      name: typedSnapshot.teamName,
+      imageUrl: typedSnapshot.teamLogo,
+      country: typedSnapshot.country ?? null,
+    };
+  }
+
+  const typedSnapshot = snapshot as z.infer<typeof playerSnapshotSchema>;
+  return {
+    name: typedSnapshot.playerName,
+    imageUrl: typedSnapshot.playerPhoto,
+    position: typedSnapshot.position ?? null,
+    teamName: typedSnapshot.teamName ?? null,
+    teamLogo: typedSnapshot.teamLogo ?? null,
+    leagueName: typedSnapshot.leagueName ?? null,
+  };
+}
+
+function mapDynamicTeamDiscoveryItem(input: {
+  entityId: string;
+  metadata: FollowDiscoveryMetadata;
+  activeFollowersCount: number;
+  recentNet30d: number;
+  totalFollowAddsCount: number;
+}): FollowDiscoveryTeamItem {
+  return {
+    teamId: input.entityId,
+    teamName: input.metadata.name,
+    teamLogo: input.metadata.imageUrl,
+    country: input.metadata.country ?? '',
+    activeFollowersCount: input.activeFollowersCount,
+    recentNet30d: input.recentNet30d,
+    totalFollowAdds: input.totalFollowAddsCount,
+  };
+}
+
+function mapDynamicPlayerDiscoveryItem(input: {
+  entityId: string;
+  metadata: FollowDiscoveryMetadata;
+  activeFollowersCount: number;
+  recentNet30d: number;
+  totalFollowAddsCount: number;
+}): FollowDiscoveryPlayerItem {
+  return {
+    playerId: input.entityId,
+    playerName: input.metadata.name,
+    playerPhoto: input.metadata.imageUrl,
+    position: input.metadata.position ?? '',
+    teamName: input.metadata.teamName ?? '',
+    teamLogo: input.metadata.teamLogo ?? '',
+    leagueName: input.metadata.leagueName ?? '',
+    activeFollowersCount: input.activeFollowersCount,
+    recentNet30d: input.recentNet30d,
+    totalFollowAdds: input.totalFollowAddsCount,
+  };
+}
+
+async function loadLegacyTeamDiscovery(limit: number, season: number): Promise<FollowDiscoveryTeamItem[]> {
+  const leagueIds = getLegacyDiscoveryLeagueIds();
+  if (limit <= 0 || leagueIds.length === 0) {
+    return [];
+  }
+
+  const responses = await mapWithConcurrency(leagueIds, TRENDS_MAX_CONCURRENCY, leagueId =>
+    apiFootballGet<FollowsApiResponse<FollowsApiStandingDto>>(
+      `/standings?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`,
+    ).catch(() => ({ response: [] })),
+  );
+
+  const items: FollowDiscoveryTeamItem[] = [];
+  const seen = new Set<string>();
+
+  for (const payload of responses) {
+    for (const leagueItem of payload.response ?? []) {
+      const standing = leagueItem.league?.standings?.[0] ?? [];
+      for (const row of standing) {
+        const teamId = String(row.team?.id ?? '').trim();
+        const teamName = row.team?.name?.trim() ?? '';
+        if (!teamId || !teamName || seen.has(teamId)) {
+          continue;
+        }
+
+        seen.add(teamId);
+        items.push({
+          teamId,
+          teamName,
+          teamLogo: row.team?.logo ?? '',
+          country: '',
+          activeFollowersCount: 0,
+          recentNet30d: 0,
+          totalFollowAdds: 0,
+        });
+
+        if (items.length >= limit) {
+          return items;
+        }
+      }
+    }
+  }
+
+  return items;
+}
+
+async function loadLegacyPlayerDiscovery(limit: number, season: number): Promise<FollowDiscoveryPlayerItem[]> {
+  const leagueIds = getLegacyDiscoveryLeagueIds();
+  if (limit <= 0 || leagueIds.length === 0) {
+    return [];
+  }
+
+  const responses = await mapWithConcurrency(leagueIds, TRENDS_MAX_CONCURRENCY, leagueId =>
+    apiFootballGet<FollowsApiResponse<FollowsApiTopScorerDto>>(
+      `/players/topscorers?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`,
+    ).catch(() => ({ response: [] })),
+  );
+
+  const items: FollowDiscoveryPlayerItem[] = [];
+  const seen = new Set<string>();
+
+  for (const payload of responses) {
+    for (const item of payload.response ?? []) {
+      const playerId = String(item.player?.id ?? '').trim();
+      const playerName = item.player?.name?.trim() ?? '';
+      if (!playerId || !playerName || seen.has(playerId)) {
+        continue;
+      }
+
+      const firstStats = item.statistics?.[0];
+      seen.add(playerId);
+      items.push({
+        playerId,
+        playerName,
+        playerPhoto: item.player?.photo ?? '',
+        position: firstStats?.games?.position ?? '',
+        teamName: firstStats?.team?.name ?? '',
+        teamLogo: firstStats?.team?.logo ?? '',
+        leagueName: firstStats?.league?.season ? String(firstStats.league.season) : '',
+        activeFollowersCount: 0,
+        recentNet30d: 0,
+        totalFollowAdds: 0,
+      });
+
+      if (items.length >= limit) {
+        return items;
+      }
+    }
+  }
+
+  return items;
+}
+
+async function hydrateDiscoveryMetadataIfNeeded(params: {
+  entityKind: FollowEntityKind;
+  entityId: string;
+  store: Awaited<ReturnType<typeof getFollowsDiscoveryStore>>;
+}): Promise<void> {
+  const updatedAt = await params.store.getMetadataUpdatedAt(params.entityKind, params.entityId);
+  if (updatedAt && Date.now() - updatedAt.getTime() < FOLLOW_DISCOVERY_METADATA_STALE_MS) {
+    return;
+  }
+
+  if (params.entityKind === 'team') {
+    const payload = await apiFootballGet<TeamDetailsResponse>(
+      `/teams?id=${encodeURIComponent(params.entityId)}`,
+    );
+    const team = payload.response?.[0]?.team;
+    const teamId = toSafeNumber(team?.id);
+    const teamName = team?.name?.trim() ?? '';
+
+    if (!teamId || !teamName) {
+      return;
+    }
+
+    await params.store.upsertMetadata('team', params.entityId, {
+      name: teamName,
+      imageUrl: team?.logo ?? '',
+      country: team?.country ?? null,
+    });
+    return;
+  }
+
+  const payload = await apiFootballGet<PlayerSeasonResponse>(
+    `/players?id=${encodeURIComponent(params.entityId)}&season=${encodeURIComponent(String(getCurrentSeasonYear()))}`,
+  );
+  const item = payload.response?.[0];
+  const playerId = toSafeNumber(item?.player?.id);
+  const playerName = item?.player?.name?.trim() ?? '';
+
+  if (!item || !playerId || !playerName) {
+    return;
+  }
+
+  const firstStats = item.statistics?.[0];
+  await params.store.upsertMetadata('player', params.entityId, {
+    name: playerName,
+    imageUrl: item?.player?.photo ?? '',
+    position: firstStats?.games?.position ?? null,
+    teamName: firstStats?.team?.name ?? null,
+    teamLogo: firstStats?.team?.logo ?? null,
+    leagueName: firstStats?.league?.name ?? null,
+  });
+}
 
 function mapTeamCard(
   teamId: string,
@@ -212,6 +590,12 @@ const TOP_COMPETITIONS: Array<{
 ];
 
 export async function registerFollowsRoutes(app: FastifyInstance): Promise<void> {
+  const getDiscoveryStore = () =>
+    getFollowsDiscoveryStore({
+      backend: env.notificationsPersistenceBackend,
+      databaseUrl: env.databaseUrl,
+    });
+
   app.get(
     '/v1/follows/trends/competitions',
     {
@@ -458,4 +842,129 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
       };
     },
   );
+
+  app.post('/v1/follows/events', async (request, reply) => {
+    const authContext = rejectUnauthorizedFollowEventRequest(request, reply);
+    if (!authContext) {
+      return;
+    }
+
+    parseOrThrow(z.object({}).strict(), request.query);
+    const payload = parseOrThrow(followEventSchema, request.body);
+    const store = await getDiscoveryStore();
+    const occurredAt = payload.occurredAt ? new Date(payload.occurredAt) : undefined;
+    const eventResult = await store.recordEvent({
+      subject: authContext.subject,
+      entityKind: payload.entityKind,
+      entityId: payload.entityId,
+      action: payload.action,
+      source: payload.source,
+      occurredAt,
+    });
+
+    if (payload.entitySnapshot) {
+      await store.upsertMetadata(
+        payload.entityKind,
+        payload.entityId,
+        toMetadataFromSnapshot(payload.entityKind, payload.entitySnapshot),
+      );
+    } else {
+      void hydrateDiscoveryMetadataIfNeeded({
+        entityKind: payload.entityKind,
+        entityId: payload.entityId,
+        store,
+      }).catch(error => {
+        request.log.warn(
+          {
+            entityKind: payload.entityKind,
+            entityId: payload.entityId,
+            err: error instanceof Error ? error.message : String(error),
+          },
+          'follows.discovery.metadata_hydration_failed',
+        );
+      });
+    }
+
+    return {
+      status: 'accepted' as const,
+      applied: eventResult.applied,
+      state: eventResult.state,
+    };
+  });
+
+  app.get('/v1/follows/discovery/teams', async request => {
+    const query = parseOrThrow(discoveryQuerySchema, request.query);
+    const limit = query.limit ?? FOLLOW_DISCOVERY_DEFAULT_LIMIT;
+    const season = getCurrentSeasonYear();
+
+    return withCache(
+      buildCanonicalCacheKey('follows:discovery:teams', { limit }),
+      FOLLOW_DISCOVERY_CACHE_TTL_MS,
+      async () => {
+        const store = await getDiscoveryStore();
+        const dynamicItems = (await store.getDiscovery('team', limit)).map(mapDynamicTeamDiscoveryItem);
+
+        if (dynamicItems.length >= limit) {
+          return {
+            items: dynamicItems.slice(0, limit),
+            meta: {
+              source: 'dynamic' as const,
+            },
+          };
+        }
+
+        const legacyItems = await loadLegacyTeamDiscovery(limit - dynamicItems.length, season);
+        const seen = new Set(dynamicItems.map(item => item.teamId));
+        const merged = [
+          ...dynamicItems,
+          ...legacyItems.filter(item => !seen.has(item.teamId)),
+        ].slice(0, limit);
+
+        return {
+          items: merged,
+          meta: {
+            source: dynamicItems.length === 0 ? 'legacy_fill' as const : 'hybrid' as const,
+          },
+        };
+      },
+    );
+  });
+
+  app.get('/v1/follows/discovery/players', async request => {
+    const query = parseOrThrow(discoveryQuerySchema, request.query);
+    const limit = query.limit ?? FOLLOW_DISCOVERY_DEFAULT_LIMIT;
+    const season = getCurrentSeasonYear();
+
+    return withCache(
+      buildCanonicalCacheKey('follows:discovery:players', { limit }),
+      FOLLOW_DISCOVERY_CACHE_TTL_MS,
+      async () => {
+        const store = await getDiscoveryStore();
+        const dynamicItems = (await store.getDiscovery('player', limit)).map(mapDynamicPlayerDiscoveryItem);
+
+        if (dynamicItems.length >= limit) {
+          return {
+            items: dynamicItems.slice(0, limit),
+            meta: {
+              source: 'dynamic' as const,
+            },
+          };
+        }
+
+        const legacyItems = await loadLegacyPlayerDiscovery(limit - dynamicItems.length, season);
+        const seen = new Set(dynamicItems.map(item => item.playerId));
+        const merged = [
+          ...dynamicItems,
+          ...legacyItems.filter(item => !seen.has(item.playerId)),
+        ].slice(0, limit);
+
+        return {
+          items: merged,
+          meta: {
+            source: dynamicItems.length === 0 ? 'legacy_fill' as const : 'hybrid' as const,
+          },
+        };
+      },
+    );
+  });
 }

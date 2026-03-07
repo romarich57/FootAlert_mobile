@@ -154,8 +154,115 @@ export function SearchResultsList({
       ),
     [competitionResults, matchResults, playerResults, selectedTab, t, teamResults],
   );
+  const hasEmptyQuerySuggestions =
+    !query.trim().length &&
+    ((selectedTab === 'teams' && teamResults.length > 0) ||
+      (selectedTab === 'players' && playerResults.length > 0));
 
   if (!query.trim().length) {
+    if (hasEmptyQuerySuggestions) {
+      return (
+        <FlashList
+          data={items}
+          keyExtractor={item => item.key}
+          estimatedItemSize={74}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => {
+            if (item.type === 'team') {
+              return (
+                <AppPressable
+                  onPress={() => onPressTeam(item.item.teamId)}
+                  style={styles.resultCard}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.item.teamName} ${item.item.country}`.trim()}
+                  testID={`search-result-team-${item.item.teamId}`}
+                >
+                  <View style={styles.logoWrap}>
+                    {item.item.teamLogo ? (
+                      <AppImage source={{ uri: item.item.teamLogo }} style={styles.logo} resizeMode="contain" />
+                    ) : (
+                      <MaterialCommunityIcons name="shield-outline" size={18} color={colors.textMuted} />
+                    )}
+                  </View>
+                  <View style={styles.textWrap}>
+                    <Text style={styles.title} numberOfLines={1}>
+                      {item.item.teamName}
+                    </Text>
+                    <Text style={styles.subtitle} numberOfLines={1}>
+                      {item.item.country}
+                    </Text>
+                  </View>
+                </AppPressable>
+              );
+            }
+
+            if (item.type === 'player') {
+              const subtitle = [
+                localizePlayerPosition(item.item.position, t),
+                item.item.teamName,
+                item.item.leagueName,
+              ]
+                .filter(Boolean)
+                .join(' • ');
+
+              return (
+                <AppPressable
+                  onPress={() => onPressPlayer(item.item.playerId)}
+                  style={styles.resultCard}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.item.playerName} ${subtitle}`.trim()}
+                  testID={`search-result-player-${item.item.playerId}`}
+                >
+                  <View style={styles.logoWrap}>
+                    {item.item.playerPhoto ? (
+                      <AppImage source={{ uri: item.item.playerPhoto }} style={styles.logo} resizeMode="cover" />
+                    ) : (
+                      <MaterialCommunityIcons name="account-outline" size={18} color={colors.textMuted} />
+                    )}
+                  </View>
+                  <View style={styles.textWrap}>
+                    <Text style={styles.title} numberOfLines={1}>
+                      {item.item.playerName}
+                    </Text>
+                    <Text style={styles.subtitle} numberOfLines={1}>
+                      {subtitle}
+                    </Text>
+                  </View>
+                </AppPressable>
+              );
+            }
+
+            return null;
+          }}
+        />
+      );
+    }
+
+    if (isLoading && (selectedTab === 'teams' || selectedTab === 'players')) {
+      return (
+        <View style={styles.stateContainer}>
+          <Text style={styles.stateText}>{t('screens.search.loading')}</Text>
+        </View>
+      );
+    }
+
+    if (isError && (selectedTab === 'teams' || selectedTab === 'players')) {
+      return (
+        <View style={styles.stateContainer}>
+          <Text style={styles.stateText}>{t('screens.search.error')}</Text>
+          <AppPressable
+            style={styles.retryButton}
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel={t('actions.retry')}
+            testID="search-results-retry-button"
+          >
+            <Text style={styles.retryText}>{t('actions.retry')}</Text>
+          </AppPressable>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.stateContainer}>
         <Text style={styles.stateText}>{t('screens.search.hint')}</Text>

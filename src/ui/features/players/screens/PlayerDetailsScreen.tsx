@@ -103,6 +103,7 @@ export function PlayerDetailsScreen() {
     const screenModel = usePlayerDetailsScreenModel({
         playerId: safePlayerId ?? '',
         activeTab,
+        followSource: route.params.followSource,
     });
     const screenOpenedAtRef = useRef(Date.now());
     const firstContentTrackedRef = useRef(false);

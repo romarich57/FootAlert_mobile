@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
+import { postFollowEvent } from '@data/endpoints/followsApi';
 import {
   loadFollowedLeagueIds,
   loadFollowedPlayerIds,
@@ -13,10 +14,30 @@ import {
   toggleFollowedTeam,
 } from '@data/storage/followsStorage';
 import { incrementPositiveEventCount } from '@data/storage/reviewPromptStorage';
-import type { FollowEntityTab } from '@ui/features/follows/types/follows.types';
+import type {
+  FollowEntityTab,
+  FollowEventPayload,
+  FollowEventSource,
+  FollowPlayerSnapshot,
+  FollowTeamSnapshot,
+} from '@ui/features/follows/types/follows.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 type ToggleFollowError = 'limit_reached' | null;
+type ToggleTeamFollowOptions = {
+  source?: FollowEventSource;
+  snapshot?: FollowTeamSnapshot;
+};
+type TogglePlayerFollowOptions = {
+  source?: FollowEventSource;
+  snapshot?: FollowPlayerSnapshot;
+};
+type ToggleTeamMutationInput = {
+  teamId: string;
+} & ToggleTeamFollowOptions;
+type TogglePlayerMutationInput = {
+  playerId: string;
+} & TogglePlayerFollowOptions;
 
 function computeNextIds(ids: string[], id: string, maxAllowed: number): string[] {
   if (ids.includes(id)) {
@@ -28,6 +49,10 @@ function computeNextIds(ids: string[], id: string, maxAllowed: number): string[]
   }
 
   return [id, ...ids.filter(value => value !== id)];
+}
+
+function trackFollowEvent(payload: FollowEventPayload): void {
+  void postFollowEvent(payload).catch(() => undefined);
 }
 
 export function useFollowsActions() {
@@ -65,9 +90,9 @@ export function useFollowsActions() {
   });
 
   const toggleTeamMutation = useMutation({
-    mutationFn: (teamId: string) =>
+    mutationFn: ({ teamId }: ToggleTeamMutationInput) =>
       toggleFollowedTeam(teamId, appEnv.followsMaxFollowedTeams),
-    onMutate: async teamId => {
+    onMutate: async ({ teamId }) => {
       await queryClient.cancelQueries({
         queryKey: queryKeys.follows.followedTeamIds(),
       });
@@ -82,14 +107,29 @@ export function useFollowsActions() {
 
       return { previousIds };
     },
-    onError: (_error, _teamId, context) => {
+    onError: (_error, _teamInput, context) => {
       queryClient.setQueryData(queryKeys.follows.followedTeamIds(), context?.previousIds ?? []);
     },
-    onSuccess: (result, teamId, context) => {
+    onSuccess: (result, teamInput, context) => {
       queryClient.setQueryData(queryKeys.follows.followedTeamIds(), result.ids);
       setLastToggleError(result.reason ?? null);
-      const wasAlreadyFollowed = context?.previousIds?.includes(teamId) ?? false;
-      const isNowFollowed = result.ids.includes(teamId);
+      const wasAlreadyFollowed = context?.previousIds?.includes(teamInput.teamId) ?? false;
+      const isNowFollowed = result.ids.includes(teamInput.teamId);
+      const action =
+        result.changed
+          ? (isNowFollowed ? 'follow' : 'unfollow')
+          : null;
+
+      if (action) {
+        trackFollowEvent({
+          entityKind: 'team',
+          entityId: teamInput.teamId,
+          action,
+          source: teamInput.source ?? 'team_details',
+          entitySnapshot: teamInput.snapshot,
+        });
+      }
+
       if (result.changed && !wasAlreadyFollowed && isNowFollowed) {
         incrementPositiveEventCount().catch(() => undefined);
       }
@@ -97,9 +137,9 @@ export function useFollowsActions() {
   });
 
   const togglePlayerMutation = useMutation({
-    mutationFn: (playerId: string) =>
+    mutationFn: ({ playerId }: TogglePlayerMutationInput) =>
       toggleFollowedPlayer(playerId, appEnv.followsMaxFollowedPlayers),
-    onMutate: async playerId => {
+    onMutate: async ({ playerId }) => {
       await queryClient.cancelQueries({
         queryKey: queryKeys.follows.followedPlayerIds(),
       });
@@ -114,14 +154,29 @@ export function useFollowsActions() {
 
       return { previousIds };
     },
-    onError: (_error, _playerId, context) => {
+    onError: (_error, _playerInput, context) => {
       queryClient.setQueryData(queryKeys.follows.followedPlayerIds(), context?.previousIds ?? []);
     },
-    onSuccess: (result, playerId, context) => {
+    onSuccess: (result, playerInput, context) => {
       queryClient.setQueryData(queryKeys.follows.followedPlayerIds(), result.ids);
       setLastToggleError(result.reason ?? null);
-      const wasAlreadyFollowed = context?.previousIds?.includes(playerId) ?? false;
-      const isNowFollowed = result.ids.includes(playerId);
+      const wasAlreadyFollowed = context?.previousIds?.includes(playerInput.playerId) ?? false;
+      const isNowFollowed = result.ids.includes(playerInput.playerId);
+      const action =
+        result.changed
+          ? (isNowFollowed ? 'follow' : 'unfollow')
+          : null;
+
+      if (action) {
+        trackFollowEvent({
+          entityKind: 'player',
+          entityId: playerInput.playerId,
+          action,
+          source: playerInput.source ?? 'player_details',
+          entitySnapshot: playerInput.snapshot,
+        });
+      }
+
       if (result.changed && !wasAlreadyFollowed && isNowFollowed) {
         incrementPositiveEventCount().catch(() => undefined);
       }
@@ -188,15 +243,21 @@ export function useFollowsActions() {
   });
 
   const toggleTeamFollow = useCallback(
-    async (teamId: string) => {
-      return toggleTeamMutation.mutateAsync(teamId);
+    async (teamId: string, options?: ToggleTeamFollowOptions) => {
+      return toggleTeamMutation.mutateAsync({
+        teamId,
+        ...options,
+      });
     },
     [toggleTeamMutation],
   );
 
   const togglePlayerFollow = useCallback(
-    async (playerId: string) => {
-      return togglePlayerMutation.mutateAsync(playerId);
+    async (playerId: string, options?: TogglePlayerFollowOptions) => {
+      return togglePlayerMutation.mutateAsync({
+        playerId,
+        ...options,
+      });
     },
     [togglePlayerMutation],
   );

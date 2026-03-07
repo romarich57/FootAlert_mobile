@@ -1,14 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchTrendingPlayers, fetchTrendingTeams } from '@data/endpoints/followsApi';
+import { fetchDiscoveryPlayers, fetchDiscoveryTeams } from '@data/endpoints/followsApi';
 import { bffGet } from '@data/endpoints/bffClient';
-import {
-  getCurrentSeasonYear,
-  mapTrendingPlayersFromTopScorers,
-  mapTrendingTeamsFromStandings,
-} from '@data/mappers/followsMapper';
-import { TOP_COMPETITION_IDS } from '@/shared/constants';
-import { appEnv } from '@data/config/env';
+import { getCurrentSeasonYear } from '@data/mappers/followsMapper';
 import type { TrendCompetitionItem } from '@ui/features/onboarding/types/onboarding.types';
 import type { OnboardingStep } from '@ui/features/onboarding/types/onboarding.types';
 import type { OnboardingEntityCardData } from '@ui/features/onboarding/components/OnboardingEntityCard';
@@ -19,10 +13,6 @@ type TrendCompetitionsResponse = {
   competitions: TrendCompetitionItem[];
 };
 
-function getTopLeagueIds(): string[] {
-  return TOP_COMPETITION_IDS.slice(0, appEnv.followsTrendsLeagueCount);
-}
-
 export function useOnboardingTrends(step: OnboardingStep) {
   const season = getCurrentSeasonYear();
 
@@ -32,13 +22,14 @@ export function useOnboardingTrends(step: OnboardingStep) {
     queryFn: async ({ signal }): Promise<OnboardingEntityCardData[]> => {
       if (step === 'teams') {
         try {
-          const payload = await fetchTrendingTeams(getTopLeagueIds(), season, signal);
-          const items = mapTrendingTeamsFromStandings(payload, appEnv.followsTrendsTeamsLimit);
-          return items.map(item => ({
+          const result = await fetchDiscoveryTeams(8, signal);
+          return result.items.map(item => ({
             id: item.teamId,
             name: item.teamName,
             logo: item.teamLogo,
-            subtitle: item.leagueName,
+            subtitle: item.country,
+            kind: 'team',
+            country: item.country,
           }));
         } catch {
           return [];
@@ -65,17 +56,17 @@ export function useOnboardingTrends(step: OnboardingStep) {
 
       // players
       try {
-        const payload = await fetchTrendingPlayers(getTopLeagueIds(), season, signal);
-        const items = mapTrendingPlayersFromTopScorers(
-          payload,
-          appEnv.followsTrendsPlayersLimit,
-          season,
-        );
-        return items.map(item => ({
+        const result = await fetchDiscoveryPlayers(8, signal);
+        return result.items.map(item => ({
           id: item.playerId,
           name: item.playerName,
           logo: item.playerPhoto,
-          subtitle: `${item.teamName} · ${item.teamLogo ? '' : ''}`,
+          subtitle: item.teamName,
+          kind: 'player',
+          position: item.position,
+          teamName: item.teamName,
+          teamLogo: item.teamLogo,
+          leagueName: item.leagueName,
         }));
       } catch {
         return [];

@@ -7,13 +7,17 @@ import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
+import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
 import { useFollowsSearch } from '@ui/features/follows/hooks/useFollowsSearch';
-import { useFollowsTrends } from '@ui/features/follows/hooks/useFollowsTrends';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import type {
+  FollowDiscoveryPlayerItem,
+  FollowDiscoveryTeamItem,
   FollowEntityTab,
   FollowsSearchResultPlayer,
   FollowsSearchResultTeam,
+  FollowPlayerSnapshot,
+  FollowTeamSnapshot,
   TrendPlayerItem,
   TrendTeamItem,
 } from '@ui/features/follows/types/follows.types';
@@ -57,14 +61,31 @@ export function useFollowsScreenModel() {
 
   const hideTrendsCurrentTab = selectedTab === 'teams' ? hideTrendsTeams : hideTrendsPlayers;
 
-  const trendsQuery = useFollowsTrends({
+  const discoveryQuery = useFollowsDiscovery({
     tab: selectedTab,
     hidden: hideTrendsCurrentTab,
   });
 
   const trendsItems = useMemo(() => {
-    return trendsQuery.data ?? [];
-  }, [trendsQuery.data]);
+    const discoveryItems = discoveryQuery.data?.items ?? [];
+    if (selectedTab === 'teams') {
+      return (discoveryItems as FollowDiscoveryTeamItem[]).map<TrendTeamItem>(item => ({
+        teamId: item.teamId,
+        teamName: item.teamName,
+        teamLogo: item.teamLogo,
+        leagueName: item.country,
+      }));
+    }
+
+    return (discoveryItems as FollowDiscoveryPlayerItem[]).map<TrendPlayerItem>(item => ({
+      playerId: item.playerId,
+      playerName: item.playerName,
+      playerPhoto: item.playerPhoto,
+      position: item.position,
+      teamName: item.teamName,
+      teamLogo: item.teamLogo,
+    }));
+  }, [discoveryQuery.data?.items, selectedTab]);
 
   const asTeamTrends = trendsItems as TrendTeamItem[];
   const asPlayerTrends = trendsItems as TrendPlayerItem[];
@@ -107,6 +128,50 @@ export function useFollowsScreenModel() {
     return list;
   }, [playerCardsQuery.data, asPlayerTrends]);
 
+  const teamSnapshotsById = useMemo(() => {
+    const snapshots = new Map<string, FollowTeamSnapshot>();
+    teamCardsQuery.data?.forEach(item => {
+      snapshots.set(item.teamId, {
+        teamName: item.teamName,
+        teamLogo: item.teamLogo,
+        country: null,
+      });
+    });
+    (discoveryQuery.data?.items as FollowDiscoveryTeamItem[] | undefined)?.forEach(item => {
+      snapshots.set(item.teamId, {
+        teamName: item.teamName,
+        teamLogo: item.teamLogo,
+        country: item.country,
+      });
+    });
+    return snapshots;
+  }, [discoveryQuery.data?.items, teamCardsQuery.data]);
+
+  const playerSnapshotsById = useMemo(() => {
+    const snapshots = new Map<string, FollowPlayerSnapshot>();
+    playerCardsQuery.data?.forEach(item => {
+      snapshots.set(item.playerId, {
+        playerName: item.playerName,
+        playerPhoto: item.playerPhoto,
+        position: item.position,
+        teamName: item.teamName,
+        teamLogo: item.teamLogo,
+        leagueName: item.leagueName,
+      });
+    });
+    (discoveryQuery.data?.items as FollowDiscoveryPlayerItem[] | undefined)?.forEach(item => {
+      snapshots.set(item.playerId, {
+        playerName: item.playerName,
+        playerPhoto: item.playerPhoto,
+        position: item.position,
+        teamName: item.teamName,
+        teamLogo: item.teamLogo,
+        leagueName: item.leagueName,
+      });
+    });
+    return snapshots;
+  }, [discoveryQuery.data?.items, playerCardsQuery.data]);
+
   const search = useFollowsSearch({
     tab: selectedTab,
     query: searchQuery,
@@ -139,7 +204,7 @@ export function useFollowsScreenModel() {
     const maxUpdatedAt = Math.max(
       teamCardsQuery.dataUpdatedAt,
       playerCardsQuery.dataUpdatedAt,
-      trendsQuery.dataUpdatedAt,
+      discoveryQuery.dataUpdatedAt,
       search.dataUpdatedAt,
     );
     return maxUpdatedAt > 0 ? maxUpdatedAt : null;
@@ -147,7 +212,7 @@ export function useFollowsScreenModel() {
     playerCardsQuery.dataUpdatedAt,
     search.dataUpdatedAt,
     teamCardsQuery.dataUpdatedAt,
-    trendsQuery.dataUpdatedAt,
+    discoveryQuery.dataUpdatedAt,
   ]);
 
   const toggleSearchVisibility = useCallback(() => {
@@ -162,17 +227,23 @@ export function useFollowsScreenModel() {
   const handleToggleTeam = useCallback(
     (teamId: string) => {
       clearToggleError();
-      toggleTeamFollow(teamId).catch(() => undefined);
+      toggleTeamFollow(teamId, {
+        source: search.hasEnoughChars ? 'follows_search' : 'follows_trending',
+        snapshot: teamSnapshotsById.get(teamId),
+      }).catch(() => undefined);
     },
-    [clearToggleError, toggleTeamFollow],
+    [clearToggleError, search.hasEnoughChars, teamSnapshotsById, toggleTeamFollow],
   );
 
   const handleTogglePlayer = useCallback(
     (playerId: string) => {
       clearToggleError();
-      togglePlayerFollow(playerId).catch(() => undefined);
+      togglePlayerFollow(playerId, {
+        source: search.hasEnoughChars ? 'follows_search' : 'follows_trending',
+        snapshot: playerSnapshotsById.get(playerId),
+      }).catch(() => undefined);
     },
-    [clearToggleError, togglePlayerFollow],
+    [clearToggleError, playerSnapshotsById, search.hasEnoughChars, togglePlayerFollow],
   );
 
   const handleOpenPlayerDetails = useCallback(
@@ -204,7 +275,11 @@ export function useFollowsScreenModel() {
     isLoading,
     isSectionLoading:
       isLoading ||
-      (selectedTab === 'teams' ? teamCardsQuery.isLoading : playerCardsQuery.isLoading),
+      (selectedTab === 'teams' ? teamCardsQuery.isLoading : playerCardsQuery.isLoading) ||
+      (!search.hasEnoughChars &&
+        !hideTrendsCurrentTab &&
+        discoveryQuery.isLoading &&
+        !discoveryQuery.data),
     lastToggleError,
     teamCards: teamCardsQuery.data ?? [],
     playerCards: playerCardsQuery.data ?? [],
@@ -216,6 +291,7 @@ export function useFollowsScreenModel() {
     updateHideTrends,
     asTeamTrends,
     asPlayerTrends,
+    discoverySource: discoveryQuery.data?.meta.source ?? null,
     lastUpdatedAt,
   };
 }

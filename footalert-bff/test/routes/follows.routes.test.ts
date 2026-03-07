@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildApp, installFetchMock, jsonResponse, sleep } from '../helpers/appTestHarness.ts';
+import {
+  buildApp,
+  buildMobileSessionAuthorizationHeader,
+  installFetchMock,
+  jsonResponse,
+  sleep,
+} from '../helpers/appTestHarness.ts';
 test('GET /v1/follows/trends/teams rejects more than 10 leagues', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
   const app = await buildApp(t);
@@ -168,4 +174,216 @@ test('GET /v1/follows/trends/players aggregates scorer calls with bounded concur
   assert.equal(response.json().response.length, 3);
   assert.equal(calls.length, 3);
   assert.equal(maxConcurrentRequests <= 3, true);
+});
+
+test('POST /v1/follows/events is idempotent and GET /v1/follows/discovery/teams ranks dynamic items', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const firstFollow = await app.inject({
+    method: 'POST',
+    url: '/v1/follows/events',
+    headers: buildMobileSessionAuthorizationHeader({ subject: 'device-a' }),
+    payload: {
+      entityKind: 'team',
+      entityId: '529',
+      action: 'follow',
+      source: 'follows_trending',
+      entitySnapshot: {
+        teamName: 'Barcelona',
+        teamLogo: 'barca.png',
+        country: 'Spain',
+      },
+    },
+  });
+
+  assert.equal(firstFollow.statusCode, 200);
+  assert.deepEqual(firstFollow.json(), {
+    status: 'accepted',
+    applied: true,
+    state: 'followed',
+  });
+
+  const duplicateFollow = await app.inject({
+    method: 'POST',
+    url: '/v1/follows/events',
+    headers: buildMobileSessionAuthorizationHeader({ subject: 'device-a' }),
+    payload: {
+      entityKind: 'team',
+      entityId: '529',
+      action: 'follow',
+      source: 'follows_trending',
+      entitySnapshot: {
+        teamName: 'Barcelona',
+        teamLogo: 'barca.png',
+        country: 'Spain',
+      },
+    },
+  });
+
+  assert.equal(duplicateFollow.statusCode, 200);
+  assert.deepEqual(duplicateFollow.json(), {
+    status: 'accepted',
+    applied: false,
+    state: 'followed',
+  });
+
+  const secondDeviceFollow = await app.inject({
+    method: 'POST',
+    url: '/v1/follows/events',
+    headers: buildMobileSessionAuthorizationHeader({ subject: 'device-b' }),
+    payload: {
+      entityKind: 'team',
+      entityId: '529',
+      action: 'follow',
+      source: 'team_details',
+      entitySnapshot: {
+        teamName: 'Barcelona',
+        teamLogo: 'barca.png',
+        country: 'Spain',
+      },
+    },
+  });
+
+  assert.equal(secondDeviceFollow.statusCode, 200);
+
+  const thirdFollow = await app.inject({
+    method: 'POST',
+    url: '/v1/follows/events',
+    headers: buildMobileSessionAuthorizationHeader({ subject: 'device-c' }),
+    payload: {
+      entityKind: 'team',
+      entityId: '85',
+      action: 'follow',
+      source: 'team_details',
+      entitySnapshot: {
+        teamName: 'Paris Saint-Germain',
+        teamLogo: 'psg.png',
+        country: 'France',
+      },
+    },
+  });
+
+  assert.equal(thirdFollow.statusCode, 200);
+
+  const discovery = await app.inject({
+    method: 'GET',
+    url: '/v1/follows/discovery/teams?limit=2',
+  });
+
+  assert.equal(discovery.statusCode, 200);
+  assert.equal(calls.length, 0);
+
+  assert.deepEqual(discovery.json(), {
+    items: [
+      {
+        teamId: '529',
+        teamName: 'Barcelona',
+        teamLogo: 'barca.png',
+        country: 'Spain',
+        activeFollowersCount: 2,
+        recentNet30d: 2,
+        totalFollowAdds: 2,
+      },
+      {
+        teamId: '85',
+        teamName: 'Paris Saint-Germain',
+        teamLogo: 'psg.png',
+        country: 'France',
+        activeFollowersCount: 1,
+        recentNet30d: 1,
+        totalFollowAdds: 1,
+      },
+    ],
+    meta: {
+      source: 'dynamic',
+    },
+  });
+});
+
+test('POST /v1/follows/events ignores unfollow when entity is not currently followed', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/follows/events',
+    headers: buildMobileSessionAuthorizationHeader({ subject: 'device-z' }),
+    payload: {
+      entityKind: 'player',
+      entityId: '278',
+      action: 'unfollow',
+      source: 'player_details',
+      entitySnapshot: {
+        playerName: 'Kylian Mbappe',
+        playerPhoto: 'mbappe.png',
+        position: 'Attacker',
+        teamName: 'Real Madrid',
+        teamLogo: 'realmadrid.png',
+        leagueName: 'La Liga',
+      },
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json(), {
+    status: 'accepted',
+    applied: false,
+    state: 'unfollowed',
+  });
+});
+
+test('GET /v1/follows/discovery/teams falls back to legacy results when no dynamic ranking exists', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    if (url.pathname.endsWith('/standings')) {
+      return jsonResponse({
+        response: [
+          {
+            league: {
+              name: 'Premier League',
+              standings: [
+                [
+                  {
+                    team: {
+                      id: 50,
+                      name: 'Manchester City',
+                      logo: 'city.png',
+                    },
+                  },
+                ],
+              ],
+            },
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/follows/discovery/teams?limit=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.ok(calls.length > 0);
+  assert.deepEqual(response.json(), {
+    items: [
+      {
+        teamId: '50',
+        teamName: 'Manchester City',
+        teamLogo: 'city.png',
+        country: '',
+        activeFollowersCount: 0,
+        recentNet30d: 0,
+        totalFollowAdds: 0,
+      },
+    ],
+    meta: {
+      source: 'legacy_fill',
+    },
+  });
 });

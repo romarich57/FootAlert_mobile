@@ -1,4 +1,85 @@
 export type FollowEntityTab = 'teams' | 'players';
+export type FollowEntityKind = 'team' | 'player';
+export type FollowEventAction = 'follow' | 'unfollow';
+export type FollowEventSource =
+  | 'follows_trending'
+  | 'follows_search'
+  | 'onboarding_trending'
+  | 'onboarding_search'
+  | 'team_details'
+  | 'player_details'
+  | 'search_tab';
+export type FollowEventState = 'followed' | 'unfollowed';
+export type FollowDiscoverySource = 'dynamic' | 'legacy_fill' | 'hybrid';
+
+export type FollowTeamSnapshot = {
+  teamName: string;
+  teamLogo: string;
+  country?: string | null;
+};
+
+export type FollowPlayerSnapshot = {
+  playerName: string;
+  playerPhoto: string;
+  position?: string | null;
+  teamName?: string | null;
+  teamLogo?: string | null;
+  leagueName?: string | null;
+};
+
+export type FollowEventPayload =
+  | {
+      entityKind: 'team';
+      entityId: string;
+      action: FollowEventAction;
+      source: FollowEventSource;
+      occurredAt?: string;
+      entitySnapshot?: FollowTeamSnapshot;
+    }
+  | {
+      entityKind: 'player';
+      entityId: string;
+      action: FollowEventAction;
+      source: FollowEventSource;
+      occurredAt?: string;
+      entitySnapshot?: FollowPlayerSnapshot;
+    };
+
+export type FollowEventResponse = {
+  status: 'accepted';
+  applied: boolean;
+  state: FollowEventState;
+};
+
+export type FollowDiscoveryTeamItem = {
+  teamId: string;
+  teamName: string;
+  teamLogo: string;
+  country: string;
+  activeFollowersCount: number;
+  recentNet30d: number;
+  totalFollowAdds: number;
+};
+
+export type FollowDiscoveryPlayerItem = {
+  playerId: string;
+  playerName: string;
+  playerPhoto: string;
+  position: string;
+  teamName: string;
+  teamLogo: string;
+  leagueName: string;
+  activeFollowersCount: number;
+  recentNet30d: number;
+  totalFollowAdds: number;
+};
+
+export type FollowDiscoveryResponse<T> = {
+  items: T[];
+  meta: {
+    source: FollowDiscoverySource;
+  };
+};
 
 export type TeamNextMatch = {
   fixtureId: string;
