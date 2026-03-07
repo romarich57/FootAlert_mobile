@@ -1,9 +1,10 @@
 import { memo, useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppImage } from '@ui/shared/media/AppImage';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 export type OnboardingEntityCardData = {
@@ -70,10 +71,10 @@ export const OnboardingEntityCard = memo(function OnboardingEntityCard({
 
   return (
     <View style={styles.container}>
-      <Image
+      <AppImage
         source={{ uri: item.logo }}
         style={styles.logo}
-        resizeMode="contain"
+        resizeMode={item.kind === 'player' ? 'cover' : 'contain'}
       />
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>

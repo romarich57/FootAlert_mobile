@@ -163,8 +163,10 @@ export function SearchResultsList({
     if (hasEmptyQuerySuggestions) {
       return (
         <FlashList
+          key={`search-suggestions-${selectedTab}`}
           data={items}
           keyExtractor={item => item.key}
+          getItemType={item => item.type}
           estimatedItemSize={74}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
@@ -315,8 +317,10 @@ export function SearchResultsList({
 
   return (
     <FlashList
+      key={`search-results-${selectedTab}`}
       data={items}
       keyExtractor={item => item.key}
+      getItemType={item => item.type}
       estimatedItemSize={74}
       contentContainerStyle={styles.listContent}
       renderItem={({ item }) => {

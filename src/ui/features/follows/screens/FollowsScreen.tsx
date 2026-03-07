@@ -291,8 +291,10 @@ export function FollowsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlashList
+        key={`follows-feed-${selectedTab}-${search.hasEnoughChars ? 'search' : 'discovery'}`}
         data={feedItems}
         keyExtractor={item => item.key}
+        getItemType={item => item.type}
         renderItem={renderItem}
         estimatedItemSize={280}
         ListHeaderComponent={listHeaderComponent}

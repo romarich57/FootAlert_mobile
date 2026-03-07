@@ -113,6 +113,7 @@ function TrendingTab({
 
   return (
     <FlashList
+      key={`onboarding-trending-${step}`}
       data={items}
       estimatedItemSize={72}
       keyExtractor={item => item.id}
@@ -169,6 +170,7 @@ function SearchTab({
         ) : null
       ) : (
         <FlashList
+          key={`onboarding-search-${step}`}
           data={results}
           estimatedItemSize={72}
           keyExtractor={item => item.id}

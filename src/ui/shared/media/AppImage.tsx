@@ -15,6 +15,27 @@ export type AppImageProps = Omit<ImageProps, 'source' | 'resizeMode' | 'defaultS
   defaultSource?: number;
 };
 
+function getSourceIdentitySegment(source: ImageSourcePropType): string {
+  if (typeof source === 'number') {
+    return `asset:${source}`;
+  }
+
+  if (Array.isArray(source)) {
+    return source.map(item => getSourceIdentitySegment(item)).join('|');
+  }
+
+  if (source && typeof source === 'object' && 'uri' in source) {
+    const uri = typeof source.uri === 'string' ? source.uri.trim() : '';
+    return uri ? `uri:${uri}` : 'uri:empty';
+  }
+
+  return 'source:unknown';
+}
+
+export function getAppImageSourceIdentity(source: ImageSourcePropType): string {
+  return getSourceIdentitySegment(source);
+}
+
 export function AppImage({
   source,
   resizeMode = 'cover',
@@ -23,8 +44,11 @@ export function AppImage({
   ...rest
 }: AppImageProps) {
   const nativeImageProps = rest as ComponentProps<typeof ReactNativeImage>;
+  const sourceIdentity = getAppImageSourceIdentity(source);
+
   return (
     <ReactNativeImage
+      key={sourceIdentity}
       {...nativeImageProps}
       source={source}
       resizeMode={resizeMode}

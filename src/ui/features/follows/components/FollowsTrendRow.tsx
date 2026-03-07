@@ -1,8 +1,9 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { AppImage } from '@ui/shared/media/AppImage';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type FollowsTrendRowProps = {
@@ -111,7 +112,7 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
   const avatarNode = hasImageError ? (
     <Text style={styles.avatarFallbackText}>{avatarFallbackLabel}</Text>
   ) : (
-    <Image
+    <AppImage
       source={{ uri: avatarUrl }}
       style={imageType === 'player' ? styles.avatarPlayer : styles.avatarTeam}
       resizeMode={imageType === 'player' ? 'cover' : 'contain'}
