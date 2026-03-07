@@ -194,12 +194,12 @@ const RAW_FOLLOW_DISCOVERY_SEED_PLAYERS: RawFollowDiscoverySeedPlayerItem[] = [
     ...ZERO_COUNTS,
   },
   {
-    playerId: '47348',
-    playerName: 'Borja Iglesias',
+    playerId: '1100',
+    playerName: 'E. Haaland',
     position: 'Attacker',
-    teamName: 'Celta Vigo',
-    teamLogo: 'https://media.api-sports.io/football/teams/538.png',
-    leagueName: 'La Liga',
+    teamName: 'Manchester City',
+    teamLogo: 'https://media.api-sports.io/football/teams/33.png',
+    leagueName: 'Premier League',
     ...ZERO_COUNTS,
   },
 ];
