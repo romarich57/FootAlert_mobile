@@ -1,3 +1,4 @@
+import { normalizeFollowDiscoveryPlayerId } from '@app-core';
 import { getJsonValue, setJsonValue } from '@data/storage/asyncStorage';
 import type { FollowEntityTab } from '@domain/contracts/follows.types';
 
@@ -20,6 +21,18 @@ function sanitizeIds(payload: unknown): string[] {
   }
 
   return payload.map(value => String(value)).filter(Boolean);
+}
+
+function uniqueIds(ids: string[]): string[] {
+  return [...new Set(ids)];
+}
+
+function normalizeStoredPlayerIds(ids: string[]): string[] {
+  return uniqueIds(
+    ids
+      .map(id => normalizeFollowDiscoveryPlayerId(id))
+      .filter(Boolean),
+  );
 }
 
 function normalizeAddedId(ids: string[], id: string): string[] {
@@ -88,18 +101,29 @@ export async function toggleFollowedTeam(
 }
 
 export async function loadFollowedPlayerIds(): Promise<string[]> {
-  return loadIds(FOLLOWED_PLAYER_IDS_KEY);
+  const ids = await loadIds(FOLLOWED_PLAYER_IDS_KEY);
+  const normalizedIds = normalizeStoredPlayerIds(ids);
+
+  if (normalizedIds.length !== ids.length || normalizedIds.some((id, index) => id !== ids[index])) {
+    await saveIds(FOLLOWED_PLAYER_IDS_KEY, normalizedIds);
+  }
+
+  return normalizedIds;
 }
 
 export async function saveFollowedPlayerIds(ids: string[]): Promise<void> {
-  await saveIds(FOLLOWED_PLAYER_IDS_KEY, ids);
+  await saveIds(FOLLOWED_PLAYER_IDS_KEY, normalizeStoredPlayerIds(ids));
 }
 
 export async function toggleFollowedPlayer(
   playerId: string,
   maxAllowed: number,
 ): Promise<ToggleFollowResult> {
-  return toggleFollow(FOLLOWED_PLAYER_IDS_KEY, playerId, maxAllowed);
+  return toggleFollow(
+    FOLLOWED_PLAYER_IDS_KEY,
+    normalizeFollowDiscoveryPlayerId(playerId),
+    maxAllowed,
+  );
 }
 
 export async function loadFollowedLeagueIds(): Promise<string[]> {

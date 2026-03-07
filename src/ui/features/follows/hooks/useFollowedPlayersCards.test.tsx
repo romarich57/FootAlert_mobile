@@ -11,8 +11,6 @@ jest.mock('@data/endpoints/followsApi', () => ({
   searchPlayersByName: jest.fn(async () => []),
   fetchNextFixtureForTeam: jest.fn(async () => null),
   fetchTeamById: jest.fn(async () => null),
-  fetchTrendingTeams: jest.fn(async () => []),
-  fetchTrendingPlayers: jest.fn(async () => []),
 }));
 
 const mockedFetchPlayerSeasonStats = jest.mocked(fetchPlayerSeasonStats);

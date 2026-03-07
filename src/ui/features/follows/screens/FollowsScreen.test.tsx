@@ -8,7 +8,7 @@ import { FollowsScreen } from '@ui/features/follows/screens/FollowsScreen';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
-import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
+import { useDiscoveryEntities } from '@ui/features/follows/hooks/useDiscoveryEntities';
 import i18n from '@ui/shared/i18n';
 
 jest.mock('@react-navigation/native', () => {
@@ -22,7 +22,7 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('@ui/features/follows/hooks/useFollowsActions');
 jest.mock('@ui/features/follows/hooks/useFollowedTeamsCards');
 jest.mock('@ui/features/follows/hooks/useFollowedPlayersCards');
-jest.mock('@ui/features/follows/hooks/useFollowsDiscovery');
+jest.mock('@ui/features/follows/hooks/useDiscoveryEntities');
 jest.mock('@ui/app/providers/ThemeProvider', () => ({
   useAppTheme: () => ({
     colors: {
@@ -54,7 +54,7 @@ const mockedUseNetInfo = jest.mocked(useNetInfo);
 const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 const mockedUseFollowedTeamsCards = jest.mocked(useFollowedTeamsCards);
 const mockedUseFollowedPlayersCards = jest.mocked(useFollowedPlayersCards);
-const mockedUseFollowsDiscovery = jest.mocked(useFollowsDiscovery);
+const mockedUseDiscoveryEntities = jest.mocked(useDiscoveryEntities);
 
 const navigateMock = jest.fn();
 
@@ -134,24 +134,34 @@ describe('FollowsScreen', () => {
       isLoading: false,
     } as never);
 
-    mockedUseFollowsDiscovery.mockReturnValue({
-      data: {
-        items: [
-          {
-            teamId: '50',
-            teamName: 'Man City',
-            teamLogo: 'city.png',
-            country: 'England',
-            activeFollowersCount: 12,
-            recentNet30d: 12,
-            totalFollowAdds: 20,
-          },
-        ],
-        meta: {
-          source: 'dynamic',
+    mockedUseDiscoveryEntities.mockReturnValue({
+      resolvedItems: [
+        {
+          teamId: '50',
+          teamName: 'Man City',
+          teamLogo: 'city.png',
+          country: 'England',
+          activeFollowersCount: 12,
+          recentNet30d: 12,
+          totalFollowAdds: 20,
         },
+      ],
+      remoteItems: [],
+      meta: {
+        source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
       },
       isLoading: false,
+      isFetching: false,
+      isError: false,
+      hasRemoteData: false,
+      usedLastGood: false,
+      usedSeedFallback: false,
+      refetch: jest.fn(),
+      dataUpdatedAt: 0,
     } as never);
   });
 
@@ -214,14 +224,24 @@ describe('FollowsScreen', () => {
       data: [],
       isLoading: false,
     } as never);
-    mockedUseFollowsDiscovery.mockReturnValue({
-      data: {
-        items: [],
-        meta: {
-          source: 'dynamic',
-        },
+    mockedUseDiscoveryEntities.mockReturnValue({
+      resolvedItems: [],
+      remoteItems: [],
+      meta: {
+        source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
       },
       isLoading: false,
+      isFetching: false,
+      isError: false,
+      hasRemoteData: false,
+      usedLastGood: false,
+      usedSeedFallback: false,
+      refetch: jest.fn(),
+      dataUpdatedAt: 0,
     } as never);
 
     renderScreen();
@@ -234,9 +254,24 @@ describe('FollowsScreen', () => {
       data: [],
       isLoading: false,
     } as never);
-    mockedUseFollowsDiscovery.mockReturnValue({
-      data: undefined,
+    mockedUseDiscoveryEntities.mockReturnValue({
+      resolvedItems: [],
+      remoteItems: [],
+      meta: {
+        source: 'static_seed',
+        complete: false,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: 1500,
+      },
       isLoading: true,
+      isFetching: false,
+      isError: false,
+      hasRemoteData: false,
+      usedLastGood: false,
+      usedSeedFallback: false,
+      refetch: jest.fn(),
+      dataUpdatedAt: 0,
     } as never);
 
     renderScreen();

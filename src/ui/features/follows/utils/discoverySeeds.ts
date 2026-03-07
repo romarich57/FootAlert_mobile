@@ -3,11 +3,9 @@ import { getFollowDiscoverySeeds } from '@app-core';
 import type {
   FollowDiscoveryPlayerItem,
   FollowDiscoveryResponse,
-  FollowDiscoverySource,
   FollowDiscoveryTeamItem,
   FollowEntityTab,
 } from '@ui/features/follows/types/follows.types';
-import type { OnboardingEntityCardData } from '@ui/features/onboarding/components/OnboardingEntityCard';
 
 export const DISCOVERY_SEED_REFRESH_AFTER_MS = 1_500;
 
@@ -54,29 +52,4 @@ export function buildFollowDiscoveryPlaceholderResponse(
     items,
     meta: buildSeedMeta(items.length),
   };
-}
-
-export function buildOnboardingSeedCards(step: 'teams' | 'players', limit: number): OnboardingEntityCardData[] {
-  if (step === 'teams') {
-    return getFollowDiscoverySeeds('team', limit).map(item => ({
-      id: item.teamId,
-      name: item.teamName,
-      logo: item.teamLogo,
-      subtitle: item.country,
-      kind: 'team',
-      country: item.country,
-    }));
-  }
-
-  return getFollowDiscoverySeeds('player', limit).map(item => ({
-    id: item.playerId,
-    name: item.playerName,
-    logo: item.playerPhoto,
-    subtitle: item.teamName,
-    kind: 'player',
-    position: item.position,
-    teamName: item.teamName,
-    teamLogo: item.teamLogo,
-    leagueName: item.leagueName,
-  }));
 }

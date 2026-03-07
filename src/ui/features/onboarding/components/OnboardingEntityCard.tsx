@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
+import { DiscoveryEntityAvatar } from '@ui/features/follows/components/DiscoveryEntityAvatar';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { AppImage } from '@ui/shared/media/AppImage';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -71,11 +72,23 @@ export const OnboardingEntityCard = memo(function OnboardingEntityCard({
 
   return (
     <View style={styles.container}>
-      <AppImage
-        source={{ uri: item.logo }}
-        style={styles.logo}
-        resizeMode={item.kind === 'player' ? 'cover' : 'contain'}
-      />
+      {item.kind === 'team' || item.kind === 'player' ? (
+        <DiscoveryEntityAvatar
+          kind={item.kind}
+          entityId={item.id}
+          imageUrl={item.logo}
+          name={item.name}
+          containerStyle={styles.logo}
+          imageStyle={styles.logo}
+          resizeMode={item.kind === 'player' ? 'cover' : 'contain'}
+        />
+      ) : (
+        <AppImage
+          source={{ uri: item.logo }}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      )}
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>
           {item.name}

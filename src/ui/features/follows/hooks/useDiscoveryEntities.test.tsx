@@ -75,7 +75,7 @@ describe('useDiscoveryEntities', () => {
     expect(result.current.resolvedItems[0]).toMatchObject({
       playerId: '278',
       playerName: 'Kylian Mbappe',
-      playerPhoto: expect.stringContaining('/football/players/'),
+      playerPhoto: 'https://media.api-sports.io/football/players/278.png',
     });
     expect(result.current.meta).toMatchObject({
       source: 'static_seed',

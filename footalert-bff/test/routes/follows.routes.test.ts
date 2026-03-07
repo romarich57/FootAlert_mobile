@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { FOLLOW_DISCOVERY_SEED_PLAYERS, FOLLOW_DISCOVERY_SEED_TEAMS } from '@footalert/app-core';
+import {
+  buildApiSportsPlayerPhoto,
+  FOLLOW_DISCOVERY_SEED_PLAYERS,
+  FOLLOW_DISCOVERY_SEED_TEAMS,
+} from '@footalert/app-core';
 
 import {
   buildApp,
@@ -439,7 +443,7 @@ test('GET /v1/follows/discovery/players returns hybrid results when dynamic rank
       source: 'player_details',
       entitySnapshot: {
         playerName: 'Dynamic Player',
-        playerPhoto: 'dynamic.png',
+        playerPhoto: 'wrong-player-photo.png',
         position: 'Attacker',
         teamName: 'Dynamic FC',
         teamLogo: 'dynamic-team.png',
@@ -462,7 +466,7 @@ test('GET /v1/follows/discovery/players returns hybrid results when dynamic rank
       {
         playerId: '9999',
         playerName: 'Dynamic Player',
-        playerPhoto: 'dynamic.png',
+        playerPhoto: buildApiSportsPlayerPhoto('9999'),
         position: 'Attacker',
         teamName: 'Dynamic FC',
         teamLogo: 'dynamic-team.png',
@@ -532,7 +536,7 @@ test('GET /v1/follows/discovery/players uses the league name on the legacy path 
       {
         playerId: '278',
         playerName: 'Kylian Mbappe',
-        playerPhoto: 'mbappe.png',
+        playerPhoto: buildApiSportsPlayerPhoto('278'),
         position: 'Attacker',
         teamName: 'Real Madrid',
         teamLogo: 'realmadrid.png',
@@ -551,4 +555,61 @@ test('GET /v1/follows/discovery/players uses the league name on the legacy path 
     },
   });
   assert.equal(typeof response.json().meta.generatedAt, 'string');
+});
+
+test('POST /v1/follows/events persists canonical player photos regardless of client snapshot image', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const followResponse = await app.inject({
+    method: 'POST',
+    url: '/v1/follows/events',
+    headers: buildMobileSessionAuthorizationHeader({ subject: 'device-player-canonical' }),
+    payload: {
+      entityKind: 'player',
+      entityId: '278',
+      action: 'follow',
+      source: 'player_details',
+      entitySnapshot: {
+        playerName: 'Kylian Mbappe',
+        playerPhoto: 'https://wrong.example/mbappe.png',
+        position: 'Attacker',
+        teamName: 'Real Madrid',
+        teamLogo: 'realmadrid.png',
+        leagueName: 'La Liga',
+      },
+    },
+  });
+
+  assert.equal(followResponse.statusCode, 200);
+
+  const discoveryResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/follows/discovery/players?limit=1',
+  });
+
+  assert.equal(discoveryResponse.statusCode, 200);
+  assert.deepEqual(discoveryResponse.json(), {
+    items: [
+      {
+        playerId: '278',
+        playerName: 'Kylian Mbappe',
+        playerPhoto: buildApiSportsPlayerPhoto('278'),
+        position: 'Attacker',
+        teamName: 'Real Madrid',
+        teamLogo: 'realmadrid.png',
+        leagueName: 'La Liga',
+        activeFollowersCount: 1,
+        recentNet30d: 1,
+        totalFollowAdds: 1,
+      },
+    ],
+    meta: {
+      source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: discoveryResponse.json().meta.generatedAt,
+      refreshAfterMs: null,
+    },
+  });
 });

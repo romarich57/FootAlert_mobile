@@ -2,9 +2,9 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
+import { useDiscoveryEntities } from '@ui/features/follows/hooks/useDiscoveryEntities';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
-import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
 import { useFollowsScreenModel } from '@ui/features/follows/hooks/useFollowsScreenModel';
 import { useFollowsSearch } from '@ui/features/follows/hooks/useFollowsSearch';
 
@@ -28,8 +28,8 @@ jest.mock('@ui/features/follows/hooks/useFollowedPlayersCards', () => ({
   useFollowedPlayersCards: jest.fn(),
 }));
 
-jest.mock('@ui/features/follows/hooks/useFollowsDiscovery', () => ({
-  useFollowsDiscovery: jest.fn(),
+jest.mock('@ui/features/follows/hooks/useDiscoveryEntities', () => ({
+  useDiscoveryEntities: jest.fn(),
 }));
 
 jest.mock('@ui/features/follows/hooks/useFollowsSearch', () => ({
@@ -51,7 +51,7 @@ const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedUseFollowsActions = jest.mocked(useFollowsActions);
 const mockedUseFollowedTeamsCards = jest.mocked(useFollowedTeamsCards);
 const mockedUseFollowedPlayersCards = jest.mocked(useFollowedPlayersCards);
-const mockedUseFollowsDiscovery = jest.mocked(useFollowsDiscovery);
+const mockedUseDiscoveryEntities = jest.mocked(useDiscoveryEntities);
 const mockedUseFollowsSearch = jest.mocked(useFollowsSearch);
 
 describe('useFollowsScreenModel', () => {
@@ -85,15 +85,24 @@ describe('useFollowsScreenModel', () => {
       isLoading: false,
       dataUpdatedAt: 0,
     } as never);
-    mockedUseFollowsDiscovery.mockReturnValue({
-      data: {
-        items: [],
-        meta: {
-          source: 'dynamic',
-        },
+    mockedUseDiscoveryEntities.mockReturnValue({
+      resolvedItems: [],
+      remoteItems: [],
+      meta: {
+        source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
       },
       isLoading: false,
+      isFetching: false,
+      isError: false,
+      hasRemoteData: false,
+      usedLastGood: false,
+      usedSeedFallback: false,
       dataUpdatedAt: 0,
+      refetch: jest.fn(),
     } as never);
     mockedUseFollowsSearch.mockReturnValue({
       data: [],
@@ -137,10 +146,24 @@ describe('useFollowsScreenModel', () => {
   });
 
   it('keeps section loading active while discovery is still resolving', () => {
-    mockedUseFollowsDiscovery.mockReturnValue({
-      data: undefined,
+    mockedUseDiscoveryEntities.mockReturnValue({
+      resolvedItems: [],
+      remoteItems: [],
+      meta: {
+        source: 'static_seed',
+        complete: false,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: 1500,
+      },
       isLoading: true,
+      isFetching: false,
+      isError: false,
+      hasRemoteData: false,
+      usedLastGood: false,
+      usedSeedFallback: false,
       dataUpdatedAt: 0,
+      refetch: jest.fn(),
     } as never);
 
     const { result } = renderHook(() => useFollowsScreenModel());

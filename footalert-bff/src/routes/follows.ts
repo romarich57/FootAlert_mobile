@@ -1,4 +1,8 @@
-import { getFollowDiscoverySeeds } from '@footalert/app-core';
+import {
+  buildApiSportsPlayerPhoto,
+  getFollowDiscoverySeeds,
+  normalizeFollowDiscoveryPlayerId,
+} from '@footalert/app-core';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -336,6 +340,7 @@ function rejectUnauthorizedFollowEventRequest(
 
 function toMetadataFromSnapshot(
   entityKind: FollowEntityKind,
+  entityId: string,
   snapshot: z.infer<typeof teamSnapshotSchema> | z.infer<typeof playerSnapshotSchema>,
 ): FollowDiscoveryMetadata {
   if (entityKind === 'team') {
@@ -348,9 +353,10 @@ function toMetadataFromSnapshot(
   }
 
   const typedSnapshot = snapshot as z.infer<typeof playerSnapshotSchema>;
+  const normalizedPlayerId = normalizeFollowDiscoveryPlayerId(entityId);
   return {
     name: typedSnapshot.playerName,
-    imageUrl: typedSnapshot.playerPhoto,
+    imageUrl: buildApiSportsPlayerPhoto(normalizedPlayerId),
     position: typedSnapshot.position ?? null,
     teamName: typedSnapshot.teamName ?? null,
     teamLogo: typedSnapshot.teamLogo ?? null,
@@ -383,10 +389,11 @@ function mapDynamicPlayerDiscoveryItem(input: {
   recentNet30d: number;
   totalFollowAddsCount: number;
 }): FollowDiscoveryPlayerItem {
+  const normalizedPlayerId = normalizeFollowDiscoveryPlayerId(input.entityId);
   return {
-    playerId: input.entityId,
+    playerId: normalizedPlayerId,
     playerName: input.metadata.name,
-    playerPhoto: input.metadata.imageUrl,
+    playerPhoto: buildApiSportsPlayerPhoto(normalizedPlayerId),
     position: input.metadata.position ?? '',
     teamName: input.metadata.teamName ?? '',
     teamLogo: input.metadata.teamLogo ?? '',
@@ -489,17 +496,18 @@ async function loadLegacyPlayerDiscovery(
   for (const payload of responses) {
     for (const item of payload.response ?? []) {
       const playerId = String(item.player?.id ?? '').trim();
+      const normalizedPlayerId = normalizeFollowDiscoveryPlayerId(playerId);
       const playerName = item.player?.name?.trim() ?? '';
-      if (!playerId || !playerName || seen.has(playerId)) {
+      if (!normalizedPlayerId || !playerName || seen.has(normalizedPlayerId)) {
         continue;
       }
 
       const firstStats = item.statistics?.[0];
-      seen.add(playerId);
+      seen.add(normalizedPlayerId);
       items.push({
-        playerId,
+        playerId: normalizedPlayerId,
         playerName,
-        playerPhoto: item.player?.photo ?? '',
+        playerPhoto: buildApiSportsPlayerPhoto(normalizedPlayerId),
         position: firstStats?.games?.position ?? '',
         teamName: firstStats?.team?.name ?? '',
         teamLogo: firstStats?.team?.logo ?? '',
@@ -668,7 +676,14 @@ async function hydrateDiscoveryMetadataIfNeeded(params: {
   entityId: string;
   store: Awaited<ReturnType<typeof getFollowsDiscoveryStore>>;
 }): Promise<void> {
-  const updatedAt = await params.store.getMetadataUpdatedAt(params.entityKind, params.entityId);
+  const normalizedEntityId =
+    params.entityKind === 'player'
+      ? normalizeFollowDiscoveryPlayerId(params.entityId)
+      : params.entityId;
+  const updatedAt = await params.store.getMetadataUpdatedAt(
+    params.entityKind,
+    normalizedEntityId,
+  );
   if (updatedAt && Date.now() - updatedAt.getTime() < FOLLOW_DISCOVERY_METADATA_STALE_MS) {
     return;
   }
@@ -685,7 +700,7 @@ async function hydrateDiscoveryMetadataIfNeeded(params: {
       return;
     }
 
-    await params.store.upsertMetadata('team', params.entityId, {
+    await params.store.upsertMetadata('team', normalizedEntityId, {
       name: teamName,
       imageUrl: team?.logo ?? '',
       country: team?.country ?? null,
@@ -694,7 +709,7 @@ async function hydrateDiscoveryMetadataIfNeeded(params: {
   }
 
   const payload = await apiFootballGet<PlayerSeasonResponse>(
-    `/players?id=${encodeURIComponent(params.entityId)}&season=${encodeURIComponent(String(getCurrentSeasonYear()))}`,
+    `/players?id=${encodeURIComponent(normalizedEntityId)}&season=${encodeURIComponent(String(getCurrentSeasonYear()))}`,
   );
   const item = payload.response?.[0];
   const playerId = toSafeNumber(item?.player?.id);
@@ -705,9 +720,9 @@ async function hydrateDiscoveryMetadataIfNeeded(params: {
   }
 
   const firstStats = item.statistics?.[0];
-  await params.store.upsertMetadata('player', params.entityId, {
+  await params.store.upsertMetadata('player', normalizedEntityId, {
     name: playerName,
-    imageUrl: item?.player?.photo ?? '',
+    imageUrl: buildApiSportsPlayerPhoto(normalizedEntityId),
     position: firstStats?.games?.position ?? null,
     teamName: firstStats?.team?.name ?? null,
     teamLogo: firstStats?.team?.logo ?? null,
@@ -1052,10 +1067,14 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
     const payload = parseOrThrow(followEventSchema, request.body);
     const store = await getDiscoveryStore();
     const occurredAt = payload.occurredAt ? new Date(payload.occurredAt) : undefined;
+    const normalizedEntityId =
+      payload.entityKind === 'player'
+        ? normalizeFollowDiscoveryPlayerId(payload.entityId)
+        : payload.entityId;
     const eventResult = await store.recordEvent({
       subject: authContext.subject,
       entityKind: payload.entityKind,
-      entityId: payload.entityId,
+      entityId: normalizedEntityId,
       action: payload.action,
       source: payload.source,
       occurredAt,
@@ -1064,19 +1083,23 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
     if (payload.entitySnapshot) {
       await store.upsertMetadata(
         payload.entityKind,
-        payload.entityId,
-        toMetadataFromSnapshot(payload.entityKind, payload.entitySnapshot),
+        normalizedEntityId,
+        toMetadataFromSnapshot(
+          payload.entityKind,
+          normalizedEntityId,
+          payload.entitySnapshot,
+        ),
       );
     } else {
       void hydrateDiscoveryMetadataIfNeeded({
         entityKind: payload.entityKind,
-        entityId: payload.entityId,
+        entityId: normalizedEntityId,
         store,
       }).catch(error => {
         request.log.warn(
           {
             entityKind: payload.entityKind,
-            entityId: payload.entityId,
+            entityId: normalizedEntityId,
             err: error instanceof Error ? error.message : String(error),
           },
           'follows.discovery.metadata_hydration_failed',

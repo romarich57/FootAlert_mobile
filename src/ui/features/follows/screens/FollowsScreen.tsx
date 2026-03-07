@@ -111,6 +111,7 @@ export function FollowsScreen() {
 
       return (
         <FollowsTrendRow
+          entityId={trendItem.teamId}
           title={trendItem.teamName}
           subtitle={subtitle}
           avatarUrl={trendItem.teamLogo}
@@ -129,6 +130,7 @@ export function FollowsScreen() {
     const trendItem = item.item;
     return (
       <FollowsTrendRow
+        entityId={trendItem.playerId}
         title={trendItem.playerName}
         subtitle={[localizePlayerPosition(trendItem.position, t), trendItem.teamName].filter(Boolean).join(' • ')}
         avatarUrl={trendItem.playerPhoto}

@@ -7,4 +7,4 @@ export { FollowedCarousel } from './FollowedCarousel';
 export { FollowsTrendRow } from './FollowsTrendRow';
 export { FollowToggleButton } from './FollowToggleButton';
 export { FollowsFollowedSection } from './FollowsFollowedSection';
-export { FollowsTrendsSection } from './FollowsTrendsSection';
+export { DiscoveryEntityAvatar } from './DiscoveryEntityAvatar';

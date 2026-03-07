@@ -11,21 +11,13 @@ import type {
   FollowedTeamCard,
   FollowsApiPlayerSearchDto,
   FollowsApiPlayerSeasonDto,
-  FollowsApiStandingDto,
   FollowsApiTeamDetailsDto,
   FollowsApiTeamSearchDto,
-  FollowsApiTopScorerDto,
 } from '@domain/contracts/follows.types';
 import {
   mobileReadHttpAdapter,
   mobileReadTelemetryAdapter,
 } from '@data/endpoints/sharedReadServiceAdapters';
-
-type NestedApiResponse<T> = {
-  response: Array<{
-    response?: T[];
-  }>;
-};
 
 const followsReadService = createFollowsReadService({
   http: mobileReadHttpAdapter,
@@ -84,36 +76,6 @@ export async function fetchFollowedPlayerCards(
   signal?: AbortSignal,
 ): Promise<FollowedPlayerCard[]> {
   return followsReadService.fetchPlayerCards<FollowedPlayerCard>(playerIds, season, signal);
-}
-
-export async function fetchTrendingTeams(
-  topLeagueIds: string[],
-  season: number,
-  signal?: AbortSignal,
-): Promise<FollowsApiStandingDto[]> {
-  const payload = await followsReadService.fetchTeamsTrends<NestedApiResponse<FollowsApiStandingDto>['response'][number]>(
-    topLeagueIds.join(','),
-    season,
-    signal,
-  );
-
-  return payload
-    .map(group => group.response?.[0] ?? null)
-    .filter(Boolean) as FollowsApiStandingDto[];
-}
-
-export async function fetchTrendingPlayers(
-  topLeagueIds: string[],
-  season: number,
-  signal?: AbortSignal,
-): Promise<FollowsApiTopScorerDto[]> {
-  const payload = await followsReadService.fetchPlayersTrends<NestedApiResponse<FollowsApiTopScorerDto>['response'][number]>(
-    topLeagueIds.join(','),
-    season,
-    signal,
-  );
-
-  return payload.flatMap(group => group.response ?? []);
 }
 
 export async function fetchDiscoveryTeams(

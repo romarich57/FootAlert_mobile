@@ -19,6 +19,9 @@ export type FollowDiscoverySeedPlayerItem = {
     recentNet30d: number;
     totalFollowAdds: number;
 };
+export declare const FOLLOW_DISCOVERY_PLAYER_ID_CORRECTIONS: Record<string, string>;
+export declare function normalizeFollowDiscoveryPlayerId(playerId: string): string;
+export declare function buildApiSportsPlayerPhoto(playerId: string): string;
 export declare const FOLLOW_DISCOVERY_SEED_TEAMS: FollowDiscoverySeedTeamItem[];
 export declare const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[];
 export declare function getFollowDiscoverySeeds(kind: 'team', limit: number): FollowDiscoverySeedTeamItem[];

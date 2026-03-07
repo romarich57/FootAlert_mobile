@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { appEnv } from '@data/config/env';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { DiscoveryEntityAvatar } from '@ui/features/follows/components/DiscoveryEntityAvatar';
 import { buildSearchItems, formatMatchKickoff } from '@ui/features/search/components/searchResultsItems';
 import { AppPressable } from '@ui/shared/components';
 import type {
@@ -180,11 +181,14 @@ export function SearchResultsList({
                   testID={`search-result-team-${item.item.teamId}`}
                 >
                   <View style={styles.logoWrap}>
-                    {item.item.teamLogo ? (
-                      <AppImage source={{ uri: item.item.teamLogo }} style={styles.logo} resizeMode="contain" />
-                    ) : (
-                      <MaterialCommunityIcons name="shield-outline" size={18} color={colors.textMuted} />
-                    )}
+                    <DiscoveryEntityAvatar
+                      kind="team"
+                      entityId={item.item.teamId}
+                      imageUrl={item.item.teamLogo}
+                      name={item.item.teamName}
+                      imageStyle={styles.logo}
+                      resizeMode="contain"
+                    />
                   </View>
                   <View style={styles.textWrap}>
                     <Text style={styles.title} numberOfLines={1}>
@@ -216,11 +220,14 @@ export function SearchResultsList({
                   testID={`search-result-player-${item.item.playerId}`}
                 >
                   <View style={styles.logoWrap}>
-                    {item.item.playerPhoto ? (
-                      <AppImage source={{ uri: item.item.playerPhoto }} style={styles.logo} resizeMode="cover" />
-                    ) : (
-                      <MaterialCommunityIcons name="account-outline" size={18} color={colors.textMuted} />
-                    )}
+                    <DiscoveryEntityAvatar
+                      kind="player"
+                      entityId={item.item.playerId}
+                      imageUrl={item.item.playerPhoto}
+                      name={item.item.playerName}
+                      imageStyle={styles.logo}
+                      resizeMode="cover"
+                    />
                   </View>
                   <View style={styles.textWrap}>
                     <Text style={styles.title} numberOfLines={1}>
@@ -342,11 +349,14 @@ export function SearchResultsList({
               testID={`search-result-team-${item.item.teamId}`}
             >
               <View style={styles.logoWrap}>
-                {item.item.teamLogo ? (
-                  <AppImage source={{ uri: item.item.teamLogo }} style={styles.logo} resizeMode="contain" />
-                ) : (
-                  <MaterialCommunityIcons name="shield-outline" size={18} color={colors.textMuted} />
-                )}
+                <DiscoveryEntityAvatar
+                  kind="team"
+                  entityId={item.item.teamId}
+                  imageUrl={item.item.teamLogo}
+                  name={item.item.teamName}
+                  imageStyle={styles.logo}
+                  resizeMode="contain"
+                />
               </View>
               <View style={styles.textWrap}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -378,11 +388,14 @@ export function SearchResultsList({
               testID={`search-result-player-${item.item.playerId}`}
             >
               <View style={styles.logoWrap}>
-                {item.item.playerPhoto ? (
-                  <AppImage source={{ uri: item.item.playerPhoto }} style={styles.logo} resizeMode="cover" />
-                ) : (
-                  <MaterialCommunityIcons name="account-outline" size={18} color={colors.textMuted} />
-                )}
+                <DiscoveryEntityAvatar
+                  kind="player"
+                  entityId={item.item.playerId}
+                  imageUrl={item.item.playerPhoto}
+                  name={item.item.playerName}
+                  imageStyle={styles.logo}
+                  resizeMode="cover"
+                />
               </View>
               <View style={styles.textWrap}>
                 <Text style={styles.title} numberOfLines={1}>

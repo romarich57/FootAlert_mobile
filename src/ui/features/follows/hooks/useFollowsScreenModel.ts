@@ -7,7 +7,7 @@ import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
-import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
+import { useDiscoveryEntities } from '@ui/features/follows/hooks/useDiscoveryEntities';
 import { useFollowsSearch } from '@ui/features/follows/hooks/useFollowsSearch';
 import {
   isFollowDiscoveryPlayerItem,
@@ -63,11 +63,12 @@ export function useFollowsScreenModel() {
 
   const hideTrendsCurrentTab = selectedTab === 'teams' ? hideTrendsTeams : hideTrendsPlayers;
 
-  const discoveryQuery = useFollowsDiscovery({
+  const discoveryQuery = useDiscoveryEntities({
     tab: selectedTab,
+    surface: 'follows',
     hidden: hideTrendsCurrentTab,
   });
-  const discoveryItems = discoveryQuery.data?.items ?? [];
+  const discoveryItems = discoveryQuery.resolvedItems;
   const discoveryTeamItems = useMemo(
     () => discoveryItems.filter(isFollowDiscoveryTeamItem),
     [discoveryItems],
@@ -289,7 +290,7 @@ export function useFollowsScreenModel() {
       (!search.hasEnoughChars &&
         !hideTrendsCurrentTab &&
         discoveryQuery.isLoading &&
-        !discoveryQuery.data),
+        discoveryQuery.resolvedItems.length === 0),
     lastToggleError,
     teamCards: teamCardsQuery.data ?? [],
     playerCards: playerCardsQuery.data ?? [],
@@ -301,7 +302,7 @@ export function useFollowsScreenModel() {
     updateHideTrends,
     asTeamTrends,
     asPlayerTrends,
-    discoverySource: discoveryQuery.data?.meta.source ?? null,
+    discoverySource: discoveryQuery.meta.source ?? null,
     lastUpdatedAt,
   };
 }

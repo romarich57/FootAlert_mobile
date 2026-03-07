@@ -10,6 +10,12 @@ import {
 } from '@data/storage/followsStorage';
 
 const mockStore = new Map<string, string>();
+const mockedNormalizeFollowDiscoveryPlayerId = jest.fn((playerId: string) => playerId);
+
+jest.mock('@app-core', () => ({
+  normalizeFollowDiscoveryPlayerId: (playerId: string) =>
+    mockedNormalizeFollowDiscoveryPlayerId(playerId),
+}));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(async (key: string) => mockStore.get(key) ?? null),
@@ -24,6 +30,8 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 describe('followsStorage', () => {
   beforeEach(() => {
     mockStore.clear();
+    mockedNormalizeFollowDiscoveryPlayerId.mockReset();
+    mockedNormalizeFollowDiscoveryPlayerId.mockImplementation((playerId: string) => playerId);
   });
 
   it('toggles team follow and unfollow', async () => {
@@ -55,6 +63,27 @@ describe('followsStorage', () => {
   it('loads and saves player ids', async () => {
     await saveFollowedPlayerIds(['10', '11']);
     expect(await loadFollowedPlayerIds()).toEqual(['10', '11']);
+  });
+
+  it('remaps legacy player ids on load and re-saves deduplicated normalized ids', async () => {
+    mockedNormalizeFollowDiscoveryPlayerId.mockImplementation((playerId: string) =>
+      playerId === 'legacy-7' ? 'canonical-42' : playerId,
+    );
+    mockStore.set('followed_player_ids', JSON.stringify(['legacy-7', 'canonical-42']));
+
+    await expect(loadFollowedPlayerIds()).resolves.toEqual(['canonical-42']);
+    expect(mockStore.get('followed_player_ids')).toBe(JSON.stringify(['canonical-42']));
+  });
+
+  it('normalizes player ids before toggling follow state', async () => {
+    mockedNormalizeFollowDiscoveryPlayerId.mockImplementation((playerId: string) =>
+      playerId === 'legacy-7' ? 'canonical-42' : playerId,
+    );
+
+    const added = await toggleFollowedPlayer('legacy-7', 30);
+
+    expect(added.ids).toEqual(['canonical-42']);
+    expect(mockStore.get('followed_player_ids')).toBe(JSON.stringify(['canonical-42']));
   });
 
   it('loads and saves hide trends per tab', async () => {
