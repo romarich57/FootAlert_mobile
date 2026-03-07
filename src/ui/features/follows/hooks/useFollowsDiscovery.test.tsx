@@ -13,12 +13,20 @@ jest.mock('@data/endpoints/followsApi', () => ({
     items: [],
     meta: {
       source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
     },
   })),
   fetchDiscoveryPlayers: jest.fn(async () => ({
     items: [],
     meta: {
       source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
     },
   })),
 }));
@@ -68,7 +76,7 @@ describe('useFollowsDiscovery', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.data).toEqual({
+      expect(result.current.data).toMatchObject({
         items: [
           {
             teamId: '529',
@@ -91,9 +99,13 @@ describe('useFollowsDiscovery', () => {
         ],
         meta: {
           source: 'static_seed',
+          complete: false,
+          seedCount: 2,
+          refreshAfterMs: 1500,
         },
       });
     });
+    expect(result.current.data?.meta.generatedAt).toEqual(expect.any(String));
 
     act(() => {
       deferred.resolve({
@@ -110,6 +122,10 @@ describe('useFollowsDiscovery', () => {
         ],
         meta: {
           source: 'dynamic',
+          complete: true,
+          seedCount: 0,
+          generatedAt: '2026-03-07T00:00:01.000Z',
+          refreshAfterMs: null,
         },
       });
     });
@@ -129,9 +145,49 @@ describe('useFollowsDiscovery', () => {
         ],
         meta: {
           source: 'dynamic',
+          complete: true,
+          seedCount: 0,
+          generatedAt: '2026-03-07T00:00:01.000Z',
+          refreshAfterMs: null,
         },
       });
     });
+  });
+
+  it('keeps seeded player discovery visible and does not surface an error state when the initial request fails', async () => {
+    mockedFetchDiscoveryPlayers.mockRejectedValueOnce(new Error('discovery failed'));
+
+    const { result } = renderHook(
+      () => useFollowsDiscovery({ tab: 'players', limit: 2 }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.data).toMatchObject({
+        items: [
+          {
+            playerId: '278',
+            playerName: 'Kylian Mbappe',
+            playerPhoto: expect.stringContaining('/football/players/'),
+          },
+          {
+            playerId: '154',
+            playerName: 'Cristiano Ronaldo',
+            playerPhoto: expect.stringContaining('/football/players/'),
+          },
+        ],
+        meta: {
+          source: 'static_seed',
+          complete: false,
+          seedCount: 2,
+          refreshAfterMs: 1500,
+        },
+      });
+    });
+
+    expect(result.current.isError).toBe(false);
   });
 
   it('does not reuse team discovery data when switching to player discovery', async () => {
@@ -149,6 +205,10 @@ describe('useFollowsDiscovery', () => {
       ],
       meta: {
         source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
       },
     });
     const deferred = createDeferred<Awaited<ReturnType<typeof fetchDiscoveryPlayers>>>();
@@ -178,6 +238,10 @@ describe('useFollowsDiscovery', () => {
         ],
         meta: {
           source: 'dynamic',
+          complete: true,
+          seedCount: 0,
+          generatedAt: '2026-03-07T00:00:00.000Z',
+          refreshAfterMs: null,
         },
       });
     });
@@ -187,12 +251,12 @@ describe('useFollowsDiscovery', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.data).toEqual({
+      expect(result.current.data).toMatchObject({
         items: [
           {
             playerId: '278',
             playerName: 'Kylian Mbappe',
-            playerPhoto: '',
+            playerPhoto: expect.stringContaining('/football/players/'),
             position: 'Attacker',
             teamName: 'Real Madrid',
             teamLogo: 'https://media.api-sports.io/football/teams/541.png',
@@ -204,10 +268,10 @@ describe('useFollowsDiscovery', () => {
           {
             playerId: '154',
             playerName: 'Cristiano Ronaldo',
-            playerPhoto: '',
+            playerPhoto: expect.stringContaining('/football/players/'),
             position: 'Attacker',
             teamName: 'Al-Nassr',
-            teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+            teamLogo: 'https://media.api-sports.io/football/teams/5411.png',
             leagueName: 'Saudi Pro League',
             activeFollowersCount: 0,
             recentNet30d: 0,
@@ -216,6 +280,9 @@ describe('useFollowsDiscovery', () => {
         ],
         meta: {
           source: 'static_seed',
+          complete: false,
+          seedCount: 2,
+          refreshAfterMs: 1500,
         },
       });
     });

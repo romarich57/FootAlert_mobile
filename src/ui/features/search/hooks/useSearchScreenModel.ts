@@ -5,8 +5,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { appEnv } from '@data/config/env';
 import {
-  fetchDiscoveryPlayers,
-  fetchDiscoveryTeams,
   searchPlayersByName,
   searchTeamsByName,
 } from '@data/endpoints/followsApi';
@@ -23,7 +21,7 @@ import type {
   FollowDiscoveryPlayerItem,
   FollowDiscoveryTeamItem,
 } from '@ui/features/follows/types/follows.types';
-import { buildFollowDiscoveryPlaceholderResponse } from '@ui/features/follows/utils/discoverySeeds';
+import { useDiscoveryEntities } from '@ui/features/follows/hooks/useDiscoveryEntities';
 import {
   isFollowDiscoveryPlayerItem,
   isFollowDiscoveryTeamItem,
@@ -89,8 +87,6 @@ export function useSearchScreenModel() {
   const [selectedTab, setSelectedTab] = useState<SearchEntityTab>('all');
   const [query, setQuery] = useState('');
   const trackedRequestKeyRef = useRef<string | null>(null);
-  const discoveryTelemetryKeyRef = useRef<string | null>(null);
-  const discoverySeedVisibleTabRef = useRef<SearchEntityTab | null>(null);
   const season = getCurrentSeasonYear();
   const trimmedQuery = query.trim();
   const isEntitySearchTab = selectedTab === 'teams' || selectedTab === 'players';
@@ -99,29 +95,11 @@ export function useSearchScreenModel() {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
   const hasEnoughChars = debouncedQuery.length >= appEnv.followsSearchMinChars;
   const resultsLimit = appEnv.followsSearchResultsLimit;
-  const discoveryPlaceholder = buildFollowDiscoveryPlaceholderResponse(
-    selectedTab === 'players' ? 'players' : 'teams',
-    resultsLimit,
-  );
-
-  const discoveryQuery = useQuery<
-    { items: FollowDiscoveryTeamItem[]; meta: { source: string } }
-    | { items: FollowDiscoveryPlayerItem[]; meta: { source: string } }
-  >({
-    queryKey: queryKeys.follows.discovery(selectedTab === 'players' ? 'players' : 'teams', resultsLimit),
+  const discoveryQuery = useDiscoveryEntities({
+    tab: selectedTab === 'players' ? 'players' : 'teams',
+    surface: 'search',
+    limit: resultsLimit,
     enabled: isEntitySearchTab && trimmedQuery.length === 0,
-    staleTime: appEnv.followsTrendsTtlMs,
-    queryFn: ({ signal }): Promise<
-      | { items: FollowDiscoveryTeamItem[]; meta: { source: string } }
-      | { items: FollowDiscoveryPlayerItem[]; meta: { source: string } }
-    > => {
-      if (selectedTab === 'teams') {
-        return fetchDiscoveryTeams(resultsLimit, signal);
-      }
-
-      return fetchDiscoveryPlayers(resultsLimit, signal);
-    },
-    placeholderData: discoveryPlaceholder,
   });
 
   const searchQuery = useQuery({
@@ -214,55 +192,6 @@ export function useSearchScreenModel() {
     });
   }, [debouncedQuery, hasEnoughChars, resultsLimit, season, selectedTab, timezone]);
 
-  useEffect(() => {
-    if (!isEntitySearchTab || trimmedQuery.length > 0 || !discoveryQuery.data) {
-      return;
-    }
-
-    const source = discoveryQuery.data.meta.source;
-    const itemCount = discoveryQuery.data.items.length;
-    const telemetryKey = `${selectedTab}|${source}|${itemCount}|${discoveryQuery.isPlaceholderData ? 'placeholder' : 'resolved'}|${discoveryQuery.dataUpdatedAt}`;
-    if (discoveryTelemetryKeyRef.current === telemetryKey) {
-      return;
-    }
-    discoveryTelemetryKeyRef.current = telemetryKey;
-
-    getMobileTelemetry().trackEvent('follows.discovery_source', {
-      screen: 'search',
-      tab: selectedTab,
-      source,
-      itemCount,
-    });
-
-    if (discoveryQuery.isPlaceholderData && source === 'static_seed') {
-      discoverySeedVisibleTabRef.current = selectedTab;
-      getMobileTelemetry().trackEvent('follows.discovery_seed_rendered', {
-        screen: 'search',
-        tab: selectedTab,
-        source,
-        itemCount,
-      });
-      return;
-    }
-
-    if (discoverySeedVisibleTabRef.current === selectedTab && source !== 'static_seed') {
-      discoverySeedVisibleTabRef.current = null;
-      getMobileTelemetry().trackEvent('follows.discovery_remote_replaced', {
-        screen: 'search',
-        tab: selectedTab,
-        source,
-        itemCount,
-      });
-    }
-  }, [
-    discoveryQuery.data,
-    discoveryQuery.dataUpdatedAt,
-    discoveryQuery.isPlaceholderData,
-    isEntitySearchTab,
-    selectedTab,
-    trimmedQuery.length,
-  ]);
-
   const handleClearQuery = useCallback(() => {
     setQuery('');
   }, []);
@@ -300,12 +229,9 @@ export function useSearchScreenModel() {
   );
 
   const rawResults = searchQuery.data ?? EMPTY_RESULTS;
-  const discoveryResponse = discoveryQuery.data as
-    | {
-        items?: Array<FollowDiscoveryTeamItem | FollowDiscoveryPlayerItem>;
-      }
-    | undefined;
-  const discoveryItems = discoveryResponse?.items ?? [];
+  const discoveryItems = discoveryQuery.resolvedItems as Array<
+    FollowDiscoveryTeamItem | FollowDiscoveryPlayerItem
+  >;
   const discoveryTeams =
     selectedTab === 'teams' && !trimmedQuery.length
       ? discoveryItems.filter(isFollowDiscoveryTeamItem).map(item => ({
@@ -348,12 +274,12 @@ export function useSearchScreenModel() {
     isEntitySearchTab &&
     !trimmedQuery.length &&
     discoveryQuery.isLoading &&
-    !discoveryQuery.data;
+    discoveryQuery.resolvedItems.length === 0;
   const isDiscoveryError =
     isEntitySearchTab &&
     !trimmedQuery.length &&
     discoveryQuery.isError &&
-    !discoveryQuery.data;
+    discoveryQuery.resolvedItems.length === 0;
 
   return {
     selectedTab,

@@ -35,8 +35,26 @@ jest.mock('@data/endpoints/searchApi', () => ({
 }));
 
 jest.mock('@data/endpoints/followsApi', () => ({
-  fetchDiscoveryPlayers: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
-  fetchDiscoveryTeams: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  fetchDiscoveryPlayers: jest.fn(async () => ({
+    items: [],
+    meta: {
+      source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
+    },
+  })),
+  fetchDiscoveryTeams: jest.fn(async () => ({
+    items: [],
+    meta: {
+      source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
+    },
+  })),
   searchPlayersByName: jest.fn(async () => []),
   searchTeamsByName: jest.fn(async () => []),
 }));
@@ -286,6 +304,10 @@ describe('useSearchScreenModel', () => {
       ],
       meta: {
         source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
       },
     });
 
@@ -364,6 +386,10 @@ describe('useSearchScreenModel', () => {
         ],
         meta: {
           source: 'dynamic',
+          complete: true,
+          seedCount: 0,
+          generatedAt: '2026-03-07T00:00:01.000Z',
+          refreshAfterMs: null,
         },
       });
     });
@@ -395,6 +421,10 @@ describe('useSearchScreenModel', () => {
       ],
       meta: {
         source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
       },
     });
     const deferred = createDeferred<Awaited<ReturnType<typeof fetchDiscoveryPlayers>>>();
@@ -429,7 +459,7 @@ describe('useSearchScreenModel', () => {
         {
           playerId: '278',
           playerName: 'Kylian Mbappe',
-          playerPhoto: '',
+          playerPhoto: expect.stringContaining('/football/players/'),
           position: 'Attacker',
           teamName: 'Real Madrid',
           teamLogo: 'https://media.api-sports.io/football/teams/541.png',
@@ -438,10 +468,10 @@ describe('useSearchScreenModel', () => {
         {
           playerId: '154',
           playerName: 'Cristiano Ronaldo',
-          playerPhoto: '',
+          playerPhoto: expect.stringContaining('/football/players/'),
           position: 'Attacker',
           teamName: 'Al-Nassr',
-          teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+          teamLogo: 'https://media.api-sports.io/football/teams/5411.png',
           leagueName: 'Saudi Pro League',
         },
         expect.any(Object),
@@ -452,5 +482,48 @@ describe('useSearchScreenModel', () => {
         expect.any(Object),
       ]);
     });
+  });
+
+  it('keeps player discovery suggestions visible when the empty-query request fails', async () => {
+    mockedFetchDiscoveryPlayers.mockRejectedValueOnce(new Error('players discovery failed'));
+
+    const { result } = renderHook(() => useSearchScreenModel(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleSelectTab('players');
+    });
+
+    await waitFor(() => {
+      expect(result.current.playerResults).toEqual([
+        {
+          playerId: '278',
+          playerName: 'Kylian Mbappe',
+          playerPhoto: expect.stringContaining('/football/players/'),
+          position: 'Attacker',
+          teamName: 'Real Madrid',
+          teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+          leagueName: 'La Liga',
+        },
+        {
+          playerId: '154',
+          playerName: 'Cristiano Ronaldo',
+          playerPhoto: expect.stringContaining('/football/players/'),
+          position: 'Attacker',
+          teamName: 'Al-Nassr',
+          teamLogo: 'https://media.api-sports.io/football/teams/5411.png',
+          leagueName: 'Saudi Pro League',
+        },
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+      ]);
+    });
+
+    expect(result.current.isError).toBe(false);
   });
 });

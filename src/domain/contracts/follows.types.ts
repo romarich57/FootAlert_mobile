@@ -78,6 +78,10 @@ export type FollowDiscoveryResponse<T> = {
   items: T[];
   meta: {
     source: FollowDiscoverySource;
+    complete: boolean;
+    seedCount: number;
+    generatedAt: string;
+    refreshAfterMs: number | null;
   };
 };
 

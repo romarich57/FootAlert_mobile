@@ -2,7 +2,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-import { fetchDiscoveryTeams } from '@data/endpoints/followsApi';
+import { fetchDiscoveryPlayers, fetchDiscoveryTeams } from '@data/endpoints/followsApi';
 import { useOnboardingTrends } from '@ui/features/onboarding/hooks/useOnboardingTrends';
 
 jest.mock('@data/endpoints/followsApi', () => ({
@@ -10,12 +10,20 @@ jest.mock('@data/endpoints/followsApi', () => ({
     items: [],
     meta: {
       source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
     },
   })),
   fetchDiscoveryPlayers: jest.fn(async () => ({
     items: [],
     meta: {
       source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
     },
   })),
 }));
@@ -25,6 +33,7 @@ jest.mock('@data/endpoints/bffClient', () => ({
 }));
 
 const mockedFetchDiscoveryTeams = jest.mocked(fetchDiscoveryTeams);
+const mockedFetchDiscoveryPlayers = jest.mocked(fetchDiscoveryPlayers);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -104,10 +113,14 @@ describe('useOnboardingTrends', () => {
             totalFollowAdds: 21,
           },
         ],
-        meta: {
-          source: 'dynamic',
-        },
-      });
+      meta: {
+        source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:01.000Z',
+        refreshAfterMs: null,
+      },
+    });
     });
 
     await waitFor(() => {
@@ -122,5 +135,48 @@ describe('useOnboardingTrends', () => {
         },
       ]);
     });
+  });
+
+  it('keeps seeded player onboarding cards when player discovery fails', async () => {
+    mockedFetchDiscoveryPlayers.mockRejectedValueOnce(new Error('players discovery failed'));
+
+    const { result } = renderHook(() => useOnboardingTrends('players'), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.data).toEqual([
+        {
+          id: '278',
+          name: 'Kylian Mbappe',
+          logo: expect.stringContaining('/football/players/'),
+          subtitle: 'Real Madrid',
+          kind: 'player',
+          position: 'Attacker',
+          teamName: 'Real Madrid',
+          teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+          leagueName: 'La Liga',
+        },
+        {
+          id: '154',
+          name: 'Cristiano Ronaldo',
+          logo: expect.stringContaining('/football/players/'),
+          subtitle: 'Al-Nassr',
+          kind: 'player',
+          position: 'Attacker',
+          teamName: 'Al-Nassr',
+          teamLogo: 'https://media.api-sports.io/football/teams/5411.png',
+          leagueName: 'Saudi Pro League',
+        },
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+      ]);
+    });
+
+    expect(result.current.isError).toBe(false);
   });
 });

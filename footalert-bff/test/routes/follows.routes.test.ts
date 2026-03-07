@@ -299,8 +299,13 @@ test('POST /v1/follows/events is idempotent and GET /v1/follows/discovery/teams 
     ],
     meta: {
       source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: discovery.json().meta.generatedAt,
+      refreshAfterMs: null,
     },
   });
+  assert.equal(typeof discovery.json().meta.generatedAt, 'string');
 });
 
 test('POST /v1/follows/events ignores unfollow when entity is not currently followed', async t => {
@@ -386,8 +391,13 @@ test('GET /v1/follows/discovery/teams falls back to legacy results when no dynam
     ],
     meta: {
       source: 'legacy_fill',
+      complete: true,
+      seedCount: 0,
+      generatedAt: response.json().meta.generatedAt,
+      refreshAfterMs: null,
     },
   });
+  assert.equal(typeof response.json().meta.generatedAt, 'string');
 });
 
 test('GET /v1/follows/discovery/teams returns static seeds when dynamic and legacy sources are empty', async t => {
@@ -405,8 +415,13 @@ test('GET /v1/follows/discovery/teams returns static seeds when dynamic and lega
     items: FOLLOW_DISCOVERY_SEED_TEAMS.slice(0, 2),
     meta: {
       source: 'static_seed',
+      complete: false,
+      seedCount: 2,
+      generatedAt: response.json().meta.generatedAt,
+      refreshAfterMs: 1500,
     },
   });
+  assert.equal(typeof response.json().meta.generatedAt, 'string');
 });
 
 test('GET /v1/follows/discovery/players returns hybrid results when dynamic ranking is partial and seeds complete the list', async t => {
@@ -460,6 +475,80 @@ test('GET /v1/follows/discovery/players returns hybrid results when dynamic rank
     ],
     meta: {
       source: 'hybrid',
+      complete: false,
+      seedCount: 1,
+      generatedAt: response.json().meta.generatedAt,
+      refreshAfterMs: 1500,
     },
   });
+  assert.equal(typeof response.json().meta.generatedAt, 'string');
+});
+
+test('GET /v1/follows/discovery/players uses the league name on the legacy path and keeps discovery non-empty', async t => {
+  const calls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    if (url.pathname.endsWith('/players/topscorers')) {
+      return jsonResponse({
+        response: [
+          {
+            player: {
+              id: 278,
+              name: 'Kylian Mbappe',
+              photo: 'mbappe.png',
+            },
+            statistics: [
+              {
+                team: {
+                  name: 'Real Madrid',
+                  logo: 'realmadrid.png',
+                },
+                league: {
+                  name: 'La Liga',
+                  season: 2026,
+                },
+                games: {
+                  position: 'Attacker',
+                },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/follows/discovery/players?limit=1',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.ok(calls.length > 0);
+  assert.deepEqual(response.json(), {
+    items: [
+      {
+        playerId: '278',
+        playerName: 'Kylian Mbappe',
+        playerPhoto: 'mbappe.png',
+        position: 'Attacker',
+        teamName: 'Real Madrid',
+        teamLogo: 'realmadrid.png',
+        leagueName: 'La Liga',
+        activeFollowersCount: 0,
+        recentNet30d: 0,
+        totalFollowAdds: 0,
+      },
+    ],
+    meta: {
+      source: 'legacy_fill',
+      complete: true,
+      seedCount: 0,
+      generatedAt: response.json().meta.generatedAt,
+      refreshAfterMs: null,
+    },
+  });
+  assert.equal(typeof response.json().meta.generatedAt, 'string');
 });

@@ -30,8 +30,26 @@ jest.mock('@data/endpoints/competitionsApi', () => ({
 }));
 
 jest.mock('@data/endpoints/followsApi', () => ({
-  fetchDiscoveryPlayers: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
-  fetchDiscoveryTeams: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  fetchDiscoveryPlayers: jest.fn(async () => ({
+    items: [],
+    meta: {
+      source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
+    },
+  })),
+  fetchDiscoveryTeams: jest.fn(async () => ({
+    items: [],
+    meta: {
+      source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
+    },
+  })),
   fetchFollowedPlayerCards: jest.fn(async () => []),
   fetchFollowedTeamCards: jest.fn(async () => []),
 }));
@@ -96,13 +114,19 @@ describe('useMainTabsPrefetch', () => {
       wrapper: createWrapper(),
     });
 
+    await waitFor(() => {
+      expect(prefetchSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    const baselinePrefetchCount = prefetchSpy.mock.calls.length;
+
     await act(async () => {
       result.current.Matches.tabPress();
     });
 
     await waitFor(() => {
       expect(mockedFetchFixturesByDate).toHaveBeenCalledTimes(1);
-      expect(prefetchSpy).toHaveBeenCalledTimes(1);
+      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 1);
     });
 
     nowSpy.mockReturnValue(10_000 + TAB_PREFETCH_COOLDOWN_MS - 1);
@@ -112,7 +136,7 @@ describe('useMainTabsPrefetch', () => {
 
     await waitFor(() => {
       expect(mockedFetchFixturesByDate).toHaveBeenCalledTimes(1);
-      expect(prefetchSpy).toHaveBeenCalledTimes(1);
+      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 1);
     });
 
     nowSpy.mockReturnValue(10_000 + TAB_PREFETCH_COOLDOWN_MS + 1);
@@ -121,7 +145,7 @@ describe('useMainTabsPrefetch', () => {
     });
 
     await waitFor(() => {
-      expect(prefetchSpy).toHaveBeenCalledTimes(2);
+      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 2);
     });
 
     prefetchSpy.mockRestore();
@@ -163,12 +187,12 @@ describe('useMainTabsPrefetch', () => {
     });
 
     await waitFor(() => {
-      expect(mockedLoadFollowedTeamIds).toHaveBeenCalledTimes(1);
-      expect(mockedLoadFollowedPlayerIds).toHaveBeenCalledTimes(1);
-      expect(mockedFetchFollowedTeamCards).toHaveBeenCalledTimes(1);
-      expect(mockedFetchFollowedPlayerCards).toHaveBeenCalledTimes(1);
-      expect(mockedFetchDiscoveryTeams).toHaveBeenCalledTimes(1);
-      expect(mockedFetchDiscoveryPlayers).toHaveBeenCalledTimes(1);
+      expect(mockedLoadFollowedTeamIds.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedLoadFollowedPlayerIds.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedFetchFollowedTeamCards.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedFetchFollowedPlayerCards.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedFetchDiscoveryTeams.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedFetchDiscoveryPlayers.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -185,13 +209,24 @@ describe('useMainTabsPrefetch', () => {
     });
 
     await waitFor(() => {
-      expect(mockedLoadFollowedTeamIds).toHaveBeenCalledTimes(1);
-      expect(mockedLoadFollowedPlayerIds).toHaveBeenCalledTimes(1);
+      expect(mockedLoadFollowedTeamIds.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedLoadFollowedPlayerIds.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
 
     expect(mockedFetchFollowedTeamCards).not.toHaveBeenCalled();
     expect(mockedFetchFollowedPlayerCards).not.toHaveBeenCalled();
-    expect(mockedFetchDiscoveryTeams).toHaveBeenCalledTimes(1);
-    expect(mockedFetchDiscoveryPlayers).toHaveBeenCalledTimes(1);
+    expect(mockedFetchDiscoveryTeams.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(mockedFetchDiscoveryPlayers.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('prefetches follows discovery on mount when online and not in lite mode', async () => {
+    renderHook(() => useMainTabsPrefetch(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(mockedFetchDiscoveryTeams.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedFetchDiscoveryPlayers.mock.calls.length).toBeGreaterThanOrEqual(1);
+    });
   });
 });

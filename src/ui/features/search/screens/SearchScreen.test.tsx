@@ -35,8 +35,26 @@ jest.mock('@data/endpoints/searchApi', () => ({
 }));
 
 jest.mock('@data/endpoints/followsApi', () => ({
-  fetchDiscoveryPlayers: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
-  fetchDiscoveryTeams: jest.fn(async () => ({ items: [], meta: { source: 'dynamic' } })),
+  fetchDiscoveryPlayers: jest.fn(async () => ({
+    items: [],
+    meta: {
+      source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
+    },
+  })),
+  fetchDiscoveryTeams: jest.fn(async () => ({
+    items: [],
+    meta: {
+      source: 'dynamic',
+      complete: true,
+      seedCount: 0,
+      generatedAt: '2026-03-07T00:00:00.000Z',
+      refreshAfterMs: null,
+    },
+  })),
   searchPlayersByName: jest.fn(async () => []),
   searchTeamsByName: jest.fn(async () => []),
 }));
@@ -58,8 +76,26 @@ describe('SearchScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    mockedFetchDiscoveryPlayers.mockResolvedValue({ items: [], meta: { source: 'dynamic' } });
-    mockedFetchDiscoveryTeams.mockResolvedValue({ items: [], meta: { source: 'dynamic' } });
+    mockedFetchDiscoveryPlayers.mockResolvedValue({
+      items: [],
+      meta: {
+        source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
+      },
+    });
+    mockedFetchDiscoveryTeams.mockResolvedValue({
+      items: [],
+      meta: {
+        source: 'dynamic',
+        complete: true,
+        seedCount: 0,
+        generatedAt: '2026-03-07T00:00:00.000Z',
+        refreshAfterMs: null,
+      },
+    });
     mockedSearchTeamsByName.mockResolvedValue([]);
     mockedUseNavigation.mockReturnValue({
       navigate: navigateMock,

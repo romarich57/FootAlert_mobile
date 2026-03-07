@@ -510,6 +510,10 @@ async function setCachedValue<T>(key: string, value: T, ttlMs: number): Promise<
   }
 }
 
+export async function primeCacheValue<T>(key: string, value: T, ttlMs: number): Promise<void> {
+  await setCachedValue(key, value, ttlMs);
+}
+
 async function waitForFreshCacheFill<T>(key: string): Promise<T | null> {
   if (cacheCoalesceWaitMs <= 0) {
     return null;

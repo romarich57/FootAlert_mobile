@@ -4,7 +4,12 @@ import { z } from 'zod';
 
 import { env } from '../config/env.js';
 import { apiFootballGet } from '../lib/apiFootballClient.js';
-import { buildCanonicalCacheKey, withCache } from '../lib/cache.js';
+import {
+  buildCanonicalCacheKey,
+  primeCacheValue,
+  withCache,
+  withCacheStaleWhileRevalidate,
+} from '../lib/cache.js';
 import { mapWithConcurrency } from '../lib/concurrency/mapWithConcurrency.js';
 import { getFollowsDiscoveryStore } from '../lib/follows/discoveryRuntime.js';
 import type {
@@ -28,6 +33,11 @@ const FOLLOW_DISCOVERY_DEFAULT_LIMIT = 8;
 const FOLLOW_DISCOVERY_MAX_LIMIT = 20;
 const FOLLOW_DISCOVERY_CACHE_TTL_MS = 60_000;
 const FOLLOW_DISCOVERY_METADATA_STALE_MS = 24 * 60 * 60 * 1000;
+const FOLLOW_DISCOVERY_PARTIAL_REFRESH_AFTER_MS = 1_500;
+const FOLLOW_DISCOVERY_SYNC_BUDGET_MS = 700;
+const FOLLOW_DISCOVERY_TEAMS_BLOCKING_LEAGUE_COUNT = 5;
+const FOLLOW_DISCOVERY_PLAYERS_BLOCKING_LEAGUE_COUNT = 3;
+const FOLLOW_DISCOVERY_MAX_LEAGUE_COUNT = 5;
 
 const FOLLOW_EVENT_SOURCES = [
   'follows_trending',
@@ -230,6 +240,8 @@ type FollowsApiTopScorerDto = {
   }>;
 };
 
+type FollowDiscoverySource = 'dynamic' | 'legacy_fill' | 'hybrid' | 'static_seed';
+
 type FollowDiscoveryTeamItem = {
   teamId: string;
   teamName: string;
@@ -251,6 +263,19 @@ type FollowDiscoveryPlayerItem = {
   activeFollowersCount: number;
   recentNet30d: number;
   totalFollowAdds: number;
+};
+
+type FollowDiscoveryMeta = {
+  source: FollowDiscoverySource;
+  complete: boolean;
+  seedCount: number;
+  generatedAt: string;
+  refreshAfterMs: number | null;
+};
+
+type FollowDiscoveryRouteResponse<T> = {
+  items: T[];
+  meta: FollowDiscoveryMeta;
 };
 
 const cardsTeamIdsQuerySchema = z
@@ -275,10 +300,10 @@ function getCurrentSeasonYear(now = new Date()): number {
   return now.getUTCMonth() + 1 >= 7 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
 }
 
-function getLegacyDiscoveryLeagueIds(): string[] {
+function getLegacyDiscoveryLeagueIds(maxLeagueIds = FOLLOW_DISCOVERY_MAX_LEAGUE_COUNT): string[] {
   return TOP_COMPETITIONS
     .filter(item => item.type === 'League')
-    .slice(0, 5)
+    .slice(0, Math.max(0, maxLeagueIds))
     .map(item => item.competitionId);
 }
 
@@ -376,8 +401,9 @@ async function loadLegacyTeamDiscovery(
   limit: number,
   season: number,
   logger?: FastifyBaseLogger,
+  maxLeagueIds = FOLLOW_DISCOVERY_TEAMS_BLOCKING_LEAGUE_COUNT,
 ): Promise<FollowDiscoveryTeamItem[]> {
-  const leagueIds = getLegacyDiscoveryLeagueIds();
+  const leagueIds = getLegacyDiscoveryLeagueIds(maxLeagueIds);
   if (limit <= 0 || leagueIds.length === 0) {
     return [];
   }
@@ -435,8 +461,9 @@ async function loadLegacyPlayerDiscovery(
   limit: number,
   season: number,
   logger?: FastifyBaseLogger,
+  maxLeagueIds = FOLLOW_DISCOVERY_PLAYERS_BLOCKING_LEAGUE_COUNT,
 ): Promise<FollowDiscoveryPlayerItem[]> {
-  const leagueIds = getLegacyDiscoveryLeagueIds();
+  const leagueIds = getLegacyDiscoveryLeagueIds(maxLeagueIds);
   if (limit <= 0 || leagueIds.length === 0) {
     return [];
   }
@@ -476,7 +503,7 @@ async function loadLegacyPlayerDiscovery(
         position: firstStats?.games?.position ?? '',
         teamName: firstStats?.team?.name ?? '',
         teamLogo: firstStats?.team?.logo ?? '',
-        leagueName: firstStats?.league?.season ? String(firstStats.league.season) : '',
+        leagueName: firstStats?.league?.name ?? '',
         activeFollowersCount: 0,
         recentNet30d: 0,
         totalFollowAdds: 0,
@@ -492,19 +519,23 @@ async function loadLegacyPlayerDiscovery(
 }
 
 function mergeDiscoveryItems<T>(
-  sources: T[][],
+  sources: Array<{ items: T[]; origin: 'dynamic' | 'legacy' | 'static' }>,
   getId: (item: T) => string,
   limit: number,
-): T[] {
+): { items: T[]; seedCount: number } {
   if (limit <= 0) {
-    return [];
+    return {
+      items: [],
+      seedCount: 0,
+    };
   }
 
   const merged: T[] = [];
   const seen = new Set<string>();
+  let seedCount = 0;
 
   for (const source of sources) {
-    for (const item of source) {
+    for (const item of source.items) {
       const itemId = getId(item);
       if (!itemId || seen.has(itemId)) {
         continue;
@@ -512,14 +543,124 @@ function mergeDiscoveryItems<T>(
 
       seen.add(itemId);
       merged.push(item);
+      if (source.origin === 'static') {
+        seedCount += 1;
+      }
 
       if (merged.length >= limit) {
-        return merged;
+        return {
+          items: merged,
+          seedCount,
+        };
       }
     }
   }
 
-  return merged;
+  return {
+    items: merged,
+    seedCount,
+  };
+}
+
+function createDiscoveryMeta(params: {
+  source: FollowDiscoverySource;
+  seedCount: number;
+}): FollowDiscoveryMeta {
+  const complete = params.source !== 'static_seed' && params.seedCount === 0;
+  return {
+    source: params.source,
+    complete,
+    seedCount: params.seedCount,
+    generatedAt: new Date().toISOString(),
+    refreshAfterMs: complete ? null : FOLLOW_DISCOVERY_PARTIAL_REFRESH_AFTER_MS,
+  };
+}
+
+function resolveDiscoverySource(params: {
+  dynamicCount: number;
+  legacyCount: number;
+  seedCount: number;
+}): FollowDiscoverySource {
+  if (params.dynamicCount > 0 && params.legacyCount === 0 && params.seedCount === 0) {
+    return 'dynamic';
+  }
+
+  if (params.dynamicCount === 0 && params.legacyCount > 0 && params.seedCount === 0) {
+    return 'legacy_fill';
+  }
+
+  if (params.dynamicCount === 0 && params.legacyCount === 0) {
+    return 'static_seed';
+  }
+
+  return 'hybrid';
+}
+
+function buildDiscoveryResponse<T>(params: {
+  dynamicItems: T[];
+  legacyItems: T[];
+  staticItems: T[];
+  getId: (item: T) => string;
+  limit: number;
+}): FollowDiscoveryRouteResponse<T> {
+  const merged = mergeDiscoveryItems(
+    [
+      { origin: 'dynamic', items: params.dynamicItems },
+      { origin: 'legacy', items: params.legacyItems },
+      { origin: 'static', items: params.staticItems },
+    ],
+    params.getId,
+    params.limit,
+  );
+
+  const source = resolveDiscoverySource({
+    dynamicCount: params.dynamicItems.length,
+    legacyCount: params.legacyItems.length,
+    seedCount: merged.seedCount,
+  });
+
+  return {
+    items: merged.items,
+    meta: createDiscoveryMeta({
+      source,
+      seedCount: merged.seedCount,
+    }),
+  };
+}
+
+function waitForResultWithinBudget<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>(resolve => {
+      setTimeout(() => {
+        resolve(null);
+      }, timeoutMs);
+    }),
+  ]);
+}
+
+function scheduleDiscoveryCacheRefresh<T>(params: {
+  cacheKey: string;
+  logger: FastifyBaseLogger;
+  refreshPromise: Promise<FollowDiscoveryRouteResponse<T>>;
+}): void {
+  void params.refreshPromise
+    .then(async refreshedValue => {
+      await primeCacheValue(
+        params.cacheKey,
+        refreshedValue,
+        FOLLOW_DISCOVERY_CACHE_TTL_MS,
+      );
+    })
+    .catch(error => {
+      params.logger.warn(
+        {
+          err: error instanceof Error ? error.message : String(error),
+          cacheKey: params.cacheKey,
+        },
+        'follows.discovery.refresh_failed',
+      );
+    });
 }
 
 async function hydrateDiscoveryMetadataIfNeeded(params: {
@@ -954,43 +1095,93 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
     const query = parseOrThrow(discoveryQuerySchema, request.query);
     const limit = query.limit ?? FOLLOW_DISCOVERY_DEFAULT_LIMIT;
     const season = getCurrentSeasonYear();
+    const cacheKey = buildCanonicalCacheKey('follows:discovery:teams', { limit });
 
-    return withCache(
-      buildCanonicalCacheKey('follows:discovery:teams', { limit }),
+    return withCacheStaleWhileRevalidate(
+      cacheKey,
       FOLLOW_DISCOVERY_CACHE_TTL_MS,
       async () => {
         const store = await getDiscoveryStore();
         const dynamicItems = (await store.getDiscovery('team', limit)).map(mapDynamicTeamDiscoveryItem);
+        const staticItems = getFollowDiscoverySeeds('team', limit) as FollowDiscoveryTeamItem[];
 
         if (dynamicItems.length >= limit) {
-          return {
-            items: dynamicItems.slice(0, limit),
-            meta: {
-              source: 'dynamic' as const,
-            },
-          };
+          return buildDiscoveryResponse({
+            dynamicItems: dynamicItems.slice(0, limit),
+            legacyItems: [],
+            staticItems: [],
+            getId: item => item.teamId,
+            limit,
+          });
         }
 
-        const legacyItems = await loadLegacyTeamDiscovery(limit, season, request.log);
-        const staticItems = getFollowDiscoverySeeds('team', limit) as FollowDiscoveryTeamItem[];
-        const merged = mergeDiscoveryItems(
-          [dynamicItems, legacyItems, staticItems],
-          item => item.teamId,
+        const blockingLegacyPromise = loadLegacyTeamDiscovery(
           limit,
+          season,
+          request.log,
+          FOLLOW_DISCOVERY_TEAMS_BLOCKING_LEAGUE_COUNT,
         );
-        const source =
-          dynamicItems.length === 0
-            ? legacyItems.length > 0
-              ? 'legacy_fill'
-              : 'static_seed'
-            : 'hybrid';
+        const fullLegacyPromise = loadLegacyTeamDiscovery(
+          limit,
+          season,
+          request.log,
+          FOLLOW_DISCOVERY_MAX_LEAGUE_COUNT,
+        );
 
-        return {
-          items: merged,
-          meta: {
-            source,
-          },
-        };
+        const blockingLegacyItems = await waitForResultWithinBudget(
+          blockingLegacyPromise,
+          FOLLOW_DISCOVERY_SYNC_BUDGET_MS,
+        );
+
+        if (blockingLegacyItems === null) {
+          const immediateResponse = buildDiscoveryResponse({
+            dynamicItems,
+            legacyItems: [],
+            staticItems,
+            getId: item => item.teamId,
+            limit,
+          });
+
+          scheduleDiscoveryCacheRefresh({
+            cacheKey,
+            logger: request.log,
+            refreshPromise: fullLegacyPromise.then(legacyItems =>
+              buildDiscoveryResponse({
+                dynamicItems,
+                legacyItems,
+                staticItems,
+                getId: item => item.teamId,
+                limit,
+              })),
+          });
+
+          return immediateResponse;
+        }
+
+        const response = buildDiscoveryResponse({
+          dynamicItems,
+          legacyItems: blockingLegacyItems,
+          staticItems,
+          getId: item => item.teamId,
+          limit,
+        });
+
+        if (!response.meta.complete) {
+          scheduleDiscoveryCacheRefresh({
+            cacheKey,
+            logger: request.log,
+            refreshPromise: fullLegacyPromise.then(legacyItems =>
+              buildDiscoveryResponse({
+                dynamicItems,
+                legacyItems,
+                staticItems,
+                getId: item => item.teamId,
+                limit,
+              })),
+          });
+        }
+
+        return response;
       },
     );
   });
@@ -999,43 +1190,93 @@ export async function registerFollowsRoutes(app: FastifyInstance): Promise<void>
     const query = parseOrThrow(discoveryQuerySchema, request.query);
     const limit = query.limit ?? FOLLOW_DISCOVERY_DEFAULT_LIMIT;
     const season = getCurrentSeasonYear();
+    const cacheKey = buildCanonicalCacheKey('follows:discovery:players', { limit });
 
-    return withCache(
-      buildCanonicalCacheKey('follows:discovery:players', { limit }),
+    return withCacheStaleWhileRevalidate(
+      cacheKey,
       FOLLOW_DISCOVERY_CACHE_TTL_MS,
       async () => {
         const store = await getDiscoveryStore();
         const dynamicItems = (await store.getDiscovery('player', limit)).map(mapDynamicPlayerDiscoveryItem);
+        const staticItems = getFollowDiscoverySeeds('player', limit) as FollowDiscoveryPlayerItem[];
 
         if (dynamicItems.length >= limit) {
-          return {
-            items: dynamicItems.slice(0, limit),
-            meta: {
-              source: 'dynamic' as const,
-            },
-          };
+          return buildDiscoveryResponse({
+            dynamicItems: dynamicItems.slice(0, limit),
+            legacyItems: [],
+            staticItems: [],
+            getId: item => item.playerId,
+            limit,
+          });
         }
 
-        const legacyItems = await loadLegacyPlayerDiscovery(limit, season, request.log);
-        const staticItems = getFollowDiscoverySeeds('player', limit) as FollowDiscoveryPlayerItem[];
-        const merged = mergeDiscoveryItems(
-          [dynamicItems, legacyItems, staticItems],
-          item => item.playerId,
+        const blockingLegacyPromise = loadLegacyPlayerDiscovery(
           limit,
+          season,
+          request.log,
+          FOLLOW_DISCOVERY_PLAYERS_BLOCKING_LEAGUE_COUNT,
         );
-        const source =
-          dynamicItems.length === 0
-            ? legacyItems.length > 0
-              ? 'legacy_fill'
-              : 'static_seed'
-            : 'hybrid';
+        const fullLegacyPromise = loadLegacyPlayerDiscovery(
+          limit,
+          season,
+          request.log,
+          FOLLOW_DISCOVERY_MAX_LEAGUE_COUNT,
+        );
 
-        return {
-          items: merged,
-          meta: {
-            source,
-          },
-        };
+        const blockingLegacyItems = await waitForResultWithinBudget(
+          blockingLegacyPromise,
+          FOLLOW_DISCOVERY_SYNC_BUDGET_MS,
+        );
+
+        if (blockingLegacyItems === null) {
+          const immediateResponse = buildDiscoveryResponse({
+            dynamicItems,
+            legacyItems: [],
+            staticItems,
+            getId: item => item.playerId,
+            limit,
+          });
+
+          scheduleDiscoveryCacheRefresh({
+            cacheKey,
+            logger: request.log,
+            refreshPromise: fullLegacyPromise.then(legacyItems =>
+              buildDiscoveryResponse({
+                dynamicItems,
+                legacyItems,
+                staticItems,
+                getId: item => item.playerId,
+                limit,
+              })),
+          });
+
+          return immediateResponse;
+        }
+
+        const response = buildDiscoveryResponse({
+          dynamicItems,
+          legacyItems: blockingLegacyItems,
+          staticItems,
+          getId: item => item.playerId,
+          limit,
+        });
+
+        if (!response.meta.complete) {
+          scheduleDiscoveryCacheRefresh({
+            cacheKey,
+            logger: request.log,
+            refreshPromise: fullLegacyPromise.then(legacyItems =>
+              buildDiscoveryResponse({
+                dynamicItems,
+                legacyItems,
+                staticItems,
+                getId: item => item.playerId,
+                limit,
+              })),
+          });
+        }
+
+        return response;
       },
     );
   });

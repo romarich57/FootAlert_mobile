@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePowerState } from 'react-native-device-info';
@@ -167,6 +167,30 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
     prefetchFollowsTab,
     prefetchMatchesTab,
     powerState.lowPowerMode,
+  ]);
+
+  useEffect(() => {
+    if (netInfo.isConnected === false || netInfo.isInternetReachable === false) {
+      return;
+    }
+
+    if (netInfo.details?.isConnectionExpensive === true || powerState.lowPowerMode === true) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      triggerTabPrefetch('Follows');
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [
+    netInfo.details?.isConnectionExpensive,
+    netInfo.isConnected,
+    netInfo.isInternetReachable,
+    powerState.lowPowerMode,
+    triggerTabPrefetch,
   ]);
 
   return useMemo(
