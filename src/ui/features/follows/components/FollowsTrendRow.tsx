@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
@@ -69,6 +69,11 @@ function createStyles(colors: ThemeColors) {
       fontWeight: '600',
       marginTop: 2,
     },
+    avatarFallbackText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '800',
+    },
   });
 }
 
@@ -87,6 +92,34 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
 }: FollowsTrendRowProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [hasImageError, setHasImageError] = useState(avatarUrl.trim().length === 0);
+  const avatarFallbackLabel = useMemo(
+    () =>
+      title
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part.charAt(0).toUpperCase())
+        .join(''),
+    [title],
+  );
+
+  useEffect(() => {
+    setHasImageError(avatarUrl.trim().length === 0);
+  }, [avatarUrl]);
+
+  const avatarNode = hasImageError ? (
+    <Text style={styles.avatarFallbackText}>{avatarFallbackLabel}</Text>
+  ) : (
+    <Image
+      source={{ uri: avatarUrl }}
+      style={imageType === 'player' ? styles.avatarPlayer : styles.avatarTeam}
+      resizeMode={imageType === 'player' ? 'cover' : 'contain'}
+      onError={() => {
+        setHasImageError(true);
+      }}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -98,11 +131,7 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
           onPress={onPressItem}
         >
           <View style={[styles.avatarContainer, imageType === 'player' ? styles.avatarContainerPlayer : styles.avatarContainerTeam]}>
-            <Image
-              source={{ uri: avatarUrl }}
-              style={imageType === 'player' ? styles.avatarPlayer : styles.avatarTeam}
-              resizeMode={imageType === 'player' ? 'cover' : 'contain'}
-            />
+            {avatarNode}
           </View>
           <View>
             <Text numberOfLines={1} style={styles.title}>
@@ -116,11 +145,7 @@ export const FollowsTrendRow = memo(function FollowsTrendRow({
       ) : (
         <View style={styles.left}>
           <View style={[styles.avatarContainer, imageType === 'player' ? styles.avatarContainerPlayer : styles.avatarContainerTeam]}>
-            <Image
-              source={{ uri: avatarUrl }}
-              style={imageType === 'player' ? styles.avatarPlayer : styles.avatarTeam}
-              resizeMode={imageType === 'player' ? 'cover' : 'contain'}
-            />
+            {avatarNode}
           </View>
           <View>
             <Text numberOfLines={1} style={styles.title}>

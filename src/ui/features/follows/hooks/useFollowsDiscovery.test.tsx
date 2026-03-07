@@ -2,7 +2,10 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-import { fetchDiscoveryTeams } from '@data/endpoints/followsApi';
+import {
+  fetchDiscoveryPlayers,
+  fetchDiscoveryTeams,
+} from '@data/endpoints/followsApi';
 import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
 
 jest.mock('@data/endpoints/followsApi', () => ({
@@ -21,6 +24,7 @@ jest.mock('@data/endpoints/followsApi', () => ({
 }));
 
 const mockedFetchDiscoveryTeams = jest.mocked(fetchDiscoveryTeams);
+const mockedFetchDiscoveryPlayers = jest.mocked(fetchDiscoveryPlayers);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -125,6 +129,93 @@ describe('useFollowsDiscovery', () => {
         ],
         meta: {
           source: 'dynamic',
+        },
+      });
+    });
+  });
+
+  it('does not reuse team discovery data when switching to player discovery', async () => {
+    mockedFetchDiscoveryTeams.mockResolvedValueOnce({
+      items: [
+        {
+          teamId: '50',
+          teamName: 'Manchester City',
+          teamLogo: 'city.png',
+          country: 'England',
+          activeFollowersCount: 12,
+          recentNet30d: 4,
+          totalFollowAdds: 40,
+        },
+      ],
+      meta: {
+        source: 'dynamic',
+      },
+    });
+    const deferred = createDeferred<Awaited<ReturnType<typeof fetchDiscoveryPlayers>>>();
+    mockedFetchDiscoveryPlayers.mockImplementationOnce(() => deferred.promise);
+
+    const { result, rerender } = renderHook(
+      ({ tab }: { tab: 'teams' | 'players' }) =>
+        useFollowsDiscovery({ tab, limit: 2 }),
+      {
+        initialProps: { tab: 'teams' as const },
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.data).toEqual({
+        items: [
+          {
+            teamId: '50',
+            teamName: 'Manchester City',
+            teamLogo: 'city.png',
+            country: 'England',
+            activeFollowersCount: 12,
+            recentNet30d: 4,
+            totalFollowAdds: 40,
+          },
+        ],
+        meta: {
+          source: 'dynamic',
+        },
+      });
+    });
+
+    act(() => {
+      rerender({ tab: 'players' });
+    });
+
+    await waitFor(() => {
+      expect(result.current.data).toEqual({
+        items: [
+          {
+            playerId: '278',
+            playerName: 'Kylian Mbappe',
+            playerPhoto: '',
+            position: 'Attacker',
+            teamName: 'Real Madrid',
+            teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+            leagueName: 'La Liga',
+            activeFollowersCount: 0,
+            recentNet30d: 0,
+            totalFollowAdds: 0,
+          },
+          {
+            playerId: '154',
+            playerName: 'Cristiano Ronaldo',
+            playerPhoto: '',
+            position: 'Attacker',
+            teamName: 'Al-Nassr',
+            teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+            leagueName: 'Saudi Pro League',
+            activeFollowersCount: 0,
+            recentNet30d: 0,
+            totalFollowAdds: 0,
+          },
+        ],
+        meta: {
+          source: 'static_seed',
         },
       });
     });

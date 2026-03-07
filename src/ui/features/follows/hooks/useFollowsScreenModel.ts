@@ -9,10 +9,12 @@ import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTea
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { useFollowsDiscovery } from '@ui/features/follows/hooks/useFollowsDiscovery';
 import { useFollowsSearch } from '@ui/features/follows/hooks/useFollowsSearch';
+import {
+  isFollowDiscoveryPlayerItem,
+  isFollowDiscoveryTeamItem,
+} from '@ui/features/follows/utils/discoveryItemGuards';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import type {
-  FollowDiscoveryPlayerItem,
-  FollowDiscoveryTeamItem,
   FollowEntityTab,
   FollowsSearchResultPlayer,
   FollowsSearchResultTeam,
@@ -65,11 +67,19 @@ export function useFollowsScreenModel() {
     tab: selectedTab,
     hidden: hideTrendsCurrentTab,
   });
+  const discoveryItems = discoveryQuery.data?.items ?? [];
+  const discoveryTeamItems = useMemo(
+    () => discoveryItems.filter(isFollowDiscoveryTeamItem),
+    [discoveryItems],
+  );
+  const discoveryPlayerItems = useMemo(
+    () => discoveryItems.filter(isFollowDiscoveryPlayerItem),
+    [discoveryItems],
+  );
 
   const trendsItems = useMemo(() => {
-    const discoveryItems = discoveryQuery.data?.items ?? [];
     if (selectedTab === 'teams') {
-      return (discoveryItems as FollowDiscoveryTeamItem[]).map<TrendTeamItem>(item => ({
+      return discoveryTeamItems.map<TrendTeamItem>(item => ({
         teamId: item.teamId,
         teamName: item.teamName,
         teamLogo: item.teamLogo,
@@ -77,7 +87,7 @@ export function useFollowsScreenModel() {
       }));
     }
 
-    return (discoveryItems as FollowDiscoveryPlayerItem[]).map<TrendPlayerItem>(item => ({
+    return discoveryPlayerItems.map<TrendPlayerItem>(item => ({
       playerId: item.playerId,
       playerName: item.playerName,
       playerPhoto: item.playerPhoto,
@@ -85,7 +95,7 @@ export function useFollowsScreenModel() {
       teamName: item.teamName,
       teamLogo: item.teamLogo,
     }));
-  }, [discoveryQuery.data?.items, selectedTab]);
+  }, [discoveryPlayerItems, discoveryTeamItems, selectedTab]);
 
   const asTeamTrends = trendsItems as TrendTeamItem[];
   const asPlayerTrends = trendsItems as TrendPlayerItem[];
@@ -137,7 +147,7 @@ export function useFollowsScreenModel() {
         country: null,
       });
     });
-    (discoveryQuery.data?.items as FollowDiscoveryTeamItem[] | undefined)?.forEach(item => {
+    discoveryTeamItems.forEach(item => {
       snapshots.set(item.teamId, {
         teamName: item.teamName,
         teamLogo: item.teamLogo,
@@ -145,7 +155,7 @@ export function useFollowsScreenModel() {
       });
     });
     return snapshots;
-  }, [discoveryQuery.data?.items, teamCardsQuery.data]);
+  }, [discoveryTeamItems, teamCardsQuery.data]);
 
   const playerSnapshotsById = useMemo(() => {
     const snapshots = new Map<string, FollowPlayerSnapshot>();
@@ -159,7 +169,7 @@ export function useFollowsScreenModel() {
         leagueName: item.leagueName,
       });
     });
-    (discoveryQuery.data?.items as FollowDiscoveryPlayerItem[] | undefined)?.forEach(item => {
+    discoveryPlayerItems.forEach(item => {
       snapshots.set(item.playerId, {
         playerName: item.playerName,
         playerPhoto: item.playerPhoto,
@@ -170,7 +180,7 @@ export function useFollowsScreenModel() {
       });
     });
     return snapshots;
-  }, [discoveryQuery.data?.items, playerCardsQuery.data]);
+  }, [discoveryPlayerItems, playerCardsQuery.data]);
 
   const search = useFollowsSearch({
     tab: selectedTab,

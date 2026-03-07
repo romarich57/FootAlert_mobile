@@ -379,4 +379,78 @@ describe('useSearchScreenModel', () => {
       ]);
     });
   });
+
+  it('does not reuse team discovery results when switching to players with an empty query', async () => {
+    mockedFetchDiscoveryTeams.mockResolvedValueOnce({
+      items: [
+        {
+          teamId: '529',
+          teamName: 'Barcelona',
+          teamLogo: 'barca.png',
+          country: 'Spain',
+          activeFollowersCount: 120,
+          recentNet30d: 25,
+          totalFollowAdds: 400,
+        },
+      ],
+      meta: {
+        source: 'dynamic',
+      },
+    });
+    const deferred = createDeferred<Awaited<ReturnType<typeof fetchDiscoveryPlayers>>>();
+    mockedFetchDiscoveryPlayers.mockImplementationOnce(() => deferred.promise);
+
+    const { result } = renderHook(() => useSearchScreenModel(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleSelectTab('teams');
+    });
+
+    await waitFor(() => {
+      expect(result.current.teamResults).toEqual([
+        {
+          teamId: '529',
+          teamName: 'Barcelona',
+          teamLogo: 'barca.png',
+          country: 'Spain',
+        },
+      ]);
+    });
+
+    act(() => {
+      result.current.handleSelectTab('players');
+    });
+
+    await waitFor(() => {
+      expect(result.current.teamResults).toEqual([]);
+      expect(result.current.playerResults).toEqual([
+        {
+          playerId: '278',
+          playerName: 'Kylian Mbappe',
+          playerPhoto: '',
+          position: 'Attacker',
+          teamName: 'Real Madrid',
+          teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+          leagueName: 'La Liga',
+        },
+        {
+          playerId: '154',
+          playerName: 'Cristiano Ronaldo',
+          playerPhoto: '',
+          position: 'Attacker',
+          teamName: 'Al-Nassr',
+          teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+          leagueName: 'Saudi Pro League',
+        },
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+      ]);
+    });
+  });
 });

@@ -24,6 +24,10 @@ import type {
   FollowDiscoveryTeamItem,
 } from '@ui/features/follows/types/follows.types';
 import { buildFollowDiscoveryPlaceholderResponse } from '@ui/features/follows/utils/discoverySeeds';
+import {
+  isFollowDiscoveryPlayerItem,
+  isFollowDiscoveryTeamItem,
+} from '@ui/features/follows/utils/discoveryItemGuards';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import type {
   SearchCompetitionResult,
@@ -95,8 +99,15 @@ export function useSearchScreenModel() {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
   const hasEnoughChars = debouncedQuery.length >= appEnv.followsSearchMinChars;
   const resultsLimit = appEnv.followsSearchResultsLimit;
+  const discoveryPlaceholder = buildFollowDiscoveryPlaceholderResponse(
+    selectedTab === 'players' ? 'players' : 'teams',
+    resultsLimit,
+  );
 
-  const discoveryQuery = useQuery({
+  const discoveryQuery = useQuery<
+    { items: FollowDiscoveryTeamItem[]; meta: { source: string } }
+    | { items: FollowDiscoveryPlayerItem[]; meta: { source: string } }
+  >({
     queryKey: queryKeys.follows.discovery(selectedTab === 'players' ? 'players' : 'teams', resultsLimit),
     enabled: isEntitySearchTab && trimmedQuery.length === 0,
     staleTime: appEnv.followsTrendsTtlMs,
@@ -110,12 +121,7 @@ export function useSearchScreenModel() {
 
       return fetchDiscoveryPlayers(resultsLimit, signal);
     },
-    placeholderData: previousData =>
-      previousData ??
-      buildFollowDiscoveryPlaceholderResponse(
-        selectedTab === 'players' ? 'players' : 'teams',
-        resultsLimit,
-      ),
+    placeholderData: discoveryPlaceholder,
   });
 
   const searchQuery = useQuery({
@@ -302,7 +308,7 @@ export function useSearchScreenModel() {
   const discoveryItems = discoveryResponse?.items ?? [];
   const discoveryTeams =
     selectedTab === 'teams' && !trimmedQuery.length
-      ? (discoveryItems as FollowDiscoveryTeamItem[]).map(item => ({
+      ? discoveryItems.filter(isFollowDiscoveryTeamItem).map(item => ({
           teamId: item.teamId,
           teamName: item.teamName,
           teamLogo: item.teamLogo,
@@ -311,7 +317,7 @@ export function useSearchScreenModel() {
       : [];
   const discoveryPlayers =
     selectedTab === 'players' && !trimmedQuery.length
-      ? (discoveryItems as FollowDiscoveryPlayerItem[]).map(item => ({
+      ? discoveryItems.filter(isFollowDiscoveryPlayerItem).map(item => ({
           playerId: item.playerId,
           playerName: item.playerName,
           playerPhoto: item.playerPhoto,

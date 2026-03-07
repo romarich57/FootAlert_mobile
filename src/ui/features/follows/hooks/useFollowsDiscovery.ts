@@ -41,8 +41,8 @@ export function useFollowsDiscovery({
     queryKey: queryKeys.follows.discovery(tab, resolvedLimit),
     enabled: enabled && !hidden,
     staleTime: appEnv.followsTrendsTtlMs,
-    placeholderData: previousData =>
-      previousData ?? buildFollowDiscoveryPlaceholderResponse(tab, resolvedLimit),
+    placeholderData: () =>
+      buildFollowDiscoveryPlaceholderResponse(tab, resolvedLimit),
     queryFn: ({ signal }) => {
       if (tab === 'teams') {
         return fetchDiscoveryTeams(resolvedLimit, signal);

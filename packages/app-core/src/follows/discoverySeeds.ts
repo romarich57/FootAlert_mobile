@@ -90,7 +90,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '278',
     playerName: 'Kylian Mbappe',
-    playerPhoto: 'https://media.api-sports.io/football/players/278.png',
+    playerPhoto: '',
     position: 'Attacker',
     teamName: 'Real Madrid',
     teamLogo: 'https://media.api-sports.io/football/teams/541.png',
@@ -100,7 +100,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '154',
     playerName: 'Cristiano Ronaldo',
-    playerPhoto: 'https://media.api-sports.io/football/players/154.png',
+    playerPhoto: '',
     position: 'Attacker',
     teamName: 'Al-Nassr',
     teamLogo: 'https://media.api-sports.io/football/teams/541.png',
@@ -110,7 +110,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '10',
     playerName: 'Lionel Messi',
-    playerPhoto: 'https://media.api-sports.io/football/players/10.png',
+    playerPhoto: '',
     position: 'Attacker',
     teamName: 'Inter Miami',
     teamLogo: 'https://media.api-sports.io/football/teams/9568.png',
@@ -120,7 +120,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '111',
     playerName: 'Marquinhos',
-    playerPhoto: 'https://media.api-sports.io/football/players/111.png',
+    playerPhoto: '',
     position: 'Defender',
     teamName: 'Paris Saint-Germain',
     teamLogo: 'https://media.api-sports.io/football/teams/85.png',
@@ -130,7 +130,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '2032',
     playerName: 'J. Strand Larsen',
-    playerPhoto: 'https://media.api-sports.io/football/players/2032.png',
+    playerPhoto: '',
     position: 'Attacker',
     teamName: 'Celta Vigo',
     teamLogo: 'https://media.api-sports.io/football/teams/538.png',
@@ -140,7 +140,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '7',
     playerName: 'Jules Kounde',
-    playerPhoto: 'https://media.api-sports.io/football/players/7.png',
+    playerPhoto: '',
     position: 'Defender',
     teamName: 'Barcelona',
     teamLogo: 'https://media.api-sports.io/football/teams/529.png',
@@ -150,7 +150,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '874',
     playerName: 'Vinicius Junior',
-    playerPhoto: 'https://media.api-sports.io/football/players/874.png',
+    playerPhoto: '',
     position: 'Attacker',
     teamName: 'Real Madrid',
     teamLogo: 'https://media.api-sports.io/football/teams/541.png',
@@ -160,7 +160,7 @@ export const FOLLOW_DISCOVERY_SEED_PLAYERS: FollowDiscoverySeedPlayerItem[] = [
   {
     playerId: '1100',
     playerName: 'Jude Bellingham',
-    playerPhoto: 'https://media.api-sports.io/football/players/1100.png',
+    playerPhoto: '',
     position: 'Midfielder',
     teamName: 'Real Madrid',
     teamLogo: 'https://media.api-sports.io/football/teams/541.png',
