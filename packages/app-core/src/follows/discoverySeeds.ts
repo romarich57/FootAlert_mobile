@@ -29,7 +29,14 @@ const ZERO_COUNTS = {
 
 type RawFollowDiscoverySeedPlayerItem = Omit<FollowDiscoverySeedPlayerItem, 'playerPhoto'>;
 
-export const FOLLOW_DISCOVERY_PLAYER_ID_CORRECTIONS: Record<string, string> = Object.freeze({});
+export const FOLLOW_DISCOVERY_PLAYER_ID_CORRECTIONS: Record<string, string> = Object.freeze({
+  '154': '50048', // Cristiano Ronaldo -> V. Muriqi
+  '10': '386828', // Lionel Messi -> Lamine Yamal
+  '111': '931', // Marquinhos -> Ferran Torres
+  '7': '46746', // Jules Kounde -> A. Budimir
+  '874': '521', // Vinicius Junior -> R. Lewandowski
+  '1100': '47348', // Jude Bellingham -> Borja Iglesias
+});
 
 export function normalizeFollowDiscoveryPlayerId(playerId: string): string {
   const initialPlayerId = String(playerId).trim();
@@ -133,30 +140,30 @@ const RAW_FOLLOW_DISCOVERY_SEED_PLAYERS: RawFollowDiscoverySeedPlayerItem[] = [
     ...ZERO_COUNTS,
   },
   {
-    playerId: '154',
-    playerName: 'Cristiano Ronaldo',
+    playerId: '50048',
+    playerName: 'V. Muriqi',
     position: 'Attacker',
-    teamName: 'Al-Nassr',
-    teamLogo: 'https://media.api-sports.io/football/teams/5411.png',
-    leagueName: 'Saudi Pro League',
+    teamName: 'Mallorca',
+    teamLogo: 'https://media.api-sports.io/football/teams/798.png',
+    leagueName: 'La Liga',
     ...ZERO_COUNTS,
   },
   {
-    playerId: '10',
-    playerName: 'Lionel Messi',
-    position: 'Attacker',
-    teamName: 'Inter Miami',
-    teamLogo: 'https://media.api-sports.io/football/teams/9568.png',
-    leagueName: 'MLS',
+    playerId: '386828',
+    playerName: 'Lamine Yamal',
+    position: 'Midfielder',
+    teamName: 'Barcelona',
+    teamLogo: 'https://media.api-sports.io/football/teams/529.png',
+    leagueName: 'La Liga',
     ...ZERO_COUNTS,
   },
   {
-    playerId: '111',
-    playerName: 'Marquinhos',
-    position: 'Defender',
-    teamName: 'Paris Saint-Germain',
-    teamLogo: 'https://media.api-sports.io/football/teams/85.png',
-    leagueName: 'Ligue 1',
+    playerId: '931',
+    playerName: 'Ferran Torres',
+    position: 'Attacker',
+    teamName: 'Barcelona',
+    teamLogo: 'https://media.api-sports.io/football/teams/529.png',
+    leagueName: 'La Liga',
     ...ZERO_COUNTS,
   },
   {
@@ -169,29 +176,29 @@ const RAW_FOLLOW_DISCOVERY_SEED_PLAYERS: RawFollowDiscoverySeedPlayerItem[] = [
     ...ZERO_COUNTS,
   },
   {
-    playerId: '7',
-    playerName: 'Jules Kounde',
-    position: 'Defender',
+    playerId: '46746',
+    playerName: 'A. Budimir',
+    position: 'Attacker',
+    teamName: 'Osasuna',
+    teamLogo: 'https://media.api-sports.io/football/teams/727.png',
+    leagueName: 'La Liga',
+    ...ZERO_COUNTS,
+  },
+  {
+    playerId: '521',
+    playerName: 'R. Lewandowski',
+    position: 'Attacker',
     teamName: 'Barcelona',
     teamLogo: 'https://media.api-sports.io/football/teams/529.png',
     leagueName: 'La Liga',
     ...ZERO_COUNTS,
   },
   {
-    playerId: '874',
-    playerName: 'Vinicius Junior',
+    playerId: '47348',
+    playerName: 'Borja Iglesias',
     position: 'Attacker',
-    teamName: 'Real Madrid',
-    teamLogo: 'https://media.api-sports.io/football/teams/541.png',
-    leagueName: 'La Liga',
-    ...ZERO_COUNTS,
-  },
-  {
-    playerId: '1100',
-    playerName: 'Jude Bellingham',
-    position: 'Midfielder',
-    teamName: 'Real Madrid',
-    teamLogo: 'https://media.api-sports.io/football/teams/541.png',
+    teamName: 'Celta Vigo',
+    teamLogo: 'https://media.api-sports.io/football/teams/538.png',
     leagueName: 'La Liga',
     ...ZERO_COUNTS,
   },

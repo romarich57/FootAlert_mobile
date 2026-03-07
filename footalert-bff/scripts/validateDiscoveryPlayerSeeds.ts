@@ -205,11 +205,10 @@ async function replaceSeedBlock(seeds: RawSeedPlayer[]): Promise<void> {
 async function main(): Promise<void> {
   const env = resolveScriptEnv();
   const writeChanges = process.argv.includes('--write');
-  const season = new Date().getUTCMonth() + 1 >= 7
-    ? new Date().getUTCFullYear()
-    : new Date().getUTCFullYear() - 1;
+  // Force season to 2024 because topscorers for 2025 are not fully complete/available yet on API-Football
+  const season = 2024;
   const usedPlayerIds = new Set<string>();
-  const legacyCandidates = await loadLegacyPlayerCandidates(env, season);
+  const legacyCandidates = await loadLegacyPlayerCandidates(env, season); console.log("Candidates loaded:", legacyCandidates.length);
   const repairedSeeds: RawSeedPlayer[] = [];
 
   for (const seed of FOLLOW_DISCOVERY_SEED_PLAYERS) {
