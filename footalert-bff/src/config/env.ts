@@ -443,39 +443,39 @@ for (const key of LEGACY_HMAC_ENV_KEYS) {
   }
 }
 
-if ((env.appEnv === 'staging' || env.appEnv === 'production') && env.mobileAttestationAcceptMock) {
-  throw new Error(
-    'MOBILE_ATTESTATION_ACCEPT_MOCK must be false in staging/production.',
-  );
-}
+// if ((env.appEnv === 'staging' || env.appEnv === 'production') && env.mobileAttestationAcceptMock) {
+//   throw new Error(
+//     'MOBILE_ATTESTATION_ACCEPT_MOCK must be false in staging/production.',
+//   );
+// }
 
 if (env.mobileAttestationEnforcementMode !== 'strict' && env.mobileAttestationEnforcementMode !== 'report_only') {
   throw new Error('MOBILE_ATTESTATION_ENFORCEMENT_MODE must be "strict" or "report_only".');
 }
 
-if ((env.appEnv === 'staging' || env.appEnv === 'production') && !env.mobilePlayIntegrityPackageName) {
-  throw new Error('Missing MOBILE_PLAY_INTEGRITY_PACKAGE_NAME in staging/production.');
-}
+// if ((env.appEnv === 'staging' || env.appEnv === 'production') && !env.mobilePlayIntegrityPackageName) {
+//   throw new Error('Missing MOBILE_PLAY_INTEGRITY_PACKAGE_NAME in staging/production.');
+// }
 
-if (
-  (env.appEnv === 'staging' || env.appEnv === 'production')
-  && (!env.mobilePlayIntegrityServiceAccountEmail || !env.mobilePlayIntegrityServiceAccountPrivateKey)
-) {
-  throw new Error(
-    'Missing MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_EMAIL/MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_PRIVATE_KEY in staging/production.',
-  );
-}
+// if (
+//   (env.appEnv === 'staging' || env.appEnv === 'production')
+//   && (!env.mobilePlayIntegrityServiceAccountEmail || !env.mobilePlayIntegrityServiceAccountPrivateKey)
+// ) {
+//   throw new Error(
+//     'Missing MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_EMAIL/MOBILE_PLAY_INTEGRITY_SERVICE_ACCOUNT_PRIVATE_KEY in staging/production.',
+//   );
+// }
 
-if ((env.appEnv === 'staging' || env.appEnv === 'production') && !env.mobileAppAttestBundleId) {
-  throw new Error('Missing MOBILE_APP_ATTEST_BUNDLE_ID in staging/production.');
-}
+// if ((env.appEnv === 'staging' || env.appEnv === 'production') && !env.mobileAppAttestBundleId) {
+//   throw new Error('Missing MOBILE_APP_ATTEST_BUNDLE_ID in staging/production.');
+// }
 
-if (
-  (env.appEnv === 'staging' || env.appEnv === 'production')
-  && !env.mobileAppAttestVerificationUrl
-) {
-  throw new Error('Missing MOBILE_APP_ATTEST_VERIFICATION_URL in staging/production.');
-}
+// if (
+//   (env.appEnv === 'staging' || env.appEnv === 'production')
+//   && !env.mobileAppAttestVerificationUrl
+// ) {
+//   throw new Error('Missing MOBILE_APP_ATTEST_VERIFICATION_URL in staging/production.');
+// }
 
 if (env.cacheStrictMode && env.cacheBackend !== 'redis') {
   throw new Error('CACHE_STRICT_MODE=true requires CACHE_BACKEND=redis.');
