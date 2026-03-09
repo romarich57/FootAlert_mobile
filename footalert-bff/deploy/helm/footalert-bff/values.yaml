@@ -1,0 +1,81 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/footalert/footalert-bff
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+secretName: footalert-bff-secrets
+
+serviceAccount:
+  create: true
+  name: ""
+
+podAnnotations: {}
+
+globalEnv:
+  APP_ENV: staging
+  HOST: 0.0.0.0
+  PORT: "3001"
+  NODE_ENV: production
+  TRUST_PROXY_HOPS: "1"
+  CACHE_BACKEND: redis
+  CACHE_STRICT_MODE: "true"
+  REDIS_CACHE_PREFIX: footalert:bff:
+  UPSTREAM_GLOBAL_RPM_LIMIT: "600"
+  UPSTREAM_CIRCUIT_BREAKER_WINDOW_MS: "30000"
+  NOTIFICATIONS_BACKEND_ENABLED: "true"
+  NOTIFICATIONS_EVENT_INGEST_ENABLED: "true"
+  NOTIFICATIONS_PERSISTENCE_BACKEND: postgres
+  LOG_LEVEL: info
+
+observabilityEnv:
+  LOG_FORMAT: json
+  METRICS_ENABLED: "true"
+  METRICS_BIND_ADDRESS: 0.0.0.0
+
+api:
+  replicaCount: 2
+  nodeRole: api
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3001
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "3001"
+  livenessProbe:
+    path: /liveness
+    initialDelaySeconds: 15
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    path: /readiness
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+
+worker:
+  replicaCount: 1
+  nodeRole: worker
+  command:
+    - node
+    - dist/worker.js
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi

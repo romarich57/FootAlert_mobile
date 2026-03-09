@@ -13,6 +13,7 @@ export type FetchCall = {
 
 const BASE_ENV: Record<string, string> = {
   APP_ENV: 'test',
+  NODE_ROLE: 'api',
   API_FOOTBALL_KEY: 'test-server-key',
   API_FOOTBALL_BASE_URL: 'https://api-football.test',
   API_TIMEOUT_MS: '500',
@@ -61,6 +62,7 @@ const BASE_ENV: Record<string, string> = {
   FIREBASE_PROJECT_ID: '',
   FIREBASE_CLIENT_EMAIL: '',
   FIREBASE_PRIVATE_KEY: '',
+  OPS_METRICS_TOKEN: '',
   NODE_ENV: 'test',
 };
 
@@ -160,6 +162,7 @@ export async function buildApp(
   );
   const { resetNotificationsRuntimeForTests } = await import('../../src/lib/notifications/runtime.ts');
   const { resetNotificationsMetricsForTests } = await import('../../src/lib/notifications/metrics.ts');
+  const { resetRuntimeStatusForTests } = await import('../../src/lib/runtimeStatus.ts');
   resetCacheForTests();
   await resetPushTokenStoreForTests();
   resetMobileSessionChallengeStoreForTests();
@@ -169,6 +172,7 @@ export async function buildApp(
   await resetFollowsDiscoveryRuntimeForTests();
   await resetNotificationsRuntimeForTests();
   resetNotificationsMetricsForTests();
+  await resetRuntimeStatusForTests();
   const { buildServer } = await import(`../../src/server.ts?case=${Math.random().toString(36).slice(2)}`);
   const app = await buildServer();
 

@@ -25,7 +25,10 @@
     "coverage:critical": "node scripts/quality/check-critical-coverage.mjs",
     "routes:line-limits": "bash scripts/quality/check-route-line-limits.sh",
     "routes:catalog": "node --import tsx scripts/quality/generate-route-catalog.mjs",
+    "smoke:service": "node scripts/check-service-probes.mjs",
     "smoke:staging": "node scripts/smoke-staging.mjs",
+    "perf:k6:critical": "k6 run scripts/perf/k6-critical-routes.js",
+    "perf:k6:notifications": "k6 run scripts/perf/k6-notifications-pressure.js",
     "db:migrate:notifications": "node scripts/db/migrate-notifications.mjs"
   },
   "engines": {

@@ -66,3 +66,30 @@ test('GET /health returns 503 when cache is degraded in strict redis mode', asyn
   assert.equal(payload.cache.strictMode, true);
   assert.equal(payload.cache.degraded, true);
 });
+
+test('GET /readiness returns 503 when redis dependency is degraded in strict mode', async t => {
+  const app = await buildApp(t);
+  const { configureCache, resetCacheForTests } = await import('../src/lib/cache.ts');
+
+  t.after(() => {
+    resetCacheForTests();
+  });
+
+  configureCache({
+    backend: 'redis',
+    strictMode: true,
+    redisUrl: 'redis://127.0.0.1:1/0',
+    redisPrefix: 'footalert:test:',
+  });
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/readiness',
+  });
+
+  assert.equal(response.statusCode, 503);
+  const payload = response.json();
+  assert.equal(payload.status, 'degraded');
+  assert.equal(payload.checks.redis.status, 'degraded');
+  assert.equal(payload.checks.redis.ready, false);
+});

@@ -1,13 +1,10 @@
-const rawBaseUrl = process.env.MOBILE_API_BASE_URL?.trim();
+import { resolveServiceUrls } from './lib/service-urls.mjs';
 
-if (!rawBaseUrl) {
-  throw new Error('Missing MOBILE_API_BASE_URL for staging smoke tests.');
-}
-
-const apiBaseUrl = rawBaseUrl.replace(/\/+$/, '');
-const hasVersionPrefix = /\/v1$/.test(apiBaseUrl);
-const serviceBaseUrl = hasVersionPrefix ? apiBaseUrl.replace(/\/v1$/, '') : apiBaseUrl;
-const apiPrefix = hasVersionPrefix ? '' : '/v1';
+const {
+  apiBaseUrl,
+  apiPrefix,
+  serviceBaseUrl,
+} = resolveServiceUrls(process.env.MOBILE_API_BASE_URL);
 
 const now = new Date();
 const defaultSeason = Math.max(now.getUTCFullYear() - 1, 2024);
@@ -22,6 +19,16 @@ const coreChecks = [
   {
     name: 'health',
     url: `${serviceBaseUrl}/health`,
+    expectedStatuses: [200],
+  },
+  {
+    name: 'liveness',
+    url: `${serviceBaseUrl}/liveness`,
+    expectedStatuses: [200],
+  },
+  {
+    name: 'readiness',
+    url: `${serviceBaseUrl}/readiness`,
     expectedStatuses: [200],
   },
   {

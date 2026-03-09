@@ -32,6 +32,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate smoke and probe scripts syntax
+        run: |
+          node --check scripts/perf/k6-critical-routes.js
+          node --check scripts/perf/k6-notifications-pressure.js
+          node --check scripts/check-service-probes.mjs
+          node --check scripts/smoke-staging.mjs
+
       - name: Enforce API-Football licensing gate
         run: bash ../scripts/quality/check-api-football-license.sh
 
@@ -91,7 +98,7 @@ jobs:
             pm2 restart footalert-bff-worker --update-env
             pm2 save
 
-      - name: Wait for production healthcheck
+      - name: Wait for production readiness
         env:
           MOBILE_API_BASE_URL_PRODUCTION: ${{ secrets.MOBILE_API_BASE_URL_PRODUCTION }}
         run: |
@@ -108,15 +115,15 @@ jobs:
           fi
 
           for attempt in $(seq 1 24); do
-            if curl -fsSL "$SERVICE_BASE/health" >/dev/null; then
-              echo "Production BFF is healthy."
+            if curl -fsSL "$SERVICE_BASE/readiness" >/dev/null; then
+              echo "Production BFF is ready."
               exit 0
             fi
-            echo "Healthcheck not ready yet (attempt $attempt/24)."
+            echo "Readiness probe not ready yet (attempt $attempt/24)."
             sleep 10
           done
 
-          echo "Production BFF healthcheck failed."
+          echo "Production BFF readiness probe failed."
           exit 1
 
   validate-mobile-production:
@@ -139,7 +146,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Verify production probes
+        env:
+          MOBILE_API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_PRODUCTION }}
+          # Optional: set OPS_METRICS_AUTH_BEARER_TOKEN_PRODUCTION if /metrics requires an auth token.
+          OPS_METRICS_AUTH_BEARER_TOKEN: ${{ secrets.OPS_METRICS_AUTH_BEARER_TOKEN_PRODUCTION }}
+        run: npm run smoke:service
+
       - name: Mobile API smoke checks on production
         env:
           MOBILE_API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_PRODUCTION }}
         run: npm run smoke:staging
+
+      - name: k6 critical routes smoke on production
+        env:
+          BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_PRODUCTION }}
+          K6_LOAD_PROFILE: smoke
+        run: npm run perf:k6:critical
+
+      - name: k6 notifications smoke on production
+        env:
+          BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_PRODUCTION }}
+          K6_LOAD_PROFILE: smoke
+          K6_NOTIFICATIONS_ALLOW_READONLY: "true"
+          # Optional: set OPS_METRICS_AUTH_BEARER_TOKEN_PRODUCTION if /metrics requires an auth token.
+          OPS_METRICS_AUTH_BEARER_TOKEN: ${{ secrets.OPS_METRICS_AUTH_BEARER_TOKEN_PRODUCTION }}
+        run: npm run perf:k6:notifications

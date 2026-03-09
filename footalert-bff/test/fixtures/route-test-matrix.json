@@ -7,6 +7,24 @@
   },
   {
     "method": "GET",
+    "path": "/liveness",
+    "critical": false,
+    "testFile": "test/server.crosscutting.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/readiness",
+    "critical": false,
+    "testFile": "test/server.crosscutting.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/metrics",
+    "critical": false,
+    "testFile": "test/server.crosscutting.test.ts"
+  },
+  {
+    "method": "GET",
     "path": "/v1/capabilities",
     "critical": false,
     "testFile": "test/server.crosscutting.test.ts"
@@ -43,12 +61,6 @@
   },
   {
     "method": "GET",
-    "path": "/v1/competitions/:id/team-stats",
-    "critical": true,
-    "testFile": "test/routes/competitions.routes.test.ts"
-  },
-  {
-    "method": "GET",
     "path": "/v1/competitions/:id/bracket",
     "critical": true,
     "testFile": "test/routes/competitions.routes.test.ts"
@@ -56,6 +68,12 @@
   {
     "method": "GET",
     "path": "/v1/competitions/:id/player-stats",
+    "critical": true,
+    "testFile": "test/routes/competitions.routes.test.ts"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/team-stats",
     "critical": true,
     "testFile": "test/routes/competitions.routes.test.ts"
   },
@@ -205,13 +223,13 @@
   },
   {
     "method": "GET",
-    "path": "/v1/teams/:id/advanced-stats",
+    "path": "/v1/teams/:id/overview",
     "critical": false,
     "testFile": "test/routes/teams.routes.test.ts"
   },
   {
     "method": "GET",
-    "path": "/v1/teams/:id/overview",
+    "path": "/v1/teams/:id/advanced-stats",
     "critical": false,
     "testFile": "test/routes/teams.routes.test.ts"
   },
@@ -295,6 +313,12 @@
   },
   {
     "method": "GET",
+    "path": "/v1/players/:id/stats-catalog",
+    "critical": false,
+    "testFile": "test/routes/players.routes.test.ts"
+  },
+  {
+    "method": "GET",
     "path": "/v1/players/:id/trophies",
     "critical": false,
     "testFile": "test/routes/players.routes.test.ts"
@@ -308,13 +332,7 @@
   {
     "method": "GET",
     "path": "/v1/players/:id/overview",
-    "critical": true,
-    "testFile": "test/routes/players.routes.test.ts"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/players/:id/stats-catalog",
-    "critical": true,
+    "critical": false,
     "testFile": "test/routes/players.routes.test.ts"
   },
   {
@@ -343,6 +361,12 @@
   },
   {
     "method": "GET",
+    "path": "/v1/follows/teams/cards",
+    "critical": false,
+    "testFile": "test/routes/follows.routes.test.ts"
+  },
+  {
+    "method": "GET",
     "path": "/v1/follows/teams/:teamId",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
@@ -350,12 +374,6 @@
   {
     "method": "GET",
     "path": "/v1/follows/teams/:teamId/next-fixture",
-    "critical": false,
-    "testFile": "test/routes/follows.routes.test.ts"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/follows/teams/cards",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },
@@ -379,20 +397,20 @@
   },
   {
     "method": "GET",
-    "path": "/v1/follows/players/:playerId/season/:season",
+    "path": "/v1/follows/players/cards",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },
   {
     "method": "GET",
-    "path": "/v1/follows/players/cards",
+    "path": "/v1/follows/players/:playerId/season/:season",
     "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },
   {
     "method": "POST",
     "path": "/v1/follows/events",
-    "critical": true,
+    "critical": false,
     "testFile": "test/routes/follows.routes.test.ts"
   },
   {

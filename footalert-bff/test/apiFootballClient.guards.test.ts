@@ -84,3 +84,46 @@ test('apiFootballGet opens circuit breaker on upstream 429 and rejects subsequen
     },
   );
 });
+
+test('apiFootballGet sheds lower-priority search traffic before the hard quota limit', async () => {
+  await withManagedEnv(
+    {
+      APP_ENV: 'test',
+      REDIS_URL: '',
+      API_MAX_RETRIES: '0',
+      UPSTREAM_GLOBAL_RPM_LIMIT: '5',
+      UPSTREAM_CIRCUIT_BREAKER_WINDOW_MS: '30000',
+    },
+    async () => {
+      const fetchCalls: string[] = [];
+      globalThis.fetch = (async () => {
+        fetchCalls.push('called');
+        return new Response(JSON.stringify({ response: [] }), {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        });
+      }) as typeof fetch;
+
+      const moduleRef = await import(`../src/lib/apiFootballClient.ts?case=${Math.random().toString(36).slice(2)}`);
+      moduleRef.resetApiFootballClientGuardsForTests();
+
+      await moduleRef.apiFootballGet('/teams?search=arsenal');
+      await moduleRef.apiFootballGet('/teams?search=arsenal');
+      await moduleRef.apiFootballGet('/teams?search=arsenal');
+      await moduleRef.apiFootballGet('/teams?search=arsenal');
+
+      await assert.rejects(
+        moduleRef.apiFootballGet('/teams?search=arsenal'),
+        error => isErrorWithCode(error, 'UPSTREAM_QUOTA_SHED'),
+      );
+      assert.equal(fetchCalls.length, 4);
+
+      const snapshot = await moduleRef.getUpstreamGuardSnapshot();
+      assert.equal(snapshot.routeFamilies[0]?.family, 'search');
+      assert.equal(snapshot.routeFamilies[0]?.priority, 'interactive_secondary');
+      assert.equal(snapshot.routeFamilies[0]?.sheds, 1);
+    },
+  );
+});

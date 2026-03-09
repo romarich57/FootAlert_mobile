@@ -5,6 +5,18 @@
   },
   {
     "method": "GET",
+    "path": "/liveness"
+  },
+  {
+    "method": "GET",
+    "path": "/readiness"
+  },
+  {
+    "method": "GET",
+    "path": "/metrics"
+  },
+  {
+    "method": "GET",
     "path": "/v1/capabilities"
   },
   {
@@ -29,15 +41,15 @@
   },
   {
     "method": "GET",
-    "path": "/v1/competitions/:id/team-stats"
-  },
-  {
-    "method": "GET",
     "path": "/v1/competitions/:id/bracket"
   },
   {
     "method": "GET",
     "path": "/v1/competitions/:id/player-stats"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/competitions/:id/team-stats"
   },
   {
     "method": "GET",
@@ -137,11 +149,11 @@
   },
   {
     "method": "GET",
-    "path": "/v1/teams/:id/advanced-stats"
+    "path": "/v1/teams/:id/overview"
   },
   {
     "method": "GET",
-    "path": "/v1/teams/:id/overview"
+    "path": "/v1/teams/:id/advanced-stats"
   },
   {
     "method": "GET",
@@ -197,6 +209,10 @@
   },
   {
     "method": "GET",
+    "path": "/v1/players/:id/stats-catalog"
+  },
+  {
+    "method": "GET",
     "path": "/v1/players/:id/trophies"
   },
   {
@@ -206,10 +222,6 @@
   {
     "method": "GET",
     "path": "/v1/players/:id/overview"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/players/:id/stats-catalog"
   },
   {
     "method": "GET",
@@ -229,15 +241,15 @@
   },
   {
     "method": "GET",
+    "path": "/v1/follows/teams/cards"
+  },
+  {
+    "method": "GET",
     "path": "/v1/follows/teams/:teamId"
   },
   {
     "method": "GET",
     "path": "/v1/follows/teams/:teamId/next-fixture"
-  },
-  {
-    "method": "GET",
-    "path": "/v1/follows/teams/cards"
   },
   {
     "method": "GET",
@@ -253,11 +265,11 @@
   },
   {
     "method": "GET",
-    "path": "/v1/follows/players/:playerId/season/:season"
+    "path": "/v1/follows/players/cards"
   },
   {
     "method": "GET",
-    "path": "/v1/follows/players/cards"
+    "path": "/v1/follows/players/:playerId/season/:season"
   },
   {
     "method": "POST",

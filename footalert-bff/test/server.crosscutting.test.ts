@@ -26,6 +26,87 @@ test('GET /health returns healthy status', async t => {
   assert.equal(payload.cache.degraded, false);
 });
 
+test('GET /liveness returns process-alive status', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/liveness',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.status, 'alive');
+  assert.equal(payload.nodeRole, 'api');
+  assert.equal(typeof payload.timestamp, 'string');
+});
+
+test('GET /readiness returns ready status in test runtime', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/readiness',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.status, 'ready');
+  assert.equal(payload.checks.redis.status, 'skipped');
+  assert.equal(payload.checks.postgres.status, 'skipped');
+  assert.equal(payload.checks.queue.status, 'skipped');
+  assert.equal(payload.checks.upstreamGuard.status, 'ready');
+});
+
+test('GET /metrics returns prometheus text exposition', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+
+  const response = await app.inject({
+    method: 'GET',
+    url: '/metrics',
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(
+    response.headers['content-type'],
+    'text/plain; version=0.0.4; charset=utf-8',
+  );
+  assert.match(response.body, /footalert_bff_up 1/);
+  assert.match(response.body, /footalert_bff_upstream_quota_limit_per_minute 600/);
+});
+
+test('GET /metrics enforces ops bearer token when configured', async t => {
+  installFetchMock(async () => jsonResponse({ response: [] }));
+  const app = await buildApp(t);
+  const { env } = await import('../src/config/env.ts');
+  const previousToken = env.opsMetricsToken;
+  env.opsMetricsToken = 'ops-secret';
+
+  t.after(() => {
+    env.opsMetricsToken = previousToken;
+  });
+
+  const forbidden = await app.inject({
+    method: 'GET',
+    url: '/metrics',
+  });
+  assert.equal(forbidden.statusCode, 403);
+  assert.equal(forbidden.json().error, 'OPS_METRICS_FORBIDDEN');
+
+  const allowed = await app.inject({
+    method: 'GET',
+    url: '/metrics',
+    headers: {
+      authorization: 'Bearer ops-secret',
+    },
+  });
+  assert.equal(allowed.statusCode, 200);
+  assert.match(allowed.body, /footalert_bff_up 1/);
+});
+
 test('GET /v1/capabilities returns match-details capabilities without upstream calls', async t => {
   const calls = installFetchMock(async () => jsonResponse({ response: [] }));
   const app = await buildApp(t);

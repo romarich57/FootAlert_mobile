@@ -33,9 +33,11 @@ const DEFAULT_BFF_ENABLE_PLAYER_OVERVIEW_ROUTE = true;
 type CacheBackend = 'memory' | 'redis';
 type NotificationsPersistenceBackend = 'memory' | 'postgres';
 type AppEnv = 'development' | 'test' | 'staging' | 'production';
+type NodeRole = 'api' | 'worker';
 
 type BffEnv = {
   appEnv: AppEnv;
+  nodeRole: NodeRole;
   port: number;
   host: string;
   apiFootballBaseUrl: string;
@@ -90,6 +92,7 @@ type BffEnv = {
   firebaseProjectId: string | null;
   firebaseClientEmail: string | null;
   firebasePrivateKey: string | null;
+  opsMetricsToken: string | null;
 };
 
 const LEGACY_HMAC_ENV_KEYS = [
@@ -261,6 +264,15 @@ function readAppEnv(rawValue: string | undefined): AppEnv {
   return 'development';
 }
 
+function readNodeRole(rawValue: string | undefined): NodeRole {
+  const normalized = rawValue?.trim().toLowerCase();
+  if (normalized === 'worker') {
+    return 'worker';
+  }
+
+  return 'api';
+}
+
 function defaultCacheBackendForEnv(appEnv: AppEnv): CacheBackend {
   if (appEnv === 'production' || appEnv === 'staging') {
     return 'redis';
@@ -284,6 +296,7 @@ const defaultNotificationsPersistenceBackend = defaultNotificationsPersistenceBa
 
 export const env: BffEnv = {
   appEnv: resolvedAppEnv,
+  nodeRole: readNodeRole(process.env.NODE_ROLE),
   port: readPositiveInt(process.env.PORT, DEFAULT_PORT),
   host: process.env.HOST?.trim() || DEFAULT_HOST,
   apiFootballBaseUrl: normalizeUrl(
@@ -417,6 +430,7 @@ export const env: BffEnv = {
   firebaseProjectId: readOptionalValue(process.env.FIREBASE_PROJECT_ID),
   firebaseClientEmail: readOptionalValue(process.env.FIREBASE_CLIENT_EMAIL),
   firebasePrivateKey: readOptionalValue(process.env.FIREBASE_PRIVATE_KEY),
+  opsMetricsToken: readOptionalValue(process.env.OPS_METRICS_TOKEN),
 };
 
 env.corsAllowedOrigins = buildCorsAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS, env.webAppOrigin);

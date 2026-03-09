@@ -31,6 +31,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate smoke and probe scripts syntax
+        run: |
+          node --check scripts/perf/k6-critical-routes.js
+          node --check scripts/perf/k6-notifications-pressure.js
+          node --check scripts/check-service-probes.mjs
+          node --check scripts/smoke-staging.mjs
+
       - name: Enforce API-Football licensing gate
         run: bash ../scripts/quality/check-api-football-license.sh
 

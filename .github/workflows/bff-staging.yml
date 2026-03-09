@@ -29,6 +29,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate smoke and probe scripts syntax
+        run: |
+          node --check scripts/perf/k6-critical-routes.js
+          node --check scripts/perf/k6-notifications-pressure.js
+          node --check scripts/check-service-probes.mjs
+          node --check scripts/smoke-staging.mjs
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -76,7 +83,7 @@ jobs:
             pm2 restart footalert-bff-worker --update-env
             pm2 save
 
-      - name: Wait for staging healthcheck
+      - name: Wait for staging readiness
         env:
           MOBILE_API_BASE_URL_STAGING: ${{ secrets.MOBILE_API_BASE_URL_STAGING }}
         run: |
@@ -93,15 +100,15 @@ jobs:
           fi
 
           for attempt in $(seq 1 24); do
-            if curl -fsSL "$SERVICE_BASE/health" >/dev/null; then
-              echo "Staging BFF is healthy."
+            if curl -fsSL "$SERVICE_BASE/readiness" >/dev/null; then
+              echo "Staging BFF is ready."
               exit 0
             fi
-            echo "Healthcheck not ready yet (attempt $attempt/24)."
+            echo "Readiness probe not ready yet (attempt $attempt/24)."
             sleep 10
           done
 
-          echo "Staging BFF healthcheck failed."
+          echo "Staging BFF readiness probe failed."
           exit 1
 
   validate-mobile-staging:
@@ -124,7 +131,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Verify staging probes
+        env:
+          MOBILE_API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_STAGING }}
+          # Optional: set OPS_METRICS_AUTH_BEARER_TOKEN_STAGING if /metrics requires an auth token.
+          OPS_METRICS_AUTH_BEARER_TOKEN: ${{ secrets.OPS_METRICS_AUTH_BEARER_TOKEN_STAGING }}
+        run: npm run smoke:service
+
       - name: Mobile API smoke checks on staging
         env:
           MOBILE_API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_STAGING }}
         run: npm run smoke:staging
+
+      - name: k6 critical routes gate on staging
+        env:
+          BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_STAGING }}
+          K6_LOAD_PROFILE: steady
+        run: npm run perf:k6:critical
+
+      - name: k6 notifications pressure gate on staging
+        env:
+          BASE_URL: ${{ secrets.MOBILE_API_BASE_URL_STAGING }}
+          K6_LOAD_PROFILE: staging
+          K6_NOTIFICATIONS_ALLOW_READONLY: "true"
+          # Optional: set NOTIFICATIONS_INGEST_TOKEN_STAGING to exercise real queue ingress.
+          NOTIFICATIONS_INGEST_TOKEN: ${{ secrets.NOTIFICATIONS_INGEST_TOKEN_STAGING }}
+          # Optional: set OPS_METRICS_AUTH_BEARER_TOKEN_STAGING if /metrics requires an auth token.
+          OPS_METRICS_AUTH_BEARER_TOKEN: ${{ secrets.OPS_METRICS_AUTH_BEARER_TOKEN_STAGING }}
+        run: npm run perf:k6:notifications

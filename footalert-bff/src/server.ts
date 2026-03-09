@@ -16,6 +16,7 @@ import {
   shouldEnforceHostScopedMobileAuth,
 } from './lib/mobileApiRouteAuth.js';
 import { verifySensitiveMobileAuth } from './lib/mobileSessionAuth.js';
+import { buildReadinessPayload, renderPrometheusMetrics } from './lib/runtimeStatus.js';
 import { registerCapabilitiesRoutes } from './routes/capabilities.js';
 import { registerCompetitionsRoutes } from './routes/competitions.js';
 import { registerFollowsRoutes } from './routes/follows.js';
@@ -116,6 +117,19 @@ function appendVaryHeader(reply: FastifyReply, value: string): void {
   }
 }
 
+function hasValidOpsMetricsAuthorization(authorizationHeader: string | undefined): boolean {
+  if (!env.opsMetricsToken) {
+    return true;
+  }
+
+  if (!authorizationHeader?.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = authorizationHeader.slice('Bearer '.length).trim();
+  return token === env.opsMetricsToken;
+}
+
 async function registerCompression(app: FastifyInstance): Promise<void> {
   const compressModuleName = '@fastify/compress';
 
@@ -176,7 +190,14 @@ async function registerCompression(app: FastifyInstance): Promise<void> {
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: true,
+    logger: {
+      level: 'info',
+      base: {
+        service: 'footalert-bff',
+        appEnv: env.appEnv,
+        nodeRole: env.nodeRole,
+      },
+    },
     trustProxy: env.trustProxyHops > 0 ? env.trustProxyHops : false,
   });
 
@@ -266,6 +287,17 @@ export async function buildServer(): Promise<FastifyInstance> {
     done(null, payload);
   });
 
+  app.addHook('onResponse', (request, reply, done) => {
+    request.log.info({
+      requestId: request.id,
+      route: request.routeOptions.url,
+      statusCode: reply.statusCode,
+      cacheStatus: String(reply.getHeader('x-footalert-cache-status') ?? 'unknown'),
+      nodeRole: env.nodeRole,
+    }, 'request.completed');
+    done();
+  });
+
   app.get('/health', async (_request, reply) => {
     const cache = getCacheHealthSnapshot();
     const status = cache.degraded ? 'degraded' : 'ok';
@@ -278,6 +310,36 @@ export async function buildServer(): Promise<FastifyInstance> {
       status,
       cache,
     };
+  });
+
+  app.get('/liveness', async () => {
+    return {
+      status: 'alive',
+      timestamp: new Date().toISOString(),
+      nodeRole: env.nodeRole,
+    };
+  });
+
+  app.get('/readiness', async (_request, reply) => {
+    const payload = await buildReadinessPayload();
+    if (payload.status !== 'ready') {
+      reply.code(503);
+    }
+
+    return payload;
+  });
+
+  app.get('/metrics', async (request, reply) => {
+    if (!hasValidOpsMetricsAuthorization(request.headers.authorization)) {
+      reply.code(403);
+      return {
+        error: 'OPS_METRICS_FORBIDDEN',
+        message: 'Metrics endpoint requires an operations bearer token.',
+      };
+    }
+
+    reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    return renderPrometheusMetrics();
   });
 
   await registerCapabilitiesRoutes(app);

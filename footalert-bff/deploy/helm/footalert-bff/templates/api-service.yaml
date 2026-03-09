@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "footalert-bff.fullname" . }}-api
+  labels:
+    {{- include "footalert-bff.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  annotations:
+    {{- toYaml .Values.api.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    {{- include "footalert-bff.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: {{ .Values.api.service.port }}
+      targetPort: {{ .Values.api.service.targetPort }}
+      protocol: TCP
