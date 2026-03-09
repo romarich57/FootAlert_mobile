@@ -1,0 +1,1 @@
+[perf][journey] run_dir=perf-results/2026-03-09/pr-smoke/android/143024 app_id=com.footalert.app activity=.MainActivity duration=75s

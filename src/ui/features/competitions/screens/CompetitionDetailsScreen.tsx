@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -28,7 +28,8 @@ import { CompetitionMatchesTab } from '../components/CompetitionMatchesTab';
 import { CompetitionPlayerStatsTab } from '../components/CompetitionPlayerStatsTab';
 import { CompetitionTeamStatsTab } from '../components/CompetitionTeamStatsTab';
 import { CompetitionTransfersTab } from '../components/CompetitionTransfersTab';
-import { CompetitionTotwTab } from '../components/CompetitionTotwTab';
+import { CompetitionTotwPanel } from '../components/CompetitionTotwPanel';
+import type { CompetitionTabKey } from '../components/CompetitionTabs';
 
 type CompetitionAlertPrefKey = Exclude<keyof CompetitionNotificationPrefs, 'enabled'>;
 
@@ -78,6 +79,12 @@ function createStyles(colors: ThemeColors) {
         content: {
             flex: 1,
         },
+        tabPanel: {
+            flex: 1,
+        },
+        hiddenTabPanel: {
+            display: 'none',
+        },
         centerContainer: {
             flex: 1,
             justifyContent: 'center',
@@ -99,6 +106,15 @@ export function CompetitionDetailsScreen() {
         ...COMPETITION_NOTIFICATION_DEFAULTS,
         enabled: screenModel.isCompetitionFollowed,
     });
+    const [visitedTabs, setVisitedTabs] = useState<CompetitionTabKey[]>([screenModel.activeTab]);
+
+    useEffect(() => {
+        setVisitedTabs(current => (
+            current.includes(screenModel.activeTab)
+                ? current.filter(tab => screenModel.tabs.includes(tab))
+                : [...current.filter(tab => screenModel.tabs.includes(tab)), screenModel.activeTab]
+        ));
+    }, [screenModel.activeTab, screenModel.tabs]);
 
     const loadCompetitionNotificationPrefs = useCallback(async () => {
         if (!screenModel.safeCompetitionId) {
@@ -158,19 +174,19 @@ export function CompetitionDetailsScreen() {
         activeTab,
         numericCompetitionId,
         actualSeason,
-        totwData,
         handlePressTeam,
         handlePressMatch,
         handlePressPlayer,
     } = screenModel;
 
-    const renderTabContent = useCallback(() => {
-        switch (activeTab) {
+    const renderTabContent = useCallback((tab: CompetitionTabKey) => {
+        switch (tab) {
             case 'standings':
                 return (
                     <CompetitionStandingsTab
                         competitionId={numericCompetitionId}
                         season={actualSeason}
+                        allowBracket={screenModel.isCupCompetitionType}
                         onPressTeam={handlePressTeam}
                     />
                 );
@@ -210,16 +226,17 @@ export function CompetitionDetailsScreen() {
                     />
                 );
             case 'totw':
-                return totwData ? (
-                    <CompetitionTotwTab
-                        totw={totwData}
+                return (
+                    <CompetitionTotwPanel
+                        competitionId={numericCompetitionId}
+                        season={actualSeason}
                         onPressPlayer={handlePressPlayer}
                     />
-                ) : null;
+                );
             default:
                 return null;
         }
-    }, [activeTab, numericCompetitionId, actualSeason, totwData, handlePressTeam, handlePressMatch, handlePressPlayer]);
+    }, [numericCompetitionId, actualSeason, handlePressTeam, handlePressMatch, handlePressPlayer]);
 
     if (!screenModel.competition && screenModel.isCompetitionQueryLoading) {
         return (
@@ -265,6 +282,26 @@ export function CompetitionDetailsScreen() {
         );
     }
 
+    if (screenModel.isCompetitionStructureLoading) {
+        return (
+            <View style={styles.container}>
+                <CompetitionHeader
+                    competition={screenModel.competition}
+                    currentSeason={screenModel.actualSeason}
+                    availableSeasons={screenModel.availableSeasons}
+                    isFollowed={screenModel.isCompetitionFollowed}
+                    onBack={screenModel.handleBack}
+                    onToggleFollow={screenModel.handleToggleFollow}
+                    onOpenNotificationModal={openCompetitionNotificationModal}
+                    onOpenSeasonPicker={screenModel.openSeasonPicker}
+                />
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <CompetitionHeader
@@ -286,7 +323,14 @@ export function CompetitionDetailsScreen() {
             />
 
             <View style={styles.content}>
-                {renderTabContent()}
+                {visitedTabs.map(tab => (
+                    <View
+                        key={tab}
+                        style={[styles.tabPanel, tab === activeTab ? null : styles.hiddenTabPanel]}
+                    >
+                        {renderTabContent(tab)}
+                    </View>
+                ))}
             </View>
 
             <CompetitionSeasonPickerModal

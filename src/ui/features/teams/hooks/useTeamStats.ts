@@ -160,6 +160,13 @@ export async function fetchTeamStatsCoreData({
   const standingsPayload = standingsResult.status === 'fulfilled' ? standingsResult.value : null;
 
   if (statisticsPayload === null && standingsPayload === null) {
+    // Les deux fulfilled avec null = absence de données valide, pas une erreur
+    if (statisticsResult.status === 'fulfilled' && standingsResult.status === 'fulfilled') {
+      const { topPlayers, topPlayersByCategory, ...emptyCore } = EMPTY_TEAM_STATS;
+      return emptyCore;
+    }
+
+    // Au moins un rejected = vraie erreur réseau ou API
     const coreError =
       statisticsResult.status === 'rejected'
         ? statisticsResult.reason
@@ -277,7 +284,8 @@ export function useTeamStats({
       }),
   });
 
-  const enrichmentEnabled = isCoreEnabled && Boolean(coreQuery.data);
+  // Les queries d'enrichissement s'exécutent en parallèle dès que les params sont valides
+  const enrichmentEnabled = isCoreEnabled;
 
   const playersQuery = useQuery<TeamStatsPlayersData>({
     queryKey: queryKeys.teams.statsPlayers(teamId, leagueId, season),

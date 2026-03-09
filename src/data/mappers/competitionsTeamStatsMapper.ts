@@ -315,12 +315,24 @@ function createAdvancedSection(
     ),
   };
 
+  const unavailableMetrics = COMPETITION_TEAM_ADVANCED_METRICS.filter(
+    metric => leaderboards[metric].items.length === 0,
+  );
+  const state =
+    unavailableMetrics.length === 0
+      ? 'available'
+      : unavailableMetrics.length === COMPETITION_TEAM_ADVANCED_METRICS.length
+        ? 'unavailable'
+        : 'partial';
+
   return {
     metrics: COMPETITION_TEAM_ADVANCED_METRICS,
     rows,
     top10TeamIds: top10Teams.map(team => team.teamId),
     leaderboards,
-    unavailableMetrics: COMPETITION_TEAM_ADVANCED_METRICS.filter(metric => leaderboards[metric].items.length === 0),
+    unavailableMetrics,
+    state,
+    reason: state === 'available' ? null : 'provider_missing',
   };
 }
 

@@ -33,7 +33,7 @@ export async function fetchTeamTransfersData({
   }
 
   const payload = await fetchTeamTransfers(teamId, season, signal);
-  return mapTransfersToTeamTransfers(payload, teamId, null);
+  return mapTransfersToTeamTransfers(payload, teamId, season);
 }
 
 export function useTeamTransfers({ teamId, season, enabled = true }: UseTeamTransfersParams) {

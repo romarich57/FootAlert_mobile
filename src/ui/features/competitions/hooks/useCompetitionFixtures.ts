@@ -12,6 +12,8 @@ export type FixturePage = {
   items: Fixture[];
   hasMore: boolean;
   nextCursor: string | null;
+  hasPrevious: boolean;
+  previousCursor: string | null;
 };
 
 export function useCompetitionFixtures(
@@ -22,7 +24,13 @@ export function useCompetitionFixtures(
     queryKey: queryKeys.competitions.fixtures(leagueId, season),
     queryFn: async ({ pageParam, signal }) => {
       if (!leagueId || !season) {
-        return { items: [], hasMore: false, nextCursor: null };
+        return {
+          items: [],
+          hasMore: false,
+          nextCursor: null,
+          hasPrevious: false,
+          previousCursor: null,
+        };
       }
       const page = await fetchLeagueFixturesPage(
         leagueId,
@@ -34,10 +42,14 @@ export function useCompetitionFixtures(
         items: mapFixturesDtoToFixtures(page.items),
         hasMore: page.pageInfo?.hasMore ?? false,
         nextCursor: page.pageInfo?.nextCursor ?? null,
+        hasPrevious: page.pageInfo?.hasPrevious ?? false,
+        previousCursor: page.pageInfo?.previousCursor ?? null,
       };
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: lastPage => (lastPage.hasMore ? lastPage.nextCursor : undefined),
+    getPreviousPageParam: firstPage =>
+      firstPage.hasPrevious ? firstPage.previousCursor : undefined,
     enabled: !!leagueId && !!season,
     ...featureQueryOptions.competitions.fixtures,
   });

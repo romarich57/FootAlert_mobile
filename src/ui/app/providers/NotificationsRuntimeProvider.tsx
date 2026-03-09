@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { useEffect } from 'react';
 
 import { isNetworkRequestFailedError } from '@data/api/http/client';
+import { appEnv, isMobileValidationMode } from '@data/config/env';
 import {
   startPushNotificationRuntime,
   stopPushNotificationRuntime,
@@ -15,9 +16,20 @@ export function NotificationsRuntimeProvider({ children }: PropsWithChildren) {
     preferences: { language, notificationsEnabled },
     isHydrated,
   } = useAppPreferences();
+  const shouldSkipNotificationsRuntime =
+    isMobileValidationMode('maestro')
+    || isMobileValidationMode('perf');
 
   useEffect(() => {
     if (!isHydrated) {
+      return;
+    }
+
+    if (shouldSkipNotificationsRuntime) {
+      getMobileTelemetry().addBreadcrumb('notifications.validation_mode_skipped', {
+        mode: appEnv.mobileValidationMode,
+        stage: 'sync',
+      });
       return;
     }
 
@@ -36,10 +48,18 @@ export function NotificationsRuntimeProvider({ children }: PropsWithChildren) {
         feature: 'notifications.sync',
       });
     });
-  }, [isHydrated, language, notificationsEnabled]);
+  }, [isHydrated, language, notificationsEnabled, shouldSkipNotificationsRuntime]);
 
   useEffect(() => {
     if (!isHydrated) {
+      return;
+    }
+
+    if (shouldSkipNotificationsRuntime) {
+      getMobileTelemetry().addBreadcrumb('notifications.validation_mode_skipped', {
+        mode: appEnv.mobileValidationMode,
+        stage: 'runtime',
+      });
       return;
     }
 
@@ -55,7 +75,7 @@ export function NotificationsRuntimeProvider({ children }: PropsWithChildren) {
     return () => {
       stopPushNotificationRuntime();
     };
-  }, [isHydrated, language, notificationsEnabled]);
+  }, [isHydrated, language, notificationsEnabled, shouldSkipNotificationsRuntime]);
 
   return <>{children}</>;
 }

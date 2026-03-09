@@ -438,6 +438,14 @@ export async function buildSensitiveMobileAuthHeaders(options: {
   body?: unknown;
   scope: MobileSessionScope;
 }): Promise<Record<string, string>> {
+  if (options.scope === 'api:read' && appEnv.mobileValidationMode !== 'off') {
+    getMobileTelemetry().addBreadcrumb('security.mobile_session.validation_mode_skipped', {
+      mode: appEnv.mobileValidationMode,
+      scope: options.scope,
+    });
+    return {};
+  }
+
   const session = await getMobileSessionToken();
   getMobileTelemetry().addBreadcrumb('security.mobile_session.token_used', {
     scope: options.scope,

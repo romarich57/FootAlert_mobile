@@ -1,344 +1,289 @@
-import { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { useCallback, useMemo, useState } from 'react';
+import { FlashList, type ListRenderItem } from '@shopify/flash-list';
+import { Modal, Pressable, Text, View } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
+
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import { AppPressable } from '@ui/shared/components';
-import type { ThemeColors } from '@ui/shared/theme/theme';
-import type { StandingRow } from '../types/competitions.types';
-import { useCompetitionStandings } from '../hooks/useCompetitionStandings';
-import { useCompetitionBracket } from '../hooks/useCompetitionBracket';
+import { StandingsTabSkeleton } from '@ui/features/competitions/components/StandingsTabSkeleton';
+import { useCompetitionBracket } from '@ui/features/competitions/hooks/useCompetitionBracket';
+import { useCompetitionStandings } from '@ui/features/competitions/hooks/useCompetitionStandings';
+import { createTeamStandingsTabStyles } from '@ui/features/teams/components/TeamStandingsTab.styles';
+import { TeamStandingRowItem } from '@ui/features/teams/components/standings/TeamStandingRowItem';
+import {
+  buildStandingFeedItems,
+  type DisplayMode,
+  type StandingFeedItem,
+  type SubFilter,
+} from '@ui/features/teams/components/standings/teamStandingsFeed';
+import type { TeamStandingsData, TeamStandingRow } from '@ui/features/teams/types/teams.types';
+import type { StandingGroup } from '../types/competitions.types';
 import { KnockoutBracketView } from './KnockoutBracketView';
-import { StandingsTabSkeleton } from './StandingsTabSkeleton';
 
 type CompetitionStandingsTabProps = {
-    competitionId: number;
-    season: number;
-    onPressTeam?: (teamId: string) => void;
+  competitionId: number;
+  season: number;
+  allowBracket?: boolean;
+  onPressTeam?: (teamId: string) => void;
 };
 
-type ListItem =
-    | { type: 'header'; key: string; title: string }
-    | { type: 'row'; key: string; data: StandingRow };
+function mapCompetitionGroupsToFeedData(groups: StandingGroup[] | undefined): TeamStandingsData | undefined {
+  if (!groups) {
+    return undefined;
+  }
 
-function createStyles(colors: ThemeColors) {
-    return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
+  return {
+    groups: groups.map(group => ({
+      groupName: group.groupName || null,
+      rows: group.rows.map<TeamStandingRow>(row => ({
+        rank: row.rank,
+        teamId: String(row.teamId),
+        teamName: row.teamName,
+        teamLogo: row.teamLogo,
+        played: row.played,
+        goalDiff: row.goalsDiff,
+        points: row.points,
+        isTargetTeam: false,
+        form: row.form,
+        update: null,
+        all: {
+          played: row.played,
+          win: row.win,
+          draw: row.draw,
+          lose: row.lose,
+          goalsFor: row.goalsFor,
+          goalsAgainst: row.goalsAgainst,
         },
-        centerContainer: {
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        emptyText: {
-            color: colors.textMuted,
-            fontSize: 16,
-        },
-        groupHeader: {
-            backgroundColor: colors.surfaceElevated,
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            marginTop: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.surface,
-        },
-        groupHeaderText: {
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: '700',
-            textTransform: 'uppercase',
-        },
-        tableHeaderRow: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: 8,
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.surfaceElevated,
-        },
-        colRank: { width: 30, alignItems: 'center' },
-        colTeam: { flex: 1, marginLeft: 12 },
-        colStat: { width: 30, alignItems: 'center' },
-        colForm: { width: 80, alignItems: 'center' },
-        headerText: {
-            color: colors.textMuted,
-            fontSize: 11,
-            fontWeight: '600',
-        },
-        row: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.surface,
-            backgroundColor: colors.surface,
-        },
-        rankText: {
-            color: colors.text,
-            fontSize: 13,
-            fontWeight: '700',
-        },
-        teamInfo: {
-            flexDirection: 'row',
-            alignItems: 'center',
-        },
-        teamLogo: {
-            width: 24,
-            height: 24,
-            marginRight: 10,
-        },
-        teamName: {
-            flex: 1,
-            color: colors.text,
-            fontSize: 14,
-            fontWeight: '600',
-        },
-        statText: {
-            color: colors.text,
-            fontSize: 13,
-        },
-        statTextBold: {
-            color: colors.primary,
-            fontSize: 13,
-            fontWeight: '700',
-        },
-        formRow: {
-            flexDirection: 'row',
-            gap: 4,
-            justifyContent: 'center',
-        },
-        formBadge: {
-            width: 14,
-            height: 14,
-            borderRadius: 2,
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        formBadgeText: {
-            color: '#FFF',
-            fontSize: 9,
-            fontWeight: '700',
-        },
-        formW: { backgroundColor: '#4CAF50' },
-        formD: { backgroundColor: '#9E9E9E' },
-        formL: { backgroundColor: '#F44336' },
-        descriptionIndicator: {
-            position: 'absolute',
-            left: 0,
-            top: 2,
-            bottom: 2,
-            width: 3,
-            borderTopRightRadius: 2,
-            borderBottomRightRadius: 2,
-        },
-        descChampion: { backgroundColor: colors.primary },
-        descPromotion: { backgroundColor: '#2196F3' },
-        descRelegation: { backgroundColor: '#F44336' },
-    });
+        home: row.home,
+        away: row.away,
+      })),
+    })),
+  };
 }
 
-function displayValue(value: string | number | null | undefined): string | number {
-    return value !== null && value !== undefined && value !== '' ? value : '';
-}
+export function CompetitionStandingsTab({
+  competitionId,
+  season,
+  allowBracket = true,
+  onPressTeam,
+}: CompetitionStandingsTabProps) {
+  const { colors } = useAppTheme();
+  const { t } = useTranslation();
+  const styles = useMemo(() => createTeamStandingsTabStyles(colors), [colors]);
+  const [mode, setMode] = useState<DisplayMode>('simple');
+  const [subFilter, setSubFilter] = useState<SubFilter>('all');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
-function TableHeaderRow({ styles, t }: { styles: ReturnType<typeof createStyles>; t: (key: string) => string }) {
-    return (
-        <View style={styles.tableHeaderRow}>
-            <View style={styles.colRank}><Text style={styles.headerText}>{t('competitionDetails.standings.table.rank')}</Text></View>
-            <View style={styles.colTeam}><Text style={styles.headerText}>{t('competitionDetails.standings.table.team')}</Text></View>
-            <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.played')}</Text></View>
-            <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.goalDiff')}</Text></View>
-            <View style={styles.colStat}><Text style={styles.headerText}>{t('competitionDetails.standings.table.points')}</Text></View>
-            <View style={styles.colForm}><Text style={styles.headerText}>{t('competitionDetails.standings.table.form')}</Text></View>
+  const standingsQuery = useCompetitionStandings(competitionId, season);
+  const bracketQuery = useCompetitionBracket(competitionId, season, {
+    enabled: allowBracket,
+  });
+
+  const modeLabels: Record<DisplayMode, string> = useMemo(
+    () => ({
+      simple: t('teamDetails.standings.displayModes.simple'),
+      detailed: t('teamDetails.standings.displayModes.detailed'),
+      form: t('teamDetails.standings.displayModes.form'),
+    }),
+    [t],
+  );
+
+  const subFilterLabels: Record<SubFilter, string> = useMemo(
+    () => ({
+      all: t('teamDetails.standings.subFilters.all'),
+      home: t('teamDetails.standings.subFilters.home'),
+      away: t('teamDetails.standings.subFilters.away'),
+    }),
+    [t],
+  );
+
+  const formLabels: Record<'W' | 'D' | 'L', string> = useMemo(
+    () => ({
+      W: t('teamDetails.standings.headers.win'),
+      D: t('teamDetails.standings.headers.draw'),
+      L: t('teamDetails.standings.headers.loss'),
+    }),
+    [t],
+  );
+
+  const defaultGroupTitle = t('competitionDetails.standings.defaultGroup');
+  const feedData = useMemo(
+    () => mapCompetitionGroupsToFeedData(standingsQuery.data),
+    [standingsQuery.data],
+  );
+  const feedItems = useMemo(
+    () => buildStandingFeedItems(feedData, subFilter, defaultGroupTitle),
+    [feedData, subFilter, defaultGroupTitle],
+  );
+  const hasRows = feedItems.length > 0;
+
+  const competitionKind = bracketQuery.data?.competitionKind ?? 'league';
+  const showBracket = Boolean(bracketQuery.data?.bracket?.length) && (
+    competitionKind === 'cup' || competitionKind === 'mixed'
+  );
+  const showStandings = competitionKind !== 'cup';
+
+  const keyExtractor = useCallback((item: StandingFeedItem) => item.key, []);
+
+  const renderTableHeader = useCallback(() => (
+    <View style={styles.tableHeader}>
+      <View style={styles.colRank}><Text style={styles.tableHeaderText}>#</Text></View>
+      <View style={styles.colTeam}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.team')}</Text></View>
+
+      {mode === 'simple' ? (
+        <>
+          <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.played')}</Text></View>
+          <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
+          <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
+        </>
+      ) : null}
+
+      {mode === 'detailed' ? (
+        <>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.played')}</Text></View>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.win')}</Text></View>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.draw')}</Text></View>
+          <View style={styles.colStatSmall}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.loss')}</Text></View>
+          <View style={styles.colStatLarge}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalsForAgainst')}</Text></View>
+          <View style={styles.colStatMedium}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.goalDiff')}</Text></View>
+          <View style={styles.colPoints}><Text style={styles.tableHeaderText}>{t('teamDetails.standings.headers.points')}</Text></View>
+        </>
+      ) : null}
+
+      {mode === 'form' ? (
+        <View style={styles.colForm}>
+          <Text style={styles.tableHeaderRight}>{t('teamDetails.standings.headers.formLastFive')}</Text>
         </View>
-    );
-}
+      ) : null}
+    </View>
+  ), [mode, styles, t]);
 
-function getFormStyle(char: string, styles: ReturnType<typeof createStyles>) {
-    if (char === 'W') return styles.formW;
-    if (char === 'D') return styles.formD;
-    if (char === 'L') return styles.formL;
-    return styles.formD;
-}
+  const renderListHeader = useCallback(() => (
+    <View style={styles.filterBar}>
+      <View style={styles.modeTabs}>
+        {(['simple', 'detailed', 'form'] as DisplayMode[]).map(modeKey => (
+          <Pressable
+            key={modeKey}
+            style={[styles.modeTab, mode === modeKey ? styles.modeTabActive : null]}
+            onPress={() => setMode(modeKey)}
+          >
+            <Text style={[styles.modeTabText, mode === modeKey ? styles.modeTabTextActive : null]}>
+              {modeLabels[modeKey]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-function getDescriptionColor(desc: string | null, styles: ReturnType<typeof createStyles>) {
-    if (!desc) return null;
-    const lower = desc
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-    if (lower.includes('champion') || lower.includes('promotion')) return styles.descPromotion;
-    if (lower.includes('relegation')) return styles.descRelegation;
-    if (lower.includes('cup') || lower.includes('league') || lower.includes('coupe') || lower.includes('ligue')) {
-        return styles.descChampion;
-    }
-    return null;
-}
+      <Pressable style={styles.subFilterBtn} onPress={() => setFilterModalOpen(true)}>
+        <Text style={styles.subFilterText}>{subFilterLabels[subFilter]}</Text>
+        <MaterialCommunityIcons name="menu-down" size={18} color={colors.text} />
+      </Pressable>
+    </View>
+  ), [colors.text, mode, modeLabels, styles, subFilter, subFilterLabels]);
 
-function createFormBadges(form: string, teamId: number) {
-    const chars = form.trim().length > 0 ? form.split('').slice(0, 5) : [];
-    const seen = new Map<string, number>();
-    return chars.map(char => {
-        const occurrence = (seen.get(char) ?? 0) + 1;
-        seen.set(char, occurrence);
-        return { char, key: `form-${teamId}-${char}-${occurrence}` };
-    });
-}
-
-export function CompetitionStandingsTab({ competitionId, season, onPressTeam }: CompetitionStandingsTabProps) {
-    const { colors } = useAppTheme();
-    const { t } = useTranslation();
-    const styles = useMemo(() => createStyles(colors), [colors]);
-
-    const { data: groups, isLoading, error } = useCompetitionStandings(competitionId, season);
-    const { data: bracketData } = useCompetitionBracket(competitionId, season);
-    const defaultGroupTitle = t('competitionDetails.standings.defaultGroup');
-
-    const kind = bracketData?.competitionKind;
-    const isCupOnly = kind === 'cup';
-    const showBracket = !!(bracketData?.bracket?.length) && (isCupOnly || kind === 'mixed');
-    const showStandings = !isCupOnly;
-
-    const listData = useMemo(() => {
-        if (!groups) return [];
-        const items: ListItem[] = [];
-        const headerOccurrences = new Map<string, number>();
-
-        groups.forEach(group => {
-            const groupName = group.groupName?.trim() || defaultGroupTitle;
-            if (groups.length > 1 || groupName !== defaultGroupTitle) {
-                const occurrence = (headerOccurrences.get(groupName) ?? 0) + 1;
-                headerOccurrences.set(groupName, occurrence);
-                items.push({
-                    type: 'header',
-                    key: `header-${groupName}-${occurrence}`,
-                    title: groupName,
-                });
-            }
-            group.rows.forEach(row => {
-                items.push({
-                    type: 'row',
-                    key: `standing-${row.teamId}-${row.rank}`,
-                    data: row,
-                });
-            });
-        });
-        return items;
-    }, [defaultGroupTitle, groups]);
-
-    const keyExtractor = useCallback((item: ListItem) => item.key, []);
-
-    const renderItem = useCallback(({ item }: { item: ListItem }) => {
-        if (item.type === 'header') {
-            return (
-                <View style={styles.groupHeader}>
-                    <Text style={styles.groupHeaderText}>{item.title}</Text>
-                    <TableHeaderRow styles={styles} t={t} />
-                </View>
-            );
-        }
-
-        const data = item.data;
-        const formBadges = createFormBadges(data.form, data.teamId);
-        const descStyle = getDescriptionColor(data.description, styles);
-
+  const renderItem = useCallback<ListRenderItem<StandingFeedItem>>(
+    ({ item }) => {
+      if (item.type === 'header') {
         return (
-            <View style={styles.row}>
-                {descStyle && <View style={[styles.descriptionIndicator, descStyle]} />}
-                <View style={styles.colRank}>
-                    <Text style={styles.rankText}>{data.rank}</Text>
-                </View>
-                {onPressTeam ? (
-                    <AppPressable
-                        style={[styles.colTeam, styles.teamInfo]}
-                        onPress={() => onPressTeam(String(data.teamId))}
-                        accessibilityRole="button"
-                        accessibilityLabel={String(displayValue(data.teamName))}
-                    >
-                        <Image source={{ uri: data.teamLogo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
-                        <Text style={styles.teamName} numberOfLines={1}>{displayValue(data.teamName)}</Text>
-                    </AppPressable>
-                ) : (
-                    <View style={[styles.colTeam, styles.teamInfo]}>
-                        <Image source={{ uri: data.teamLogo ?? undefined }} style={styles.teamLogo} resizeMode="contain" />
-                        <Text style={styles.teamName} numberOfLines={1}>{displayValue(data.teamName)}</Text>
-                    </View>
-                )}
-                <View style={styles.colStat}>
-                    <Text style={styles.statText}>{displayValue(data.played)}</Text>
-                </View>
-                <View style={styles.colStat}>
-                    <Text style={styles.statText}>{displayValue(data.goalsDiff)}</Text>
-                </View>
-                <View style={styles.colStat}>
-                    <Text style={styles.statTextBold}>{displayValue(data.points)}</Text>
-                </View>
-                <View style={styles.colForm}>
-                    {formBadges.length > 0 ? (
-                        <View style={styles.formRow}>
-                            {formBadges.map(badge => (
-                                <View key={badge.key} style={[styles.formBadge, getFormStyle(badge.char, styles)]}>
-                                    <Text style={styles.formBadgeText}>{badge.char}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    ) : (
-                        <Text style={styles.statText}>?</Text>
-                    )}
-                </View>
-            </View>
+          <View>
+            <Text style={styles.groupHeader}>{item.title}</Text>
+            {renderTableHeader()}
+          </View>
         );
-    }, [onPressTeam, styles, t]);
+      }
 
-    if (isCupOnly) {
-        return showBracket ? (
-            <View style={styles.container}>
-                <KnockoutBracketView rounds={bracketData!.bracket!} />
-            </View>
-        ) : (
-            <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>{t('competitionDetails.standings.unavailable')}</Text>
-            </View>
-        );
-    }
+      return (
+        <TeamStandingRowItem
+          row={item.row}
+          mode={mode}
+          subFilter={subFilter}
+          formLabels={formLabels}
+          styles={styles}
+          onPressTeam={onPressTeam}
+        />
+      );
+    },
+    [formLabels, mode, onPressTeam, renderTableHeader, styles, subFilter],
+  );
 
-    if (isLoading) {
-        return <StandingsTabSkeleton />;
-    }
-
-    if ((error || listData.length === 0) && !showBracket) {
-        return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.emptyText}>{t('competitionDetails.standings.unavailable')}</Text>
-            </View>
-        );
-    }
-
-    const needsTopHeader = listData.length > 0 && listData[0]?.type === 'row';
-
-    return (
-        <View style={styles.container}>
-            {showStandings && listData.length > 0 && (
-                <>
-                    {needsTopHeader && <TableHeaderRow styles={styles} t={t} />}
-                    <FlashList
-                        data={listData}
-                        keyExtractor={keyExtractor}
-                        renderItem={renderItem}
-                        getItemType={(item) => item.type}
-                        estimatedItemSize={52}
-                    />
-                </>
-            )}
-            {showBracket && (
-                <KnockoutBracketView
-                    rounds={bracketData!.bracket!}
-                    sectionTitle={t('competitionDetails.bracket.title')}
-                />
-            )}
+  if (competitionKind === 'cup') {
+    return showBracket ? (
+      <View style={styles.container}>
+        <KnockoutBracketView
+          rounds={bracketQuery.data!.bracket!}
+          sectionTitle={t('competitionDetails.bracket.title')}
+        />
+      </View>
+    ) : (
+      <View style={styles.container}>
+        <View style={styles.stateCard}>
+          <Text style={styles.stateText}>{t('competitionDetails.standings.unavailable')}</Text>
         </View>
+      </View>
     );
+  }
+
+  if (standingsQuery.isLoading && !hasRows) {
+    return <StandingsTabSkeleton />;
+  }
+
+  if ((standingsQuery.error || !showStandings || !hasRows) && !showBracket) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.stateCard}>
+          <Text style={styles.stateText}>{t('competitionDetails.standings.unavailable')}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!hasRows && showBracket) {
+    return (
+      <View style={styles.container}>
+        <KnockoutBracketView
+          rounds={bracketQuery.data!.bracket!}
+          sectionTitle={t('competitionDetails.bracket.title')}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <FlashList
+        data={feedItems}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        getItemType={item => item.type}
+        ListHeaderComponent={renderListHeader}
+        ListFooterComponent={showBracket ? (
+          <KnockoutBracketView
+            rounds={bracketQuery.data!.bracket!}
+            sectionTitle={t('competitionDetails.bracket.title')}
+          />
+        ) : null}
+        contentContainerStyle={styles.listContent}
+        estimatedItemSize={58}
+      />
+
+      <Modal visible={filterModalOpen} transparent animationType="fade" onRequestClose={() => setFilterModalOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setFilterModalOpen(false)}>
+          <View style={styles.modalContent}>
+            {(Object.keys(subFilterLabels) as SubFilter[]).map(key => (
+              <Pressable
+                key={key}
+                style={styles.modalItem}
+                onPress={() => {
+                  setSubFilter(key);
+                  setFilterModalOpen(false);
+                }}
+              >
+                <Text style={styles.modalItemText}>{subFilterLabels[key]}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
 }

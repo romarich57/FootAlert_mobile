@@ -78,6 +78,7 @@ export function resolveTeamStatsVisibility(data: TeamStatsData | undefined): Tea
       hasValue(data?.failedToScore) ||
       (data?.goalBreakdown?.length ?? 0) > 0,
     playersCardVisible:
+      (data?.topPlayers?.length ?? 0) > 0 ||
       (data?.topPlayersByCategory?.ratings.length ?? 0) > 0 ||
       (data?.topPlayersByCategory?.scorers.length ?? 0) > 0 ||
       (data?.topPlayersByCategory?.assisters.length ?? 0) > 0,

@@ -398,10 +398,21 @@ export type CompetitionTeamStatsSection<K extends string> = {
     leaderboards: Record<K, CompetitionTeamStatsLeaderboard<K>>;
 };
 
+export type CompetitionTeamAdvancedState = 'available' | 'partial' | 'unavailable';
+
+export type CompetitionTeamAdvancedReason =
+    | 'provider_missing'
+    | 'grouped_competition'
+    | 'upstream_error'
+    | 'rate_limited'
+    | null;
+
 export type CompetitionTeamAdvancedSection = CompetitionTeamStatsSection<CompetitionTeamAdvancedMetricKey> & {
     rows: CompetitionTeamAdvancedRow[];
     top10TeamIds: number[];
     unavailableMetrics: CompetitionTeamAdvancedMetricKey[];
+    state: CompetitionTeamAdvancedState;
+    reason: CompetitionTeamAdvancedReason;
 };
 
 export type CompetitionTeamStatsDashboardData = {
@@ -494,11 +505,20 @@ export type CompetitionTotwPlayer = {
     gridY: number;
 };
 
+export type CompetitionTotwPlaceholderSlot = {
+    role: CompetitionTotwRole;
+    gridX: number;
+    gridY: number;
+    label: string;
+};
+
 export type CompetitionTotwData = {
     formation: CompetitionTotwFormation;
     season: number;
     averageRating: number;
     players: CompetitionTotwPlayer[];
+    state: 'complete' | 'partial' | 'unavailable';
+    placeholderSlots: CompetitionTotwPlaceholderSlot[];
 };
 
 // --- Bracket / Knockout types ---

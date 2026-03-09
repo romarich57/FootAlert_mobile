@@ -18,6 +18,12 @@ type ApiFootballFixturesResponse = {
   }>;
 };
 
+type SeedTeamProfile = {
+  teamId: number;
+  teamName: string;
+  teamLogo: string;
+};
+
 type ApiFootballStandingsResponse = {
   response?: Array<{
     league?: {
@@ -215,37 +221,54 @@ function buildMetricPayload(
   };
 }
 
-export async function computeLeagueAdvancedTeamStats(leagueId: string, season: number): Promise<{
+export async function computeLeagueAdvancedTeamStats(
+  leagueId: string,
+  season: number,
+  seedProfiles?: SeedTeamProfile[],
+): Promise<{
   leagueId: number;
   season: number;
   sourceUpdatedAt: string;
   rankings: Record<TeamAdvancedMetricKey, TeamAdvancedMetricRankEntry[]>;
 }> {
-  const [fixturesPayload, standingsPayload] = await Promise.all([
-    apiFootballGet<ApiFootballFixturesResponse>(
-      `/fixtures?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`,
-    ),
-    apiFootballGet<ApiFootballStandingsResponse>(
-      `/standings?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`,
-    ),
-  ]);
+  const [fixturesPayload, standingsPayload] = seedProfiles
+    ? [
+        await apiFootballGet<ApiFootballFixturesResponse>(
+          `/fixtures?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`,
+        ),
+        null,
+      ]
+    : await Promise.all([
+        apiFootballGet<ApiFootballFixturesResponse>(
+          `/fixtures?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`,
+        ),
+        apiFootballGet<ApiFootballStandingsResponse>(
+          `/standings?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`,
+        ),
+      ]);
 
   const teamProfiles = new Map<number, TeamProfile>();
   const metricAccumulators = buildEmptyMetricAccumulatorMap();
 
-  const standings = standingsPayload.response?.[0]?.league?.standings ?? [];
-  standings.forEach(group => {
-    group.forEach(row => {
-      const teamId = toNumericId(row.team?.id);
-      if (!teamId) {
-        return;
-      }
-
-      const teamName = typeof row.team?.name === 'string' ? row.team.name.trim() : '';
-      const teamLogo = typeof row.team?.logo === 'string' ? row.team.logo : '';
-      upsertTeamProfile(teamProfiles, teamId, teamName, teamLogo);
-    });
+  seedProfiles?.forEach(profile => {
+    upsertTeamProfile(teamProfiles, profile.teamId, profile.teamName, profile.teamLogo);
   });
+
+  if (standingsPayload) {
+    const standings = standingsPayload.response?.[0]?.league?.standings ?? [];
+    standings.forEach(group => {
+      group.forEach(row => {
+        const teamId = toNumericId(row.team?.id);
+        if (!teamId) {
+          return;
+        }
+
+        const teamName = typeof row.team?.name === 'string' ? row.team.name.trim() : '';
+        const teamLogo = typeof row.team?.logo === 'string' ? row.team.logo : '';
+        upsertTeamProfile(teamProfiles, teamId, teamName, teamLogo);
+      });
+    });
+  }
 
   const finishedFixtureIds = (fixturesPayload.response ?? [])
     .map(item => {

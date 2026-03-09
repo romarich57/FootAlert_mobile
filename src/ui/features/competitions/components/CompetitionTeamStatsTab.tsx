@@ -79,6 +79,7 @@ export function CompetitionTeamStatsTab({ competitionId, season, onPressTeam }: 
         advancedProgress,
         baseError,
         hasAdvancedData,
+        shouldRenderAdvancedSection,
     } = useCompetitionTeamStats({
         leagueId: competitionId,
         season,
@@ -204,90 +205,97 @@ export function CompetitionTeamStatsTab({ competitionId, season, onPressTeam }: 
                     )}
                 </View>
 
-                <View style={styles.sectionCard} testID="competition-team-stats-section-advanced">
-                    <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionTitle}>{t('competitionDetails.teamStats.sections.advanced.title')}</Text>
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{t('competitionDetails.teamStats.top10Analyzed')}</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.sectionSubtitle}>
-                        {t('competitionDetails.teamStats.sections.advanced.subtitle')}
-                    </Text>
-
-                    {!advancedEnabled ? (
-                        <Pressable
-                            testID="competition-team-stats-advanced-load"
-                            style={styles.advancedCta}
-                            onPress={() => setAdvancedEnabled(true)}
-                            hitSlop={DEFAULT_HIT_SLOP}
-                        >
-                            <Text style={styles.advancedCtaText}>
-                                {t('competitionDetails.teamStats.advanced.load')}
-                            </Text>
-                            {networkLiteMode ? (
-                                <Text style={styles.progressText}>
-                                    {t('competitionDetails.teamStats.advanced.networkLite')}
-                                </Text>
-                            ) : null}
-                        </Pressable>
-                    ) : (
-                        <>
-                            <View style={styles.chipsWrap}>
-                                {advanced.metrics.map(metric => {
-                                    const isActive = metric === selectedAdvancedMetric;
-                                    return (
-                                        <Pressable
-                                            key={metric}
-                                            testID={`competition-team-stats-chip-advanced-${metric}`}
-                                            style={[styles.chip, isActive ? styles.chipActive : null]}
-                                            onPress={() => setSelectedAdvancedMetric(metric)}
-                                            hitSlop={DEFAULT_HIT_SLOP}
-                                        >
-                                            <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
-                                                {t(ADVANCED_METRICS[metric].labelKey)}
-                                            </Text>
-                                        </Pressable>
-                                    );
-                                })}
+                {shouldRenderAdvancedSection ? (
+                    <View style={styles.sectionCard} testID="competition-team-stats-section-advanced">
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitle}>{t('competitionDetails.teamStats.sections.advanced.title')}</Text>
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{t('competitionDetails.teamStats.top10Analyzed')}</Text>
                             </View>
+                        </View>
+                        <Text style={styles.sectionSubtitle}>
+                            {t('competitionDetails.teamStats.sections.advanced.subtitle')}
+                        </Text>
 
-                            {isAdvancedLoading ? (
-                                <View style={styles.stateCard} testID="competition-team-stats-advanced-loading">
-                                    <ActivityIndicator size="small" color={colors.primary} />
-                                    <Text style={styles.stateText}>
-                                        {t('competitionDetails.teamStats.advanced.loading')}
-                                    </Text>
+                        {!advancedEnabled ? (
+                            <Pressable
+                                testID="competition-team-stats-advanced-load"
+                                style={styles.advancedCta}
+                                onPress={() => setAdvancedEnabled(true)}
+                                hitSlop={DEFAULT_HIT_SLOP}
+                            >
+                                <Text style={styles.advancedCtaText}>
+                                    {t('competitionDetails.teamStats.advanced.load')}
+                                </Text>
+                                {networkLiteMode ? (
                                     <Text style={styles.progressText}>
-                                        {t('competitionDetails.teamStats.advanced.progress', { progress: advancedProgress })}
+                                        {t('competitionDetails.teamStats.advanced.networkLite')}
                                     </Text>
+                                ) : null}
+                            </Pressable>
+                        ) : (
+                            <>
+                                {networkLiteMode ? (
+                                    <Text style={styles.progressText}>
+                                        {t('competitionDetails.teamStats.advanced.networkLite')}
+                                    </Text>
+                                ) : null}
+                                <View style={styles.chipsWrap}>
+                                    {advanced.metrics.map(metric => {
+                                        const isActive = metric === selectedAdvancedMetric;
+                                        return (
+                                            <Pressable
+                                                key={metric}
+                                                testID={`competition-team-stats-chip-advanced-${metric}`}
+                                                style={[styles.chip, isActive ? styles.chipActive : null]}
+                                                onPress={() => setSelectedAdvancedMetric(metric)}
+                                                hitSlop={DEFAULT_HIT_SLOP}
+                                            >
+                                                <Text style={[styles.chipText, isActive ? styles.chipTextActive : null]}>
+                                                    {t(ADVANCED_METRICS[metric].labelKey)}
+                                                </Text>
+                                            </Pressable>
+                                        );
+                                    })}
                                 </View>
-                            ) : hasAdvancedData && advancedChartData.length > 0 ? (
-                                <>
-                                    {advanced.unavailableMetrics.length > 0 ? (
-                                        <Text style={styles.partialText}>
-                                            {t('competitionDetails.teamStats.advanced.partial')}
+
+                                {isAdvancedLoading ? (
+                                    <View style={styles.stateCard} testID="competition-team-stats-advanced-loading">
+                                        <ActivityIndicator size="small" color={colors.primary} />
+                                        <Text style={styles.stateText}>
+                                            {t('competitionDetails.teamStats.advanced.loading')}
                                         </Text>
-                                    ) : null}
-                                    <HorizontalBarChart
-                                        title={t(ADVANCED_METRICS[selectedAdvancedMetric].labelKey)}
-                                        data={advancedChartData}
-                                        valueFormatter={value =>
-                                            formatMetricValue(value, ADVANCED_METRICS[selectedAdvancedMetric].format)
-                                        }
-                                        onPressTeam={onPressTeam}
-                                    />
-                                </>
-                            ) : (
-                                <View style={styles.stateCard} testID="competition-team-stats-advanced-unavailable">
-                                    <Text style={styles.stateText}>
-                                        {t('competitionDetails.teamStats.advanced.unavailable')}
-                                    </Text>
-                                </View>
-                            )}
-                        </>
-                    )}
-                </View>
+                                        <Text style={styles.progressText}>
+                                            {t('competitionDetails.teamStats.advanced.progress', { progress: advancedProgress })}
+                                        </Text>
+                                    </View>
+                                ) : hasAdvancedData && advancedChartData.length > 0 ? (
+                                    <>
+                                        {advanced.state === 'partial' || advanced.unavailableMetrics.length > 0 ? (
+                                            <Text style={styles.partialText}>
+                                                {t('competitionDetails.teamStats.advanced.partial')}
+                                            </Text>
+                                        ) : null}
+                                        <HorizontalBarChart
+                                            title={t(ADVANCED_METRICS[selectedAdvancedMetric].labelKey)}
+                                            data={advancedChartData}
+                                            valueFormatter={value =>
+                                                formatMetricValue(value, ADVANCED_METRICS[selectedAdvancedMetric].format)
+                                            }
+                                            onPressTeam={onPressTeam}
+                                        />
+                                    </>
+                                ) : (
+                                    <View style={styles.stateCard} testID="competition-team-stats-advanced-unavailable">
+                                        <Text style={styles.stateText}>
+                                            {t('competitionDetails.teamStats.advanced.unavailable')}
+                                        </Text>
+                                    </View>
+                                )}
+                            </>
+                        )}
+                    </View>
+                ) : null}
             </ScrollView>
         </View>
     );

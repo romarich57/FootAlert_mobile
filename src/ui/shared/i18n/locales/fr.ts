@@ -427,7 +427,6 @@ export const fr = {
       playerLeaders: 'Meilleures stats joueurs',
       competitions: 'Compétitions',
       stadiumInfo: 'Stade',
-      surfaceUnknown: 'Non disponible',
       clubInfo: 'Infos club',
     },
     matches: {
@@ -526,7 +525,6 @@ export const fr = {
       age: 'Âge',
       yearsSuffix: 'ans',
       founded: 'Fondation',
-      surface: 'Surface',
       totalTrophies: 'Total trophées',
       totalWins: 'Titres gagnés',
     },
@@ -705,6 +703,7 @@ export const fr = {
       title: 'Équipe de la semaine',
       averageRating: 'Moyenne : {{value}}',
       formationLabel: '{{value}}',
+      partialBadge: 'Partielle',
       hiddenNoCompleteTeam: "TOTW masqué: équipe incomplète pour cette compétition/saison.",
       unavailable:
         "L'Équipe de la semaine n'est pas disponible pour cette compétition à cause des limites de l'API.",

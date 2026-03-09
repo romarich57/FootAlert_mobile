@@ -5,6 +5,7 @@ declare module 'react-native-config' {
     WEB_API_BASE_URL?: string;
     DESKTOP_API_BASE_URL?: string;
     WEB_APP_ORIGIN?: string;
+    MOBILE_VALIDATION_MODE?: string;
     MOBILE_PRIVACY_POLICY_URL?: string;
     MOBILE_TERMS_OF_USE_URL?: string;
     MOBILE_SUPPORT_URL?: string;

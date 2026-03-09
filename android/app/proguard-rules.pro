@@ -21,6 +21,10 @@
 -keep class com.facebook.react.bridge.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
+# Keep app BuildConfig fields used by react-native-config through reflection in release-like variants.
+-keep class com.footalert.app.BuildConfig { *; }
+-keep class com.lugg.RNCConfig.** { *; }
+
 # Keep security-native modules wired by reflection.
 -keep class com.gantix.JailMonkey.** { *; }
 -keep class com.reactnativesslpublickeypinning.** { *; }

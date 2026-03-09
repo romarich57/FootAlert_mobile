@@ -2,18 +2,18 @@ appId: com.footalert.app
 ---
 - launchApp:
     clearState: true
+- assertVisible:
+    text: More
 - openLink: footalert://match/101
 - assertVisible:
-    id: match-details-screen
+    text: Home FC
 - assertNotVisible:
-    id: match-details-error
+    text: Unable to load match details.
 - assertVisible:
-    id: match-details-tab-primary
-- tapOn:
-    id: match-details-tab-primary
+    text: Away FC
 - assertVisible:
-    id: match-primary-tab
+    text: Summary
 - assertVisible:
-    id: match-summary-final
+    text: Final recap
 - assertVisible:
-    id: match-summary-key-moments
+    text: Key moments

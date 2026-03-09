@@ -2,18 +2,18 @@ appId: com.footalert.app
 ---
 - launchApp:
     clearState: true
+- assertVisible:
+    text: More
 - openLink: footalert://match/202
 - assertVisible:
-    id: match-details-screen
+    text: Sparse Home
 - assertVisible:
-    id: match-details-tab-primary
-- tapOn:
-    id: match-details-tab-primary
+    text: Sparse Away
 - assertVisible:
-    id: match-summary-final
+    text: Final recap
 - assertNotVisible:
-    id: match-summary-stats
+    text: Statistics
 - assertNotVisible:
-    id: match-summary-key-moments
+    text: Key moments
 - assertNotVisible:
-    id: match-summary-section-upcomingMatches
+    text: Upcoming matches

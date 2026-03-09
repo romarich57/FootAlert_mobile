@@ -151,7 +151,11 @@ function createHookResult(overrides: Record<string, unknown> = {}) {
       },
     ],
     top10TeamIds: [1],
-    unavailableMetrics: [] as Array<'cleanSheets' | 'failedToScore' | 'xGPerMatch' | 'possession' | 'shotsPerMatch' | 'shotsOnTargetPerMatch'>,
+    unavailableMetrics: [] as Array<
+      'cleanSheets' | 'failedToScore' | 'xGPerMatch' | 'possession' | 'shotsPerMatch' | 'shotsOnTargetPerMatch'
+    >,
+    state: 'available' as const,
+    reason: null,
     leaderboards: {
       cleanSheets: {
         metric: 'cleanSheets' as const,
@@ -196,6 +200,7 @@ function createHookResult(overrides: Record<string, unknown> = {}) {
     baseError: null,
     advancedError: null,
     hasAdvancedData: true,
+    shouldRenderAdvancedSection: true,
     ...overrides,
   };
 }
@@ -206,7 +211,7 @@ describe('CompetitionTeamStatsTab', () => {
     mockedUseCompetitionTeamStats.mockReturnValue(createHookResult() as never);
   });
 
-  it('renders the 3 dashboard sections', () => {
+  it('renders the 3 dashboard sections when advanced is available', () => {
     renderWithAppProviders(<CompetitionTeamStatsTab competitionId={61} season={2025} />);
 
     expect(screen.getByTestId('competition-team-stats-section-summary')).toBeTruthy();
@@ -230,7 +235,7 @@ describe('CompetitionTeamStatsTab', () => {
     expect(screen.getAllByText(i18n.t('competitionDetails.teamStats.metrics.awayPPG')).length).toBeGreaterThan(0);
   });
 
-  it('activates advanced lazy loading from CTA', async () => {
+  it('activates advanced loading from CTA', async () => {
     mockedUseCompetitionTeamStats.mockImplementation(
       ({ advancedEnabled }) =>
         createHookResult({
@@ -269,13 +274,40 @@ describe('CompetitionTeamStatsTab', () => {
     expect(await screen.findByTestId('competition-team-stats-advanced-loading')).toBeTruthy();
   });
 
-  it('shows advanced unavailable and partial states correctly', async () => {
+  it('keeps advanced visible with a network-lite warning after activation', async () => {
+    mockedUseCompetitionTeamStats.mockImplementation(
+      ({ advancedEnabled, networkLiteMode: _networkLiteMode }) =>
+        createHookResult({
+          hasAdvancedData: advancedEnabled,
+          isAdvancedLoading: advancedEnabled,
+          advancedProgress: advancedEnabled ? 45 : 0,
+        }) as never,
+    );
+
+    renderWithAppProviders(<CompetitionTeamStatsTab competitionId={61} season={2025} />);
+
+    fireEvent.press(screen.getByTestId('competition-team-stats-advanced-load'));
+
+    expect(await screen.findByTestId('competition-team-stats-advanced-loading')).toBeTruthy();
+    expect(screen.getByText(i18n.t('competitionDetails.teamStats.advanced.networkLite'))).toBeTruthy();
+
+    expect(mockedUseCompetitionTeamStats).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        advancedEnabled: true,
+        networkLiteMode: expect.any(Boolean),
+      }),
+    );
+  });
+
+  it('shows partial advanced copy when backend marks the section partial', async () => {
     mockedUseCompetitionTeamStats.mockImplementation(
       ({ advancedEnabled }) =>
         createHookResult({
           hasAdvancedData: advancedEnabled,
           advanced: {
             ...createHookResult().advanced,
+            state: 'partial',
+            reason: 'provider_missing',
             unavailableMetrics: advancedEnabled ? ['xGPerMatch'] : [],
             leaderboards: {
               ...createHookResult().advanced.leaderboards,
@@ -294,30 +326,26 @@ describe('CompetitionTeamStatsTab', () => {
     fireEvent.press(screen.getByTestId('competition-team-stats-advanced-load'));
 
     expect(await screen.findByText(i18n.t('competitionDetails.teamStats.advanced.partial'))).toBeTruthy();
+  });
 
+  it('hides the advanced section entirely when backend reports it unavailable', () => {
     mockedUseCompetitionTeamStats.mockReturnValue(
       createHookResult({
         hasAdvancedData: false,
+        shouldRenderAdvancedSection: false,
         advanced: {
           ...createHookResult().advanced,
-          unavailableMetrics: ['xGPerMatch', 'shotsPerMatch'],
-          leaderboards: {
-            ...createHookResult().advanced.leaderboards,
-            cleanSheets: {
-              metric: 'cleanSheets',
-              sortOrder: 'desc',
-              items: [],
-            },
-          },
+          rows: [],
+          top10TeamIds: [],
+          state: 'unavailable',
+          reason: 'grouped_competition',
         },
       }) as never,
     );
 
     renderWithAppProviders(<CompetitionTeamStatsTab competitionId={61} season={2025} />);
 
-    fireEvent.press(screen.getByTestId('competition-team-stats-advanced-load'));
-
-    expect(await screen.findByTestId('competition-team-stats-advanced-unavailable')).toBeTruthy();
+    expect(screen.queryByTestId('competition-team-stats-section-advanced')).toBeNull();
   });
 
   it('keeps chart rendering with expected testIDs and values', () => {

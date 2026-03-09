@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Image, Text, View } from 'react-native';
 
+import { AppPressable } from '@ui/shared/components';
 import { createTeamStandingsTabStyles } from '@ui/features/teams/components/TeamStandingsTab.styles';
 import {
   FORM_COLORS,
@@ -16,6 +17,7 @@ type TeamStandingRowItemProps = {
   subFilter: SubFilter;
   formLabels: Record<'W' | 'D' | 'L', string>;
   styles: ReturnType<typeof createTeamStandingsTabStyles>;
+  onPressTeam?: (teamId: string) => void;
 };
 
 export const TeamStandingRowItem = memo(function TeamStandingRowItem({
@@ -24,22 +26,43 @@ export const TeamStandingRowItem = memo(function TeamStandingRowItem({
   subFilter,
   formLabels,
   styles,
+  onPressTeam,
 }: TeamStandingRowItemProps) {
   const stats: TeamStandingStats = row[subFilter] || row.all;
+  const canPressTeam = Boolean(onPressTeam && row.teamId);
+  const teamNode = (
+    <>
+      {row.teamLogo ? (
+        <Image source={{ uri: row.teamLogo }} style={styles.standingTeamLogo} resizeMode="contain" />
+      ) : null}
+      <Text numberOfLines={1} style={styles.teamText}>
+        {toDisplayValue(row.teamName)}
+      </Text>
+    </>
+  );
 
   return (
-    <View style={[styles.row, row.isTargetTeam ? styles.rowTarget : null]}>
+    <View
+      testID={row.teamId ? `team-standing-row-${row.teamId}` : undefined}
+      style={[styles.row, row.isTargetTeam ? styles.rowTarget : null]}
+    >
       <View style={styles.colRank}>
         <Text style={styles.cellText}>{toDisplayNumber(row.rank)}</Text>
       </View>
-      <View style={[styles.colTeam, styles.teamInfoContainer]}>
-        {row.teamLogo ? (
-          <Image source={{ uri: row.teamLogo }} style={styles.standingTeamLogo} resizeMode="contain" />
-        ) : null}
-        <Text numberOfLines={1} style={styles.teamText}>
-          {toDisplayValue(row.teamName)}
-        </Text>
-      </View>
+      {canPressTeam ? (
+        <AppPressable
+          style={[styles.colTeam, styles.teamInfoContainer]}
+          onPress={() => onPressTeam?.(row.teamId!)}
+          accessibilityRole="button"
+          accessibilityLabel={toDisplayValue(row.teamName)}
+        >
+          {teamNode}
+        </AppPressable>
+      ) : (
+        <View style={[styles.colTeam, styles.teamInfoContainer]}>
+          {teamNode}
+        </View>
+      )}
 
       {mode === 'simple' && (
         <>

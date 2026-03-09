@@ -601,6 +601,6 @@ describe('TeamOverviewTab', () => {
       />,
     );
 
-    expect(screen.getAllByText('?')).toHaveLength(2);
+    expect(screen.getAllByText('-')).toHaveLength(2);
   });
 });

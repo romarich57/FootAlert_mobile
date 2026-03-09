@@ -9,7 +9,7 @@ type CompetitionSeason = CompetitionsApiLeagueDto['seasons'][number];
 
 export function useCompetitionSeasons(leagueId: number | undefined) {
   return useQuery<CompetitionsApiLeagueDto | null, Error, CompetitionSeason[]>({
-    queryKey: queryKeys.competitions.detailsHeader(String(leagueId ?? 'invalid')),
+    queryKey: queryKeys.competitions.seasons(leagueId),
     queryFn: async ({ signal }) => {
       if (!leagueId) {
         return null;

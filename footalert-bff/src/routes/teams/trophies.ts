@@ -6,6 +6,9 @@ type WarnLogger = {
   warn: (obj: unknown, msg?: string) => void;
 };
 
+// Nombre maximum d'appels API dans le chemin de fallback (hors appel initial par id)
+const MAX_TROPHY_FALLBACK_ATTEMPTS = 5;
+
 export async function fetchTeamTrophiesWithFallback(
   teamId: string,
   logger: WarnLogger,
@@ -18,7 +21,9 @@ export async function fetchTeamTrophiesWithFallback(
     return trophiesById;
   }
 
+  let fallbackApiCallCount = 0;
   const attemptedTeamParams = new Set<string>();
+
   const tryTrophiesByTeamParam = async (teamParam: string): Promise<{ response?: unknown[] } | null> => {
     const normalizedTeamParam = teamParam.trim().replace(/\s+/g, ' ');
     if (!normalizedTeamParam) {
@@ -31,6 +36,11 @@ export async function fetchTeamTrophiesWithFallback(
     }
     attemptedTeamParams.add(dedupeKey);
 
+    if (fallbackApiCallCount >= MAX_TROPHY_FALLBACK_ATTEMPTS) {
+      return null;
+    }
+    fallbackApiCallCount += 1;
+
     const payload = await apiFootballGet<{ response?: unknown[] }>(
       `/trophies?team=${encodeURIComponent(normalizedTeamParam)}`,
     );
@@ -39,6 +49,11 @@ export async function fetchTeamTrophiesWithFallback(
   };
 
   try {
+    if (fallbackApiCallCount >= MAX_TROPHY_FALLBACK_ATTEMPTS) {
+      return trophiesById;
+    }
+    fallbackApiCallCount += 1;
+
     const teamLookup = await apiFootballGet<{
       response?: Array<{
         team?: {
@@ -54,11 +69,19 @@ export async function fetchTeamTrophiesWithFallback(
 
     const teamNameCandidates = buildTeamNameCandidates(teamName);
     for (const teamNameCandidate of teamNameCandidates) {
+      if (fallbackApiCallCount >= MAX_TROPHY_FALLBACK_ATTEMPTS) {
+        break;
+      }
       const trophiesByName = await tryTrophiesByTeamParam(teamNameCandidate);
       if (trophiesByName) {
         return trophiesByName;
       }
     }
+
+    if (fallbackApiCallCount >= MAX_TROPHY_FALLBACK_ATTEMPTS) {
+      return trophiesById;
+    }
+    fallbackApiCallCount += 1;
 
     const teamSearch = await apiFootballGet<{
       response?: Array<{
@@ -81,6 +104,9 @@ export async function fetchTeamTrophiesWithFallback(
     }
 
     for (const searchCandidate of searchCandidates) {
+      if (fallbackApiCallCount >= MAX_TROPHY_FALLBACK_ATTEMPTS) {
+        break;
+      }
       const trophiesBySearchName = await tryTrophiesByTeamParam(searchCandidate);
       if (trophiesBySearchName) {
         return trophiesBySearchName;

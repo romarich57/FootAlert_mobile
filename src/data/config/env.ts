@@ -27,6 +27,7 @@ const DEFAULT_MOBILE_ENABLE_PLAYER_STATS_CATALOG_AGGREGATE = false;
 const DEFAULT_NOTIFICATIONS_MATCH_BACKEND_ENABLED = true;
 const DEFAULT_MOBILE_AUTH_ATTESTATION_MODE = 'provider';
 const DEFAULT_MOBILE_ATTESTATION_STRATEGY = 'strict';
+const DEFAULT_MOBILE_VALIDATION_MODE = 'off';
 const DEFAULT_MOBILE_SESSION_TOKEN_TTL_MS = 600_000;
 const DEFAULT_ASSET_CDN_REWRITE_ENABLED = false;
 
@@ -38,6 +39,8 @@ function readRuntimeNodeEnv(): string | undefined {
 const IS_DEV_RUNTIME =
   typeof __DEV__ === 'boolean' ? __DEV__ : readRuntimeNodeEnv() !== 'production';
 
+export type MobileValidationMode = 'off' | 'maestro' | 'perf';
+
 export type AppEnv = {
   mobileApiBaseUrl: string;
   mobileApiHost: string;
@@ -47,6 +50,7 @@ export type AppEnv = {
   followUsUrl?: string;
   appStoreUrl?: string;
   playStoreUrl?: string;
+  mobileValidationMode: MobileValidationMode;
   mobileAuthAttestationMode: 'mock' | 'provider';
   mobileAttestationStrategy: 'strict' | 'best-effort' | 'disabled';
   mobileSessionTokenTtlMs: number;
@@ -259,13 +263,23 @@ function readBooleanConfig(rawValue: string | undefined, defaultValue: boolean):
   return defaultValue;
 }
 
+export function resolveMobileValidationMode(rawValue: string | undefined): MobileValidationMode {
+  const configured = rawValue?.trim().toLowerCase();
+  if (configured === 'maestro' || configured === 'perf') {
+    return configured;
+  }
+
+  return DEFAULT_MOBILE_VALIDATION_MODE as MobileValidationMode;
+}
+
 export function resolveMobileAuthAttestationMode(
   rawValue: string | undefined,
   isDevRuntime: boolean = IS_DEV_RUNTIME,
+  validationMode: MobileValidationMode = DEFAULT_MOBILE_VALIDATION_MODE as MobileValidationMode,
 ): 'mock' | 'provider' {
   const configured = rawValue?.trim().toLowerCase();
   if (configured === 'mock') {
-    if (!isDevRuntime) {
+    if (!isDevRuntime && validationMode === 'off') {
       throw new Error(
         'MOBILE_AUTH_ATTESTATION_MODE=mock is not allowed outside dev runtime.',
       );
@@ -287,6 +301,7 @@ export function resolveMobileAuthAttestationMode(
 export function resolveMobileAttestationStrategy(
   rawValue: string | undefined,
   isDevRuntime: boolean = IS_DEV_RUNTIME,
+  validationMode: MobileValidationMode = DEFAULT_MOBILE_VALIDATION_MODE as MobileValidationMode,
 ): 'strict' | 'best-effort' | 'disabled' {
   const configured = rawValue?.trim().toLowerCase();
 
@@ -299,7 +314,7 @@ export function resolveMobileAttestationStrategy(
   }
 
   if (configured === 'disabled') {
-    if (!isDevRuntime) {
+    if (!isDevRuntime && validationMode === 'off') {
       throw new Error(
         'MOBILE_ATTESTATION_STRATEGY=disabled is not allowed outside dev runtime.',
       );
@@ -339,6 +354,9 @@ const configuredMaxRefreshBackoffMs = Math.max(
   readPositiveIntConfig(Config.MATCHES_MAX_REFRESH_BACKOFF_MS, MAX_REFRESH_BACKOFF_MS),
   configuredSlowRefreshIntervalMs,
 );
+const configuredMobileValidationMode = resolveMobileValidationMode(
+  Config.MOBILE_VALIDATION_MODE,
+);
 const configuredMobileApiBaseUrl = readMobileApiBaseUrl();
 const configuredMobileApiHost = new URL(configuredMobileApiBaseUrl).host;
 const configuredPinningEnabled = readBooleanConfig(
@@ -375,13 +393,16 @@ export const appEnv: AppEnv = {
   followUsUrl: readFollowUsUrl(),
   appStoreUrl: readAppStoreUrl(),
   playStoreUrl: readPlayStoreUrl(),
+  mobileValidationMode: configuredMobileValidationMode,
   mobileAuthAttestationMode: resolveMobileAuthAttestationMode(
     Config.MOBILE_AUTH_ATTESTATION_MODE,
     IS_DEV_RUNTIME,
+    configuredMobileValidationMode,
   ),
   mobileAttestationStrategy: resolveMobileAttestationStrategy(
     Config.MOBILE_ATTESTATION_STRATEGY,
     IS_DEV_RUNTIME,
+    configuredMobileValidationMode,
   ),
   mobileSessionTokenTtlMs: readPositiveIntConfig(
     Config.MOBILE_SESSION_TOKEN_TTL_MS,
@@ -504,4 +525,11 @@ export function getMobileApiEnvOrThrow(): AppEnv {
   }
 
   return appEnv;
+}
+
+export function isMobileValidationMode(
+  mode: Exclude<MobileValidationMode, 'off'>,
+  currentMode: MobileValidationMode = appEnv.mobileValidationMode,
+): boolean {
+  return currentMode === mode;
 }

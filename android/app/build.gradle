@@ -120,6 +120,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        manifestPlaceholders = [usesCleartextTraffic: "false"]
         buildConfigField "String", "EXPECTED_RELEASE_SIGNATURE_SHA256", "\"${expectedReleaseSignatureSha256}\""
     }
     signingConfigs {
@@ -141,11 +142,13 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
             signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources enableProguardInReleaseBuilds
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
         benchmark {
@@ -154,6 +157,7 @@ android {
             matchingFallbacks = ['release']
             minifyEnabled enableProguardInReleaseBuilds
             shrinkResources enableProguardInReleaseBuilds
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }

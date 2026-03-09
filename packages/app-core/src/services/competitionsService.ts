@@ -24,6 +24,14 @@ type CompetitionsServiceDependencies = {
   telemetry: TelemetryAdapter;
 };
 
+type FixturesCursorPageInfo = {
+  hasMore: boolean;
+  nextCursor: string | null;
+  returnedCount: number;
+  hasPrevious: boolean;
+  previousCursor: string | null;
+};
+
 export function createCompetitionsReadService({ http, telemetry }: CompetitionsServiceDependencies) {
   async function fetchList<T = unknown>(
     path: string,
@@ -138,7 +146,7 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
         limit?: number;
         cursor?: string;
       },
-    ): Promise<ListEnvelope<T>> {
+    ): Promise<{ response: T[]; pageInfo?: FixturesCursorPageInfo }> {
       return fetchListWithPageInfo(
         `/competitions/${encodeURIComponent(String(leagueId))}/matches`,
         {
@@ -149,7 +157,7 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
         'competitions.fixtures_page',
         `/competitions/${leagueId}/matches`,
         signal,
-      );
+      ) as Promise<{ response: T[]; pageInfo?: FixturesCursorPageInfo }>;
     },
 
     fetchLeaguePlayerStats<T = unknown>(
@@ -217,6 +225,18 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
         topYellowCards: (raw.topYellowCards ?? []) as T[],
         topRedCards: (raw.topRedCards ?? []) as T[],
       };
+    },
+
+    async fetchCompetitionTeamStats<T = unknown>(
+      leagueId: number,
+      season: number,
+      signal?: AbortSignal,
+    ): Promise<T> {
+      return http.get<T>(
+        `/competitions/${encodeURIComponent(String(leagueId))}/team-stats`,
+        { season },
+        { signal },
+      );
     },
   };
 }

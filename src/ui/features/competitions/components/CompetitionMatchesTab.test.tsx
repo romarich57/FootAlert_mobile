@@ -8,6 +8,36 @@ import i18n from '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 jest.mock('@ui/features/competitions/hooks/useCompetitionFixtures');
+let latestFlashListProps: Record<string, unknown> | null = null;
+
+jest.mock('@shopify/flash-list', () => {
+  const ReactLib = require('react');
+  const { View } = require('react-native');
+
+  return {
+    FlashList: ReactLib.forwardRef(({ data = [], renderItem, ListFooterComponent, ...props }: any, ref: React.ForwardedRef<unknown>) => {
+      latestFlashListProps = { data, renderItem, ListFooterComponent, ...props };
+      ReactLib.useImperativeHandle(ref, () => ({
+        scrollToIndex: jest.fn(),
+      }));
+
+      return ReactLib.createElement(
+        View,
+        { testID: 'competition-matches-flash-list' },
+        data.map((item: any, index: number) =>
+          ReactLib.createElement(
+            ReactLib.Fragment,
+            { key: item.key ?? String(index) },
+            renderItem({ item, index }),
+          ),
+        ),
+        typeof ListFooterComponent === 'function'
+          ? ListFooterComponent()
+          : ListFooterComponent,
+      );
+    }),
+  };
+});
 
 const mockedUseCompetitionFixtures = jest.mocked(useCompetitionFixtures);
 
@@ -86,12 +116,16 @@ const knockoutFixtures: Fixture[] = [
 describe('CompetitionMatchesTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    latestFlashListProps = null;
     mockedUseCompetitionFixtures.mockReturnValue({
       data: { pages: [{ items: baseFixtures, hasMore: false, nextCursor: null }], pageParams: [undefined] },
       isLoading: false,
       error: null,
+      fetchPreviousPage: jest.fn(),
       fetchNextPage: jest.fn(),
+      hasPreviousPage: false,
       hasNextPage: false,
+      isFetchingPreviousPage: false,
       isFetchingNextPage: false,
     } as never);
   });
@@ -138,8 +172,11 @@ describe('CompetitionMatchesTab', () => {
       data: { pages: [{ items: knockoutFixtures, hasMore: false, nextCursor: null }], pageParams: [undefined] },
       isLoading: false,
       error: null,
+      fetchPreviousPage: jest.fn(),
       fetchNextPage: jest.fn(),
+      hasPreviousPage: false,
       hasNextPage: false,
+      isFetchingPreviousPage: false,
       isFetchingNextPage: false,
     } as never);
 
@@ -158,5 +195,27 @@ describe('CompetitionMatchesTab', () => {
       i18n.t('matches.rounds.semiFinals'),
       i18n.t('matches.rounds.final'),
     ]);
+  });
+
+  it('loads previous pages when the list start is reached', () => {
+    const fetchPreviousPage = jest.fn();
+    mockedUseCompetitionFixtures.mockReturnValue({
+      data: { pages: [{ items: baseFixtures, hasMore: true, nextCursor: 'next-1' }], pageParams: [undefined] },
+      isLoading: false,
+      error: null,
+      fetchPreviousPage,
+      fetchNextPage: jest.fn(),
+      hasPreviousPage: true,
+      hasNextPage: true,
+      isFetchingPreviousPage: false,
+      isFetchingNextPage: false,
+    } as never);
+
+    renderWithAppProviders(<CompetitionMatchesTab competitionId={61} season={2025} />);
+
+    expect(typeof latestFlashListProps?.onStartReached).toBe('function');
+    (latestFlashListProps?.onStartReached as () => void)();
+
+    expect(fetchPreviousPage).toHaveBeenCalledTimes(1);
   });
 });

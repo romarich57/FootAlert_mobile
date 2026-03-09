@@ -9,10 +9,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./security/requestSignaturePayload": {
-      "types": "./dist/security/requestSignaturePayload.d.ts",
-      "import": "./dist/security/requestSignaturePayload.js"
     }
   },
   "scripts": {

@@ -13,7 +13,7 @@ const listResponseSchema = z
 
 const optionalResponseSchema = z
   .object({
-    response: z.unknown().optional(),
+    response: z.union([z.unknown(), z.array(z.unknown())]).optional(),
   })
   .passthrough();
 
@@ -187,7 +187,12 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
         endpoint: `/teams/${teamId}/stats`,
       });
 
-      return ((payload as OptionalEnvelope<T>).response ?? null) as T | null;
+      const response = (payload as OptionalEnvelope<T | T[]>).response;
+      if (Array.isArray(response)) {
+        return (response[0] ?? null) as T | null;
+      }
+
+      return (response ?? null) as T | null;
     },
 
     async fetchTeamOverview<T = unknown>(
@@ -276,7 +281,12 @@ export function createTeamsReadService({ http, telemetry }: TeamsServiceDependen
         endpoint: `/teams/${teamId}/advanced-stats`,
       });
 
-      return ((payload as OptionalEnvelope<T>).response ?? null) as T | null;
+      const response = (payload as OptionalEnvelope<T | T[]>).response;
+      if (Array.isArray(response)) {
+        return (response[0] ?? null) as T | null;
+      }
+
+      return (response ?? null) as T | null;
     },
 
     async fetchTeamPlayers<T = unknown>(

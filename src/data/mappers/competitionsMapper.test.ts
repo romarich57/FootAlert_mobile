@@ -320,7 +320,7 @@ describe('competitionsMapper totw', () => {
     expect(mapCompetitionPlayerStatsToTotw([createPlayerStat(1, 'GK', '8.0', 'GK')], Number.NaN)).toBeNull();
   });
 
-  it('builds a strict 4-3-3 TOTW, deduplicates by player and computes one-decimal average', () => {
+  it('builds a complete 4-3-3 TOTW, deduplicates by player and computes one-decimal average', () => {
     const stats: CompetitionPlayerStat[] = [
       createPlayerStat(1, 'Goalkeeper', '8.2', 'GK'),
       createPlayerStat(1, 'Goalkeeper', '7.1', 'GK'),
@@ -342,8 +342,10 @@ describe('competitionsMapper totw', () => {
 
     expect(result).not.toBeNull();
     expect(result?.formation).toBe('4-3-3');
+    expect((result as { state?: string })?.state).toBe('complete');
     expect(result?.players).toHaveLength(11);
     expect(result?.averageRating).toBe(8.2);
+    expect((result as { placeholderSlots?: unknown[] })?.placeholderSlots ?? []).toHaveLength(0);
 
     const roles = result?.players.reduce<Record<string, number>>((acc, player) => {
       acc[player.role] = (acc[player.role] ?? 0) + 1;
@@ -361,24 +363,45 @@ describe('competitionsMapper totw', () => {
     expect(result?.players.some(player => player.playerId === 1 && player.rating === 8.2)).toBe(true);
   });
 
-  it('returns null when one mandatory role quota cannot be filled', () => {
+  it('returns a partial TOTW when at least seven rated players across three role families exist', () => {
     const stats: CompetitionPlayerStat[] = [
+      createPlayerStat(1, 'Goalkeeper', '8.0', 'GK'),
       createPlayerStat(2, 'CB', '8.0', 'DEF'),
       createPlayerStat(3, 'LB', '7.9', 'DEF'),
       createPlayerStat(4, 'RB', '7.8', 'DEF'),
-      createPlayerStat(5, 'Defender', '7.7', 'DEF'),
       createPlayerStat(6, 'CM', '8.4', 'MID'),
       createPlayerStat(7, 'DM', '8.1', 'MID'),
       createPlayerStat(8, 'AM', '7.6', 'MID'),
       createPlayerStat(9, 'ST', '9.0', 'ATT'),
       createPlayerStat(10, 'RW', '8.8', 'ATT'),
-      createPlayerStat(11, 'LW', '8.3', 'ATT'),
     ];
 
-    expect(mapCompetitionPlayerStatsToTotw(stats, 2025)).toBeNull();
+    const result = mapCompetitionPlayerStatsToTotw(stats, 2025);
+
+    expect(result).not.toBeNull();
+    expect((result as { state?: string })?.state).toBe('partial');
+    expect(result?.players).toHaveLength(9);
+    expect((result as { placeholderSlots?: unknown[] })?.placeholderSlots ?? []).toHaveLength(2);
   });
 
-  it('excludes invalid ratings and still selects valid 4-3-3 players only', () => {
+  it('returns unavailable when the minimum viable TOTW threshold is not met', () => {
+    const stats: CompetitionPlayerStat[] = [
+      createPlayerStat(1, 'GK', '8.0', 'GK'),
+      createPlayerStat(2, 'CB', '8.0', 'DEF'),
+      createPlayerStat(3, 'LB', '7.9', 'DEF'),
+      createPlayerStat(4, 'CM', '8.4', 'MID'),
+      createPlayerStat(5, 'DM', '8.1', 'MID'),
+      createPlayerStat(6, 'ST', '8.9', 'ATT'),
+    ];
+
+    const result = mapCompetitionPlayerStatsToTotw(stats, 2025);
+
+    expect(result).not.toBeNull();
+    expect((result as { state?: string })?.state).toBe('unavailable');
+    expect(result?.players).toHaveLength(0);
+  });
+
+  it('excludes invalid ratings and still selects valid TOTW players only', () => {
     const stats: CompetitionPlayerStat[] = [
       createPlayerStat(1, 'GK', null, 'GK'),
       createPlayerStat(2, 'GK', '8.0', 'GK'),

@@ -426,7 +426,6 @@ export const en = {
       playerLeaders: 'Top player stats',
       competitions: 'Competitions',
       stadiumInfo: 'Stadium',
-      surfaceUnknown: 'Unavailable',
       clubInfo: 'Club info',
     },
     matches: {
@@ -525,7 +524,6 @@ export const en = {
       age: 'Age',
       yearsSuffix: 'y',
       founded: 'Founded',
-      surface: 'Surface',
       totalTrophies: 'Total trophies',
       totalWins: 'Won titles',
     },
@@ -704,6 +702,7 @@ export const en = {
       title: 'Team of the Week',
       averageRating: 'Average: {{value}}',
       formationLabel: '{{value}}',
+      partialBadge: 'Partial',
       hiddenNoCompleteTeam: 'TOTW hidden: incomplete squad for this competition/season.',
       unavailable:
         'Team of the Week is not available for this competition due to API limits.',

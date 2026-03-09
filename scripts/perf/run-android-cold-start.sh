@@ -7,6 +7,12 @@ app_id="${3:-com.footalert.app}"
 activity="${4:-.MainActivity}"
 root_dir="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$root_dir"
+android_serial="${ANDROID_SERIAL:-}"
+
+adb_args=()
+if [[ -n "$android_serial" ]]; then
+  adb_args=(-s "$android_serial")
+fi
 
 run_dir="$(bash scripts/perf/new-run-dir.sh "$label")"
 raw_file="$run_dir/cold-start-raw.txt"
@@ -21,10 +27,10 @@ echo "[perf] app_id=$app_id activity=$activity runs=$runs" | tee -a "$raw_file"
 
 for run_index in $(seq 1 "$runs"); do
   echo "[perf] run=$run_index" | tee -a "$raw_file"
-  adb shell am force-stop "$app_id"
+  adb "${adb_args[@]}" shell am force-stop "$app_id"
   sleep 1
 
-  am_output="$(adb shell am start -W -n "$app_id/$activity")"
+  am_output="$(adb "${adb_args[@]}" shell am start -W -n "$app_id/$activity")"
   printf '%s\n' "$am_output" | tee -a "$raw_file"
 
   total_time="$(printf '%s\n' "$am_output" | awk '/TotalTime:/ { print $2; exit }')"

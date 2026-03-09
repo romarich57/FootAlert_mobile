@@ -53,4 +53,16 @@
 - Ces erreurs apparaissent dans `npm run typecheck` (racine) mais n'affectent pas le BFF ni web
 - `npm run web:typecheck` et `cd footalert-bff && npm run typecheck` sont les checks fiables
 
+## Pattern de découpe de gros fichiers BFF (> 500 lignes)
+
+Quand un fichier route dépasse 500 lignes, découper en 4 couches :
+1. `*.types.ts` — types, DTOs, interfaces (jamais de logique)
+2. `*.mappers.ts` — fonctions pures de transformation (toId, toText, mapFixture..., mapStandings..., buildCoach...)
+3. `*.players.ts` (ou autre domaine) — si les mappers joueurs sont volumineux, fichier séparé
+4. `*.fetchers.ts` — fonctions async withCache + apiFootballGet + buildPayload
+5. `*.ts` (orchestrateur) — uniquement les 3 exports publics + imports
+
+Exemple : `footalert-bff/src/routes/teams/overview.ts` → 5 fichiers, tous ≤ 500 lignes.
+Les imports ESM doivent toujours utiliser l'extension `.js` (ex: `from './overview.types.js'`).
+
 Voir aussi : `patterns.md` pour détails implémentation Sprint 2 TOTW.

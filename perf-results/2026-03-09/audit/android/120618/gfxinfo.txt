@@ -1,0 +1,4 @@
+Applications Graphics Acceleration Info:
+Uptime: 937950 Realtime: 937950
+
+** Graphics info for pid 8919 [com.footalert.app] **

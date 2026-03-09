@@ -5,7 +5,7 @@ import { usePowerState } from 'react-native-device-info';
 
 import { registerBackgroundRefresh } from '@data/background/backgroundRefresh';
 import { getAppVersion } from '@data/config/appMeta';
-import { appEnv } from '@data/config/env';
+import { appEnv, isMobileValidationMode } from '@data/config/env';
 import { requestMobileConsentIfNeeded } from '@data/privacy/mobileConsent';
 import { requestInAppReviewWithFallback } from '@data/reviews/inAppReview';
 import { evaluateDeviceIntegrity } from '@data/security/deviceIntegrity';
@@ -38,6 +38,7 @@ export function useAppBootstrap(): AppBootstrapResult {
   const [hasCheckedStartupHealth, setHasCheckedStartupHealth] = useState(false);
   const hasRunDeferredRef = useRef(false);
   const hasRunOpportunisticRef = useRef(false);
+  const isPerfValidationMode = isMobileValidationMode('perf');
 
   useEffect(() => {
     if (isDevRuntime) {
@@ -97,6 +98,15 @@ export function useAppBootstrap(): AppBootstrapResult {
       appVersion: getAppVersion(),
     });
 
+    if (isPerfValidationMode) {
+      getMobileTelemetry().addBreadcrumb('bootstrap.validation_mode_skipped', {
+        mode: appEnv.mobileValidationMode,
+        stage: 'deferred',
+      });
+      setPhase('opportunistic');
+      return;
+    }
+
     requestMobileConsentIfNeeded()
       .then(snapshot => {
         getMobileTelemetry().addBreadcrumb('privacy.mobile_consent.synced', {
@@ -112,7 +122,7 @@ export function useAppBootstrap(): AppBootstrapResult {
       .finally(() => {
         setPhase('opportunistic');
       });
-  }, [phase]);
+  }, [isPerfValidationMode, phase]);
 
   const isOnline =
     netInfo.isInternetReachable ??
@@ -124,12 +134,20 @@ export function useAppBootstrap(): AppBootstrapResult {
       return;
     }
 
+    if (isPerfValidationMode) {
+      getMobileTelemetry().addBreadcrumb('bootstrap.validation_mode_skipped', {
+        mode: appEnv.mobileValidationMode,
+        stage: 'background_refresh',
+      });
+      return;
+    }
+
     registerBackgroundRefresh({
       isHydrated,
       isOnline,
       lowPowerMode: Boolean(powerState.lowPowerMode),
     }).catch(() => undefined);
-  }, [isHydrated, isOnline, phase, powerState.lowPowerMode]);
+  }, [isHydrated, isOnline, isPerfValidationMode, phase, powerState.lowPowerMode]);
 
   useEffect(() => {
     if (phase !== 'opportunistic' || hasRunOpportunisticRef.current) {
@@ -137,6 +155,14 @@ export function useAppBootstrap(): AppBootstrapResult {
     }
 
     hasRunOpportunisticRef.current = true;
+
+    if (isPerfValidationMode) {
+      getMobileTelemetry().addBreadcrumb('bootstrap.validation_mode_skipped', {
+        mode: appEnv.mobileValidationMode,
+        stage: 'opportunistic',
+      });
+      return;
+    }
 
     evaluateDeviceIntegrity().catch(() => undefined);
 
@@ -170,7 +196,7 @@ export function useAppBootstrap(): AppBootstrapResult {
     return () => {
       appStateSubscription.remove();
     };
-  }, [isDevRuntime, phase]);
+  }, [isDevRuntime, isPerfValidationMode, phase]);
 
   return {
     isReady: phase !== 'blocking' && !bootError,

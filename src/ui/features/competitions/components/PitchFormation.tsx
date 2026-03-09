@@ -4,10 +4,18 @@ import { View, StyleSheet, Text, Image, type ViewStyle } from 'react-native';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
-import type { CompetitionTotwPlayer } from '../types/competitions.types';
+import type { CompetitionTotwPlayer, CompetitionTotwRole } from '../types/competitions.types';
+
+type CompetitionTotwPlaceholderSlot = {
+    role: CompetitionTotwRole;
+    gridX: number;
+    gridY: number;
+    label: string;
+};
 
 type PitchFormationProps = {
     players: CompetitionTotwPlayer[];
+    placeholderSlots?: CompetitionTotwPlaceholderSlot[];
     onPressPlayer?: (playerId: string) => void;
 };
 
@@ -129,6 +137,22 @@ function createStyles(colors: ThemeColors) {
             fontWeight: '700',
             textAlign: 'center',
         },
+        placeholderWrap: {
+            width: 46,
+            height: 46,
+            borderRadius: 23,
+            borderWidth: 1.5,
+            borderStyle: 'dashed',
+            borderColor: 'rgba(255,255,255,0.30)',
+            backgroundColor: 'rgba(10,13,12,0.35)',
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        placeholderText: {
+            color: '#E5E7EB',
+            fontSize: 11,
+            fontWeight: '800',
+        },
     });
 }
 
@@ -162,7 +186,7 @@ function toInitials(value: string): string {
     return initials || tokens[0].slice(0, 2).toUpperCase();
 }
 
-export function PitchFormation({ players, onPressPlayer }: PitchFormationProps) {
+export function PitchFormation({ players, placeholderSlots = [], onPressPlayer }: PitchFormationProps) {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -234,6 +258,30 @@ export function PitchFormation({ players, onPressPlayer }: PitchFormationProps) 
                     </View>
                 );
             })}
+
+            {placeholderSlots.map((slot, index) => (
+                <View
+                    key={`placeholder-${slot.role}-${slot.gridX}-${slot.gridY}-${index}`}
+                    testID="competition-totw-placeholder-node"
+                    style={[
+                        styles.playerNode,
+                        {
+                            left: `${slot.gridX}%`,
+                            top: `${slot.gridY}%`,
+                            transform: [{ translateX: -43 }, { translateY: -34 }],
+                        } as ViewStyle,
+                    ]}
+                >
+                    <View style={styles.placeholderWrap}>
+                        <Text style={styles.placeholderText}>{slot.label}</Text>
+                    </View>
+                    <View style={styles.nameChip}>
+                        <Text numberOfLines={1} style={styles.nameText}>
+                            {slot.role}
+                        </Text>
+                    </View>
+                </View>
+            ))}
         </View>
     );
 }

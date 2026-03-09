@@ -3,6 +3,7 @@ import {
   resolveMobileApiBaseUrl,
   resolveMobileAttestationStrategy,
   resolveMobileAuthAttestationMode,
+  resolveMobileValidationMode,
 } from '@data/config/env';
 
 describe('resolveMobileApiBaseUrl', () => {
@@ -82,6 +83,11 @@ describe('resolveMobileAuthAttestationMode', () => {
     expect(resolveMobileAuthAttestationMode('mock', true)).toBe('mock');
   });
 
+  it('allows mock mode outside dev runtime only for validation modes', () => {
+    expect(resolveMobileAuthAttestationMode('mock', false, 'maestro')).toBe('mock');
+    expect(resolveMobileAuthAttestationMode('mock', false, 'perf')).toBe('mock');
+  });
+
   it('rejects mock mode outside dev runtime', () => {
     expect(() => resolveMobileAuthAttestationMode('mock', false)).toThrow(
       'MOBILE_AUTH_ATTESTATION_MODE=mock is not allowed outside dev runtime.',
@@ -102,6 +108,11 @@ describe('resolveMobileAttestationStrategy', () => {
     expect(resolveMobileAttestationStrategy('best-effort', false)).toBe('best-effort');
   });
 
+  it('allows disabled mode outside dev runtime only for validation modes', () => {
+    expect(resolveMobileAttestationStrategy('disabled', false, 'maestro')).toBe('disabled');
+    expect(resolveMobileAttestationStrategy('disabled', false, 'perf')).toBe('disabled');
+  });
+
   it('rejects disabled mode outside dev runtime', () => {
     expect(() => resolveMobileAttestationStrategy('disabled', false)).toThrow(
       'MOBILE_ATTESTATION_STRATEGY=disabled is not allowed outside dev runtime.',
@@ -114,5 +125,17 @@ describe('resolveMobileAttestationStrategy', () => {
 
   it('defaults to strict outside dev runtime', () => {
     expect(resolveMobileAttestationStrategy(undefined, false)).toBe('strict');
+  });
+});
+
+describe('resolveMobileValidationMode', () => {
+  it('supports explicit maestro and perf modes', () => {
+    expect(resolveMobileValidationMode('maestro')).toBe('maestro');
+    expect(resolveMobileValidationMode('perf')).toBe('perf');
+  });
+
+  it('falls back to off for missing or unknown values', () => {
+    expect(resolveMobileValidationMode(undefined)).toBe('off');
+    expect(resolveMobileValidationMode('unexpected')).toBe('off');
   });
 });

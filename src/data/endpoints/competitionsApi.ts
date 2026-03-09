@@ -2,6 +2,7 @@ import { createCompetitionsReadService } from '@app-core/services/competitionsSe
 import type {
   CompetitionBracket,
   CompetitionKind,
+  CompetitionTeamStatsDashboardData,
   CompetitionsApiFixtureDto,
   CompetitionsApiLeagueDto,
   CompetitionsApiPlayerStatDto,
@@ -67,7 +68,14 @@ export async function fetchLeagueFixtures(
 
 export type FixturesPage = {
   items: CompetitionsApiFixtureDto[];
-  pageInfo: { hasMore: boolean; nextCursor: string | null } | undefined;
+  pageInfo:
+    | {
+        hasMore: boolean;
+        nextCursor: string | null;
+        hasPrevious: boolean;
+        previousCursor: string | null;
+      }
+    | undefined;
 };
 
 export async function fetchLeagueFixturesPage(
@@ -88,7 +96,12 @@ export async function fetchLeagueFixturesPage(
   return {
     items: envelope.response,
     pageInfo: envelope.pageInfo
-      ? { hasMore: envelope.pageInfo.hasMore, nextCursor: envelope.pageInfo.nextCursor }
+      ? {
+          hasMore: envelope.pageInfo.hasMore,
+          nextCursor: envelope.pageInfo.nextCursor,
+          hasPrevious: envelope.pageInfo.hasPrevious,
+          previousCursor: envelope.pageInfo.previousCursor,
+        }
       : undefined,
   };
 }
@@ -184,6 +197,18 @@ export async function fetchCompetitionTotw(
   topRedCards: CompetitionsApiPlayerStatDto[];
 }> {
   return competitionsReadService.fetchCompetitionTotw<CompetitionsApiPlayerStatDto>(
+    leagueId,
+    season,
+    signal,
+  );
+}
+
+export async function fetchCompetitionTeamStats(
+  leagueId: number,
+  season: number,
+  signal?: AbortSignal,
+): Promise<CompetitionTeamStatsDashboardData> {
+  return competitionsReadService.fetchCompetitionTeamStats<CompetitionTeamStatsDashboardData>(
     leagueId,
     season,
     signal,

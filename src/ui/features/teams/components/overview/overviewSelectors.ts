@@ -192,7 +192,7 @@ export function buildHistoryDisplayPoints(
     season: point.season,
     rank: point.rank,
     isMissing: typeof point.rank !== 'number',
-    label: typeof point.rank === 'number' ? toDisplayNumber(point.rank) : '?',
+    label: typeof point.rank === 'number' ? toDisplayNumber(point.rank) : '-',
   }));
 }
 

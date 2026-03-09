@@ -898,10 +898,10 @@ test('GET /v1/teams/:id/overview-leaders continues pagination beyond page 4', as
   );
 });
 
-test('GET /v1/teams/:id/stats proxies team statistics endpoint', async t => {
+test('GET /v1/teams/:id/stats normalizes the upstream statistics envelope to a single object response', async t => {
   const calls = installFetchMock(async () =>
     jsonResponse({
-      response: [{ team: { id: 40 } }],
+      response: [{ team: { id: 40 }, fixtures: { clean_sheet: { total: 7 } } }],
     }),
   );
   const app = await buildApp(t);
@@ -912,7 +912,9 @@ test('GET /v1/teams/:id/stats proxies team statistics endpoint', async t => {
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.json(), { response: [{ team: { id: 40 } }] });
+  assert.deepEqual(response.json(), {
+    response: { team: { id: 40 }, fixtures: { clean_sheet: { total: 7 } } },
+  });
   assert.equal(
     String(calls[0].input),
     'https://api-football.test/teams/statistics?league=39&season=2025&team=40',

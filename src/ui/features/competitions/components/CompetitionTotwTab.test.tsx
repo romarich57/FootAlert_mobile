@@ -30,11 +30,45 @@ function createPlayers() {
 }
 
 describe('CompetitionTotwTab', () => {
-  const totw: CompetitionTotwData = {
+  const totw = {
     formation: '4-3-3',
     season: 2025,
     averageRating: 8.2,
+    state: 'complete',
+    placeholderSlots: [],
     players: createPlayers(),
+  } as CompetitionTotwData & {
+    state: 'complete' | 'partial' | 'unavailable';
+    placeholderSlots: Array<{ role: CompetitionTotwRole; gridX: number; gridY: number; label: string }>;
+  };
+
+  const partialTotw = {
+    formation: '4-3-3',
+    season: 2025,
+    averageRating: 7.9,
+    state: 'partial',
+    players: createPlayers().slice(0, 7),
+    placeholderSlots: [
+      { role: 'MID' as const, gridX: 74, gridY: 44, label: 'MIL' },
+      { role: 'DEF' as const, gridX: 16, gridY: 68, label: 'DEF' },
+      { role: 'DEF' as const, gridX: 38, gridY: 72, label: 'DEF' },
+      { role: 'GK' as const, gridX: 50, gridY: 88, label: 'GB' },
+    ],
+  } as CompetitionTotwData & {
+    state: 'complete' | 'partial' | 'unavailable';
+    placeholderSlots: Array<{ role: CompetitionTotwRole; gridX: number; gridY: number; label: string }>;
+  };
+
+  const unavailableTotw = {
+    formation: '4-3-3',
+    season: 2025,
+    averageRating: 0,
+    state: 'unavailable',
+    players: [],
+    placeholderSlots: [],
+  } as CompetitionTotwData & {
+    state: 'complete' | 'partial' | 'unavailable';
+    placeholderSlots: Array<{ role: CompetitionTotwRole; gridX: number; gridY: number; label: string }>;
   };
 
   it('renders title, formation and average rating', () => {
@@ -59,5 +93,20 @@ describe('CompetitionTotwTab', () => {
     renderWithAppProviders(<CompetitionTotwTab totw={totw} />);
 
     expect(screen.queryByText(i18n.t('competitionDetails.totw.unavailable'))).toBeNull();
+  });
+
+  it('renders placeholder slots and partial badge when the TOTW is incomplete', () => {
+    renderWithAppProviders(<CompetitionTotwTab totw={partialTotw} />);
+
+    expect(screen.getAllByTestId('competition-totw-player-node')).toHaveLength(7);
+    expect(screen.getAllByTestId('competition-totw-placeholder-node')).toHaveLength(4);
+    expect(screen.getByText(i18n.t('competitionDetails.totw.partialBadge'))).toBeTruthy();
+  });
+
+  it('renders unavailable state when no exploitable TOTW exists', () => {
+    renderWithAppProviders(<CompetitionTotwTab totw={unavailableTotw} />);
+
+    expect(screen.getByText(i18n.t('competitionDetails.totw.unavailable'))).toBeTruthy();
+    expect(screen.queryByTestId('competition-totw-player-node')).toBeNull();
   });
 });

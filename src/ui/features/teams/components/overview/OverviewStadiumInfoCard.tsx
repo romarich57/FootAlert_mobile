@@ -36,10 +36,6 @@ export function OverviewStadiumInfoCard({ styles, t, team }: OverviewStadiumInfo
         <Text style={styles.splitLabel}>📅 {t('teamDetails.labels.founded')}</Text>
         <Text style={styles.splitValue}>{toDisplayNumber(team.founded)}</Text>
       </View>
-      <View style={styles.splitRow}>
-        <Text style={styles.splitLabel}>🌱 {t('teamDetails.labels.surface')}</Text>
-        <Text style={styles.splitValue}>{t('teamDetails.overview.surfaceUnknown')}</Text>
-      </View>
     </View>
   );
 }

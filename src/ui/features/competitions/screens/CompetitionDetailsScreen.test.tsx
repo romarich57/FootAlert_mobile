@@ -154,44 +154,48 @@ describe('CompetitionDetailsScreen', () => {
     fireEvent.press(screen.getByTestId('competition-season-option-2024'));
 
     await waitFor(() => {
-      expect(mockedUseCompetitionTotw).toHaveBeenLastCalledWith(61, 2024);
+      expect(screen.getByText('Saison 2024/2025')).toBeTruthy();
     });
   });
 
-  it('hides TOTW tab when no complete team is available', () => {
+  it('shows TOTW tab for league competitions without eager loading the data', () => {
     renderScreen();
 
-    expect(screen.queryByText(i18n.t('competitionDetails.tabs.totw'))).toBeNull();
+    expect(screen.getByText(i18n.t('competitionDetails.tabs.totw'))).toBeTruthy();
+    expect(mockedUseCompetitionTotw).not.toHaveBeenCalled();
   });
 
-  it('shows TOTW tab when a complete team exists', () => {
+  it('loads TOTW only when the user opens the tab', async () => {
     mockedUseCompetitionTotw.mockReturnValue({
       data: completeTotw,
     } as never);
 
     renderScreen();
 
-    expect(screen.getByText(i18n.t('competitionDetails.tabs.totw'))).toBeTruthy();
-  });
-
-  it('falls back to standings when active TOTW becomes unavailable after season change', async () => {
-    mockedUseCompetitionTotw.mockImplementation((_leagueId, season) => ({
-      data: season === 2025 ? completeTotw : null,
-    }) as never);
-
-    renderScreen();
+    expect(mockedUseCompetitionTotw).not.toHaveBeenCalled();
 
     fireEvent.press(screen.getByText(i18n.t('competitionDetails.tabs.totw')));
-    expect(screen.getByText('totw-content')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('competition-season-trigger'));
-    fireEvent.press(screen.getByTestId('competition-season-option-2024'));
+    await waitFor(() => {
+      expect(mockedUseCompetitionTotw).toHaveBeenLastCalledWith(61, 2025);
+      expect(screen.getByText('totw-content')).toBeTruthy();
+    });
+  });
+
+  it('keeps visited tabs mounted when switching back and forth', async () => {
+    renderScreen();
+
+    fireEvent.press(screen.getByText(i18n.t('competitionDetails.tabs.matches')));
+    await waitFor(() => {
+      expect(screen.getByText('matches-content')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText(i18n.t('competitionDetails.tabs.standings')));
 
     await waitFor(() => {
       expect(screen.getByText('standings-content')).toBeTruthy();
     });
-    expect(screen.queryByText('totw-content')).toBeNull();
-    expect(screen.queryByText(i18n.t('competitionDetails.tabs.totw'))).toBeNull();
+    expect(screen.getByText('matches-content', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('renames standings tab to bracket and hides team stats for cup-only competitions', () => {

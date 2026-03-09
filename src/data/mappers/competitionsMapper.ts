@@ -212,6 +212,13 @@ type TotwSlot = {
     y: number;
 };
 
+type TotwPlaceholderSlot = {
+    role: CompetitionTotwRole;
+    gridX: number;
+    gridY: number;
+    label: string;
+};
+
 type TotwCandidate = CompetitionPlayerStat & {
     role: CompetitionTotwRole;
     ratingValue: number;
@@ -342,15 +349,11 @@ function selectTotwLineByRole(
     candidates: TotwCandidate[],
     role: CompetitionTotwRole,
     selectedIds: Set<number>,
-): TotwCandidate[] | null {
+): TotwCandidate[] {
     const selected = candidates
         .filter(candidate => candidate.role === role && !selectedIds.has(candidate.playerId))
         .sort(compareTotwCandidates)
         .slice(0, TOTW_ROLE_COUNTS[role]);
-
-    if (selected.length < TOTW_ROLE_COUNTS[role]) {
-        return null;
-    }
 
     selected.forEach(candidate => {
         selectedIds.add(candidate.playerId);
@@ -381,6 +384,24 @@ function mapTotwPlayers(role: CompetitionTotwRole, line: TotwCandidate[]): Compe
     });
 }
 
+function createTotwPlaceholderSlots(
+    role: CompetitionTotwRole,
+    selectedCount: number,
+): TotwPlaceholderSlot[] {
+    const slots = TOTW_SLOTS[role];
+    const missingCount = Math.max(TOTW_ROLE_COUNTS[role] - selectedCount, 0);
+
+    return Array.from({ length: missingCount }, (_, index) => {
+        const slot = slots[selectedCount + index] ?? slots[slots.length - 1];
+        return {
+            role,
+            gridX: slot?.x ?? 50,
+            gridY: slot?.y ?? 50,
+            label: role,
+        };
+    });
+}
+
 function toTotwCandidate(stat: CompetitionPlayerStat): TotwCandidate | null {
     if (!stat.playerId || !stat.position) {
         return null;
@@ -407,7 +428,7 @@ export function mapCompetitionPlayerStatsToTotw(
     playerStats: CompetitionPlayerStat[],
     season: number,
 ): CompetitionTotwData | null {
-    if (!Array.isArray(playerStats) || playerStats.length === 0 || !Number.isFinite(season)) {
+    if (!Array.isArray(playerStats) || !Number.isFinite(season)) {
         return null;
     }
 
@@ -425,7 +446,7 @@ export function mapCompetitionPlayerStatsToTotw(
     });
 
     const dedupedCandidates = Array.from(dedupedCandidatesByPlayer.values());
-    if (dedupedCandidates.length < 11) {
+    if (dedupedCandidates.length === 0) {
         return null;
     }
 
@@ -435,10 +456,6 @@ export function mapCompetitionPlayerStatsToTotw(
     const midfielders = selectTotwLineByRole(dedupedCandidates, 'MID', selectedIds);
     const attackers = selectTotwLineByRole(dedupedCandidates, 'ATT', selectedIds);
 
-    if (!goalkeepers || !defenders || !midfielders || !attackers) {
-        return null;
-    }
-
     const players = [
         ...mapTotwPlayers('ATT', attackers),
         ...mapTotwPlayers('MID', midfielders),
@@ -446,19 +463,38 @@ export function mapCompetitionPlayerStatsToTotw(
         ...mapTotwPlayers('GK', goalkeepers),
     ];
 
-    if (players.length !== 11) {
-        return null;
+    const resolvedRoles = new Set(players.map(player => player.role));
+    if (players.length < 7 || resolvedRoles.size < 3) {
+        return {
+            formation: '4-3-3',
+            season,
+            averageRating: 0,
+            players: [],
+            state: 'unavailable',
+            placeholderSlots: [],
+        } as CompetitionTotwData;
     }
 
     const averageRating = Number(
         (players.reduce((sum, player) => sum + player.rating, 0) / players.length).toFixed(1),
     );
 
+    const placeholderSlots = [
+        ...createTotwPlaceholderSlots('ATT', attackers.length),
+        ...createTotwPlaceholderSlots('MID', midfielders.length),
+        ...createTotwPlaceholderSlots('DEF', defenders.length),
+        ...createTotwPlaceholderSlots('GK', goalkeepers.length),
+    ];
+
+    const state = placeholderSlots.length === 0 ? 'complete' : 'partial';
+
     return {
         formation: '4-3-3',
         season,
         averageRating,
         players,
+        state,
+        placeholderSlots,
     };
 }
 

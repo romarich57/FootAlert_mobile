@@ -1,0 +1,4 @@
+app_id=com.footalert.app
+Total frames rendered: n/a
+Janky frames: n/a
+TOTAL PSS: n/a

@@ -4,8 +4,18 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
-import type { CompetitionTotwData } from '../types/competitions.types';
+import type { CompetitionTotwData, CompetitionTotwRole } from '../types/competitions.types';
 import { PitchFormation } from './PitchFormation';
+
+type CompetitionTotwViewData = CompetitionTotwData & {
+    state?: 'complete' | 'partial' | 'unavailable';
+    placeholderSlots?: Array<{
+        role: CompetitionTotwRole;
+        gridX: number;
+        gridY: number;
+        label: string;
+    }>;
+};
 
 type CompetitionTotwTabProps = {
     totw: CompetitionTotwData;
@@ -68,6 +78,19 @@ function createStyles(colors: ThemeColors) {
             fontSize: 12,
             fontWeight: '800',
         },
+        unavailableWrap: {
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surfaceElevated,
+            padding: 18,
+        },
+        unavailableText: {
+            color: colors.textMuted,
+            fontSize: 15,
+            fontWeight: '600',
+            lineHeight: 21,
+        },
     });
 }
 
@@ -79,6 +102,9 @@ export function CompetitionTotwTab({ totw, onPressPlayer }: CompetitionTotwTabPr
     const { t } = useTranslation();
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const viewTotw = totw as CompetitionTotwViewData;
+    const state = viewTotw.state ?? 'complete';
+    const placeholderSlots = viewTotw.placeholderSlots ?? [];
 
     return (
         <View style={styles.container}>
@@ -86,26 +112,44 @@ export function CompetitionTotwTab({ totw, onPressPlayer }: CompetitionTotwTabPr
                 <View style={styles.card}>
                     <View style={styles.headerRow}>
                         <Text style={styles.title}>{t('competitionDetails.totw.title')}</Text>
-                        <View style={styles.badgesRow}>
-                            <View style={styles.badge}>
-                                <Text style={styles.badgeText}>
-                                    {t('competitionDetails.totw.formationLabel', { value: totw.formation })}
-                                </Text>
+                        {state !== 'unavailable' ? (
+                            <View style={styles.badgesRow}>
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>
+                                        {t('competitionDetails.totw.formationLabel', { value: totw.formation })}
+                                    </Text>
+                                </View>
+                                <View style={[styles.badge, styles.badgePrimary]}>
+                                    <Text style={styles.badgeText}>
+                                        {t('competitionDetails.totw.averageRating', {
+                                            value: toOneDecimal(totw.averageRating),
+                                        })}
+                                    </Text>
+                                </View>
+                                {state === 'partial' ? (
+                                    <View style={styles.badge}>
+                                        <Text style={styles.badgeText}>
+                                            {t('competitionDetails.totw.partialBadge')}
+                                        </Text>
+                                    </View>
+                                ) : null}
                             </View>
-                            <View style={[styles.badge, styles.badgePrimary]}>
-                                <Text style={styles.badgeText}>
-                                    {t('competitionDetails.totw.averageRating', {
-                                        value: toOneDecimal(totw.averageRating),
-                                    })}
-                                </Text>
-                            </View>
-                        </View>
+                        ) : null}
                     </View>
 
-                    <PitchFormation
-                        players={totw.players}
-                        onPressPlayer={onPressPlayer}
-                    />
+                    {state === 'unavailable' ? (
+                        <View style={styles.unavailableWrap}>
+                            <Text style={styles.unavailableText}>
+                                {t('competitionDetails.totw.unavailable')}
+                            </Text>
+                        </View>
+                    ) : (
+                        <PitchFormation
+                            players={totw.players}
+                            placeholderSlots={placeholderSlots}
+                            onPressPlayer={onPressPlayer}
+                        />
+                    )}
                 </View>
             </ScrollView>
         </View>

@@ -9,6 +9,7 @@ import {
   syncPushTokenRegistration,
 } from '@data/notifications/pushTokenLifecycle';
 import type { AppPreferences } from '@/shared/types/preferences.types';
+import { appEnv } from '@data/config/env';
 
 const mockTelemetry = {
   addBreadcrumb: jest.fn(),
@@ -57,6 +58,7 @@ function renderProvider(
 describe('NotificationsRuntimeProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    appEnv.mobileValidationMode = 'off';
     mockedStartPushNotificationRuntime.mockResolvedValue(undefined);
     mockedStopPushNotificationRuntime.mockImplementation(() => undefined);
     mockedSyncPushTokenRegistration.mockResolvedValue(undefined);
@@ -106,5 +108,31 @@ describe('NotificationsRuntimeProvider', () => {
     });
 
     expect(mockTelemetry.trackError).not.toHaveBeenCalled();
+  });
+
+  it('skips push sync and runtime in validation modes', async () => {
+    appEnv.mobileValidationMode = 'maestro';
+
+    renderProvider();
+
+    await waitFor(() => {
+      expect(mockTelemetry.addBreadcrumb).toHaveBeenCalledWith(
+        'notifications.validation_mode_skipped',
+        {
+          mode: 'maestro',
+          stage: 'sync',
+        },
+      );
+    });
+
+    expect(mockTelemetry.addBreadcrumb).toHaveBeenCalledWith(
+      'notifications.validation_mode_skipped',
+      {
+        mode: 'maestro',
+        stage: 'runtime',
+      },
+    );
+    expect(mockedSyncPushTokenRegistration).not.toHaveBeenCalled();
+    expect(mockedStartPushNotificationRuntime).not.toHaveBeenCalled();
   });
 });

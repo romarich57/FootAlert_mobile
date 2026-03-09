@@ -247,6 +247,14 @@ function recordCircuitFailure(family: string, statusCode: number): void {
 
   const nextOpenUntil = Date.now() + resolveUpstreamCircuitBreakerWindowMs();
   state.openUntilMs = Math.max(state.openUntilMs, nextOpenUntil);
+
+  // Alerte à l'ouverture du circuit pour diagnostic en production
+  console.warn(
+    `[circuit-breaker] Circuit ouvert pour la famille "${family}" — ` +
+      `échecs consécutifs: ${state.consecutiveFailures}, ` +
+      `rate-limits consécutifs: ${state.consecutiveRateLimits}, ` +
+      `ouvert jusqu'à: ${new Date(state.openUntilMs).toISOString()}`,
+  );
 }
 
 export async function apiFootballGet<T>(

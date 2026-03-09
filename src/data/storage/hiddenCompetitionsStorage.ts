@@ -20,7 +20,3 @@ export async function removeHiddenCompetitionId(competitionId: string): Promise<
     const nextIds = currentIds.filter(id => id !== competitionId);
     await setJsonValue(HIDDEN_COMPETITIONS_KEY, nextIds);
 }
-
-export async function setHiddenCompetitionIds(competitionIds: string[]): Promise<void> {
-    await setJsonValue(HIDDEN_COMPETITIONS_KEY, competitionIds);
-}

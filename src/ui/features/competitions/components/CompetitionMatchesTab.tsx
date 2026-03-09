@@ -1,6 +1,6 @@
-import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { ActivityIndicator, View, Text, Image, Pressable } from 'react-native';
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { AppPressable } from '@ui/shared/components';
@@ -44,8 +44,11 @@ export function CompetitionMatchesTab({
         data,
         isLoading,
         error,
+        fetchPreviousPage,
         fetchNextPage,
+        hasPreviousPage,
         hasNextPage,
+        isFetchingPreviousPage,
         isFetchingNextPage,
     } = useCompetitionFixtures(competitionId, season);
 
@@ -59,9 +62,6 @@ export function CompetitionMatchesTab({
         sortBy: 'round_asc', // Default sort
         teamId: null,
     });
-
-    const flashListRef = useRef<FlashListRef<ListItem>>(null);
-    const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
 
     const uniqueTeams = useMemo(() => {
         if (!fixtures) return [];
@@ -151,40 +151,26 @@ export function CompetitionMatchesTab({
         return items;
     }, [processedFixtures, t]);
 
-    // Auto-scroll to current/next match
-    useEffect(() => {
-        let autoScrollTimeout: ReturnType<typeof setTimeout> | null = null;
-
-        if (!hasAutoScrolled && listData.length > 0 && flashListRef.current) {
-            const firstUnfinishedIndex = listData.findIndex((item) => {
-                if (item.type !== 'fixture') return false;
-                const status = item.data.status;
-                return !['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD'].includes(status);
-            });
-
-            if (firstUnfinishedIndex !== -1) {
-                // Delay scroll slightly to allow layout
-                autoScrollTimeout = setTimeout(() => {
-                    flashListRef.current?.scrollToIndex({ index: firstUnfinishedIndex, animated: true, viewPosition: 0 });
-                    setHasAutoScrolled(true);
-                }, 500);
-            } else {
-                setHasAutoScrolled(true); // if all are finished, nothing to scroll to
-            }
+    const handleStartReached = useCallback(() => {
+        if (hasPreviousPage && !isFetchingPreviousPage) {
+            fetchPreviousPage();
         }
-
-        return () => {
-            if (autoScrollTimeout !== null) {
-                clearTimeout(autoScrollTimeout);
-            }
-        };
-    }, [listData, hasAutoScrolled]);
+    }, [fetchPreviousPage, hasPreviousPage, isFetchingPreviousPage]);
 
     const handleEndReached = useCallback(() => {
         if (hasNextPage && !isFetchingNextPage) {
             fetchNextPage();
         }
     }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+    const renderHeaderLoader = useCallback(() => {
+        if (!isFetchingPreviousPage) return null;
+        return (
+            <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+        );
+    }, [isFetchingPreviousPage, colors.primary, styles]);
 
     const renderFooter = useCallback(() => {
         if (!isFetchingNextPage) return null;
@@ -314,15 +300,17 @@ export function CompetitionMatchesTab({
             </View>
 
             <FlashList
-                ref={flashListRef}
                 data={listData}
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 getItemType={(item) => item.type}
                 estimatedItemSize={70}
                 showsVerticalScrollIndicator={false}
+                onStartReached={handleStartReached}
+                onStartReachedThreshold={0.3}
                 onEndReached={handleEndReached}
                 onEndReachedThreshold={0.3}
+                ListHeaderComponent={renderHeaderLoader}
                 ListFooterComponent={renderFooter}
             />
 

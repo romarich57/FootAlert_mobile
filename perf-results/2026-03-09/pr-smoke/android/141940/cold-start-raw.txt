@@ -1,0 +1,42 @@
+[perf] cold start run_dir=perf-results/2026-03-09/pr-smoke/android/141940
+[perf] app_id=com.footalert.app activity=.MainActivity runs=5
+[perf] run=1
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 1425
+WaitTime: 1427
+Complete
+[perf] run=2
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 1082
+WaitTime: 1083
+Complete
+[perf] run=3
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 1208
+WaitTime: 1210
+Complete
+[perf] run=4
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 883
+WaitTime: 918
+Complete
+[perf] run=5
+Starting: Intent { cmp=com.footalert.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.footalert.app/.MainActivity
+TotalTime: 1310
+WaitTime: 1317
+Complete

@@ -10,6 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { isMobileValidationMode } from '@data/config/env';
 import { isOnboardingCompleted } from '@data/storage/onboardingStorage';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -113,7 +114,20 @@ export function SplashScreen({ navigation }: Props) {
   }, []);
 
   function navigateNext() {
+    if (!navigation.isFocused()) {
+      return;
+    }
+
+    if (isMobileValidationMode('maestro') || isMobileValidationMode('perf')) {
+      navigation.replace('MainTabs', { screen: 'Matches' });
+      return;
+    }
+
     isOnboardingCompleted().then(completed => {
+      if (!navigation.isFocused()) {
+        return;
+      }
+
       if (completed) {
         navigation.replace('MainTabs', { screen: 'Matches' });
       } else {

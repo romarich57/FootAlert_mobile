@@ -2,20 +2,22 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
+import { fetchCompetitionTeamStats } from '@data/endpoints/competitionsApi';
 import { useCompetitionTeamStats } from '@ui/features/competitions/hooks/useCompetitionTeamStats';
 import { useCompetitionStandings } from '@ui/features/competitions/hooks/useCompetitionStandings';
-import { fetchTeamAdvancedStats, fetchTeamStatistics } from '@data/endpoints/teamsApi';
-import type { StandingGroup, StandingRow } from '@ui/features/competitions/types/competitions.types';
+import type {
+  CompetitionTeamStatsDashboardData,
+  StandingGroup,
+  StandingRow,
+} from '@domain/contracts/competitions.types';
 
 jest.mock('@ui/features/competitions/hooks/useCompetitionStandings');
-jest.mock('@data/endpoints/teamsApi', () => ({
-  fetchTeamStatistics: jest.fn(),
-  fetchTeamAdvancedStats: jest.fn(),
+jest.mock('@data/endpoints/competitionsApi', () => ({
+  fetchCompetitionTeamStats: jest.fn(),
 }));
 
 const mockedUseCompetitionStandings = jest.mocked(useCompetitionStandings);
-const mockedFetchTeamStatistics = jest.mocked(fetchTeamStatistics);
-const mockedFetchTeamAdvancedStats = jest.mocked(fetchTeamAdvancedStats);
+const mockedFetchCompetitionTeamStats = jest.mocked(fetchCompetitionTeamStats);
 
 function createStandingRow(overrides: Partial<StandingRow> = {}): StandingRow {
   return {
@@ -54,8 +56,184 @@ function createStandingRow(overrides: Partial<StandingRow> = {}): StandingRow {
   };
 }
 
-function createStandings(rows: StandingRow[]): StandingGroup[] {
-  return [{ groupName: 'League', rows }];
+function createStandings(rows: StandingRow[], groupName = 'League'): StandingGroup[] {
+  return [{ groupName, rows }];
+}
+
+function createCompetitionTeamStatsResponse(
+  overrides: Partial<CompetitionTeamStatsDashboardData> = {},
+): CompetitionTeamStatsDashboardData {
+  return {
+    summary: {
+      metrics: [
+        'pointsPerMatch',
+        'winRate',
+        'goalsScoredPerMatch',
+        'goalsConcededPerMatch',
+        'goalDiffPerMatch',
+        'formIndex',
+        'formPointsPerMatch',
+      ],
+      leaderboards: {
+        pointsPerMatch: {
+          metric: 'pointsPerMatch',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 2.6 }],
+        },
+        winRate: {
+          metric: 'winRate',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 72.3 }],
+        },
+        goalsScoredPerMatch: {
+          metric: 'goalsScoredPerMatch',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 2.1 }],
+        },
+        goalsConcededPerMatch: {
+          metric: 'goalsConcededPerMatch',
+          sortOrder: 'asc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 0.8 }],
+        },
+        goalDiffPerMatch: {
+          metric: 'goalDiffPerMatch',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 1.3 }],
+        },
+        formIndex: {
+          metric: 'formIndex',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 11 }],
+        },
+        formPointsPerMatch: {
+          metric: 'formPointsPerMatch',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 2.2 }],
+        },
+      },
+    },
+    homeAway: {
+      metrics: [
+        'homePPG',
+        'awayPPG',
+        'homeGoalsFor',
+        'awayGoalsFor',
+        'homeGoalsAgainst',
+        'awayGoalsAgainst',
+        'deltaHomeAwayPPG',
+        'deltaHomeAwayGoalsFor',
+        'deltaHomeAwayGoalsAgainst',
+      ],
+      leaderboards: {
+        homePPG: {
+          metric: 'homePPG',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 2.8 }],
+        },
+        awayPPG: {
+          metric: 'awayPPG',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 1.8 }],
+        },
+        homeGoalsFor: {
+          metric: 'homeGoalsFor',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 19 }],
+        },
+        awayGoalsFor: {
+          metric: 'awayGoalsFor',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 12 }],
+        },
+        homeGoalsAgainst: {
+          metric: 'homeGoalsAgainst',
+          sortOrder: 'asc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 4 }],
+        },
+        awayGoalsAgainst: {
+          metric: 'awayGoalsAgainst',
+          sortOrder: 'asc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 7 }],
+        },
+        deltaHomeAwayPPG: {
+          metric: 'deltaHomeAwayPPG',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 1 }],
+        },
+        deltaHomeAwayGoalsFor: {
+          metric: 'deltaHomeAwayGoalsFor',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 7 }],
+        },
+        deltaHomeAwayGoalsAgainst: {
+          metric: 'deltaHomeAwayGoalsAgainst',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 3 }],
+        },
+      },
+    },
+    advanced: {
+      metrics: [
+        'cleanSheets',
+        'failedToScore',
+        'xGPerMatch',
+        'possession',
+        'shotsPerMatch',
+        'shotsOnTargetPerMatch',
+      ],
+      rows: [
+        {
+          teamId: 1,
+          teamName: 'Alpha',
+          teamLogo: 'alpha.png',
+          cleanSheets: 9,
+          failedToScore: 2,
+          xGPerMatch: 1.91,
+          possession: 58.3,
+          shotsPerMatch: 14.2,
+          shotsOnTargetPerMatch: 5.1,
+          goalMinuteBreakdown: [],
+        },
+      ],
+      top10TeamIds: [1],
+      unavailableMetrics: [],
+      state: 'available',
+      reason: null,
+      leaderboards: {
+        cleanSheets: {
+          metric: 'cleanSheets',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 9 }],
+        },
+        failedToScore: {
+          metric: 'failedToScore',
+          sortOrder: 'asc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 2 }],
+        },
+        xGPerMatch: {
+          metric: 'xGPerMatch',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 1.91 }],
+        },
+        possession: {
+          metric: 'possession',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 58.3 }],
+        },
+        shotsPerMatch: {
+          metric: 'shotsPerMatch',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 14.2 }],
+        },
+        shotsOnTargetPerMatch: {
+          metric: 'shotsOnTargetPerMatch',
+          sortOrder: 'desc',
+          items: [{ teamId: 1, teamName: 'Alpha', teamLogo: 'alpha.png', value: 5.1 }],
+        },
+      },
+    },
+    ...overrides,
+  };
 }
 
 function createWrapper() {
@@ -85,20 +263,7 @@ describe('useCompetitionTeamStats', () => {
       error: null,
     } as never);
 
-    mockedFetchTeamStatistics.mockResolvedValue({
-      fixtures: {
-        clean_sheet: { total: 7 },
-        failed_to_score: { total: 2 },
-      },
-    } as never);
-    mockedFetchTeamAdvancedStats.mockResolvedValue({
-      metrics: {
-        expectedGoalsPerMatch: { value: 1.8 },
-        possession: { value: 55.2 },
-        shotsPerMatch: { value: 13.1 },
-        shotsOnTargetPerMatch: { value: 4.8 },
-      },
-    } as never);
+    mockedFetchCompetitionTeamStats.mockResolvedValue(createCompetitionTeamStatsResponse());
   });
 
   it('returns base standings-derived sections when advanced is disabled', () => {
@@ -117,9 +282,10 @@ describe('useCompetitionTeamStats', () => {
     expect(result.current.summary.leaderboards.pointsPerMatch.items.length).toBeGreaterThan(0);
     expect(result.current.homeAway.leaderboards.homePPG.items.length).toBeGreaterThan(0);
     expect(result.current.hasAdvancedData).toBe(false);
+    expect(result.current.shouldRenderAdvancedSection).toBe(true);
   });
 
-  it('does not execute advanced queries when advancedEnabled is false', async () => {
+  it('does not execute the aggregated team-stats query when advanced is disabled', async () => {
     renderHook(
       () =>
         useCompetitionTeamStats({
@@ -131,156 +297,11 @@ describe('useCompetitionTeamStats', () => {
     );
 
     await waitFor(() => {
-      expect(mockedFetchTeamStatistics).not.toHaveBeenCalled();
-      expect(mockedFetchTeamAdvancedStats).not.toHaveBeenCalled();
+      expect(mockedFetchCompetitionTeamStats).not.toHaveBeenCalled();
     });
   });
 
-  it('runs advanced queries for top 10 teams when enabled', async () => {
-    mockedUseCompetitionStandings.mockReturnValue({
-      data: createStandings(
-        Array.from({ length: 12 }, (_, index) =>
-          createStandingRow({
-            teamId: index + 1,
-            teamName: `Team ${index + 1}`,
-            points: 40 - index,
-            goalsDiff: 20 - index,
-            goalsFor: 30 - index,
-          }),
-        ),
-      ),
-      isLoading: false,
-      error: null,
-    } as never);
-
-    renderHook(
-      () =>
-        useCompetitionTeamStats({
-          leagueId: 61,
-          season: 2025,
-          advancedEnabled: true,
-        }),
-      { wrapper: createWrapper() },
-    );
-
-    await waitFor(() => {
-      expect(mockedFetchTeamStatistics).toHaveBeenCalledTimes(10);
-      expect(mockedFetchTeamAdvancedStats).toHaveBeenCalledTimes(10);
-    });
-
-    const calledTeamIds = mockedFetchTeamStatistics.mock.calls.map(call => Number(call[2]));
-    expect(new Set(calledTeamIds).size).toBe(10);
-    expect(calledTeamIds).toContain(1);
-    expect(calledTeamIds).not.toContain(12);
-  });
-
-  it('limits advanced team request concurrency to 3 by default', async () => {
-    mockedUseCompetitionStandings.mockReturnValue({
-      data: createStandings(
-        Array.from({ length: 8 }, (_, index) =>
-          createStandingRow({
-            teamId: index + 1,
-            teamName: `Team ${index + 1}`,
-            points: 40 - index,
-          }),
-        ),
-      ),
-      isLoading: false,
-      error: null,
-    } as never);
-
-    let inFlight = 0;
-    let maxInFlight = 0;
-
-    mockedFetchTeamStatistics.mockImplementation(async () => {
-      inFlight += 1;
-      maxInFlight = Math.max(maxInFlight, inFlight);
-      await new Promise<void>(resolve => {
-        setTimeout(() => resolve(), 10);
-      });
-      inFlight -= 1;
-
-      return {
-        fixtures: {
-          clean_sheet: { total: 7 },
-          failed_to_score: { total: 2 },
-        },
-      } as never;
-    });
-
-    renderHook(
-      () =>
-        useCompetitionTeamStats({
-          leagueId: 61,
-          season: 2025,
-          advancedEnabled: true,
-        }),
-      { wrapper: createWrapper() },
-    );
-
-    await waitFor(() => {
-      expect(mockedFetchTeamStatistics).toHaveBeenCalledTimes(8);
-      expect(mockedFetchTeamAdvancedStats).toHaveBeenCalledTimes(8);
-    });
-
-    expect(maxInFlight).toBeLessThanOrEqual(3);
-  });
-
-  it('supports custom advanced request concurrency', async () => {
-    mockedUseCompetitionStandings.mockReturnValue({
-      data: createStandings(
-        Array.from({ length: 5 }, (_, index) =>
-          createStandingRow({
-            teamId: index + 1,
-            teamName: `Team ${index + 1}`,
-            points: 40 - index,
-          }),
-        ),
-      ),
-      isLoading: false,
-      error: null,
-    } as never);
-
-    let inFlight = 0;
-    let maxInFlight = 0;
-
-    mockedFetchTeamStatistics.mockImplementation(async () => {
-      inFlight += 1;
-      maxInFlight = Math.max(maxInFlight, inFlight);
-      await new Promise<void>(resolve => {
-        setTimeout(() => resolve(), 10);
-      });
-      inFlight -= 1;
-      return {
-        fixtures: {
-          clean_sheet: { total: 7 },
-          failed_to_score: { total: 2 },
-        },
-      } as never;
-    });
-
-    renderHook(
-      () =>
-        useCompetitionTeamStats({
-          leagueId: 61,
-          season: 2025,
-          advancedEnabled: true,
-          advancedConcurrency: 1,
-        }),
-      { wrapper: createWrapper() },
-    );
-
-    await waitFor(() => {
-      expect(mockedFetchTeamStatistics).toHaveBeenCalledTimes(5);
-      expect(mockedFetchTeamAdvancedStats).toHaveBeenCalledTimes(5);
-    });
-
-    expect(maxInFlight).toBe(1);
-  });
-
-  it('keeps advanced section non-blocking when partial failures happen', async () => {
-    mockedFetchTeamAdvancedStats.mockRejectedValueOnce(new Error('advanced endpoint failed'));
-
+  it('runs a single aggregated request when advanced is enabled', async () => {
     const { result } = renderHook(
       () =>
         useCompetitionTeamStats({
@@ -292,41 +313,22 @@ describe('useCompetitionTeamStats', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.isAdvancedLoading).toBe(false);
+      expect(mockedFetchCompetitionTeamStats).toHaveBeenCalledTimes(1);
     });
-
-    expect(result.current.hasAdvancedData).toBe(true);
-    expect(result.current.advancedError).toBeInstanceOf(Error);
-    expect(result.current.advanced.leaderboards.cleanSheets.items.length).toBeGreaterThan(0);
-  });
-
-  it('aggregates advanced data and exposes loading/error states', async () => {
-    const { result } = renderHook(
-      () =>
-        useCompetitionTeamStats({
-          leagueId: 61,
-          season: 2025,
-          advancedEnabled: true,
-        }),
-      { wrapper: createWrapper() },
-    );
-
-    expect(result.current.isBaseLoading).toBe(false);
-    expect(result.current.baseError).toBeNull();
 
     await waitFor(() => {
       expect(result.current.isAdvancedLoading).toBe(false);
     });
 
-    expect(result.current.advancedError).toBeNull();
-    expect(result.current.hasAdvancedData).toBe(true);
+    expect(result.current.isAdvancedLoading).toBe(false);
     expect(result.current.advancedProgress).toBe(100);
-    expect(result.current.advanced.leaderboards.xGPerMatch.items[0]?.value).toBe(1.8);
-    expect(result.current.advanced.leaderboards.possession.items[0]?.value).toBe(55.2);
+    expect(result.current.hasAdvancedData).toBe(true);
+    expect(result.current.advanced.state).toBe('available');
+    expect(result.current.advanced.leaderboards.xGPerMatch.items[0]?.value).toBe(1.91);
   });
 
-  it('disables advanced requests when network-lite mode is enabled', async () => {
-    const { result } = renderHook(
+  it('keeps the aggregated advanced request enabled on network-lite mode after user opt-in', async () => {
+    renderHook(
       () =>
         useCompetitionTeamStats({
           leagueId: 61,
@@ -338,12 +340,107 @@ describe('useCompetitionTeamStats', () => {
     );
 
     await waitFor(() => {
+      expect(mockedFetchCompetitionTeamStats).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('hides the advanced section for grouped competitions without hitting the aggregated endpoint', async () => {
+    mockedUseCompetitionStandings.mockReturnValue({
+      data: [
+        { groupName: 'Group A', rows: [createStandingRow({ teamId: 1, group: 'Group A' })] },
+        { groupName: 'Group B', rows: [createStandingRow({ teamId: 2, group: 'Group B' })] },
+      ],
+      isLoading: false,
+      error: null,
+    } as never);
+
+    const { result } = renderHook(
+      () =>
+        useCompetitionTeamStats({
+          leagueId: 61,
+          season: 2025,
+          advancedEnabled: true,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
       expect(result.current.isBaseLoading).toBe(false);
     });
 
-    expect(mockedFetchTeamStatistics).not.toHaveBeenCalled();
-    expect(mockedFetchTeamAdvancedStats).not.toHaveBeenCalled();
-    expect(result.current.isAdvancedLoading).toBe(false);
-    expect(result.current.advancedProgress).toBe(0);
+    expect(mockedFetchCompetitionTeamStats).not.toHaveBeenCalled();
+    expect(result.current.shouldRenderAdvancedSection).toBe(false);
+    expect(result.current.advanced.state).toBe('unavailable');
+    expect(result.current.advanced.reason).toBe('grouped_competition');
+  });
+
+  it('hides the advanced section when backend marks advanced data unavailable', async () => {
+    mockedFetchCompetitionTeamStats.mockResolvedValue(
+      createCompetitionTeamStatsResponse({
+        advanced: {
+          ...createCompetitionTeamStatsResponse().advanced,
+          rows: [],
+          top10TeamIds: [],
+          state: 'unavailable',
+          reason: 'provider_missing',
+          leaderboards: {
+            ...createCompetitionTeamStatsResponse().advanced.leaderboards,
+            cleanSheets: {
+              metric: 'cleanSheets',
+              sortOrder: 'desc',
+              items: [],
+            },
+            failedToScore: {
+              metric: 'failedToScore',
+              sortOrder: 'asc',
+              items: [],
+            },
+            xGPerMatch: {
+              metric: 'xGPerMatch',
+              sortOrder: 'desc',
+              items: [],
+            },
+            possession: {
+              metric: 'possession',
+              sortOrder: 'desc',
+              items: [],
+            },
+            shotsPerMatch: {
+              metric: 'shotsPerMatch',
+              sortOrder: 'desc',
+              items: [],
+            },
+            shotsOnTargetPerMatch: {
+              metric: 'shotsOnTargetPerMatch',
+              sortOrder: 'desc',
+              items: [],
+            },
+          },
+        },
+      }),
+    );
+
+    const { result } = renderHook(
+      () =>
+        useCompetitionTeamStats({
+          leagueId: 61,
+          season: 2025,
+          advancedEnabled: true,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(mockedFetchCompetitionTeamStats).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(result.current.shouldRenderAdvancedSection).toBe(false);
+    });
+
+    expect(result.current.hasAdvancedData).toBe(false);
+    expect(result.current.shouldRenderAdvancedSection).toBe(false);
+    expect(result.current.advanced.state).toBe('unavailable');
+    expect(result.current.advanced.reason).toBe('provider_missing');
   });
 });

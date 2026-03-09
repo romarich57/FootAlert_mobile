@@ -87,6 +87,6 @@ describe('useTeamTransfers', () => {
     await capturedQueryConfig?.queryFn?.({ signal: undefined });
 
     expect(mockedFetchTeamTransfers).toHaveBeenCalledWith('529', 2025, undefined);
-    expect(mockedMapTransfersToTeamTransfers).toHaveBeenCalledWith([], '529', null);
+    expect(mockedMapTransfersToTeamTransfers).toHaveBeenCalledWith([], '529', 2025);
   });
 });

@@ -1,6 +1,7 @@
 jest.mock('@data/config/env', () => ({
   appEnv: {
     mobileApiBaseUrl: 'https://api.footalert.test/v1',
+    mobileValidationMode: 'off',
     mobileAuthAttestationMode: 'mock',
     mobileAttestationStrategy: 'disabled',
   },
@@ -66,6 +67,7 @@ describe('mobileSessionAuth', () => {
     jest.clearAllMocks();
     await clearMobileSessionTokenForTests();
     resetMobileSessionAuthStateForTests();
+    appEnv.mobileValidationMode = 'off';
     appEnv.mobileAuthAttestationMode = 'mock';
     appEnv.mobileAttestationStrategy = 'disabled';
     delete globalThis.__FOOTALERT_MOBILE_ATTESTATION_PROVIDER__;
@@ -137,6 +139,19 @@ describe('mobileSessionAuth', () => {
       Authorization: 'Bearer session-token-1',
     });
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips session auth headers for api reads in validation mode', async () => {
+    appEnv.mobileValidationMode = 'maestro';
+
+    const headers = await buildSensitiveMobileAuthHeaders({
+      method: 'GET',
+      url: 'https://api.footalert.test/v1/matches/101',
+      scope: 'api:read',
+    });
+
+    expect(headers).toEqual({});
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('reuses cached token without reattesting until expiry window', async () => {

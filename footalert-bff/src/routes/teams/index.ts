@@ -287,39 +287,24 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
     );
   });
 
-  app.get(
-    '/v1/teams/:id/standings',
-    {
-      config: {
-        rateLimit: {
-          max: 30,
-          timeWindow: '1 minute',
-        },
-      },
-    },
-    async request => {
-      parseOrThrow(teamIdParamsSchema, request.params);
-      const query = parseOrThrow(standingsQuerySchema, request.query);
-
-      return withCache(`team:standings:${request.url}`, 60_000, async () => {
-        const data = await apiFootballGet<ApiFootballUnknownListResponse>(
-          `/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`,
-        );
-
-        return normalizeStandingsPayload(data);
-      });
-    },
-  );
-
   app.get('/v1/teams/:id/stats', async request => {
     const params = parseOrThrow(teamIdParamsSchema, request.params);
     const query = parseOrThrow(statsQuerySchema, request.query);
 
-    return withCache(`team:stats:${request.url}`, 60_000, () =>
-      apiFootballGet(
+    return withCache(`team:stats:${request.url}`, 60_000, async () => {
+      const payload = await apiFootballGet<{ response?: unknown }>(
         `/teams/statistics?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}&team=${encodeURIComponent(params.id)}`,
-      ),
-    );
+      );
+
+      const normalizedResponse = Array.isArray(payload.response)
+        ? (payload.response[0] ?? null)
+        : (payload.response ?? null);
+
+      return {
+        response: normalizedResponse,
+        noData: normalizedResponse === null && Array.isArray(payload.response),
+      };
+    });
   });
 
   app.get(
@@ -505,8 +490,10 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
     const params = parseOrThrow(teamIdParamsSchema, request.params);
     parseOrThrow(z.object({}).strict(), request.query);
 
-    return withCache(`team:trophies:${request.url}`, 120_000, () =>
-      fetchTeamTrophiesWithFallback(params.id, request.log),
+    return withCache(
+      buildCanonicalCacheKey('team:trophies', { teamId: params.id }),
+      120_000,
+      () => fetchTeamTrophiesWithFallback(params.id, request.log),
     );
   });
 }
