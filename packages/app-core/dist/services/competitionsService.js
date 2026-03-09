@@ -88,5 +88,8 @@ export function createCompetitionsReadService({ http, telemetry }) {
                 topRedCards: (raw.topRedCards ?? []),
             };
         },
+        async fetchCompetitionTeamStats(leagueId, season, signal) {
+            return http.get(`/competitions/${encodeURIComponent(String(leagueId))}/team-stats`, { season }, { signal });
+        },
     };
 }

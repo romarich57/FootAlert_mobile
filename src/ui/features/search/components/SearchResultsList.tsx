@@ -1,23 +1,28 @@
 import { useMemo } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { appEnv } from '@data/config/env';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import { DiscoveryEntityAvatar } from '@ui/features/follows/components/DiscoveryEntityAvatar';
 import { buildSearchItems, formatMatchKickoff } from '@ui/features/search/components/searchResultsItems';
-import { AppPressable } from '@ui/shared/components';
+import type {
+  SearchEntityTab,
+} from '@ui/features/search/types/search.types';
+import { createSearchResultsListStyles } from '@ui/features/search/components/SearchResultsList.styles';
+import { SearchResultsState } from '@ui/features/search/components/SearchResultsState';
+import {
+  SearchCompetitionRow,
+  SearchMatchRow,
+  SearchPlayerRow,
+  SearchSectionHeader,
+  SearchTeamRow,
+} from '@ui/features/search/components/SearchResultRows';
 import type {
   SearchCompetitionResult,
-  SearchEntityTab,
   SearchMatchResult,
   SearchPlayerResult,
   SearchTeamResult,
 } from '@ui/features/search/types/search.types';
-import { localizePlayerPosition } from '@ui/shared/i18n/playerPosition';
-import { AppImage } from '@ui/shared/media/AppImage';
-import { MIN_TOUCH_TARGET, type ThemeColors } from '@ui/shared/theme/theme';
 
 type SearchResultsListProps = {
   selectedTab: SearchEntityTab;
@@ -35,88 +40,6 @@ type SearchResultsListProps = {
   onPressCompetition: (competitionId: string) => void;
   onPressMatch: (fixtureId: string) => void;
 };
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    listContent: {
-      paddingHorizontal: 16,
-      paddingBottom: 32,
-      gap: 10,
-    },
-    sectionHeader: {
-      paddingTop: 8,
-      paddingBottom: 6,
-    },
-    sectionHeaderText: {
-      color: colors.textMuted,
-      fontSize: 12,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    resultCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-      minHeight: MIN_TOUCH_TARGET,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-    },
-    logoWrap: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceElevated,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-    },
-    logo: {
-      width: 22,
-      height: 22,
-    },
-    textWrap: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    subtitle: {
-      color: colors.textMuted,
-      fontSize: 13,
-      fontWeight: '500',
-    },
-    stateContainer: {
-      paddingHorizontal: 16,
-      paddingVertical: 16,
-      gap: 10,
-    },
-    stateText: {
-      color: colors.textMuted,
-      fontSize: 15,
-      fontWeight: '500',
-    },
-    retryButton: {
-      alignSelf: 'flex-start',
-      minHeight: MIN_TOUCH_TARGET,
-      justifyContent: 'center',
-    },
-    retryText: {
-      color: colors.primary,
-      fontSize: 15,
-      fontWeight: '700',
-    },
-  });
-}
 
 export function SearchResultsList({
   selectedTab,
@@ -136,7 +59,7 @@ export function SearchResultsList({
 }: SearchResultsListProps) {
   const { colors } = useAppTheme();
   const { i18n, t } = useTranslation();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createSearchResultsListStyles(colors), [colors]);
 
   const items = useMemo(
     () =>
@@ -171,73 +94,17 @@ export function SearchResultsList({
           estimatedItemSize={74}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
+            if (item.type === 'section-header') {
+              return <SearchSectionHeader title={item.title} styles={styles} />;
+            }
+
             if (item.type === 'team') {
-              return (
-                <AppPressable
-                  onPress={() => onPressTeam(item.item.teamId)}
-                  style={styles.resultCard}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.item.teamName} ${item.item.country}`.trim()}
-                  testID={`search-result-team-${item.item.teamId}`}
-                >
-                  <View style={styles.logoWrap}>
-                    <DiscoveryEntityAvatar
-                      kind="team"
-                      entityId={item.item.teamId}
-                      imageUrl={item.item.teamLogo}
-                      name={item.item.teamName}
-                      imageStyle={styles.logo}
-                      resizeMode="contain"
-                    />
-                  </View>
-                  <View style={styles.textWrap}>
-                    <Text style={styles.title} numberOfLines={1}>
-                      {item.item.teamName}
-                    </Text>
-                    <Text style={styles.subtitle} numberOfLines={1}>
-                      {item.item.country}
-                    </Text>
-                  </View>
-                </AppPressable>
-              );
+              return <SearchTeamRow item={item.item} styles={styles} onPress={onPressTeam} />;
             }
 
             if (item.type === 'player') {
-              const subtitle = [
-                localizePlayerPosition(item.item.position, t),
-                item.item.teamName,
-                item.item.leagueName,
-              ]
-                .filter(Boolean)
-                .join(' • ');
-
               return (
-                <AppPressable
-                  onPress={() => onPressPlayer(item.item.playerId)}
-                  style={styles.resultCard}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.item.playerName} ${subtitle}`.trim()}
-                  testID={`search-result-player-${item.item.playerId}`}
-                >
-                  <View style={styles.logoWrap}>
-                    <DiscoveryEntityAvatar
-                      kind="player"
-                      entityId={item.item.playerId}
-                      imageUrl={item.item.playerPhoto}
-                      name={item.item.playerName}
-                      imageStyle={styles.logo}
-                      resizeMode="cover"
-                    />
-                  </View>
-                  <View style={styles.textWrap}>
-                    <Text style={styles.title} numberOfLines={1}>
-                      {item.item.playerName}
-                    </Text>
-                    <Text style={styles.subtitle} numberOfLines={1}>
-                      {subtitle}
-                    </Text>
-                  </View>
-                </AppPressable>
+                <SearchPlayerRow item={item.item} styles={styles} t={t} onPress={onPressPlayer} />
               );
             }
 
@@ -248,78 +115,49 @@ export function SearchResultsList({
     }
 
     if (isLoading && (selectedTab === 'teams' || selectedTab === 'players')) {
-      return (
-        <View style={styles.stateContainer}>
-          <Text style={styles.stateText}>{t('screens.search.loading')}</Text>
-        </View>
-      );
+      return <SearchResultsState message={t('screens.search.loading')} styles={styles} />;
     }
 
     if (isError && (selectedTab === 'teams' || selectedTab === 'players')) {
       return (
-        <View style={styles.stateContainer}>
-          <Text style={styles.stateText}>{t('screens.search.error')}</Text>
-          <AppPressable
-            style={styles.retryButton}
-            onPress={onRetry}
-            accessibilityRole="button"
-            accessibilityLabel={t('actions.retry')}
-            testID="search-results-retry-button"
-          >
-            <Text style={styles.retryText}>{t('actions.retry')}</Text>
-          </AppPressable>
-        </View>
+        <SearchResultsState
+          message={t('screens.search.error')}
+          retryLabel={t('actions.retry')}
+          onRetry={onRetry}
+          styles={styles}
+        />
       );
     }
 
-    return (
-      <View style={styles.stateContainer}>
-        <Text style={styles.stateText}>{t('screens.search.hint')}</Text>
-      </View>
-    );
+    return <SearchResultsState message={t('screens.search.hint')} styles={styles} />;
   }
 
   if (!hasEnoughChars) {
     return (
-      <View style={styles.stateContainer}>
-        <Text style={styles.stateText}>
-          {t('screens.search.minChars', { count: appEnv.followsSearchMinChars })}
-        </Text>
-      </View>
+      <SearchResultsState
+        message={t('screens.search.minChars', { count: appEnv.followsSearchMinChars })}
+        styles={styles}
+      />
     );
   }
 
   if (isLoading) {
-    return (
-      <View style={styles.stateContainer}>
-        <Text style={styles.stateText}>{t('screens.search.loading')}</Text>
-      </View>
-    );
+    return <SearchResultsState message={t('screens.search.loading')} styles={styles} />;
   }
 
   if (isError) {
     return (
-      <View style={styles.stateContainer}>
-        <Text style={styles.stateText}>{t('screens.search.error')}</Text>
-        <AppPressable
-          style={styles.retryButton}
-          onPress={onRetry}
-          accessibilityRole="button"
-          accessibilityLabel={t('actions.retry')}
-          testID="search-results-retry-button"
-        >
-          <Text style={styles.retryText}>{t('actions.retry')}</Text>
-        </AppPressable>
-      </View>
+      <SearchResultsState
+        message={t('screens.search.error')}
+        retryLabel={t('actions.retry')}
+        onRetry={onRetry}
+        styles={styles}
+      />
     );
   }
 
   if (items.length === 0) {
-    return (
-      <View style={styles.stateContainer}>
-        <Text style={styles.stateText}>{t('screens.search.empty')}</Text>
-      </View>
-    );
+    return <SearchResultsState message={t('screens.search.empty')} styles={styles} />;
   }
 
   return (
@@ -332,138 +170,38 @@ export function SearchResultsList({
       contentContainerStyle={styles.listContent}
       renderItem={({ item }) => {
         if (item.type === 'section-header') {
-          return (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>{item.title}</Text>
-            </View>
-          );
+          return <SearchSectionHeader title={item.title} styles={styles} />;
         }
 
         if (item.type === 'team') {
-          return (
-            <AppPressable
-              onPress={() => onPressTeam(item.item.teamId)}
-              style={styles.resultCard}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.item.teamName} ${item.item.country}`.trim()}
-              testID={`search-result-team-${item.item.teamId}`}
-            >
-              <View style={styles.logoWrap}>
-                <DiscoveryEntityAvatar
-                  kind="team"
-                  entityId={item.item.teamId}
-                  imageUrl={item.item.teamLogo}
-                  name={item.item.teamName}
-                  imageStyle={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
-              <View style={styles.textWrap}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {item.item.teamName}
-                </Text>
-                <Text style={styles.subtitle} numberOfLines={1}>
-                  {item.item.country}
-                </Text>
-              </View>
-            </AppPressable>
-          );
+          return <SearchTeamRow item={item.item} styles={styles} onPress={onPressTeam} />;
         }
 
         if (item.type === 'player') {
-          const subtitle = [
-            localizePlayerPosition(item.item.position, t),
-            item.item.teamName,
-            item.item.leagueName,
-          ]
-            .filter(Boolean)
-            .join(' • ');
-
           return (
-            <AppPressable
-              onPress={() => onPressPlayer(item.item.playerId)}
-              style={styles.resultCard}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.item.playerName} ${subtitle}`.trim()}
-              testID={`search-result-player-${item.item.playerId}`}
-            >
-              <View style={styles.logoWrap}>
-                <DiscoveryEntityAvatar
-                  kind="player"
-                  entityId={item.item.playerId}
-                  imageUrl={item.item.playerPhoto}
-                  name={item.item.playerName}
-                  imageStyle={styles.logo}
-                  resizeMode="cover"
-                />
-              </View>
-              <View style={styles.textWrap}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {item.item.playerName}
-                </Text>
-                <Text style={styles.subtitle} numberOfLines={1}>
-                  {subtitle}
-                </Text>
-              </View>
-            </AppPressable>
+            <SearchPlayerRow item={item.item} styles={styles} t={t} onPress={onPressPlayer} />
           );
         }
 
         if (item.type === 'competition') {
-          const subtitle = [item.item.country, item.item.type].filter(Boolean).join(' • ');
           return (
-            <AppPressable
-              onPress={() => onPressCompetition(item.item.competitionId)}
-              style={styles.resultCard}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.item.competitionName} ${subtitle}`.trim()}
-              testID={`search-result-competition-${item.item.competitionId}`}
-            >
-              <View style={styles.logoWrap}>
-                {item.item.competitionLogo ? (
-                  <AppImage source={{ uri: item.item.competitionLogo }} style={styles.logo} resizeMode="contain" />
-                ) : (
-                  <MaterialCommunityIcons name="trophy-outline" size={18} color={colors.textMuted} />
-                )}
-              </View>
-              <View style={styles.textWrap}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {item.item.competitionName}
-                </Text>
-                <Text style={styles.subtitle} numberOfLines={1}>
-                  {subtitle}
-                </Text>
-              </View>
-            </AppPressable>
+            <SearchCompetitionRow
+              item={item.item}
+              styles={styles}
+              iconColor={colors.textMuted}
+              onPress={onPressCompetition}
+            />
           );
         }
 
-        const kickoff = formatMatchKickoff(item.item.kickoffAt, i18n.language.startsWith('fr') ? 'fr' : 'en');
-        const title = `${item.item.homeTeamName} vs ${item.item.awayTeamName}`;
-        const subtitle = [item.item.competitionName, kickoff || item.item.statusShort]
-          .filter(Boolean)
-          .join(' • ');
-
         return (
-          <AppPressable
-            onPress={() => onPressMatch(item.item.fixtureId)}
-            style={styles.resultCard}
-            accessibilityRole="button"
-            accessibilityLabel={`${title} ${subtitle}`.trim()}
-            testID={`search-result-match-${item.item.fixtureId}`}
-          >
-            <View style={styles.logoWrap}>
-              <MaterialCommunityIcons name="soccer" size={18} color={colors.textMuted} />
-            </View>
-            <View style={styles.textWrap}>
-              <Text style={styles.title} numberOfLines={1}>
-                {title}
-              </Text>
-              <Text style={styles.subtitle} numberOfLines={1}>
-                {subtitle}
-              </Text>
-            </View>
-          </AppPressable>
+          <SearchMatchRow
+            item={item.item}
+            styles={styles}
+            iconColor={colors.textMuted}
+            kickoff={formatMatchKickoff(item.item.kickoffAt, i18n.language.startsWith('fr') ? 'fr' : 'en')}
+            onPress={onPressMatch}
+          />
         );
       }}
     />

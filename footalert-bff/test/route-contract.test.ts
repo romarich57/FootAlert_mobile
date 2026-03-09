@@ -64,12 +64,28 @@ test('route catalog and route matrix stay in sync with buildServer routes', asyn
 
   const app = await buildApp(t);
   const runtimeRoutes = parsePrintableRoutes(app.printRoutes({ commonPrefix: false }));
-
-  const runtimeKeys = new Set(runtimeRoutes.map(toRouteKey));
   const catalogKeys = new Set(catalog.map(toRouteKey));
   const matrixKeys = new Set(matrix.map(toRouteKey));
 
-  assert.deepEqual([...catalogKeys].sort(), [...runtimeKeys].sort());
+  catalog.forEach(route => {
+    assert.equal(
+      app.hasRoute({
+        method: route.method,
+        url: route.path,
+      }),
+      true,
+      `${toRouteKey(route)} must exist in buildServer routes`,
+    );
+  });
+
+  runtimeRoutes.forEach(route => {
+    assert.equal(
+      catalogKeys.has(toRouteKey(route)),
+      true,
+      `${toRouteKey(route)} must be declared in route-catalog.json`,
+    );
+  });
+
   assert.deepEqual([...matrixKeys].sort(), [...catalogKeys].sort());
 
   matrix.forEach(entry => {

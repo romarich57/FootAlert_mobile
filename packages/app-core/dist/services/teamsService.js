@@ -7,7 +7,7 @@ const listResponseSchema = z
     .passthrough();
 const optionalResponseSchema = z
     .object({
-    response: z.unknown().optional(),
+    response: z.union([z.unknown(), z.array(z.unknown())]).optional(),
 })
     .passthrough();
 const objectResponseSchema = z.object({}).passthrough();
@@ -116,7 +116,11 @@ export function createTeamsReadService({ http, telemetry }) {
                 feature: 'teams.statistics',
                 endpoint: `/teams/${teamId}/stats`,
             });
-            return (payload.response ?? null);
+            const response = payload.response;
+            if (Array.isArray(response)) {
+                return (response[0] ?? null);
+            }
+            return (response ?? null);
         },
         async fetchTeamOverview(params, signal) {
             const rawPayload = await http.get(`/teams/${encodeURIComponent(params.teamId)}/overview`, {
@@ -165,7 +169,11 @@ export function createTeamsReadService({ http, telemetry }) {
                 feature: 'teams.advanced_stats',
                 endpoint: `/teams/${teamId}/advanced-stats`,
             });
-            return (payload.response ?? null);
+            const response = payload.response;
+            if (Array.isArray(response)) {
+                return (response[0] ?? null);
+            }
+            return (response ?? null);
         },
         async fetchTeamPlayers(params, signal) {
             const rawPayload = await http.get(`/teams/${encodeURIComponent(params.teamId)}/players`, {

@@ -15,7 +15,6 @@ import {
 import { buildCursorPageInfo } from '../../lib/pagination/slice.js';
 import { timezoneSchema } from '../../lib/schemas.js';
 import { parseOrThrow } from '../../lib/validation.js';
-
 import {
   buildTeamAdvancedStatsPayload,
   computeLeagueAdvancedTeamStats,
@@ -172,6 +171,13 @@ async function fetchTeamPlayersCursorChunk(input: {
   };
 }
 
+async function fetchStandingsPayload(query: { leagueId: string; season: number }) {
+  const data = await apiFootballGet<ApiFootballUnknownListResponse>(
+    `/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`,
+  );
+  return normalizeStandingsPayload(data);
+}
+
 export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/v1/teams/standings',
@@ -185,14 +191,7 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
     },
     async request => {
       const query = parseOrThrow(standingsQuerySchema, request.query);
-
-      return withCache(`team:standings:${request.url}`, 60_000, async () => {
-        const data = await apiFootballGet<ApiFootballUnknownListResponse>(
-          `/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`,
-        );
-
-        return normalizeStandingsPayload(data);
-      });
+      return withCache(`team:standings:${request.url}`, 60_000, () => fetchStandingsPayload(query));
     },
   );
 
@@ -239,6 +238,12 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
         `/fixtures?team=${encodeURIComponent(params.id)}&next=1&timezone=${encodeURIComponent(query.timezone)}`,
       ),
     );
+  });
+
+  app.get('/v1/teams/:id/standings', async request => {
+    parseOrThrow(teamIdParamsSchema, request.params);
+    const query = parseOrThrow(standingsQuerySchema, request.query);
+    return withCache(`team:standings:${request.url}`, 60_000, () => fetchStandingsPayload(query));
   });
 
   app.get('/v1/teams/:id/overview', async request => {
@@ -299,11 +304,7 @@ export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
       const normalizedResponse = Array.isArray(payload.response)
         ? (payload.response[0] ?? null)
         : (payload.response ?? null);
-
-      return {
-        response: normalizedResponse,
-        noData: normalizedResponse === null && Array.isArray(payload.response),
-      };
+      return { response: normalizedResponse };
     });
   });
 

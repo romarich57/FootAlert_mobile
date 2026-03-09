@@ -29,6 +29,10 @@
   },
   {
     "method": "GET",
+    "path": "/v1/competitions/:id/team-stats"
+  },
+  {
+    "method": "GET",
     "path": "/v1/competitions/:id/bracket"
   },
   {
@@ -137,6 +141,10 @@
   },
   {
     "method": "GET",
+    "path": "/v1/teams/:id/overview"
+  },
+  {
+    "method": "GET",
     "path": "/v1/teams/:id/players"
   },
   {
@@ -229,6 +237,10 @@
   },
   {
     "method": "GET",
+    "path": "/v1/follows/teams/cards"
+  },
+  {
+    "method": "GET",
     "path": "/v1/follows/search/competitions"
   },
   {
@@ -242,6 +254,22 @@
   {
     "method": "GET",
     "path": "/v1/follows/players/:playerId/season/:season"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/players/cards"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/follows/events"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/discovery/teams"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/follows/discovery/players"
   },
   {
     "method": "GET",
