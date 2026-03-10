@@ -7,7 +7,6 @@ import { appEnv } from '@data/config/env';
 import {
   fetchDiscoveryPlayers,
   fetchDiscoveryTeams,
-  searchPlayersByName,
   searchTeamsByName,
 } from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
@@ -63,7 +62,6 @@ const mockedUseNavigation = jest.mocked(useNavigation);
 const mockedSearchGlobal = jest.mocked(searchGlobal);
 const mockedFetchDiscoveryPlayers = jest.mocked(fetchDiscoveryPlayers);
 const mockedFetchDiscoveryTeams = jest.mocked(fetchDiscoveryTeams);
-const mockedSearchPlayersByName = jest.mocked(searchPlayersByName);
 const mockedSearchTeamsByName = jest.mocked(searchTeamsByName);
 
 function createWrapper() {

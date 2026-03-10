@@ -1,17 +1,20 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 jest.mock('@tanstack/react-query', () => ({
   useQuery: jest.fn(),
+  useQueryClient: jest.fn(),
 }));
 
 const mockedUseQuery = jest.mocked(useQuery);
+const mockedUseQueryClient = jest.mocked(useQueryClient);
 
 describe('useCompetitionSeasons', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseQueryClient.mockReturnValue({} as never);
     mockedUseQuery.mockReturnValue({
       data: [],
       isLoading: false,

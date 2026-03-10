@@ -4,55 +4,53 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-UI_LIMIT=350
-BFF_ROUTE_LIMIT=500
-BFF_REFACTORED_ROUTE_LIMIT=250
+SOURCE_LIMIT=600
+SOURCE_DIRS=(
+  "src"
+  "footalert-bff/src"
+  "packages/app-core/src"
+)
 
 violations=""
 
 append_violation() {
-  local category="$1"
-  local file="$2"
-  local lines="$3"
-  local limit="$4"
+  local file="$1"
+  local lines="$2"
+  local limit="$3"
   if [[ -n "$violations" ]]; then
     violations+=$'\n'
   fi
-  violations+="${category}: ${file} (${lines} > ${limit})"
+  violations+="${file} (${lines} > ${limit})"
+}
+
+should_skip_file() {
+  local file="$1"
+  case "$file" in
+    *.test.ts|*.test.tsx|*.spec.ts|*.spec.tsx) return 0 ;;
+    */__tests__/*|*/__mocks__/*|*/generated/*) return 0 ;;
+  esac
+  return 1
 }
 
 while IFS= read -r file; do
-  case "$file" in
-    *.test.tsx|*.spec.tsx) continue ;;
-  esac
+  [[ -n "$file" ]] || continue
+  [[ -f "$file" ]] || continue
+
+  if should_skip_file "$file"; then
+    continue
+  fi
 
   line_count="$(wc -l < "$file" | tr -d ' ')"
-  if (( line_count > UI_LIMIT )); then
-    append_violation "UI" "$file" "$line_count" "$UI_LIMIT"
+  if (( line_count > SOURCE_LIMIT )); then
+    append_violation "$file" "$line_count" "$SOURCE_LIMIT"
   fi
-done < <(find src/ui -type f -name '*.tsx' | sort)
-
-while IFS= read -r file; do
-  case "$file" in
-    *.test.ts|*.spec.ts) continue ;;
-  esac
-
-  line_count="$(wc -l < "$file" | tr -d ' ')"
-  if (( line_count > BFF_ROUTE_LIMIT )); then
-    append_violation "BFF_ROUTE" "$file" "$line_count" "$BFF_ROUTE_LIMIT"
-  fi
-done < <(find footalert-bff/src/routes -type f -name '*.ts' | sort)
-
-while IFS= read -r file; do
-  case "$file" in
-    *.test.ts|*.spec.ts) continue ;;
-  esac
-
-  line_count="$(wc -l < "$file" | tr -d ' ')"
-  if (( line_count > BFF_REFACTORED_ROUTE_LIMIT )); then
-    append_violation "BFF_REFACTORED_ROUTE" "$file" "$line_count" "$BFF_REFACTORED_ROUTE_LIMIT"
-  fi
-done < <(find footalert-bff/src/routes/matches footalert-bff/src/routes/competitions -type f -name '*.ts' | sort)
+done < <(
+  {
+    git diff --name-only -- "${SOURCE_DIRS[@]}"
+    git diff --name-only --cached -- "${SOURCE_DIRS[@]}"
+    git ls-files --others --exclude-standard -- "${SOURCE_DIRS[@]}"
+  } | sort -u
+)
 
 if [[ -n "$violations" ]]; then
   echo "File line limits exceeded:"

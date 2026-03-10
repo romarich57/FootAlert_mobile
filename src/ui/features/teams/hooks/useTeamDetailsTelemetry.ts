@@ -4,6 +4,12 @@ import { useTeamDetailsScreenModel } from '@ui/features/teams/hooks/useTeamDetai
 
 type TeamDetailsScreenModel = ReturnType<typeof useTeamDetailsScreenModel>;
 type TabCacheState = 'cold' | 'warm';
+type TeamTelemetrySelectionContext = {
+  selectionGroup: 'content' | 'standings' | 'transfers';
+  leagueId: string | null;
+  season: number | null;
+  selectionFingerprint: string;
+};
 
 function resolveTabCacheState(
   model: TeamDetailsScreenModel,
@@ -15,10 +21,69 @@ function resolveTabCacheState(
   return 'cold';
 }
 
+function isActiveTabReady(model: TeamDetailsScreenModel): boolean {
+  if (model.activeTab === 'overview') {
+    return model.overviewQuery.coreUpdatedAt > 0;
+  }
+  if (model.activeTab === 'matches') {
+    return model.matchesQuery.dataUpdatedAt > 0 || (model.matchesQuery.isFetched && !model.matchesQuery.isLoading);
+  }
+  if (model.activeTab === 'standings') {
+    return model.standingsQuery.dataUpdatedAt > 0 || (model.standingsQuery.isFetched && !model.standingsQuery.isLoading);
+  }
+  if (model.activeTab === 'stats') {
+    return model.statsQuery.dataUpdatedAt > 0 || model.statsQuery.coreUpdatedAt > 0;
+  }
+  if (model.activeTab === 'transfers') {
+    return model.transfersQuery.dataUpdatedAt > 0 || (model.transfersQuery.isFetched && !model.transfersQuery.isLoading);
+  }
+  if (model.activeTab === 'squad') {
+    return model.squadQuery.dataUpdatedAt > 0 || (model.squadQuery.isFetched && !model.squadQuery.isLoading);
+  }
+  return false;
+}
+
+function resolveActiveSelectionContext(model: TeamDetailsScreenModel): TeamTelemetrySelectionContext {
+  if (model.activeTab === 'transfers') {
+    return {
+      selectionGroup: 'transfers',
+      leagueId: null,
+      season: model.transfersSeason,
+      selectionFingerprint: ['transfers', 'none', model.transfersSeason ?? 'none'].join(':'),
+    };
+  }
+
+  if (model.activeTab === 'standings') {
+    return {
+      selectionGroup: 'standings',
+      leagueId: model.standingsSelection.leagueId,
+      season: model.standingsSelection.season,
+      selectionFingerprint: [
+        'standings',
+        model.standingsSelection.leagueId ?? 'none',
+        model.standingsSelection.season ?? 'none',
+      ].join(':'),
+    };
+  }
+
+  return {
+    selectionGroup: 'content',
+    leagueId: model.contentSelection.leagueId,
+    season: model.contentSelection.season,
+    selectionFingerprint: [
+      'content',
+      model.contentSelection.leagueId ?? 'none',
+      model.contentSelection.season ?? 'none',
+    ].join(':'),
+  };
+}
+
 export function useTeamDetailsTelemetry(model: TeamDetailsScreenModel) {
   const screenOpenedAtRef = useRef(Date.now());
+  const firstContentTrackedRef = useRef(false);
   const tabLoadStartedAtRef = useRef(Date.now());
   const lastTrackedTabRef = useRef(model.activeTab);
+  const trackedTabLoadKeysRef = useRef(new Set<string>());
   const trackedTabTtiKeysRef = useRef(new Set<string>());
   const trackedDatasetKeysRef = useRef(new Set<string>());
   const tabCacheStateRef = useRef<TabCacheState>('cold');
@@ -26,10 +91,17 @@ export function useTeamDetailsTelemetry(model: TeamDetailsScreenModel) {
 
   useEffect(() => {
     screenOpenedAtRef.current = Date.now();
-    tabLoadStartedAtRef.current = Date.now();
-    lastTrackedTabRef.current = model.activeTab;
+    firstContentTrackedRef.current = false;
+    trackedTabLoadKeysRef.current.clear();
     trackedTabTtiKeysRef.current.clear();
     trackedDatasetKeysRef.current.clear();
+  }, [model.teamId]);
+
+  useEffect(() => {
+    tabLoadStartedAtRef.current = Date.now();
+    lastTrackedTabRef.current = model.activeTab;
+    trackedTabLoadKeysRef.current.clear();
+    trackedTabTtiKeysRef.current.clear();
     tabCacheStateRef.current = activeTabCacheState;
   }, [activeTabCacheState, model.activeTab, model.teamId]);
 
@@ -40,9 +112,83 @@ export function useTeamDetailsTelemetry(model: TeamDetailsScreenModel) {
 
     lastTrackedTabRef.current = model.activeTab;
     tabLoadStartedAtRef.current = Date.now();
+    trackedTabLoadKeysRef.current.clear();
     trackedTabTtiKeysRef.current.clear();
     tabCacheStateRef.current = activeTabCacheState;
   }, [activeTabCacheState, model.activeTab]);
+
+  useEffect(() => {
+    if (!model.teamId || firstContentTrackedRef.current || !isActiveTabReady(model)) {
+      return;
+    }
+
+    firstContentTrackedRef.current = true;
+    const selectionContext = resolveActiveSelectionContext(model);
+
+    getMobileTelemetry().trackEvent('team_details.first_content_ms', {
+      teamId: model.teamId,
+      tab: model.activeTab,
+      leagueId: selectionContext.leagueId,
+      season: selectionContext.season,
+      selectionGroup: selectionContext.selectionGroup,
+      selectionFingerprint: selectionContext.selectionFingerprint,
+      cacheState: tabCacheStateRef.current,
+      value: Date.now() - screenOpenedAtRef.current,
+      cache_hit_estimate: model.hasCachedData,
+    });
+  }, [
+    model,
+    model.activeTab,
+    model.hasCachedData,
+    model.teamId,
+  ]);
+
+  useEffect(() => {
+    if (!model.teamId || !isActiveTabReady(model)) {
+      return;
+    }
+
+    const selectionContext = resolveActiveSelectionContext(model);
+    const updatedAt =
+      model.activeTab === 'overview'
+        ? model.overviewQuery.coreUpdatedAt
+        : model.activeTab === 'matches'
+          ? model.matchesQuery.dataUpdatedAt
+          : model.activeTab === 'standings'
+            ? model.standingsQuery.dataUpdatedAt
+            : model.activeTab === 'stats'
+              ? model.statsQuery.dataUpdatedAt
+              : model.activeTab === 'transfers'
+                ? model.transfersQuery.dataUpdatedAt
+                : model.squadQuery.dataUpdatedAt;
+    const telemetryKey = [
+      model.teamId,
+      model.activeTab,
+      selectionContext.selectionFingerprint,
+      updatedAt,
+    ].join(':');
+    if (trackedTabLoadKeysRef.current.has(telemetryKey)) {
+      return;
+    }
+    trackedTabLoadKeysRef.current.add(telemetryKey);
+
+    getMobileTelemetry().trackEvent('team_details.tab_load_ms', {
+      teamId: model.teamId,
+      tab: model.activeTab,
+      leagueId: selectionContext.leagueId,
+      season: selectionContext.season,
+      selectionGroup: selectionContext.selectionGroup,
+      selectionFingerprint: selectionContext.selectionFingerprint,
+      cacheState: tabCacheStateRef.current,
+      value: Date.now() - tabLoadStartedAtRef.current,
+      cache_hit_estimate: model.hasCachedData,
+    });
+  }, [
+    model,
+    model.activeTab,
+    model.hasCachedData,
+    model.teamId,
+  ]);
 
   useEffect(() => {
     const teamId = model.teamId;

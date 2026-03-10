@@ -12,6 +12,7 @@ import { PlayerDetailsTabContent } from '@ui/features/players/components/PlayerD
 import { PlayerTabs, type PlayerTabType } from '@ui/features/players/components/PlayerTabs';
 import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
 import { playerDetailsScreenStyles } from '@ui/features/players/screens/PlayerDetailsScreen.styles';
+import { FreshnessIndicator } from '@ui/shared/components';
 import { useOfflineUiState } from '@ui/shared/hooks';
 
 type PlayerDetailsScreenModel = ReturnType<typeof usePlayerDetailsScreenModel>;
@@ -54,6 +55,15 @@ export function PlayerDetailsScreenView({
   onOpenNotificationModal,
   onSaveNotificationPrefs,
 }: PlayerDetailsScreenViewProps) {
+  const isRefetchingSilently =
+    screenModel.hasCachedData &&
+    (
+      screenModel.isProfileLoading ||
+      screenModel.isMatchesLoading ||
+      screenModel.isStatsLoading ||
+      screenModel.isCareerLoading
+    );
+
   if (!safePlayerId) {
     return (
       <View style={[playerDetailsScreenStyles.center, { backgroundColor }]}>
@@ -70,11 +80,11 @@ export function PlayerDetailsScreenView({
     );
   }
 
-  if (screenModel.isProfileLoading) {
+  if (screenModel.isProfileLoading && !screenModel.profile && !screenModel.hasCachedData) {
     return <PlayerDetailsSkeleton />;
   }
 
-  if (screenModel.isProfileError || !screenModel.profile) {
+  if (!screenModel.profile || (screenModel.isProfileError && !screenModel.hasCachedData)) {
     return (
       <View style={[playerDetailsScreenStyles.center, { backgroundColor }]}>
         <Text style={{ color: textColor }}>{loadErrorText}</Text>
@@ -99,6 +109,15 @@ export function PlayerDetailsScreenView({
       {offlineUi.showOfflineBanner ? (
         <View style={playerDetailsScreenStyles.offlineBannerWrap}>
           <ScreenStateView state='offline' lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
+      {!offlineUi.showOfflineBanner ? (
+        <View style={playerDetailsScreenStyles.offlineBannerWrap}>
+          <FreshnessIndicator
+            lastUpdatedAt={screenModel.lastUpdatedAt}
+            isRefreshing={isRefetchingSilently}
+            visible={Boolean(screenModel.lastUpdatedAt || isRefetchingSilently)}
+          />
         </View>
       ) : null}
       <PlayerDetailsTabContent

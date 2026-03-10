@@ -3,8 +3,6 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import {
   fetchTeamAdvancedStats,
-  fetchLeagueStandings,
-  fetchTeamStatistics,
 } from '@data/endpoints/teamsApi';
 import {
   mapPlayersToTopPlayers,
@@ -13,14 +11,24 @@ import {
   mapTeamAdvancedComparisonMetrics,
   mapTeamStatisticsToStats,
 } from '@data/mappers/teamsMapper';
+import {
+  fetchAllTeamPlayers,
+  fetchTeamStatsCoreData,
+} from '@data/teams/teamQueryData';
 import type {
   TeamAdvancedStatsDto,
   TeamStatsCoreData,
   TeamStatsData,
 } from '@ui/features/teams/types/teams.types';
-import { fetchAllTeamPlayers } from '@ui/features/teams/utils/fetchAllTeamPlayers';
+import {
+  doesTeamFullSelectionMatch,
+  useTeamFull,
+  type TeamFullData,
+} from '@ui/features/teams/hooks/useTeamFull';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
+
+export { fetchTeamStatsCoreData } from '@data/teams/teamQueryData';
 
 type UseTeamStatsParams = {
   teamId: string;
@@ -56,42 +64,6 @@ export type TeamStatsQueryResult = Pick<
   refetch: () => Promise<void>;
 };
 
-const EMPTY_TEAM_STATS: TeamStatsData = {
-  rank: null,
-  points: null,
-  played: null,
-  wins: null,
-  draws: null,
-  losses: null,
-  goalsFor: null,
-  goalsAgainst: null,
-  homePlayed: null,
-  homeWins: null,
-  homeDraws: null,
-  homeLosses: null,
-  awayPlayed: null,
-  awayWins: null,
-  awayDraws: null,
-  awayLosses: null,
-  expectedGoalsFor: null,
-  pointsByVenue: {
-    home: null,
-    away: null,
-  },
-  goalsForPerMatch: null,
-  goalsAgainstPerMatch: null,
-  cleanSheets: null,
-  failedToScore: null,
-  topPlayersByCategory: {
-    ratings: [],
-    scorers: [],
-    assisters: [],
-  },
-  comparisonMetrics: [],
-  goalBreakdown: [],
-  topPlayers: [],
-};
-
 const EMPTY_TEAM_STATS_PLAYERS: TeamStatsPlayersData = {
   topPlayers: [],
   topPlayersByCategory: {
@@ -107,8 +79,73 @@ const EMPTY_TEAM_STATS_ADVANCED: TeamStatsAdvancedData = {
   sourceUpdatedAt: null,
 };
 
-function isAbortError(error: unknown): error is Error {
-  return error instanceof Error && error.name === 'AbortError';
+function toTeamStatsCoreData(data: TeamStatsData): TeamStatsCoreData {
+  return {
+    rank: data.rank,
+    points: data.points,
+    played: data.played,
+    wins: data.wins,
+    draws: data.draws,
+    losses: data.losses,
+    goalsFor: data.goalsFor,
+    goalsAgainst: data.goalsAgainst,
+    homePlayed: data.homePlayed,
+    homeWins: data.homeWins,
+    homeDraws: data.homeDraws,
+    homeLosses: data.homeLosses,
+    awayPlayed: data.awayPlayed,
+    awayWins: data.awayWins,
+    awayDraws: data.awayDraws,
+    awayLosses: data.awayLosses,
+    expectedGoalsFor: data.expectedGoalsFor,
+    pointsByVenue: data.pointsByVenue,
+    goalsForPerMatch: data.goalsForPerMatch,
+    goalsAgainstPerMatch: data.goalsAgainstPerMatch,
+    cleanSheets: data.cleanSheets,
+    failedToScore: data.failedToScore,
+    comparisonMetrics: data.comparisonMetrics,
+    goalBreakdown: data.goalBreakdown,
+  };
+}
+
+function mapTeamFullStatsCoreData(payload: TeamFullData, teamId: string): TeamStatsCoreData {
+  const standings = mapStandingsToTeamData(payload.standings.response, teamId);
+  const mappedStats = mapTeamStatisticsToStats(
+    payload.statistics.response,
+    standings,
+    [],
+    EMPTY_TEAM_STATS_PLAYERS.topPlayersByCategory,
+    null,
+  );
+  return toTeamStatsCoreData(mappedStats);
+}
+
+function mapTeamFullStatsPlayersData(
+  payload: TeamFullData,
+  teamId: string,
+): TeamStatsPlayersData {
+  const playerContext = {
+    teamId,
+    leagueId: payload.selection.leagueId ?? undefined,
+    season: payload.selection.season ?? undefined,
+  };
+
+  return {
+    topPlayers: mapPlayersToTopPlayers(payload.statsPlayers.response, 8, playerContext),
+    topPlayersByCategory: mapPlayersToTopPlayersByCategory(
+      payload.statsPlayers.response,
+      3,
+      playerContext,
+    ),
+  };
+}
+
+function mapTeamFullStatsAdvancedData(payload: TeamFullData): TeamStatsAdvancedData {
+  return {
+    comparisonMetrics: mapTeamAdvancedComparisonMetrics(payload.advancedStats.response),
+    expectedGoalsFor: toAdvancedExpectedGoals(payload.advancedStats.response),
+    sourceUpdatedAt: payload.advancedStats.response?.sourceUpdatedAt ?? null,
+  };
 }
 
 function mergeComparisonMetrics(
@@ -124,71 +161,6 @@ function mergeComparisonMetrics(
     metricsByKey.set(metric.key, metric);
   });
   return Array.from(metricsByKey.values());
-}
-
-type FetchTeamStatsCoreDataParams = {
-  teamId: string;
-  leagueId: string | null;
-  season: number | null;
-  signal?: AbortSignal;
-};
-
-export async function fetchTeamStatsCoreData({
-  teamId,
-  leagueId,
-  season,
-  signal,
-}: FetchTeamStatsCoreDataParams): Promise<TeamStatsCoreData> {
-  if (!teamId || !leagueId || typeof season !== 'number') {
-    const { topPlayers, topPlayersByCategory, ...emptyCore } = EMPTY_TEAM_STATS;
-    return emptyCore;
-  }
-
-  const [statisticsResult, standingsResult] = await Promise.allSettled([
-    fetchTeamStatistics(leagueId, season, teamId, signal),
-    fetchLeagueStandings(leagueId, season, signal),
-  ]);
-
-  if (statisticsResult.status === 'rejected' && isAbortError(statisticsResult.reason)) {
-    throw statisticsResult.reason;
-  }
-  if (standingsResult.status === 'rejected' && isAbortError(standingsResult.reason)) {
-    throw standingsResult.reason;
-  }
-
-  const statisticsPayload = statisticsResult.status === 'fulfilled' ? statisticsResult.value : null;
-  const standingsPayload = standingsResult.status === 'fulfilled' ? standingsResult.value : null;
-
-  if (statisticsPayload === null && standingsPayload === null) {
-    // Les deux fulfilled avec null = absence de données valide, pas une erreur
-    if (statisticsResult.status === 'fulfilled' && standingsResult.status === 'fulfilled') {
-      const { topPlayers, topPlayersByCategory, ...emptyCore } = EMPTY_TEAM_STATS;
-      return emptyCore;
-    }
-
-    // Au moins un rejected = vraie erreur réseau ou API
-    const coreError =
-      statisticsResult.status === 'rejected'
-        ? statisticsResult.reason
-        : standingsResult.status === 'rejected'
-          ? standingsResult.reason
-          : null;
-
-    throw coreError instanceof Error
-      ? coreError
-      : new Error('Unable to load team statistics core datasets');
-  }
-
-  const standings = mapStandingsToTeamData(standingsPayload, teamId);
-  const mappedStats = mapTeamStatisticsToStats(
-    statisticsPayload,
-    standings,
-    [],
-    EMPTY_TEAM_STATS_PLAYERS.topPlayersByCategory,
-    null,
-  );
-  const { topPlayers, topPlayersByCategory, ...coreData } = mappedStats;
-  return coreData;
 }
 
 type FetchTeamStatsPlayersDataParams = {
@@ -269,10 +241,21 @@ export function useTeamStats({
   enabled = true,
 }: UseTeamStatsParams): TeamStatsQueryResult {
   const isCoreEnabled = enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number';
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+  const teamFullQuery = useTeamFull({
+    teamId,
+    timezone,
+    leagueId,
+    season,
+    enabled: isCoreEnabled,
+  });
+  const canUseFullPayload =
+    teamFullQuery.isFullEnabled &&
+    doesTeamFullSelectionMatch(teamFullQuery.data, leagueId, season);
 
   const coreQuery = useQuery<TeamStatsCoreData>({
     queryKey: queryKeys.teams.statsCore(teamId, leagueId, season),
-    enabled: isCoreEnabled,
+    enabled: isCoreEnabled && !canUseFullPayload,
     refetchOnMount: false,
     ...featureQueryOptions.teams.statsCore,
     queryFn: ({ signal }) =>
@@ -285,7 +268,7 @@ export function useTeamStats({
   });
 
   // Les queries d'enrichissement s'exécutent en parallèle dès que les params sont valides
-  const enrichmentEnabled = isCoreEnabled;
+  const enrichmentEnabled = isCoreEnabled && !canUseFullPayload;
 
   const playersQuery = useQuery<TeamStatsPlayersData>({
     queryKey: queryKeys.teams.statsPlayers(teamId, leagueId, season),
@@ -315,7 +298,45 @@ export function useTeamStats({
       }),
   });
 
+  const fullCoreData = useMemo(
+    () =>
+      canUseFullPayload && teamFullQuery.data
+        ? mapTeamFullStatsCoreData(teamFullQuery.data, teamId)
+        : undefined,
+    [canUseFullPayload, teamFullQuery.data, teamId],
+  );
+  const fullPlayersData = useMemo(
+    () =>
+      canUseFullPayload && teamFullQuery.data
+        ? mapTeamFullStatsPlayersData(teamFullQuery.data, teamId)
+        : undefined,
+    [canUseFullPayload, teamFullQuery.data, teamId],
+  );
+  const fullAdvancedData = useMemo(
+    () =>
+      canUseFullPayload && teamFullQuery.data
+        ? mapTeamFullStatsAdvancedData(teamFullQuery.data)
+        : undefined,
+    [canUseFullPayload, teamFullQuery.data],
+  );
+
   const data = useMemo(() => {
+    if (fullCoreData) {
+      const playersData = fullPlayersData ?? EMPTY_TEAM_STATS_PLAYERS;
+      const advancedData = fullAdvancedData ?? EMPTY_TEAM_STATS_ADVANCED;
+
+      return {
+        ...fullCoreData,
+        topPlayers: playersData.topPlayers,
+        topPlayersByCategory: playersData.topPlayersByCategory,
+        expectedGoalsFor: advancedData.expectedGoalsFor ?? fullCoreData.expectedGoalsFor,
+        comparisonMetrics: mergeComparisonMetrics(
+          fullCoreData.comparisonMetrics,
+          advancedData.comparisonMetrics,
+        ),
+      } satisfies TeamStatsData;
+    }
+
     if (!coreQuery.data) {
       return undefined;
     }
@@ -333,34 +354,54 @@ export function useTeamStats({
         advancedData.comparisonMetrics,
       ),
     } satisfies TeamStatsData;
-  }, [advancedQuery.data, coreQuery.data, playersQuery.data]);
+  }, [
+    advancedQuery.data,
+    coreQuery.data,
+    fullAdvancedData,
+    fullCoreData,
+    fullPlayersData,
+    playersQuery.data,
+  ]);
 
   return {
     data,
-    coreData: coreQuery.data,
-    playersData: playersQuery.data,
-    advancedData: advancedQuery.data,
-    coreUpdatedAt: coreQuery.dataUpdatedAt,
-    playersUpdatedAt: playersQuery.dataUpdatedAt,
-    advancedUpdatedAt: advancedQuery.dataUpdatedAt,
-    isLoading: coreQuery.isLoading && !coreQuery.data,
-    isFetching: coreQuery.isFetching || playersQuery.isFetching || advancedQuery.isFetching,
-    isError: coreQuery.isError && !coreQuery.data,
-    isFetched: coreQuery.isFetched,
-    isFetchedAfterMount: coreQuery.isFetchedAfterMount,
+    coreData: fullCoreData ?? coreQuery.data,
+    playersData: fullPlayersData ?? playersQuery.data,
+    advancedData: fullAdvancedData ?? advancedQuery.data,
+    coreUpdatedAt: canUseFullPayload ? teamFullQuery.dataUpdatedAt : coreQuery.dataUpdatedAt,
+    playersUpdatedAt: canUseFullPayload ? teamFullQuery.dataUpdatedAt : playersQuery.dataUpdatedAt,
+    advancedUpdatedAt: canUseFullPayload ? teamFullQuery.dataUpdatedAt : advancedQuery.dataUpdatedAt,
+    isLoading: canUseFullPayload
+      ? teamFullQuery.isLoading && !teamFullQuery.data
+      : coreQuery.isLoading && !coreQuery.data,
+    isFetching: canUseFullPayload
+      ? teamFullQuery.isFetching
+      : coreQuery.isFetching || playersQuery.isFetching || advancedQuery.isFetching,
+    isError: canUseFullPayload
+      ? teamFullQuery.isError && !teamFullQuery.data
+      : coreQuery.isError && !coreQuery.data,
+    isFetched: canUseFullPayload ? teamFullQuery.isFetched : coreQuery.isFetched,
+    isFetchedAfterMount: canUseFullPayload
+      ? teamFullQuery.isFetchedAfterMount
+      : coreQuery.isFetchedAfterMount,
     dataUpdatedAt: Math.max(
-      coreQuery.dataUpdatedAt,
-      playersQuery.dataUpdatedAt,
-      advancedQuery.dataUpdatedAt,
+      canUseFullPayload ? teamFullQuery.dataUpdatedAt : coreQuery.dataUpdatedAt,
+      canUseFullPayload ? teamFullQuery.dataUpdatedAt : playersQuery.dataUpdatedAt,
+      canUseFullPayload ? teamFullQuery.dataUpdatedAt : advancedQuery.dataUpdatedAt,
     ),
-    isCoreLoading: coreQuery.isLoading && !coreQuery.data,
-    isPlayersLoading: playersQuery.isLoading && !playersQuery.data,
-    isAdvancedLoading: advancedQuery.isLoading && !advancedQuery.data,
-    isPlayersFetching: playersQuery.isFetching,
-    isAdvancedFetching: advancedQuery.isFetching,
-    isPlayersError: playersQuery.isError && !playersQuery.data,
-    isAdvancedError: advancedQuery.isError && !advancedQuery.data,
+    isCoreLoading: canUseFullPayload ? false : coreQuery.isLoading && !coreQuery.data,
+    isPlayersLoading: canUseFullPayload ? false : playersQuery.isLoading && !playersQuery.data,
+    isAdvancedLoading: canUseFullPayload ? false : advancedQuery.isLoading && !advancedQuery.data,
+    isPlayersFetching: canUseFullPayload ? false : playersQuery.isFetching,
+    isAdvancedFetching: canUseFullPayload ? false : advancedQuery.isFetching,
+    isPlayersError: canUseFullPayload ? false : playersQuery.isError && !playersQuery.data,
+    isAdvancedError: canUseFullPayload ? false : advancedQuery.isError && !advancedQuery.data,
     refetch: async () => {
+      if (canUseFullPayload) {
+        await teamFullQuery.refetch();
+        return;
+      }
+
       await Promise.allSettled([
         coreQuery.refetch(),
         playersQuery.refetch(),

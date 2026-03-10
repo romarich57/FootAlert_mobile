@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
@@ -8,9 +9,19 @@ import {
   fetchTeamFixtures,
 } from '@data/endpoints/playersApi';
 import { mapPlayerMatchPerformance } from '@data/mappers/playersMapper';
+import {
+  usePlayerFullQuery,
+  type PlayerFullPayload,
+} from '@ui/features/players/hooks/playerFullQuery';
 import type { PlayerMatchPerformance } from '@ui/features/players/types/players.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
+
+function selectPlayerMatchesFromFull(
+  payload: PlayerFullPayload,
+): PlayerMatchPerformance[] {
+  return payload.matches.response ?? [];
+}
 
 export function usePlayerMatches(
   playerId: string,
@@ -18,7 +29,22 @@ export function usePlayerMatches(
   season: number,
   enabled: boolean = true,
 ) {
-  const useAggregateEndpoint = appEnv.mobileEnableBffPlayerAggregates;
+  const useFullPayload = appEnv.mobileEnableBffPlayerFull;
+  const useAggregateEndpoint =
+    !useFullPayload && appEnv.mobileEnableBffPlayerAggregates;
+
+  const fullPlayerQuery = usePlayerFullQuery(
+    playerId,
+    season,
+    enabled && useFullPayload && !!playerId && !!season,
+  );
+  const fullMatches = useMemo(
+    () =>
+      fullPlayerQuery.data
+        ? selectPlayerMatchesFromFull(fullPlayerQuery.data as PlayerFullPayload)
+        : undefined,
+    [fullPlayerQuery.data],
+  );
 
   const aggregateQuery = useQuery({
     queryKey: queryKeys.players.matchesAggregate(playerId, teamId, season),
@@ -68,11 +94,24 @@ export function usePlayerMatches(
         (item): item is PlayerMatchPerformance => item !== null,
       );
     },
-    enabled: enabled && !useAggregateEndpoint && !!playerId && !!teamId && !!season,
+    enabled:
+      enabled &&
+      !useFullPayload &&
+      !useAggregateEndpoint &&
+      !!playerId &&
+      !!teamId &&
+      !!season,
     ...featureQueryOptions.players.matches,
   });
 
-  const activeQuery = useAggregateEndpoint ? aggregateQuery : legacyMatchesQuery;
+  const activeQuery = useFullPayload
+    ? {
+        ...fullPlayerQuery,
+        data: fullMatches,
+      }
+    : useAggregateEndpoint
+      ? aggregateQuery
+      : legacyMatchesQuery;
 
   return {
     matches: activeQuery.data ?? [],

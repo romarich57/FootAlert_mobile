@@ -1,7 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { fetchTeamFixtures } from '@data/endpoints/teamsApi';
 import { mapFixturesToTeamMatches } from '@data/mappers/teamsMapper';
+import { fetchTeamMatchesData } from '@data/teams/teamQueryData';
+import {
+  doesTeamFullSelectionMatch,
+  useTeamFull,
+} from '@ui/features/teams/hooks/useTeamFull';
 import type { TeamMatchesData } from '@ui/features/teams/types/teams.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -14,55 +18,32 @@ type UseTeamMatchesParams = {
   enabled?: boolean;
 };
 
-const EMPTY_TEAM_MATCHES: TeamMatchesData = {
-  all: [],
-  upcoming: [],
-  live: [],
-  past: [],
-};
-
-type FetchTeamMatchesDataParams = {
-  teamId: string;
-  leagueId: string | null;
-  season: number | null;
-  timezone: string;
-  signal?: AbortSignal;
-};
-
-export async function fetchTeamMatchesData({
-  teamId,
-  leagueId,
-  season,
-  timezone,
-  signal,
-}: FetchTeamMatchesDataParams): Promise<TeamMatchesData> {
-  if (!teamId || !leagueId || typeof season !== 'number') {
-    return EMPTY_TEAM_MATCHES;
-  }
-
-  const payload = await fetchTeamFixtures(
-    {
-      teamId,
-      leagueId,
-      season,
-      timezone,
-    },
-    signal,
-  );
-
-  return mapFixturesToTeamMatches(payload);
-}
-
 export function useTeamMatches({
   teamId,
   leagueId,
   season,
   timezone,
   enabled = true,
-}: UseTeamMatchesParams) {
-  return useQuery<TeamMatchesData>({
+}: UseTeamMatchesParams): UseQueryResult<TeamMatchesData> {
+  const teamFullQuery = useTeamFull({
+    teamId,
+    timezone,
+    leagueId,
+    season,
+    enabled,
+  });
+  const canUseFullPayload =
+    teamFullQuery.isFullEnabled &&
+    doesTeamFullSelectionMatch(teamFullQuery.data, leagueId, season);
+
+  const query = useQuery<TeamMatchesData>({
     queryKey: queryKeys.teams.matches(teamId, leagueId, season, timezone),
-    enabled: enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number',
+    enabled:
+      enabled &&
+      Boolean(teamId) &&
+      Boolean(leagueId) &&
+      typeof season === 'number' &&
+      !canUseFullPayload,
     refetchOnMount: false,
     ...featureQueryOptions.teams.matches,
     queryFn: ({ signal }) =>
@@ -74,4 +55,20 @@ export function useTeamMatches({
         signal,
       }),
   });
+
+  if (!canUseFullPayload) {
+    return query;
+  }
+
+  return {
+    ...query,
+    data: mapFixturesToTeamMatches(teamFullQuery.data?.matches.response ?? []),
+    isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
+    isFetching: teamFullQuery.isFetching,
+    isError: teamFullQuery.isError && !teamFullQuery.data,
+    isFetched: teamFullQuery.isFetched,
+    isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,
+    dataUpdatedAt: teamFullQuery.dataUpdatedAt,
+    refetch: teamFullQuery.refetch,
+  } as unknown as UseQueryResult<TeamMatchesData>;
 }

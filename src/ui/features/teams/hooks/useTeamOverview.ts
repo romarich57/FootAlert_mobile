@@ -5,6 +5,10 @@ import {
   fetchTeamOverview,
   fetchTeamOverviewLeaders,
 } from '@data/endpoints/teamsApi';
+import {
+  doesTeamFullSelectionMatch,
+  useTeamFull,
+} from '@ui/features/teams/hooks/useTeamFull';
 import type {
   TeamOverviewCoreData,
   TeamOverviewData,
@@ -95,10 +99,20 @@ export function useTeamOverview({
     [limitedHistorySeasons],
   );
   const isCoreEnabled = enabled && Boolean(teamId) && Boolean(leagueId) && typeof season === 'number';
+  const teamFullQuery = useTeamFull({
+    teamId,
+    timezone,
+    leagueId,
+    season,
+    enabled,
+  });
+  const canUseFullPayload =
+    teamFullQuery.isFullEnabled &&
+    doesTeamFullSelectionMatch(teamFullQuery.data, leagueId, season);
 
   const coreQuery = useQuery<TeamOverviewCoreData>({
     queryKey: queryKeys.teams.overview(teamId, leagueId, season, timezone, historySeasonsKey),
-    enabled: isCoreEnabled,
+    enabled: isCoreEnabled && !canUseFullPayload,
     ...featureQueryOptions.teams.overview,
     queryFn: async ({ signal }): Promise<TeamOverviewCoreData> => {
       if (!teamId || !leagueId || typeof season !== 'number') {
@@ -120,6 +134,7 @@ export function useTeamOverview({
 
   const isLeadersEnabled =
     isCoreEnabled &&
+    !canUseFullPayload &&
     Boolean(coreQuery.data) &&
     Boolean(teamId) &&
     Boolean(leagueId) &&
@@ -145,7 +160,18 @@ export function useTeamOverview({
     },
   });
 
+  const fullCoreData = canUseFullPayload ? teamFullQuery.data?.overview ?? undefined : undefined;
+  const fullLeadersData =
+    canUseFullPayload ? teamFullQuery.data?.overviewLeaders ?? undefined : undefined;
+
   const data = useMemo(() => {
+    if (fullCoreData) {
+      return {
+        ...fullCoreData,
+        ...(fullLeadersData ?? EMPTY_OVERVIEW_LEADERS),
+      } satisfies TeamOverviewData;
+    }
+
     if (!coreQuery.data) {
       return undefined;
     }
@@ -154,24 +180,39 @@ export function useTeamOverview({
       ...coreQuery.data,
       ...(leadersQuery.data ?? EMPTY_OVERVIEW_LEADERS),
     } satisfies TeamOverviewData;
-  }, [coreQuery.data, leadersQuery.data]);
+  }, [coreQuery.data, fullCoreData, fullLeadersData, leadersQuery.data]);
 
   return {
     data,
-    coreData: coreQuery.data,
-    leadersData: leadersQuery.data,
-    coreUpdatedAt: coreQuery.dataUpdatedAt,
-    leadersUpdatedAt: leadersQuery.dataUpdatedAt,
-    isLoading: coreQuery.isLoading && !coreQuery.data,
-    isFetching: coreQuery.isFetching || leadersQuery.isFetching,
-    isError: coreQuery.isError && !coreQuery.data,
-    isFetched: coreQuery.isFetched,
-    isFetchedAfterMount: coreQuery.isFetchedAfterMount,
-    dataUpdatedAt: Math.max(coreQuery.dataUpdatedAt, leadersQuery.dataUpdatedAt),
-    isLeadersLoading: leadersQuery.isLoading && !leadersQuery.data,
-    isLeadersFetching: leadersQuery.isFetching,
-    isLeadersError: leadersQuery.isError && !leadersQuery.data,
+    coreData: fullCoreData ?? coreQuery.data,
+    leadersData: fullLeadersData ?? leadersQuery.data,
+    coreUpdatedAt: canUseFullPayload ? teamFullQuery.dataUpdatedAt : coreQuery.dataUpdatedAt,
+    leadersUpdatedAt: canUseFullPayload ? teamFullQuery.dataUpdatedAt : leadersQuery.dataUpdatedAt,
+    isLoading: canUseFullPayload
+      ? teamFullQuery.isLoading && !teamFullQuery.data
+      : coreQuery.isLoading && !coreQuery.data,
+    isFetching: canUseFullPayload
+      ? teamFullQuery.isFetching
+      : coreQuery.isFetching || leadersQuery.isFetching,
+    isError: canUseFullPayload
+      ? teamFullQuery.isError && !teamFullQuery.data
+      : coreQuery.isError && !coreQuery.data,
+    isFetched: canUseFullPayload ? teamFullQuery.isFetched : coreQuery.isFetched,
+    isFetchedAfterMount: canUseFullPayload
+      ? teamFullQuery.isFetchedAfterMount
+      : coreQuery.isFetchedAfterMount,
+    dataUpdatedAt: canUseFullPayload
+      ? teamFullQuery.dataUpdatedAt
+      : Math.max(coreQuery.dataUpdatedAt, leadersQuery.dataUpdatedAt),
+    isLeadersLoading: canUseFullPayload ? false : leadersQuery.isLoading && !leadersQuery.data,
+    isLeadersFetching: canUseFullPayload ? false : leadersQuery.isFetching,
+    isLeadersError: canUseFullPayload ? false : leadersQuery.isError && !leadersQuery.data,
     refetch: async () => {
+      if (canUseFullPayload) {
+        await teamFullQuery.refetch();
+        return;
+      }
+
       await Promise.allSettled([coreQuery.refetch(), leadersQuery.refetch()]);
     },
   };

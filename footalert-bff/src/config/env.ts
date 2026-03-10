@@ -1,3 +1,5 @@
+import { resolveEntityCacheTtlConfig, type EntityCacheTtlConfig } from './cacheTtl.js';
+
 const DEFAULT_PORT = 3001;
 const DEFAULT_HOST = '0.0.0.0';
 const DEFAULT_API_BASE_URL = 'https://v3.football.api-sports.io';
@@ -60,6 +62,7 @@ type BffEnv = {
   cacheStrictMode: boolean;
   redisUrl: string | null;
   redisCachePrefix: string;
+  cacheTtl: EntityCacheTtlConfig;
   bffExposeErrorDetails: boolean;
   mobileSessionJwtSecret: string | null;
   mobileSessionTokenTtlMs: number;
@@ -345,6 +348,7 @@ export const env: BffEnv = {
   cacheStrictMode: readBoolean(process.env.CACHE_STRICT_MODE, defaultCacheStrictMode),
   redisUrl: readOptionalValue(process.env.REDIS_URL),
   redisCachePrefix: readRedisCachePrefix(process.env.REDIS_CACHE_PREFIX),
+  cacheTtl: resolveEntityCacheTtlConfig(process.env),
   bffExposeErrorDetails: readBoolean(
     process.env.BFF_EXPOSE_ERROR_DETAILS,
     DEFAULT_BFF_EXPOSE_ERROR_DETAILS,

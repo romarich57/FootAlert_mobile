@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { registerCompetitionBracketRoute } from './bracketRoute.js';
 import { registerCompetitionCoreRoutes } from './coreRoutes.js';
+import { registerCompetitionFullRoute } from './fullRoute.js';
 import { registerCompetitionMatchesRoute } from './matchesRoute.js';
 import { registerCompetitionPlayerStatsRoute } from './playerStatsRoute.js';
 import { registerCompetitionStandingsRoute } from './standingsRoute.js';
@@ -11,6 +12,7 @@ import { registerCompetitionTransfersRoute } from './transfersRoute.js';
 
 export async function registerCompetitionsRoutes(app: FastifyInstance): Promise<void> {
   registerCompetitionCoreRoutes(app);
+  registerCompetitionFullRoute(app);
   registerCompetitionStandingsRoute(app);
   registerCompetitionMatchesRoute(app);
   registerCompetitionBracketRoute(app);

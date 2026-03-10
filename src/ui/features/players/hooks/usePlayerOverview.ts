@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
@@ -13,14 +14,72 @@ import {
   mapPlayerDetailsToSeasonStatsDataset,
   mapPlayerTrophies,
 } from '@data/mappers/playersMapper';
+import {
+  usePlayerFullQuery,
+  type PlayerFullPayload,
+} from '@ui/features/players/hooks/playerFullQuery';
 import type { PlayerTrophyEntry } from '@ui/features/players/types/players.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
-export function usePlayerOverview(playerId: string, season: number) {
-  const useAggregateOverview = appEnv.mobileEnablePlayerOverviewAggregate;
+function selectPlayerOverviewFromFull(
+  payload: PlayerFullPayload,
+  season: number,
+) {
+  const overview = payload.overview.response;
+  const trophies = mapPlayerTrophies(payload.trophies.response);
 
-  const query = useQuery({
+  if (overview?.profile) {
+    return {
+      profile: overview.profile,
+      characteristics: overview.characteristics,
+      positions: overview.positions,
+      seasonStats: overview.seasonStats ?? overview.seasonStatsDataset?.overall ?? null,
+      seasonStatsDataset: overview.seasonStatsDataset,
+      profileCompetitionStats: overview.profileCompetitionStats,
+      profileTrophiesByClub: overview.trophiesByClub ?? [],
+      trophies,
+    };
+  }
+
+  const dto = payload.details.response[0] ?? null;
+  if (!dto) {
+    throw new Error('Player not found');
+  }
+
+  const seasonStatsDataset = mapPlayerDetailsToSeasonStatsDataset(dto, season);
+
+  return {
+    profile: mapPlayerDetailsToProfile(dto, season),
+    characteristics: mapPlayerDetailsToCharacteristics(dto, season),
+    positions: mapPlayerDetailsToPositions(dto, season),
+    seasonStats: seasonStatsDataset.overall,
+    seasonStatsDataset,
+    profileCompetitionStats: null,
+    profileTrophiesByClub: [],
+    trophies,
+  };
+}
+
+export function usePlayerOverview(playerId: string, season: number) {
+  const useFullPayload = appEnv.mobileEnableBffPlayerFull;
+  const useAggregateOverview =
+    !useFullPayload && appEnv.mobileEnablePlayerOverviewAggregate;
+
+  const fullPlayerQuery = usePlayerFullQuery(
+    playerId,
+    season,
+    useFullPayload && !!playerId && !!season,
+  );
+  const fullOverviewData = useMemo(
+    () =>
+      fullPlayerQuery.data
+        ? selectPlayerOverviewFromFull(fullPlayerQuery.data as PlayerFullPayload, season)
+        : undefined,
+    [fullPlayerQuery.data, season],
+  );
+
+  const legacyOverviewQuery = useQuery({
     queryKey: useAggregateOverview
       ? queryKeys.players.overview(playerId, season)
       : queryKeys.players.details(playerId, season),
@@ -65,11 +124,18 @@ export function usePlayerOverview(playerId: string, season: number) {
         trophies: mapPlayerTrophies(trophiesDtos),
       };
     },
-    enabled: !!playerId && !!season,
+    enabled: !useFullPayload && !!playerId && !!season,
     staleTime: featureQueryOptions.players.overview.staleTime,
     gcTime: featureQueryOptions.players.overview.gcTime,
     retry: featureQueryOptions.players.overview.retry,
   });
+
+  const query = useFullPayload
+    ? {
+        ...fullPlayerQuery,
+        data: fullOverviewData,
+      }
+    : legacyOverviewQuery;
 
   return {
     profile: query.data?.profile ?? null,

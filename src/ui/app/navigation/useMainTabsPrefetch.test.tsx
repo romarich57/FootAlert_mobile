@@ -119,14 +119,19 @@ describe('useMainTabsPrefetch', () => {
     });
 
     const baselinePrefetchCount = prefetchSpy.mock.calls.length;
+    const baselineMatchesFetchCount = mockedFetchFixturesByDate.mock.calls.length;
+    const baselineCompetitionsFetchCount = mockedFetchAllLeagues.mock.calls.length;
 
     await act(async () => {
       result.current.Matches.tabPress();
     });
 
     await waitFor(() => {
-      expect(mockedFetchFixturesByDate).toHaveBeenCalledTimes(1);
-      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 1);
+      expect(mockedFetchFixturesByDate).toHaveBeenCalledTimes(baselineMatchesFetchCount + 1);
+      expect(mockedFetchAllLeagues).toHaveBeenCalledTimes(
+        baselineCompetitionsFetchCount + 1,
+      );
+      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 2);
     });
 
     nowSpy.mockReturnValue(10_000 + TAB_PREFETCH_COOLDOWN_MS - 1);
@@ -135,8 +140,11 @@ describe('useMainTabsPrefetch', () => {
     });
 
     await waitFor(() => {
-      expect(mockedFetchFixturesByDate).toHaveBeenCalledTimes(1);
-      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 1);
+      expect(mockedFetchFixturesByDate).toHaveBeenCalledTimes(baselineMatchesFetchCount + 1);
+      expect(mockedFetchAllLeagues).toHaveBeenCalledTimes(
+        baselineCompetitionsFetchCount + 1,
+      );
+      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 2);
     });
 
     nowSpy.mockReturnValue(10_000 + TAB_PREFETCH_COOLDOWN_MS + 1);
@@ -145,7 +153,11 @@ describe('useMainTabsPrefetch', () => {
     });
 
     await waitFor(() => {
-      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 2);
+      expect(mockedFetchFixturesByDate).toHaveBeenCalledTimes(baselineMatchesFetchCount + 2);
+      expect(mockedFetchAllLeagues).toHaveBeenCalledTimes(
+        baselineCompetitionsFetchCount + 2,
+      );
+      expect(prefetchSpy).toHaveBeenCalledTimes(baselinePrefetchCount + 4);
     });
 
     prefetchSpy.mockRestore();
@@ -193,6 +205,7 @@ describe('useMainTabsPrefetch', () => {
       expect(mockedFetchFollowedPlayerCards.mock.calls.length).toBeGreaterThanOrEqual(1);
       expect(mockedFetchDiscoveryTeams.mock.calls.length).toBeGreaterThanOrEqual(1);
       expect(mockedFetchDiscoveryPlayers.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(mockedFetchFixturesByDate.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
   });
 

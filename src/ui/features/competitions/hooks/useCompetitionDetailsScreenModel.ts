@@ -3,14 +3,17 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 
+import { appEnv } from '@data/config/env';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import { queryKeys } from '@ui/shared/query/queryKeys';
+import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { fetchLeagueById } from '@data/endpoints/competitionsApi';
 import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
 import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
 import { useCompetitionBracket } from '@ui/features/competitions/hooks/useCompetitionBracket';
+import { useCompetitionFullQuery } from '@ui/features/competitions/hooks/competitionFullQuery';
 
 import type { CompetitionTabKey } from '../components/CompetitionTabs';
 
@@ -29,6 +32,18 @@ export function useCompetitionDetailsScreenModel() {
   const numericCompetitionId = safeCompetitionId
     ? Number(safeCompetitionId)
     : Number.NaN;
+  const resolvedCompetitionId = Number.isFinite(numericCompetitionId)
+    ? numericCompetitionId
+    : undefined;
+  const competitionFullQuery = useCompetitionFullQuery(resolvedCompetitionId);
+  const fullCompetition = useMemo(
+    () => mapLeagueDtoToCompetition(competitionFullQuery.data?.competition ?? null),
+    [competitionFullQuery.data?.competition],
+  );
+  const shouldFallbackToLegacyCompetition =
+    !appEnv.mobileEnableBffCompetitionFull ||
+    competitionFullQuery.isError ||
+    (competitionFullQuery.isFetched && !competitionFullQuery.data?.competition);
 
   const competitionQuery = useQuery({
     queryKey: queryKeys.competitions.detailsHeader(safeCompetitionId ?? 'invalid'),
@@ -38,8 +53,9 @@ export function useCompetitionDetailsScreenModel() {
     },
     enabled:
       Boolean(safeCompetitionId) &&
-      (!routeCompetition || routeCompetition.id !== safeCompetitionId),
-    staleTime: 12 * 60 * 60 * 1000,
+      (!routeCompetition || routeCompetition.id !== safeCompetitionId) &&
+      shouldFallbackToLegacyCompetition,
+    ...featureQueryOptions.competitions.header,
   });
 
   const competition = useMemo(() => {
@@ -50,8 +66,8 @@ export function useCompetitionDetailsScreenModel() {
     if (routeCompetition && routeCompetition.id === safeCompetitionId) {
       return routeCompetition;
     }
-    return competitionQuery.data ?? null;
-  }, [competitionQuery.data, routeCompetition, safeCompetitionId]);
+    return fullCompetition ?? competitionQuery.data ?? null;
+  }, [competitionQuery.data, fullCompetition, routeCompetition, safeCompetitionId]);
 
   const [activeTab, setActiveTab] = useState<CompetitionTabKey>('standings');
   const [isSeasonPickerOpen, setIsSeasonPickerOpen] = useState(false);
@@ -62,22 +78,37 @@ export function useCompetitionDetailsScreenModel() {
     ? followedIdsSet.has(safeCompetitionId)
     : false;
 
-  const { data: seasons, isLoading: seasonsLoading } = useCompetitionSeasons(
-    Number.isFinite(numericCompetitionId) ? numericCompetitionId : undefined,
-  );
+  const seasonsQuery = useCompetitionSeasons(resolvedCompetitionId);
+  const seasons = seasonsQuery.data;
+  const seasonsLoading = seasonsQuery.isLoading;
 
   const defaultSeason = useMemo(() => {
+    if (
+      appEnv.mobileEnableBffCompetitionFull &&
+      typeof competitionFullQuery.data?.season === 'number' &&
+      Number.isFinite(competitionFullQuery.data.season)
+    ) {
+      return competitionFullQuery.data.season;
+    }
+
     if (!seasons || seasons.length === 0) {
       return new Date().getFullYear();
     }
     const current = seasons.find(season => season.current);
     return current ? current.year : seasons[0].year;
-  }, [seasons]);
+  }, [competitionFullQuery.data?.season, seasons]);
 
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
-  const actualSeason = selectedSeason ?? defaultSeason;
-  const resolvedCompetitionId = Number.isFinite(numericCompetitionId) ? numericCompetitionId : undefined;
-  const resolvedSeason = seasonsLoading ? undefined : actualSeason;
+  const actualSeason = selectedSeason ?? competitionFullQuery.data?.season ?? defaultSeason;
+  const hasResolvedSeason =
+    typeof actualSeason === 'number' &&
+    Number.isFinite(actualSeason) &&
+    (
+      selectedSeason !== null ||
+      typeof competitionFullQuery.data?.season === 'number' ||
+      !seasonsLoading
+    );
+  const resolvedSeason = hasResolvedSeason ? actualSeason : undefined;
   const availableSeasons = useMemo(
     () => (seasons ?? []).map(season => season.year),
     [seasons],
@@ -101,6 +132,29 @@ export function useCompetitionDetailsScreenModel() {
   const standingsTabLabelKey = isCupOnlyCompetition
     ? 'competitionDetails.tabs.bracket'
     : 'competitionDetails.tabs.standings';
+  const hasCachedData =
+    Boolean(competition) ||
+    availableSeasons.length > 0 ||
+    Boolean(competitionFullQuery.data);
+  const lastUpdatedAt = Math.max(
+    competitionQuery.dataUpdatedAt,
+    competitionFullQuery.dataUpdatedAt,
+    seasonsQuery.dataUpdatedAt,
+    competitionBracketQuery.dataUpdatedAt ?? 0,
+  );
+  const resolvedLastUpdatedAt = lastUpdatedAt > 0 ? lastUpdatedAt : null;
+  const isRefetchingSilently =
+    hasCachedData &&
+    (
+      competitionFullQuery.isFetching ||
+      competitionQuery.isFetching ||
+      competitionBracketQuery.isFetching
+    );
+  const isCompetitionQueryLoading = !competition && (
+    shouldFallbackToLegacyCompetition
+      ? competitionQuery.isLoading
+      : competitionFullQuery.isLoading
+  );
 
   const tabs = useMemo<CompetitionTabKey[]>(() => {
     const showStandingsTab = !isCupOnlyCompetition || hasBracketRounds;
@@ -186,7 +240,10 @@ export function useCompetitionDetailsScreenModel() {
     competition,
     safeCompetitionId,
     numericCompetitionId,
-    isCompetitionQueryLoading: competitionQuery.isLoading,
+    isCompetitionQueryLoading,
+    hasCachedData,
+    lastUpdatedAt: resolvedLastUpdatedAt,
+    isRefetchingSilently,
     activeTab,
     setActiveTab,
     tabs,

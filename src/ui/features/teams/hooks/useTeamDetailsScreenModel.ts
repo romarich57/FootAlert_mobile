@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   useNavigation,
   useRoute,
@@ -8,43 +7,36 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
-import { fetchTeamOverview } from '@data/endpoints/teamsApi';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import {
+  areSelectionsEqual,
+  isLeagueCompetition,
+  reconcileCompetitionSelection,
+  reconcileSeasonValue,
+  resolveActiveSelectionContext,
+  resolveCompetitionFallbackSelection,
+  type ActiveSelectionContext,
+  type TeamDetailsContentSelection,
+  type TeamDetailsStandingsSelection,
+} from '@ui/features/teams/hooks/teamDetailsSelection';
 import { useTeamContext } from '@ui/features/teams/hooks/useTeamContext';
+import { useTeamDetailsPrefetch } from '@ui/features/teams/hooks/teamDetailsPrefetch';
 import { useTeamMatches } from '@ui/features/teams/hooks/useTeamMatches';
 import { useTeamOverview } from '@ui/features/teams/hooks/useTeamOverview';
 import { useTeamSquad } from '@ui/features/teams/hooks/useTeamSquad';
 import { useTeamStandings } from '@ui/features/teams/hooks/useTeamStandings';
-import { fetchTeamStatsCoreData, useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
-import { fetchTeamTransfersData, useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
+import { useTeamStats } from '@ui/features/teams/hooks/useTeamStats';
+import { useTeamTransfers } from '@ui/features/teams/hooks/useTeamTransfers';
 import type {
-  TeamCompetitionOption,
   TeamDetailsTab,
-  TeamSelection,
 } from '@ui/features/teams/types/teams.types';
 import { useFollowsActions } from '@ui/features/follows/hooks/useFollowsActions';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { resolveDefaultTeamSelection } from '@data/mappers/teamsMapper';
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type TeamDetailsRoute = RouteProp<RootStackParamList, 'TeamDetails'>;
 type TeamDetailsNavigation = NativeStackNavigationProp<RootStackParamList>;
-
-function isLeagueCompetition(type: string | null | undefined): boolean {
-  return (type ?? '').trim().toLowerCase() === 'league';
-}
-
-type TeamDetailsContentSelection = {
-  leagueId: string | null;
-  season: number | null;
-};
-
-type TeamDetailsStandingsSelection = {
-  leagueId: string | null;
-  season: number | null;
-};
 
 type TeamDetailsTabAvailability = {
   matches: boolean;
@@ -54,149 +46,16 @@ type TeamDetailsTabAvailability = {
   squad: boolean;
 };
 
-type TeamDetailsSelectionGroup = 'content' | 'standings' | 'transfers' | 'none';
-
-type ActiveSelectionContext = {
-  selectionGroup: TeamDetailsSelectionGroup;
-  leagueId: string | null;
-  season: number | null;
-  selectionFingerprint: string;
-};
-
-type IdleRequestHandle = number;
-type IdleRequestOptions = {
-  timeout?: number;
-};
-type IdleRequestDeadline = {
-  readonly didTimeout: boolean;
-  timeRemaining: () => number;
-};
-type IdleRequestCallback = (deadline: IdleRequestDeadline) => void;
-type GlobalWithIdleCallbacks = typeof globalThis & {
-  requestIdleCallback?: (
-    callback: IdleRequestCallback,
-    options?: IdleRequestOptions,
-  ) => IdleRequestHandle;
-  cancelIdleCallback?: (handle: IdleRequestHandle) => void;
-};
-type DeferredTaskHandle = {
-  cancel: () => void;
-};
-
-function scheduleDeferredTask(task: () => void): DeferredTaskHandle {
-  const globalScope = globalThis as GlobalWithIdleCallbacks;
-
-  if (typeof globalScope.requestIdleCallback === 'function') {
-    const idleHandle = globalScope.requestIdleCallback(() => {
-      task();
-    }, { timeout: 250 });
-
-    return {
-      cancel: () => {
-        if (typeof globalScope.cancelIdleCallback === 'function') {
-          globalScope.cancelIdleCallback(idleHandle);
-        }
-      },
-    };
-  }
-
-  const timeoutHandle = setTimeout(task, 0);
-  return {
-    cancel: () => {
-      clearTimeout(timeoutHandle);
-    },
-  };
-}
-
-function areSelectionsEqual(first: TeamSelection, second: TeamSelection): boolean {
-  return first.leagueId === second.leagueId && first.season === second.season;
-}
-
-function resolveCompetitionFallbackSelection(
-  competition: TeamCompetitionOption | null | undefined,
-): TeamSelection {
-  if (!competition) {
-    return {
-      leagueId: null,
-      season: null,
-    };
-  }
-
-  return {
-    leagueId: competition.leagueId,
-    season: competition.currentSeason ?? competition.seasons[0] ?? null,
-  };
-}
-
-function reconcileCompetitionSelection(
-  selection: TeamSelection,
-  competitions: TeamCompetitionOption[],
-  fallbackSelection: TeamSelection,
-): TeamSelection {
-  if (competitions.length === 0) {
-    return {
-      leagueId: null,
-      season: null,
-    };
-  }
-
-  if (!selection.leagueId || typeof selection.season !== 'number') {
-    return fallbackSelection;
-  }
-
-  const selectedCompetition = competitions.find(item => item.leagueId === selection.leagueId);
-  if (!selectedCompetition) {
-    return fallbackSelection;
-  }
-
-  if (selectedCompetition.seasons.includes(selection.season)) {
-    return selection;
-  }
-
-  return resolveCompetitionFallbackSelection(selectedCompetition);
-}
-
-function reconcileSeasonValue(
-  season: number | null,
-  seasons: number[],
-  fallbackSeason: number | null,
-): number | null {
-  if (seasons.length === 0) {
-    return null;
-  }
-
-  if (typeof season === 'number' && seasons.includes(season)) {
-    return season;
-  }
-
-  if (typeof fallbackSeason === 'number' && seasons.includes(fallbackSeason)) {
-    return fallbackSeason;
-  }
-
-  return seasons[0] ?? null;
-}
-
-function buildSelectionFingerprint(
-  selectionGroup: TeamDetailsSelectionGroup,
-  leagueId: string | null,
-  season: number | null,
-): string {
-  return [selectionGroup, leagueId ?? 'none', season ?? 'none'].join(':');
-}
-
 export function useTeamDetailsScreenModel() {
   const { t } = useTranslation();
   const navigation = useNavigation<TeamDetailsNavigation>();
   const route = useRoute<TeamDetailsRoute>();
-  const queryClient = useQueryClient();
   const safeTeamId = sanitizeNumericEntityId(route.params.teamId);
   const teamId = safeTeamId ?? '';
   const followSource = route.params.followSource ?? 'team_details';
 
   const [activeTab, setActiveTab] = useState<TeamDetailsTab>('overview');
   const requestCountTelemetryKeyRef = useRef<string | null>(null);
-  const prefetchedContextKeyRef = useRef<string | null>(null);
-  const prefetchedStatsCoreKeyRef = useRef<string | null>(null);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
 
   const { followedTeamIds, toggleTeamFollow } = useFollowsActions();
@@ -322,6 +181,16 @@ export function useTeamDetailsScreenModel() {
     enabled: Boolean(safeTeamId) && isSquadTabActive,
   });
 
+  useTeamDetailsPrefetch({
+    safeTeamId,
+    teamId,
+    contentSelection,
+    selectedCompetitionSeasons,
+    timezone,
+    transfersSeason,
+    overviewCoreData: overviewQuery.coreData,
+  });
+
   const activeRequestCount = useMemo(() => {
     let count = 1; // Team context query.
 
@@ -358,173 +227,17 @@ export function useTeamDetailsScreenModel() {
     transfersSeason,
   ]);
 
-  useEffect(() => {
-    if (
-      !safeTeamId ||
-      !contentSelection.leagueId ||
-      typeof contentSelection.season !== 'number' ||
-      !timezone
-    ) {
-      return;
-    }
-
-    const historySeasons = selectedCompetitionSeasons
-      .filter(item => item !== contentSelection.season)
-      .slice(0, 5);
-    const leagueId = contentSelection.leagueId;
-    const season = contentSelection.season;
-    const historySeasonsKey = historySeasons.join(',');
-    const prefetchContextKey = [
-      teamId,
-      leagueId,
-      season,
-      timezone,
-      historySeasonsKey,
-    ].join(':');
-    if (prefetchedContextKeyRef.current === prefetchContextKey) {
-      return;
-    }
-    prefetchedContextKeyRef.current = prefetchContextKey;
-
-    void Promise.allSettled([
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.teams.overview(
-          teamId,
-          leagueId,
-          season,
-          timezone,
-          historySeasonsKey,
-        ),
-        queryFn: ({ signal }) =>
-          fetchTeamOverview(
-            {
-              teamId,
-              leagueId,
-              season,
-              timezone,
-              historySeasons,
-            },
-            signal,
-          ),
-        ...featureQueryOptions.teams.overview,
-      }),
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.teams.transfers(teamId, transfersSeason),
-        queryFn: ({ signal }) =>
-          fetchTeamTransfersData({
-            teamId,
-            season: transfersSeason,
-            signal,
-          }),
-        ...featureQueryOptions.teams.transfers,
-      }),
-    ]);
-  }, [
-    prefetchedContextKeyRef,
-    queryClient,
-    safeTeamId,
-    selectedCompetitionSeasons,
-    contentSelection.leagueId,
-    contentSelection.season,
-    teamId,
-    transfersSeason,
-    timezone,
-  ]);
-
-  useEffect(() => {
-    if (
-      !safeTeamId ||
-      !contentSelection.leagueId ||
-      typeof contentSelection.season !== 'number' ||
-      !overviewQuery.coreData
-    ) {
-      return;
-    }
-
-    const statsPrefetchKey = [teamId, contentSelection.leagueId, contentSelection.season].join(':');
-    if (prefetchedStatsCoreKeyRef.current === statsPrefetchKey) {
-      return;
-    }
-    prefetchedStatsCoreKeyRef.current = statsPrefetchKey;
-
-    const scheduledTask = scheduleDeferredTask(() => {
-      void queryClient.prefetchQuery({
-        queryKey: queryKeys.teams.statsCore(
-          teamId,
-          contentSelection.leagueId,
-          contentSelection.season,
-        ),
-        queryFn: ({ signal }) =>
-          fetchTeamStatsCoreData({
-            teamId,
-            leagueId: contentSelection.leagueId,
-            season: contentSelection.season,
-            signal,
-          }),
-        ...featureQueryOptions.teams.statsCore,
-      });
-    });
-
-    return () => {
-      scheduledTask.cancel();
-    };
-  }, [
-    overviewQuery.coreData,
-    queryClient,
-    safeTeamId,
-    contentSelection.leagueId,
-    contentSelection.season,
-    teamId,
-  ]);
-
   const activeSelectionContext = useMemo<ActiveSelectionContext>(() => {
-    if (activeTab === 'overview' || activeTab === 'matches' || activeTab === 'stats') {
-      return {
-        selectionGroup: 'content',
-        leagueId: contentSelection.leagueId,
-        season: contentSelection.season,
-        selectionFingerprint: buildSelectionFingerprint(
-          'content',
-          contentSelection.leagueId,
-          contentSelection.season,
-        ),
-      };
-    }
-
-    if (activeTab === 'standings') {
-      return {
-        selectionGroup: 'standings',
-        leagueId: standingsSelection.leagueId,
-        season: standingsSelection.season,
-        selectionFingerprint: buildSelectionFingerprint(
-          'standings',
-          standingsSelection.leagueId,
-          standingsSelection.season,
-        ),
-      };
-    }
-
-    if (activeTab === 'transfers') {
-      return {
-        selectionGroup: 'transfers',
-        leagueId: null,
-        season: transfersSeason,
-        selectionFingerprint: buildSelectionFingerprint('transfers', null, transfersSeason),
-      };
-    }
-
-    return {
-      selectionGroup: 'none',
-      leagueId: null,
-      season: null,
-      selectionFingerprint: buildSelectionFingerprint('none', null, null),
-    };
+    return resolveActiveSelectionContext({
+      activeTab,
+      contentSelection,
+      standingsSelection,
+      transfersSeason,
+    });
   }, [
     activeTab,
-    contentSelection.leagueId,
-    contentSelection.season,
-    standingsSelection.leagueId,
-    standingsSelection.season,
+    contentSelection,
+    standingsSelection,
     transfersSeason,
   ]);
 

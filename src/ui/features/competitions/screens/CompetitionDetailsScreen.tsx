@@ -2,8 +2,14 @@ import { useMemo, useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { getCompetitionPrefetchStrategies } from '@data/prefetch/entityPrefetchOrchestrator';
+import { usePrefetchOnMount } from '@data/prefetch/usePrefetchOnMount';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { FreshnessIndicator } from '@ui/shared/components';
+import { useOfflineUiState } from '@ui/shared/hooks';
+import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 import type { ThemeColors } from '@ui/shared/theme/theme';
+import { useCompetitionDetailsTelemetry } from '../hooks/useCompetitionDetailsTelemetry';
 import { useCompetitionDetailsScreenModel } from '../hooks/useCompetitionDetailsScreenModel';
 
 import { CompetitionHeader } from '../components/CompetitionHeader';
@@ -34,6 +40,11 @@ function createStyles(colors: ThemeColors) {
             justifyContent: 'center',
             alignItems: 'center',
         },
+        freshnessWrap: {
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            alignItems: 'flex-start',
+        },
         errorText: {
             color: colors.danger,
             fontSize: 16,
@@ -46,6 +57,16 @@ export function CompetitionDetailsScreen() {
     const { colors } = useAppTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const screenModel = useCompetitionDetailsScreenModel();
+    const prefetchStrategies = useMemo(
+        () =>
+            getCompetitionPrefetchStrategies({
+                competitionId: screenModel.safeCompetitionId ?? '',
+                season: screenModel.actualSeason,
+            }),
+        [screenModel.actualSeason, screenModel.safeCompetitionId],
+    );
+    usePrefetchOnMount(prefetchStrategies);
+    useCompetitionDetailsTelemetry(screenModel);
     const [visitedTabs, setVisitedTabs] = useState<CompetitionTabKey[]>([screenModel.activeTab]);
     const {
         notificationPrefs,
@@ -78,6 +99,14 @@ export function CompetitionDetailsScreen() {
         handlePressMatch,
         handlePressPlayer,
     } = screenModel;
+    const offlineUi = useOfflineUiState({
+        hasData: screenModel.hasCachedData,
+        isLoading: screenModel.isCompetitionQueryLoading && !screenModel.hasCachedData,
+        lastUpdatedAt: screenModel.lastUpdatedAt,
+    });
+    const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
+        ? new Date(offlineUi.lastUpdatedAt).toISOString()
+        : null;
 
     if (!screenModel.competition && screenModel.isCompetitionQueryLoading) {
         return (
@@ -103,7 +132,11 @@ export function CompetitionDetailsScreen() {
         );
     }
 
-    if (screenModel.seasonsLoading) {
+    if (
+        screenModel.seasonsLoading &&
+        !screenModel.hasCachedData &&
+        screenModel.availableSeasons.length === 0
+    ) {
         return (
             <View style={styles.container}>
                 <CompetitionHeader
@@ -123,7 +156,7 @@ export function CompetitionDetailsScreen() {
         );
     }
 
-    if (screenModel.isCompetitionStructureLoading) {
+    if (screenModel.isCompetitionStructureLoading && !screenModel.hasCachedData) {
         return (
             <View style={styles.container}>
                 <CompetitionHeader
@@ -162,6 +195,20 @@ export function CompetitionDetailsScreen() {
                 onTabChange={screenModel.setActiveTab}
                 labelOverrides={{ standings: screenModel.standingsTabLabelKey }}
             />
+            {offlineUi.showOfflineBanner ? (
+                <View style={styles.freshnessWrap}>
+                    <ScreenStateView state='offline' lastUpdatedAt={offlineLastUpdatedAt} />
+                </View>
+            ) : null}
+            {!offlineUi.showOfflineBanner ? (
+                <View style={styles.freshnessWrap}>
+                    <FreshnessIndicator
+                        lastUpdatedAt={screenModel.lastUpdatedAt}
+                        isRefreshing={screenModel.isRefetchingSilently}
+                        visible={Boolean(screenModel.lastUpdatedAt || screenModel.isRefetchingSilently)}
+                    />
+                </View>
+            ) : null}
 
             <View style={styles.content}>
                 {visitedTabs.map(tab => (

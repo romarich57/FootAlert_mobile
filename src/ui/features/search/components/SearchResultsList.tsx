@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { appEnv } from '@data/config/env';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';

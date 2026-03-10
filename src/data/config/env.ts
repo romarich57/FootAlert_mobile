@@ -24,6 +24,12 @@ const DEFAULT_FOLLOWS_MAX_FOLLOWED_LEAGUES = 30;
 const DEFAULT_MOBILE_ENABLE_BFF_PLAYER_AGGREGATES = false;
 const DEFAULT_MOBILE_ENABLE_PLAYER_OVERVIEW_AGGREGATE = false;
 const DEFAULT_MOBILE_ENABLE_PLAYER_STATS_CATALOG_AGGREGATE = false;
+const DEFAULT_MOBILE_ENABLE_BFF_TEAM_FULL = false;
+const DEFAULT_MOBILE_ENABLE_BFF_PLAYER_FULL = false;
+const DEFAULT_MOBILE_ENABLE_BFF_COMPETITION_FULL = false;
+const DEFAULT_MOBILE_ENABLE_BFF_MATCH_FULL = false;
+const DEFAULT_MOBILE_ENABLE_SQLITE_LOCAL_FIRST = false;
+const DEFAULT_MOBILE_QUERY_PERSIST_MAX_BYTES = 512 * 1024;
 const DEFAULT_NOTIFICATIONS_MATCH_BACKEND_ENABLED = true;
 const DEFAULT_MOBILE_AUTH_ATTESTATION_MODE = 'provider';
 const DEFAULT_MOBILE_ATTESTATION_STRATEGY = 'strict';
@@ -81,6 +87,12 @@ export type AppEnv = {
   mobileEnableBffPlayerAggregates: boolean;
   mobileEnablePlayerOverviewAggregate: boolean;
   mobileEnablePlayerStatsCatalogAggregate: boolean;
+  mobileEnableBffTeamFull: boolean;
+  mobileEnableBffPlayerFull: boolean;
+  mobileEnableBffCompetitionFull: boolean;
+  mobileEnableBffMatchFull: boolean;
+  mobileEnableSqliteLocalFirst: boolean;
+  mobileQueryPersistMaxBytes: number;
   notificationsMatchBackendEnabled: boolean;
 };
 
@@ -512,6 +524,30 @@ export const appEnv: AppEnv = {
       Config.MOBILE_ENABLE_BFF_PLAYER_AGGREGATES,
       DEFAULT_MOBILE_ENABLE_PLAYER_STATS_CATALOG_AGGREGATE,
     ),
+  ),
+  mobileEnableBffTeamFull: readBooleanConfig(
+    Config.MOBILE_ENABLE_BFF_TEAM_FULL,
+    DEFAULT_MOBILE_ENABLE_BFF_TEAM_FULL,
+  ),
+  mobileEnableBffPlayerFull: readBooleanConfig(
+    Config.MOBILE_ENABLE_BFF_PLAYER_FULL,
+    DEFAULT_MOBILE_ENABLE_BFF_PLAYER_FULL,
+  ),
+  mobileEnableBffCompetitionFull: readBooleanConfig(
+    Config.MOBILE_ENABLE_BFF_COMPETITION_FULL,
+    DEFAULT_MOBILE_ENABLE_BFF_COMPETITION_FULL,
+  ),
+  mobileEnableBffMatchFull: readBooleanConfig(
+    Config.MOBILE_ENABLE_BFF_MATCH_FULL,
+    DEFAULT_MOBILE_ENABLE_BFF_MATCH_FULL,
+  ),
+  mobileEnableSqliteLocalFirst: readBooleanConfig(
+    Config.MOBILE_ENABLE_SQLITE_LOCAL_FIRST,
+    DEFAULT_MOBILE_ENABLE_SQLITE_LOCAL_FIRST,
+  ),
+  mobileQueryPersistMaxBytes: readPositiveIntConfig(
+    Config.MOBILE_QUERY_PERSIST_MAX_BYTES,
+    DEFAULT_MOBILE_QUERY_PERSIST_MAX_BYTES,
   ),
   notificationsMatchBackendEnabled: readBooleanConfig(
     Config.NOTIFICATIONS_MATCH_BACKEND_ENABLED,

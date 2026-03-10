@@ -173,7 +173,7 @@ export function usePlayerDetailsScreenModel({
     defaultSelection: statsDefaultSelection,
     isLoading: isStatsCatalogLoading,
     dataUpdatedAt: statsCatalogDataUpdatedAt,
-  } = usePlayerStatsCatalog(playerId, isStatsTabActive);
+  } = usePlayerStatsCatalog(playerId, isStatsTabActive, selectedSeason);
 
   const statsSeason =
     statsSelection.season ?? statsDefaultSelection.season ?? currentSeason;
@@ -395,6 +395,11 @@ export function usePlayerDetailsScreenModel({
   );
 
   useEffect(() => {
+    getMobileTelemetry().trackEvent('player_details.request_count', {
+      tab: activeTab,
+      queryCount: activeRequestCount,
+      hasCachedData,
+    });
     getMobileTelemetry().trackEvent('player_details.requests_count', {
       tab: activeTab,
       count: activeRequestCount,

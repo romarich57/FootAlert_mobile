@@ -1,12 +1,12 @@
-import React, { useCallback, useState } from 'react';
-import { useNetInfo } from '@react-native-community/netinfo';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { usePowerState } from 'react-native-device-info';
 
+import { getPlayerPrefetchStrategies } from '@data/prefetch/entityPrefetchOrchestrator';
+import { usePrefetchOnMount } from '@data/prefetch/usePrefetchOnMount';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
@@ -25,8 +25,6 @@ export function PlayerDetailsScreen() {
     const { colors } = useAppTheme();
     const route = useRoute<PlayerDetailsScreenRouteProp>();
     const navigation = useNavigation<PlayerDetailsScreenNavigationProp>();
-    const netInfo = useNetInfo();
-    const powerState = usePowerState();
 
     const safePlayerId = sanitizeNumericEntityId(route.params.playerId);
     const queryClient = useQueryClient();
@@ -37,13 +35,21 @@ export function PlayerDetailsScreen() {
         activeTab,
         followSource: route.params.followSource,
     });
+    const prefetchStrategies = useMemo(
+        () =>
+            getPlayerPrefetchStrategies({
+                playerId: safePlayerId ?? '',
+                teamId: screenModel.profile?.team.id ?? null,
+                season: screenModel.selectedSeason,
+            }),
+        [safePlayerId, screenModel.profile?.team.id, screenModel.selectedSeason],
+    );
+    usePrefetchOnMount(prefetchStrategies);
     usePlayerDetailsScreenEffects({
         safePlayerId,
         activeTab,
         screenModel,
         queryClient,
-        netInfo,
-        powerState,
     });
 
     const {
@@ -64,10 +70,13 @@ export function PlayerDetailsScreen() {
     const offlineUi = useOfflineUiState({
         hasData: screenModel.hasCachedData,
         isLoading:
-            screenModel.isProfileLoading ||
-            screenModel.isMatchesLoading ||
-            screenModel.isStatsLoading ||
-            screenModel.isCareerLoading,
+            !screenModel.hasCachedData &&
+            (
+                screenModel.isProfileLoading ||
+                screenModel.isMatchesLoading ||
+                screenModel.isStatsLoading ||
+                screenModel.isCareerLoading
+            ),
         lastUpdatedAt: screenModel.lastUpdatedAt,
     });
     const offlineLastUpdatedAt = offlineUi.lastUpdatedAt

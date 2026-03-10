@@ -1,9 +1,11 @@
+import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
-import { useAppBootstrap } from '@ui/app/hooks/useAppBootstrap';
 import { appEnv } from '@data/config/env';
 
 const mockRegisterBackgroundRefresh = jest.fn(async () => undefined);
+const mockRegisterBackgroundRefreshDebugMenuItem = jest.fn();
 const mockRequestMobileConsentIfNeeded = jest.fn(async () => ({
   status: 'granted',
   source: 'stored',
@@ -35,6 +37,7 @@ const mockUseAppPreferences = jest.fn(() => ({
 
 jest.mock('@data/background/backgroundRefresh', () => ({
   registerBackgroundRefresh: mockRegisterBackgroundRefresh,
+  registerBackgroundRefreshDebugMenuItem: mockRegisterBackgroundRefreshDebugMenuItem,
 }));
 
 jest.mock('@data/config/appMeta', () => ({
@@ -67,16 +70,39 @@ jest.mock('@ui/app/providers/AppPreferencesProvider', () => ({
   useAppPreferences: () => mockUseAppPreferences(),
 }));
 
+const { useAppBootstrap } = require('@ui/app/hooks/useAppBootstrap') as typeof import('@ui/app/hooks/useAppBootstrap');
+const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  };
+}
+
 describe('useAppBootstrap', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     appEnv.mobileValidationMode = 'off';
   });
 
+  afterAll(() => {
+    consoleInfoSpy.mockRestore();
+  });
+
   it('skips deferred and opportunistic side effects in perf validation mode', async () => {
     appEnv.mobileValidationMode = 'perf';
 
-    const { result } = renderHook(() => useAppBootstrap());
+    const { result } = renderHook(() => useAppBootstrap(), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.isReady).toBe(true);
@@ -92,6 +118,24 @@ describe('useAppBootstrap', () => {
       'bootstrap.validation_mode_skipped',
       expect.objectContaining({
         mode: 'perf',
+      }),
+    );
+  });
+
+  it('registers the debug background refresh trigger once when the app reaches the opportunistic phase', async () => {
+    const { result } = renderHook(() => useAppBootstrap(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(mockRegisterBackgroundRefreshDebugMenuItem).toHaveBeenCalledTimes(1);
+    });
+
+    expect(result.current.isReady).toBe(true);
+    expect(mockRegisterBackgroundRefreshDebugMenuItem).toHaveBeenCalledTimes(1);
+    expect(mockRegisterBackgroundRefreshDebugMenuItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryClient: expect.any(Object),
       }),
     );
   });

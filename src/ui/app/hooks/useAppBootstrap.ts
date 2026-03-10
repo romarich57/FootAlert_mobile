@@ -1,9 +1,13 @@
 import { useNetInfo } from '@react-native-community/netinfo';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { usePowerState } from 'react-native-device-info';
 
-import { registerBackgroundRefresh } from '@data/background/backgroundRefresh';
+import {
+  registerBackgroundRefresh,
+  registerBackgroundRefreshDebugMenuItem,
+} from '@data/background/backgroundRefresh';
 import { getAppVersion } from '@data/config/appMeta';
 import { appEnv, isMobileValidationMode } from '@data/config/env';
 import { requestMobileConsentIfNeeded } from '@data/privacy/mobileConsent';
@@ -27,6 +31,7 @@ export type AppBootstrapResult = {
 };
 
 export function useAppBootstrap(): AppBootstrapResult {
+  const queryClient = useQueryClient();
   const {
     isHydrated,
   } = useAppPreferences();
@@ -146,8 +151,19 @@ export function useAppBootstrap(): AppBootstrapResult {
       isHydrated,
       isOnline,
       lowPowerMode: Boolean(powerState.lowPowerMode),
+      queryClient,
     }).catch(() => undefined);
-  }, [isHydrated, isOnline, isPerfValidationMode, phase, powerState.lowPowerMode]);
+  }, [isHydrated, isOnline, isPerfValidationMode, phase, powerState.lowPowerMode, queryClient]);
+
+  useEffect(() => {
+    if (phase !== 'opportunistic' || !isDevRuntime) {
+      return;
+    }
+
+    registerBackgroundRefreshDebugMenuItem({
+      queryClient,
+    });
+  }, [isDevRuntime, phase, queryClient]);
 
   useEffect(() => {
     if (phase !== 'opportunistic' || hasRunOpportunisticRef.current) {

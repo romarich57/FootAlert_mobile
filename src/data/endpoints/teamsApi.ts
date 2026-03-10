@@ -13,9 +13,9 @@ import type {
   TeamApiTeamDetailsDto,
   TeamOverviewCoreData,
   TeamOverviewLeadersData,
-  TeamOverviewData,
   TeamApiTransferDto,
 } from '@domain/contracts/teams.types';
+import type { TeamFullResponsePayload } from '@domain/contracts/teamFull.types';
 
 const teamsReadService = createTeamsReadService({
   http: mobileReadHttpAdapter,
@@ -27,6 +27,21 @@ export async function fetchTeamDetails(
   signal?: AbortSignal,
 ): Promise<TeamApiTeamDetailsDto | null> {
   return teamsReadService.fetchTeamDetails<TeamApiTeamDetailsDto>(teamId, signal);
+}
+
+type FetchTeamFullParams = {
+  teamId: string;
+  timezone: string;
+  leagueId?: string | null;
+  season?: number | null;
+  historySeasons?: number[];
+};
+
+export async function fetchTeamFull(
+  params: FetchTeamFullParams,
+  signal?: AbortSignal,
+): Promise<TeamFullResponsePayload> {
+  return teamsReadService.fetchTeamFull<TeamFullResponsePayload>(params, signal);
 }
 
 export async function fetchTeamLeagues(

@@ -162,6 +162,28 @@ export function createPlayersReadService({ http, telemetry }: PlayersServiceDepe
       return (payload.response ?? null) as T | null;
     },
 
+    async fetchPlayerFull<T = unknown>(
+      playerId: string,
+      season: number,
+      signal?: AbortSignal,
+    ): Promise<T | null> {
+      const rawPayload = await http.get<unknown>(
+        `/players/${encodeURIComponent(playerId)}/full`,
+        { season },
+        { signal },
+      );
+      const payload = parseRuntimePayloadOrFallback({
+        schema: objectResponseSchema,
+        payload: rawPayload,
+        fallback: { response: undefined },
+        telemetry,
+        feature: 'players.full',
+        endpoint: `/players/${playerId}/full`,
+      });
+
+      return (payload.response ?? null) as T | null;
+    },
+
     async fetchTeamFixtures<T = unknown>(
       teamId: string,
       season: number,

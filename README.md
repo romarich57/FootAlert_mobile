@@ -386,3 +386,6 @@ src/
 - Préflight ciblé: `npm run qa:competitions:team-stats:preflight`
 - Checklist manuelle (petits écrans / dark mode / scroll / lazy avancé):
   `docs/mobile/competition-team-stats-qa-checklist.md`
+
+
+

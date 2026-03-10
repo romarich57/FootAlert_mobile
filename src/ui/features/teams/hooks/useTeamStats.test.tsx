@@ -10,6 +10,7 @@ import {
   mapPlayersToTopPlayers,
   mapPlayersToTopPlayersByCategory,
   mapTeamAdvancedComparisonMetrics,
+  mapTeamStatisticsToStats,
 } from '@data/mappers/teamsMapper';
 import {
   fetchTeamStatsAdvancedData,
@@ -17,7 +18,11 @@ import {
   fetchTeamStatsPlayersData,
   useTeamStats,
 } from '@ui/features/teams/hooks/useTeamStats';
-import { fetchAllTeamPlayers } from '@ui/features/teams/utils/fetchAllTeamPlayers';
+import {
+  doesTeamFullSelectionMatch,
+  useTeamFull,
+} from '@ui/features/teams/hooks/useTeamFull';
+import { fetchAllTeamPlayers } from '@data/teams/teamQueryData';
 import type {
   TeamComparisonMetric,
   TeamStatsCoreData,
@@ -42,8 +47,14 @@ jest.mock('@data/mappers/teamsMapper', () => ({
   mapTeamStatisticsToStats: jest.fn(),
 }));
 
-jest.mock('@ui/features/teams/utils/fetchAllTeamPlayers', () => ({
+jest.mock('@data/teams/teamQueryData', () => ({
+  ...jest.requireActual('@data/teams/teamQueryData'),
   fetchAllTeamPlayers: jest.fn(),
+}));
+
+jest.mock('@ui/features/teams/hooks/useTeamFull', () => ({
+  useTeamFull: jest.fn(),
+  doesTeamFullSelectionMatch: jest.fn(),
 }));
 
 const mockedUseQuery = jest.mocked(useQuery);
@@ -54,6 +65,9 @@ const mockedFetchAllTeamPlayers = jest.mocked(fetchAllTeamPlayers);
 const mockedMapPlayersToTopPlayers = jest.mocked(mapPlayersToTopPlayers);
 const mockedMapPlayersToTopPlayersByCategory = jest.mocked(mapPlayersToTopPlayersByCategory);
 const mockedMapTeamAdvancedComparisonMetrics = jest.mocked(mapTeamAdvancedComparisonMetrics);
+const mockedMapTeamStatisticsToStats = jest.mocked(mapTeamStatisticsToStats);
+const mockedUseTeamFull = jest.mocked(useTeamFull);
+const mockedDoesTeamFullSelectionMatch = jest.mocked(doesTeamFullSelectionMatch);
 
 const BASE_COMPARISON_METRICS: TeamComparisonMetric[] = [
   {
@@ -160,6 +174,27 @@ describe('useTeamStats', () => {
     jest.clearAllMocks();
 
     mockedUseQuery.mockImplementation(() => createQueryResult());
+    mockedUseTeamFull.mockReturnValue({
+      data: undefined,
+      dataUpdatedAt: 0,
+      isError: false,
+      isFetched: false,
+      isFetchedAfterMount: false,
+      isFetching: false,
+      isFullEnabled: false,
+      isLoading: false,
+      refetch: jest.fn(async () => ({}) as never),
+    } as never);
+    mockedDoesTeamFullSelectionMatch.mockReturnValue(false);
+    mockedMapTeamStatisticsToStats.mockReturnValue({
+      ...BASE_CORE_DATA,
+      topPlayers: [],
+      topPlayersByCategory: {
+        ratings: [],
+        scorers: [],
+        assisters: [],
+      },
+    } as never);
   });
 
   it('fetchTeamStatsPlayersData requests a bounded player sample for stats enrichment', async () => {
@@ -336,5 +371,178 @@ describe('useTeamStats', () => {
     expect(result.current.isAdvancedError).toBe(true);
     expect(result.current.data?.rank).toBe(2);
     expect(result.current.data?.topPlayers).toEqual([BASE_TOP_PLAYER]);
+  });
+
+  it('uses team full payload first when the requested selection matches', () => {
+    mockedUseTeamFull.mockReturnValue({
+      data: {
+        selection: {
+          leagueId: '140',
+          season: 2025,
+        },
+        standings: {
+          response: {
+            league: {
+              standings: [
+                [
+                  {
+                    rank: 2,
+                    points: 58,
+                    goalsDiff: 39,
+                    all: {
+                      played: 24,
+                      win: 18,
+                      draw: 4,
+                      lose: 2,
+                      goals: {
+                        for: 64,
+                        against: 25,
+                      },
+                    },
+                    home: {
+                      played: 12,
+                      win: 10,
+                      draw: 1,
+                      lose: 1,
+                      goals: {
+                        for: 35,
+                        against: 10,
+                      },
+                    },
+                    away: {
+                      played: 12,
+                      win: 8,
+                      draw: 3,
+                      lose: 1,
+                      goals: {
+                        for: 29,
+                        against: 15,
+                      },
+                    },
+                    team: {
+                      id: 529,
+                      name: 'Barcelona',
+                      logo: 'barca.png',
+                    },
+                  },
+                ],
+              ],
+            },
+          },
+        },
+        statistics: {
+          response: {
+            fixtures: {
+              played: { total: 24, home: 12, away: 12 },
+              wins: { total: 18, home: 10, away: 8 },
+              draws: { total: 4, home: 1, away: 3 },
+              loses: { total: 2, home: 1, away: 1 },
+              clean_sheet: { total: 9 },
+              failed_to_score: { total: 2 },
+            },
+            goals: {
+              for: {
+                total: { total: 64, home: 35, away: 29 },
+                average: { total: '2.67', home: '2.92', away: '2.42' },
+              },
+              against: {
+                total: { total: 25, home: 10, away: 15 },
+                average: { total: '1.04', home: '0.83', away: '1.25' },
+              },
+            },
+          },
+        },
+        advancedStats: {
+          response: {
+            sourceUpdatedAt: '2026-03-07T12:00:00.000Z',
+            metrics: {
+              expectedGoalsPerMatch: {
+                value: 1.9,
+              },
+            },
+          },
+        },
+        statsPlayers: {
+          response: [
+            {
+              player: {
+                id: 10,
+                name: 'Player',
+                photo: 'player.png',
+              },
+              statistics: [
+                {
+                  team: {
+                    id: 529,
+                    logo: 'barca.png',
+                  },
+                  league: {
+                    id: 140,
+                    season: 2025,
+                  },
+                  games: {
+                    position: 'Attacker',
+                    rating: '7.9',
+                  },
+                  goals: {
+                    total: 15,
+                    assists: 7,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+      dataUpdatedAt: 200,
+      isError: false,
+      isFetched: true,
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isFullEnabled: true,
+      isLoading: false,
+      refetch: jest.fn(async () => ({}) as never),
+    } as never);
+    mockedDoesTeamFullSelectionMatch.mockReturnValue(true);
+    mockedMapTeamAdvancedComparisonMetrics.mockReturnValue(BASE_COMPARISON_METRICS as never);
+    mockedMapTeamStatisticsToStats.mockReturnValue({
+      ...BASE_CORE_DATA,
+      topPlayers: [],
+      topPlayersByCategory: {
+        ratings: [],
+        scorers: [],
+        assisters: [],
+      },
+    } as never);
+
+    const { result } = renderHook(() =>
+      useTeamStats({
+        teamId: '529',
+        leagueId: '140',
+        season: 2025,
+      }),
+    );
+
+    expect(result.current.data?.rank).toBe(2);
+    expect(result.current.data?.topPlayers).toEqual([BASE_TOP_PLAYER]);
+    expect(result.current.advancedData?.sourceUpdatedAt).toBe('2026-03-07T12:00:00.000Z');
+    expect(mockedUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['team_stats_core', '529', '140', 2025],
+        enabled: false,
+      }),
+    );
+    expect(mockedUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['team_stats_players', '529', '140', 2025],
+        enabled: false,
+      }),
+    );
+    expect(mockedUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['team_stats_advanced', '529', '140', 2025],
+        enabled: false,
+      }),
+    );
   });
 });

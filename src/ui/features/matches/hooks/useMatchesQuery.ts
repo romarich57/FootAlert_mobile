@@ -1,13 +1,23 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchFixturesByDate } from '@data/endpoints/matchesApi';
+import {
+  getMatchesByDate,
+} from '@data/db/matchesByDateStore';
 import { appEnv } from '@data/config/env';
 import {
   hasLiveMatches,
-  mapFixturesToSections,
 } from '@data/mappers/fixturesMapper';
-import type { MatchesQueryResult } from '@ui/features/matches/types/matches.types';
+import {
+  buildMatchesQueryResult,
+  MATCHES_QUERY_STALE_TIME_MS,
+  shouldRetryMatchesQuery,
+} from '@data/matches/matchesQueryData';
+import type {
+  CompetitionSection,
+  MatchItem,
+  MatchesQueryResult,
+} from '@ui/features/matches/types/matches.types';
 import { ApiError, isNetworkRequestFailedError } from '@data/api/http/client';
 import { MobileAttestationProviderUnavailableError } from '@data/security/mobileAttestationProvider';
 import { queryKeys } from '@ui/shared/query/queryKeys';
@@ -18,72 +28,86 @@ type UseMatchesQueryParams = {
   enabled?: boolean;
 };
 
-type BuildMatchesQueryResultParams = {
-  date: string;
-  timezone: string;
-  signal?: AbortSignal;
-};
+export {
+  MATCHES_QUERY_STALE_TIME_MS,
+  shouldRetryMatchesQuery,
+} from '@data/matches/matchesQueryData';
 
-export const MATCHES_QUERY_STALE_TIME_MS = appEnv.matchesQueryStaleTimeMs;
-
-function isRetriableStatus(status: number): boolean {
-  return [500, 502, 503, 504].includes(status);
-}
-
-function isAttestationProviderUnavailable(error: unknown): boolean {
-  return error instanceof MobileAttestationProviderUnavailableError;
-}
-
-export function shouldRetryMatchesQuery(
-  failureCount: number,
-  error: unknown,
-): boolean {
-  if (failureCount >= 2) {
-    return false;
+function buildMatchesQueryResultFromStore(date: string): MatchesQueryResult | null {
+  const entries = getMatchesByDate<MatchItem>(date);
+  if (entries.length === 0) {
+    return null;
   }
 
-  if (isNetworkRequestFailedError(error)) {
-    return false;
-  }
+  const sectionsByCompetition = new Map<string, CompetitionSection>();
+  let latestUpdatedAt = 0;
 
-  if (isAttestationProviderUnavailable(error)) {
-    return false;
-  }
+  entries.forEach(entry => {
+    const match = entry.data;
+    if (!match) {
+      return;
+    }
 
-  if (error instanceof ApiError) {
-    return isRetriableStatus(error.status);
-  }
+    const section =
+      sectionsByCompetition.get(match.competitionId) ??
+      {
+        id: match.competitionId,
+        name: match.competitionName,
+        logo: match.competitionLogo,
+        country: match.competitionCountry,
+        matches: [],
+      };
 
-  return true;
-}
+    section.matches.push(match);
+    sectionsByCompetition.set(match.competitionId, section);
+    latestUpdatedAt = Math.max(latestUpdatedAt, entry.updatedAt);
+  });
 
-export async function buildMatchesQueryResult({
-  date,
-  timezone,
-  signal,
-}: BuildMatchesQueryResultParams): Promise<MatchesQueryResult> {
-  const requestStartedAt = Date.now();
-  const fixtures = await fetchFixturesByDate({ date, timezone, signal });
-  const sections = mapFixturesToSections(fixtures);
-  const requestDurationMs = Date.now() - requestStartedAt;
+  const sections = Array.from(sectionsByCompetition.values())
+    .map(section => ({
+      ...section,
+      matches: [...section.matches].sort((first, second) =>
+        first.startDate.localeCompare(second.startDate),
+      ),
+    }))
+    .sort((first, second) => first.name.localeCompare(second.name));
 
   return {
     sections,
-    requestDurationMs,
-    fetchedAt: new Date().toISOString(),
+    requestDurationMs: 0,
+    fetchedAt: new Date(latestUpdatedAt || Date.now()).toISOString(),
     hasLiveMatches: hasLiveMatches(sections),
   };
 }
 
 export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQueryParams) {
-  const query = useQuery({
+  const sqliteSnapshot = useMemo(
+    () =>
+      appEnv.mobileEnableSqliteLocalFirst
+        ? buildMatchesQueryResultFromStore(date)
+        : null,
+    [date],
+  );
+
+  const query = useQuery<MatchesQueryResult, Error>({
     queryKey: queryKeys.matches(date, timezone),
     enabled,
     staleTime: MATCHES_QUERY_STALE_TIME_MS,
     refetchOnReconnect: true,
     refetchOnMount: false,
     retry: shouldRetryMatchesQuery,
-    queryFn: ({ signal }) => buildMatchesQueryResult({ date, timezone, signal }),
+    placeholderData: previousData => previousData ?? sqliteSnapshot ?? undefined,
+    queryFn: async ({ signal }) => {
+      try {
+        return await buildMatchesQueryResult({ date, timezone, signal });
+      } catch (error) {
+        if (sqliteSnapshot) {
+          return sqliteSnapshot;
+        }
+
+        throw error;
+      }
+    },
   });
 
   const isSlowNetwork = useMemo(() => {
@@ -117,7 +141,7 @@ export function useMatchesQuery({ date, timezone, enabled = true }: UseMatchesQu
       return;
     }
 
-    if (isAttestationProviderUnavailable(query.error)) {
+    if (query.error instanceof MobileAttestationProviderUnavailableError) {
       console.info(
         `[FootAlert][matches] mobile attestation provider unavailable on ${requestUrl}. ` +
           'Install Play Integrity/App Attest native bridge modules, or use a local dev backend that accepts mock attestation.',

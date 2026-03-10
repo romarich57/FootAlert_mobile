@@ -42,9 +42,11 @@
 
 ## Politique background refresh
 
-- Politique v1: `ios-only`.
-- Implémentation: `registerBackgroundRefresh` quitte immédiatement sur Android.
-- Raison: conserver le desktop/web-shell parity scope tout en limitant la divergence native dans ce cycle.
+- Politique courante: `shared-package`.
+- Android et iOS partagent `src/data/background/backgroundRefresh.ts` et le même package natif `react-native-background-fetch`.
+- Les mêmes garde-fous runtime s'appliquent sur les deux plateformes: hydratation terminée, connectivité disponible, low power mode désactivé, et intervalle minimal respecté.
+- Si l'OS ne déclenche pas la tâche ou refuse son exécution, le fallback attendu est `skip + telemetry`; aucun chemin natif parallèle n'est maintenu.
+- En `__DEV__`, un trigger debug permet d'exécuter le pipeline réel `prefetchQuery -> persistence SQLite -> GC -> telemetry` sans dépendre du scheduling système.
 
 ## Guardrails sécurité
 

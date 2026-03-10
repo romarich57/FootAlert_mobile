@@ -10,13 +10,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { getMatchPrefetchStrategies } from '@data/prefetch/entityPrefetchOrchestrator';
+import { usePrefetchOnMount } from '@data/prefetch/usePrefetchOnMount';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { MatchDetailsHeader } from '@ui/features/matches/details/components/MatchDetailsHeader';
 import { MatchDetailsTabContent } from '@ui/features/matches/details/components/MatchDetailsTabContent';
 import { MatchDetailsTabs } from '@ui/features/matches/details/components/MatchDetailsTabs';
 import { useMatchDetailsScreenModel } from '@ui/features/matches/details/hooks/useMatchDetailsScreenModel';
+import { useMatchDetailsTelemetry } from '@ui/features/matches/details/hooks/useMatchDetailsTelemetry';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
-import { AppPressable } from '@ui/shared/components';
+import { AppPressable, FreshnessIndicator } from '@ui/shared/components';
 import { useOfflineUiState } from '@ui/shared/hooks';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { MatchCardSkeleton } from '@ui/features/matches/components/MatchCardSkeleton';
@@ -75,6 +78,28 @@ export function MatchDetailsScreen() {
   const styles = useMemo(() => createStyles(colors, insets.top), [colors, insets.top]);
   const model = useMatchDetailsScreenModel();
   const queryClient = useQueryClient();
+  const prefetchStrategies = useMemo(
+    () =>
+      getMatchPrefetchStrategies({
+        matchId: model.safeMatchId ?? '',
+        timezone: model.timezone,
+        enableEvents: model.queryPolicy.enableEvents,
+        enableLineups: model.queryPolicy.enableLineups,
+        enablePredictions: model.queryPolicy.enablePredictions,
+        enableFaceOff: model.queryPolicy.enableHeadToHead,
+      }),
+    [
+      model.queryPolicy.enableEvents,
+      model.queryPolicy.enableHeadToHead,
+      model.queryPolicy.enableLineups,
+      model.queryPolicy.enablePredictions,
+      model.safeMatchId,
+      model.timezone,
+    ],
+  );
+
+  usePrefetchOnMount(prefetchStrategies);
+  useMatchDetailsTelemetry(model);
 
   useFocusEffect(
     useCallback(() => {
@@ -86,7 +111,7 @@ export function MatchDetailsScreen() {
 
   const offlineUi = useOfflineUiState({
     hasData: Boolean(model.fixture),
-    isLoading: model.isInitialLoading,
+    isLoading: model.isInitialLoading && !model.fixture,
     lastUpdatedAt: model.lastUpdatedAt,
   });
   const offlineLastUpdatedAt = offlineUi.lastUpdatedAt
@@ -178,6 +203,15 @@ export function MatchDetailsScreen() {
       {offlineUi.showOfflineBanner ? (
         <View style={styles.stateWrap}>
           <ScreenStateView state="offline" lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
+      {!offlineUi.showOfflineBanner ? (
+        <View style={styles.stateWrap}>
+          <FreshnessIndicator
+            lastUpdatedAt={model.lastUpdatedAt}
+            isRefreshing={model.isLiveRefreshing}
+            visible={Boolean(model.lastUpdatedAt || model.isLiveRefreshing)}
+          />
         </View>
       ) : null}
 

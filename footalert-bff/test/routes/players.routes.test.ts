@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildApp, installFetchMock, jsonResponse } from '../helpers/appTestHarness.ts';
+import { buildApp, installFetchMock, jsonResponse, withManagedEnv } from '../helpers/appTestHarness.ts';
+
+async function loadEnv(overrides: Record<string, string | undefined> = {}) {
+  return withManagedEnv(overrides, async () => {
+    const envModule = await import(`../../src/config/env.ts?case=${Math.random().toString(36).slice(2)}`);
+    return envModule.env;
+  });
+}
 test('GET /v1/players/:id maps network failures to 502', async t => {
   const calls = installFetchMock(async () => {
     throw new TypeError('network down');
@@ -505,4 +512,60 @@ test('GET /v1/players/fixtures/:fixtureId/team/:teamId/stats proxies upstream en
     String(calls[0].input),
     'https://api-football.test/fixtures/players?fixture=9001&team=40',
   );
+});
+
+test('env.cacheTtl exposes entity defaults and overrides', async () => {
+  assert.deepEqual((await loadEnv()).cacheTtl, {
+    teams: 60_000,
+    players: 60_000,
+    competitions: 60_000,
+    matches: 45_000,
+  });
+  assert.deepEqual(
+    (await loadEnv({ CACHE_TTL_TEAMS_MS: '90000', CACHE_TTL_PLAYERS_MS: '120000' })).cacheTtl,
+    { teams: 90_000, players: 120_000, competitions: 60_000, matches: 45_000 },
+  );
+});
+
+test('GET /v1/teams/:id/full and /v1/players/:id/full return additive aggregates', async t => {
+  installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    if (url.pathname.endsWith('/teams') && url.searchParams.get('id') === '529') return jsonResponse({ response: [{ team: { id: 529, name: 'Barcelona' } }] });
+    if (url.pathname.endsWith('/leagues') && url.searchParams.get('team') === '529') return jsonResponse({ response: [{ league: { id: 39, name: 'Premier League', type: 'League' }, seasons: [{ year: 2025, current: true }, { year: 2024, current: false }] }] });
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('team') === '529' && url.searchParams.get('league') === '39') return jsonResponse({ response: [{ fixture: { id: 7001, date: '2026-02-12T20:00:00Z', status: { short: 'FT' } }, league: { id: 39, name: 'Premier League', logo: 'pl.png' }, teams: { home: { id: 529, name: 'Barcelona', logo: 'barca.png' }, away: { id: 40, name: 'Team B', logo: 'b.png' } }, goals: { home: 2, away: 1 } }] });
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('team') === '529' && url.searchParams.get('next') === '1') return jsonResponse({ response: [{ fixture: { id: 7002, date: '2026-03-12T20:00:00Z', status: { short: 'NS' } }, league: { id: 39, name: 'Premier League', logo: 'pl.png' }, teams: { home: { id: 529, name: 'Barcelona', logo: 'barca.png' }, away: { id: 41, name: 'Team C', logo: 'c.png' } }, goals: { home: null, away: null } }] });
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('league') === '39') return jsonResponse({ response: [{ fixture: { id: 7101, status: { short: 'FT' } } }] });
+    if (url.pathname.endsWith('/fixtures/statistics')) return jsonResponse({ response: [{ team: { id: 529, name: 'Barcelona', logo: 'barca.png' }, statistics: [{ type: 'Ball Possession', value: '61%' }, { type: 'Shots on Goal', value: 8 }, { type: 'Total Shots', value: 14 }, { type: 'Expected Goals', value: '2.1' }] }, { team: { id: 41, name: 'Team C', logo: 'c.png' }, statistics: [{ type: 'Ball Possession', value: '39%' }, { type: 'Shots on Goal', value: 3 }, { type: 'Total Shots', value: 7 }, { type: 'Expected Goals', value: '0.8' }] }] });
+    if (url.pathname.endsWith('/standings') && url.searchParams.get('league') === '39') return jsonResponse({ response: [{ league: { id: 39, name: 'Premier League', logo: 'pl.png', standings: [[{ rank: 1, points: 60, goalsDiff: 30, form: 'WWWWW', all: { played: 25, win: 19, draw: 3, lose: 3, goals: { for: 60, against: 30 } }, team: { id: 529, name: 'Barcelona', logo: 'barca.png' } }, { rank: 2, points: 55, goalsDiff: 20, form: 'WWDWW', all: { played: 25, win: 17, draw: 4, lose: 4, goals: { for: 50, against: 30 } }, team: { id: 41, name: 'Team C', logo: 'c.png' } }]] } }] });
+    if (url.pathname.endsWith('/teams/statistics') && url.searchParams.get('team') === '529') return jsonResponse({ response: { league: { id: 39, name: 'Premier League' }, fixtures: { played: { total: 25 }, wins: { total: 19 }, draws: { total: 3 }, loses: { total: 3 } }, goals: { for: { total: { total: 60 } }, against: { total: { total: 30 } } } } });
+    if (url.pathname.endsWith('/coachs') && url.searchParams.get('team') === '529') return jsonResponse({ response: [{ id: 9, name: 'Coach A', age: 50, career: [{ team: { id: 529 }, end: null }] }] });
+    if (url.pathname.endsWith('/players') && url.searchParams.get('team') === '529') return jsonResponse({ response: [{ player: { id: 1, name: 'Top Scorer', photo: 'p.png' }, statistics: [{ team: { logo: 'barca.png' }, games: { position: 'Attacker', rating: '7.8' }, goals: { total: 20, assists: 5 } }] }] });
+    if (url.pathname.endsWith('/players/squads')) return jsonResponse({ response: [{ players: [{ id: 1, name: 'Top Scorer' }] }] });
+    if (url.pathname.endsWith('/transfers') && url.searchParams.get('team') === '529') return jsonResponse({ response: [{ player: { id: 1, name: 'Arrival' }, transfers: [{ date: '2025-08-01', type: 'Transfer', teams: { in: { id: 529, name: 'Barcelona', logo: 'barca.png' }, out: { id: 50, name: 'Old Club', logo: 'old.png' } } }] }] });
+    if (url.pathname.endsWith('/trophies') && url.searchParams.get('team') === '529') return jsonResponse({ response: [{ league: 'La Liga', place: 'Winner', season: '2025' }] });
+    if (url.pathname.endsWith('/players') && url.searchParams.get('id') === '278' && url.searchParams.get('season') === '2025') return jsonResponse({ response: [{ player: { id: 278, name: 'Kylian Mbappe', age: 26, nationality: 'France', photo: 'mbappe.png' }, statistics: [{ team: { id: 40, name: 'Team A', logo: 'team-a.png' }, league: { id: 39, name: 'Premier League', logo: 'pl.png', season: 2025 }, games: { appearences: 28, lineups: 27, minutes: 2400, position: 'Attacker', rating: '7.8' }, goals: { total: 19, assists: 8 } }] }] });
+    if (url.pathname.endsWith('/players') && url.searchParams.get('id') === '278' && url.searchParams.get('season') === '2005') return jsonResponse({ response: [] });
+    if (url.pathname.endsWith('/players/seasons') && url.searchParams.get('player') === '278') return jsonResponse({ response: [2025, 2005] });
+    if (url.pathname.endsWith('/trophies') && url.searchParams.get('player') === '278') return jsonResponse({ response: [{ league: 'Premier League', country: 'England', season: '2025', place: 'Winner' }] });
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('team') === '40') return jsonResponse({ response: [{ fixture: { id: 9001, date: '2026-02-20T20:00:00Z' }, league: { id: 39, name: 'Premier League', logo: 'pl.png' }, teams: { home: { id: 40, name: 'Team A', logo: 'team-a.png' }, away: { id: 50, name: 'Team B', logo: 'team-b.png' } }, goals: { home: 2, away: 1 } }] });
+    if (url.pathname.endsWith('/fixtures/players') && url.searchParams.get('team') === '40') return jsonResponse({ response: [{ team: { id: 40, name: 'Team A', logo: 'team-a.png' }, players: [{ player: { id: 278 }, statistics: [{ games: { minutes: 90, rating: '7.8', substitute: false }, goals: { total: 1, assists: 0 } }] }] }] });
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+  const teamPayload = (await app.inject({ method: 'GET', url: '/v1/teams/529/full?timezone=Europe%2FParis' })).json();
+  const playerPayload = (await app.inject({ method: 'GET', url: '/v1/players/278/full?season=2025' })).json();
+
+  assert.equal(teamPayload.response.details.response[0].team.name, 'Barcelona');
+  assert.deepEqual(teamPayload.response.selection, { leagueId: '39', season: 2025 });
+  assert.equal(teamPayload.response.overviewLeaders.playerLeaders.scorers[0].name, 'Top Scorer');
+  assert.equal(teamPayload.response.standings.response.league.standings[0][0].team.name, 'Barcelona');
+  assert.equal(teamPayload.response.matches.response[0].fixture.id, 7001);
+  assert.equal(teamPayload.response.advancedStats.response.metrics.possession.rank, 1);
+  assert.equal(teamPayload.response.statsPlayers.response[0].player.name, 'Top Scorer');
+  assert.equal(teamPayload.response.transfers.response.length, 1);
+  assert.equal(playerPayload.response.details.response[0].player.name, 'Kylian Mbappe');
+  assert.equal(playerPayload.response.statsCatalog.response.defaultSelection.leagueId, '39');
+  assert.equal(playerPayload.response.career.response.seasons.length, 1);
+  assert.equal(playerPayload.response.matches.response.length, 1);
 });

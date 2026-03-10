@@ -33,6 +33,10 @@
   },
   {
     "method": "GET",
+    "path": "/v1/competitions/:id/full"
+  },
+  {
+    "method": "GET",
     "path": "/v1/competitions/:id/standings"
   },
   {
@@ -66,6 +70,10 @@
   {
     "method": "GET",
     "path": "/v1/matches/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/matches/:id/full"
   },
   {
     "method": "GET",
@@ -122,6 +130,10 @@
   {
     "method": "GET",
     "path": "/v1/teams/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/teams/:id/full"
   },
   {
     "method": "GET",
@@ -202,6 +214,10 @@
   {
     "method": "GET",
     "path": "/v1/players/:id"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/players/:id/full"
   },
   {
     "method": "GET",

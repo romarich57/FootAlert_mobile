@@ -18,7 +18,8 @@
 
 ## Background Refresh
 - Owner: `src/data/background/backgroundRefresh.ts`
-- Responsibility: iOS-only registration policy, runtime eligibility checks, and low-cost cache warming for top-level mobile data.
+- Responsibility: `shared-package` registration policy for Android+iOS, runtime eligibility checks, dev-only deterministic trigger, and low-cost cache warming for top-level mobile data.
+- Fallback contract: if the OS does not execute the task, the accepted behavior is `skip + telemetry`, without any platform-specific parallel path.
 
 ## Security
 - Owner: `src/data/security/*`

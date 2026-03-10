@@ -13,6 +13,7 @@ import {
   mapCareerSeasons,
 } from './careerMapper.js';
 import { fetchPlayerCareer } from './careerService.js';
+import { registerPlayerFullRoute } from './fullRoute.js';
 import {
   mapPlayerMatchPerformance,
   type PlayerFixtureDto,
@@ -120,6 +121,8 @@ function trackPlayerUpstreamRequests(
 }
 
 export async function registerPlayersRoutes(app: FastifyInstance): Promise<void> {
+  await registerPlayerFullRoute(app);
+
   app.get('/v1/players/:id', async request => {
     const params = parseOrThrow(playerIdParamsSchema, request.params);
     const query = parseOrThrow(playerDetailsQuerySchema, request.query);

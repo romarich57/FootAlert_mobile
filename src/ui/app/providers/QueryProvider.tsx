@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import {
   QueryClient,
@@ -9,8 +8,17 @@ import {
   PersistQueryClientProvider,
 } from '@tanstack/react-query-persist-client';
 import type { PropsWithChildren } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { appEnv } from '@data/config/env';
+import { getDatabase } from '@data/db/database';
+import { runGarbageCollection } from '@data/db/garbageCollector';
+import { hydrateQueryClientFromSqlite } from '@data/db/hydrationBridge';
+import { buildDefaultHydrationMappings } from '@data/db/hydrationMappings';
+import { setupQueryCacheSyncMiddleware } from '@data/db/queryCacheSyncMiddleware';
+import { getStoreSizeBytes } from '@data/db/entityStore';
+import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
+import { mmkvStorage } from '@data/storage/mmkvStorage';
 import {
   APP_CACHE_SCHEMA_VERSION,
   defaultQueryOptions,
@@ -87,14 +95,84 @@ export function QueryProvider({
         },
       }),
   );
+  const syncCleanupRef = useRef<(() => void) | null>(null);
+  const shouldBootstrapSqlite =
+    appEnv.mobileEnableSqliteLocalFirst && !isJestRuntime();
+  const [isSqliteReady, setIsSqliteReady] = useState(() => !shouldBootstrapSqlite);
 
   useEffect(() => {
     return () => {
+      syncCleanupRef.current?.();
+      syncCleanupRef.current = null;
       client.clear();
     };
   }, [client]);
 
   registerOnlineManagerIfNeeded();
+
+  useEffect(() => {
+    if (!shouldBootstrapSqlite) {
+      setIsSqliteReady(true);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const bootstrapSqlite = async () => {
+      const startedAt = Date.now();
+      try {
+        await getDatabase();
+        const garbageCollectionResult = runGarbageCollection();
+        const hydrationResult = hydrateQueryClientFromSqlite(
+          client,
+          buildDefaultHydrationMappings(
+            Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
+          ),
+        );
+        const dbSizeBytes = getStoreSizeBytes();
+
+        syncCleanupRef.current?.();
+        syncCleanupRef.current = setupQueryCacheSyncMiddleware(client.getQueryCache());
+
+        getMobileTelemetry().trackEvent('db.bootstrap.complete', {
+          durationMs: Date.now() - startedAt,
+          hydrationDurationMs: hydrationResult.durationMs,
+          hydratedTeams: hydrationResult.hydratedCounts.team,
+          hydratedPlayers: hydrationResult.hydratedCounts.player,
+          hydratedCompetitions: hydrationResult.hydratedCounts.competition,
+          hydratedMatches: hydrationResult.hydratedCounts.match,
+          gcDeletedTeams: garbageCollectionResult.deletedByType.team,
+          gcDeletedPlayers: garbageCollectionResult.deletedByType.player,
+          gcDeletedCompetitions: garbageCollectionResult.deletedByType.competition,
+          gcDeletedMatches: garbageCollectionResult.deletedByType.match,
+          gcDeletedMatchesByDate: garbageCollectionResult.matchesByDateDeleted,
+          dbSizeBytes,
+        });
+
+        if (!isCancelled) {
+          setIsSqliteReady(true);
+        }
+      } catch (error) {
+        getMobileTelemetry().trackError(
+          error instanceof Error ? error : new Error(String(error)),
+          { feature: 'query_provider.sqlite_bootstrap' },
+        );
+        appEnv.mobileEnableSqliteLocalFirst = false;
+
+        if (!isCancelled) {
+          setIsSqliteReady(true);
+        }
+      }
+    };
+
+    bootstrapSqlite();
+
+    return () => {
+      isCancelled = true;
+      syncCleanupRef.current?.();
+      syncCleanupRef.current = null;
+    };
+  }, [client, shouldBootstrapSqlite]);
 
   const persister = useMemo(() => {
     if (!enablePersistence) {
@@ -102,10 +180,15 @@ export function QueryProvider({
     }
 
     return safeAsyncStoragePersister({
-      storage: AsyncStorage,
+      storage: mmkvStorage,
       key: QUERY_PERSIST_CACHE_KEY,
+      maxBytes: appEnv.mobileQueryPersistMaxBytes,
     });
   }, [enablePersistence]);
+
+  if (!isSqliteReady) {
+    return null;
+  }
 
   if (!enablePersistence || !persister) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;

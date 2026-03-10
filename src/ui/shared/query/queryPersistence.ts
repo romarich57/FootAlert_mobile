@@ -2,14 +2,14 @@ import type { Query } from '@tanstack/query-core';
 import type { PersistedClient, Persister } from '@tanstack/query-persist-client-core';
 
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
+import { appEnv } from '@data/config/env';
+import type { AsyncStorageLike } from '@data/storage/asyncStorageTypes';
+import {
+  isPersistableQueryCachePolicy,
+  queryCachePolicyMatrix,
+} from '@data/query/queryCachePolicyMatrix';
 
-export const MAX_PERSIST_BYTES = 180 * 1024;
-
-type AsyncStorageLike = {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
-  removeItem(key: string): Promise<void>;
-};
+export const MAX_PERSIST_BYTES = 512 * 1024;
 
 type SafeAsyncStoragePersisterOptions = {
   storage: AsyncStorageLike | undefined | null;
@@ -25,34 +25,140 @@ type SerializedPersistedClient = {
   payloadBytes: number;
 };
 
-const PERSISTABLE_ROOT_KEYS = new Set(['follows', 'competitions']);
-
 function isFollowKeyPersistable(queryKey: readonly unknown[]): boolean {
   if (queryKey[1] === 'followed-team-ids') {
-    return true;
+    return isPersistableQueryCachePolicy(queryCachePolicyMatrix.follows.followedTeamIds.cachePolicy);
   }
 
   if (queryKey[1] === 'followed-player-ids') {
-    return true;
+    return isPersistableQueryCachePolicy(queryCachePolicyMatrix.follows.followedPlayerIds.cachePolicy);
   }
 
   if (queryKey[1] === 'followed-league-ids') {
-    return true;
+    return isPersistableQueryCachePolicy(
+      queryCachePolicyMatrix.follows.followedCompetitionIds.cachePolicy,
+    );
   }
 
   if (queryKey[1] === 'hide-trends') {
-    return queryKey.length >= 3;
+    return (
+      queryKey.length >= 3 &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.follows.hideTrends.cachePolicy)
+    );
   }
 
   if (queryKey[1] === 'discovery') {
-    return queryKey.length >= 4;
+    return (
+      queryKey.length >= 4 &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.follows.discovery.cachePolicy)
+    );
   }
 
   return false;
 }
 
 function isCompetitionsKeyPersistable(queryKey: readonly unknown[]): boolean {
-  return queryKey.length === 2 && queryKey[1] === 'catalog';
+  if (
+    queryKey.length === 4 &&
+    queryKey[1] === 'full' &&
+    isPersistableQueryCachePolicy(queryCachePolicyMatrix.competitions.full.cachePolicy)
+  ) {
+    return true;
+  }
+
+  if (queryKey.length === 2 && queryKey[1] === 'catalog') {
+    return isPersistableQueryCachePolicy(queryCachePolicyMatrix.competitions.catalog.cachePolicy);
+  }
+
+  return (
+    queryKey.length === 4 &&
+    queryKey[1] === 'details' &&
+    queryKey[2] === 'header' &&
+    isPersistableQueryCachePolicy(queryCachePolicyMatrix.competitions.header.cachePolicy)
+  );
+}
+
+function isTeamKeyPersistable(queryKey: readonly unknown[]): boolean {
+  if (queryKey[0] === 'teams') {
+    if (queryKey[1] === 'full') {
+      return isPersistableQueryCachePolicy(queryCachePolicyMatrix.teams.full.cachePolicy);
+    }
+
+    if (queryKey[1] === 'details') {
+      return isPersistableQueryCachePolicy(queryCachePolicyMatrix.teams.details.cachePolicy);
+    }
+
+    if (queryKey[1] === 'leagues') {
+      return isPersistableQueryCachePolicy(queryCachePolicyMatrix.teams.leagues.cachePolicy);
+    }
+
+    return false;
+  }
+
+  return (
+    (queryKey[0] === 'team_squad' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.teams.squad.cachePolicy)) ||
+    (queryKey[0] === 'team_standings' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.teams.standings.cachePolicy)) ||
+    (queryKey[0] === 'team_transfers' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.teams.transfers.cachePolicy))
+  );
+}
+
+function isPlayerKeyPersistable(queryKey: readonly unknown[]): boolean {
+  return (
+    (queryKey[0] === 'players' &&
+      queryKey[1] === 'full' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.players.full.cachePolicy)) ||
+    (queryKey[0] === 'player_overview' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.players.overview.cachePolicy)) ||
+    (queryKey[0] === 'player_details' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.players.details.cachePolicy)) ||
+    (queryKey[0] === 'player_trophies' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.players.trophies.cachePolicy)) ||
+    (queryKey[0] === 'player_career_aggregate' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.players.career.cachePolicy)) ||
+    (queryKey[0] === 'player_stats_catalog' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.players.statsCatalog.cachePolicy))
+  );
+}
+
+function isMatchDetailsKeyPersistable(queryKey: readonly unknown[]): boolean {
+  if (
+    queryKey[0] === 'match_details_full' &&
+    isPersistableQueryCachePolicy(queryCachePolicyMatrix.matches.full.cachePolicy)
+  ) {
+    return true;
+  }
+
+  if (queryKey[0] !== 'match_details' || queryKey.length !== 3) {
+    return false;
+  }
+
+  const reservedDatasetKeys = new Set([
+    'events',
+    'statistics',
+    'lineups',
+    'predictions',
+    'team_players_stats',
+    'absences',
+    'head_to_head',
+  ]);
+
+  return (
+    typeof queryKey[2] === 'string' &&
+    !reservedDatasetKeys.has(queryKey[2]) &&
+    isPersistableQueryCachePolicy(queryCachePolicyMatrix.matches.details.cachePolicy)
+  );
+}
+
+function isCompetitionEntityKeyPersistable(queryKey: readonly unknown[]): boolean {
+  return (
+    (queryKey[0] === 'competition_standings' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.competitions.standings.cachePolicy)) ||
+    (queryKey[0] === 'competition_seasons' &&
+      isPersistableQueryCachePolicy(queryCachePolicyMatrix.competitions.seasons.cachePolicy))
+  );
 }
 
 function isPersistableQueryKey(queryKey: readonly unknown[]): boolean {
@@ -60,16 +166,20 @@ function isPersistableQueryKey(queryKey: readonly unknown[]): boolean {
     return false;
   }
 
-  const rootKey = typeof queryKey[0] === 'string' ? queryKey[0] : null;
-  if (!rootKey || !PERSISTABLE_ROOT_KEYS.has(rootKey)) {
-    return false;
-  }
-
-  if (rootKey === 'follows') {
+  if (queryKey[0] === 'follows') {
     return isFollowKeyPersistable(queryKey);
   }
 
-  return isCompetitionsKeyPersistable(queryKey);
+  if (queryKey[0] === 'competitions') {
+    return isCompetitionsKeyPersistable(queryKey);
+  }
+
+  return (
+    isTeamKeyPersistable(queryKey) ||
+    isPlayerKeyPersistable(queryKey) ||
+    isMatchDetailsKeyPersistable(queryKey) ||
+    isCompetitionEntityKeyPersistable(queryKey)
+  );
 }
 
 function getPayloadBytes(payload: string): number {
@@ -98,6 +208,19 @@ async function removePersistedSnapshot(
 export function shouldDehydrateQuery(query: Query): boolean {
   if (query.state.status !== 'success') {
     return false;
+  }
+
+  if (appEnv.mobileEnableSqliteLocalFirst) {
+    const queryKey = query.queryKey;
+    const isSqliteCanonicalQuery =
+      (queryKey[0] === 'teams' && queryKey[1] === 'full') ||
+      (queryKey[0] === 'players' && queryKey[1] === 'full') ||
+      (queryKey[0] === 'competitions' && queryKey[1] === 'full') ||
+      queryKey[0] === 'match_details_full';
+
+    if (isSqliteCanonicalQuery) {
+      return false;
+    }
   }
 
   return isPersistableQueryKey(query.queryKey);

@@ -16,6 +16,7 @@ import {
 } from '@ui/features/teams/components/TeamNotificationModal';
 import { TeamDetailsSkeleton } from '@ui/features/teams/components/TeamDetailsSkeleton';
 import { useTeamDetailsScreenModel } from '@ui/features/teams/hooks/useTeamDetailsScreenModel';
+import { FreshnessIndicator } from '@ui/shared/components';
 import { useOfflineUiState } from '@ui/shared/hooks';
 import { toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 
@@ -64,6 +65,10 @@ export function TeamDetailsScreenView({
   onOpenNotificationModal,
   onSaveNotificationPrefs,
 }: TeamDetailsScreenViewProps) {
+  const isRefetchingSilently = model.hasCachedData && model.isContextLoading;
+  const shouldShowBlockingSkeleton = model.isContextLoading && !model.hasCachedData;
+  const shouldShowBlockingError = model.isContextError && !model.hasCachedData;
+
   if (!model.isValidTeamId) {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -94,6 +99,15 @@ export function TeamDetailsScreenView({
       {offlineUi.showOfflineBanner ? (
         <View style={styles.stateWrap}>
           <ScreenStateView state='offline' lastUpdatedAt={offlineLastUpdatedAt} />
+        </View>
+      ) : null}
+      {!offlineUi.showOfflineBanner ? (
+        <View style={styles.stateWrap}>
+          <FreshnessIndicator
+            lastUpdatedAt={model.lastUpdatedAt}
+            isRefreshing={isRefetchingSilently}
+            visible={Boolean(model.lastUpdatedAt || isRefetchingSilently)}
+          />
         </View>
       ) : null}
 
@@ -135,9 +149,9 @@ export function TeamDetailsScreenView({
         </View>
       ) : null}
 
-      {!offlineUi.showOfflineNoCache && model.isContextLoading ? <TeamDetailsSkeleton /> : null}
+      {!offlineUi.showOfflineNoCache && shouldShowBlockingSkeleton ? <TeamDetailsSkeleton /> : null}
 
-      {!offlineUi.showOfflineNoCache && model.isContextError ? (
+      {!offlineUi.showOfflineNoCache && shouldShowBlockingError ? (
         <View style={styles.stateWrap}>
           <View style={styles.stateCard}>
             <Text style={styles.stateText}>{labels.error}</Text>
@@ -149,7 +163,7 @@ export function TeamDetailsScreenView({
         </View>
       ) : null}
 
-      {!offlineUi.showOfflineNoCache && !model.isContextLoading && !model.isContextError ? (
+      {!offlineUi.showOfflineNoCache && !shouldShowBlockingSkeleton && !shouldShowBlockingError ? (
         <View style={styles.content}>
           <TeamDetailsTabContent
             activeTab={model.activeTab}

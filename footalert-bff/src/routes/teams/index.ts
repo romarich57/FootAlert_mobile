@@ -31,6 +31,7 @@ import {
   fetchTeamOverviewLeadersPayload,
   parseOverviewHistorySeasons,
 } from './overview.js';
+import { registerTeamFullRoute } from './fullRoute.js';
 import {
   statsQuerySchema,
   standingsQuerySchema,
@@ -179,6 +180,8 @@ async function fetchStandingsPayload(query: { leagueId: string; season: number }
 }
 
 export async function registerTeamsRoutes(app: FastifyInstance): Promise<void> {
+  await registerTeamFullRoute(app);
+
   app.get(
     '/v1/teams/standings',
     {

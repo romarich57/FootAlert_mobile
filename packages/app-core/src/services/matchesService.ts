@@ -19,9 +19,43 @@ const listResponseSchema = z
   })
   .passthrough();
 
+const objectResponseSchema = z.object({}).passthrough();
+
 type MatchesServiceDependencies = {
   http: HttpAdapter;
   telemetry: TelemetryAdapter;
+};
+
+export type MatchFullResponse<TFixture = unknown, TDataset = unknown> = {
+  fixture: TFixture | null;
+  lifecycleState: 'pre_match' | 'live' | 'finished';
+  context: {
+    leagueId: string | number | null;
+    season: string | number | null;
+    homeTeamId: string | number | null;
+    awayTeamId: string | number | null;
+  };
+  events: TDataset[];
+  statistics: {
+    all: TDataset[];
+    first: TDataset[];
+    second: TDataset[];
+  };
+  lineups: TDataset[];
+  predictions: TDataset[];
+  absences: TDataset[];
+  headToHead: TDataset[];
+  standings: TDataset | null;
+  homeRecentResults: TDataset[];
+  awayRecentResults: TDataset[];
+  homeLeaders: TDataset | null;
+  awayLeaders: TDataset | null;
+  playersStats: {
+    homeTeamId: string | number | null;
+    awayTeamId: string | number | null;
+    home: TDataset[];
+    away: TDataset[];
+  };
 };
 
 export function createMatchesReadService({ http, telemetry }: MatchesServiceDependencies) {
@@ -79,6 +113,61 @@ export function createMatchesReadService({ http, telemetry }: MatchesServiceDepe
       });
 
       return ((payload as ListEnvelope<T>).response[0] ?? null) as T | null;
+    },
+
+    async fetchMatchFull<TFixture = unknown, TDataset = unknown>(params: {
+      fixtureId: string;
+      timezone: string;
+      signal?: AbortSignal;
+    }): Promise<MatchFullResponse<TFixture, TDataset>> {
+      const rawPayload = await http.get<unknown>(
+        `/matches/${encodeURIComponent(params.fixtureId)}/full`,
+        {
+          timezone: params.timezone,
+        },
+        { signal: params.signal },
+      );
+
+      const payload = parseRuntimePayloadOrFallback({
+        schema: objectResponseSchema,
+        payload: rawPayload,
+        fallback: {
+          fixture: null,
+          lifecycleState: 'pre_match',
+          context: {
+            leagueId: null,
+            season: null,
+            homeTeamId: null,
+            awayTeamId: null,
+          },
+          events: [],
+          statistics: {
+            all: [],
+            first: [],
+            second: [],
+          },
+          lineups: [],
+          predictions: [],
+          absences: [],
+          headToHead: [],
+          standings: null,
+          homeRecentResults: [],
+          awayRecentResults: [],
+          homeLeaders: null,
+          awayLeaders: null,
+          playersStats: {
+            homeTeamId: null,
+            awayTeamId: null,
+            home: [],
+            away: [],
+          },
+        },
+        telemetry,
+        feature: 'matches.fixture_full',
+        endpoint: `/matches/${params.fixtureId}/full`,
+      });
+
+      return payload as MatchFullResponse<TFixture, TDataset>;
     },
 
     async fetchFixtureEvents<T = unknown>(params: {

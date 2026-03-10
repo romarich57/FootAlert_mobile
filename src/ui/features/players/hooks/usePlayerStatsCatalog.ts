@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
@@ -7,7 +8,14 @@ import {
   fetchPlayerStatsCatalog,
 } from '@data/endpoints/playersApi';
 import { mapPlayerDetailsToSeasonStatsDataset } from '@data/mappers/playersMapper';
-import type { PlayerStatsCatalogCompetition } from '@domain/contracts/players.types';
+import type {
+  PlayerApiDetailsDto,
+  PlayerStatsCatalogCompetition,
+} from '@domain/contracts/players.types';
+import {
+  usePlayerFullQuery,
+  type PlayerFullPayload,
+} from '@ui/features/players/hooks/playerFullQuery';
 import type { TeamCompetitionOption } from '@ui/features/teams/types/teams.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -93,13 +101,114 @@ function toTeamCompetitionOption(
   };
 }
 
-export function usePlayerStatsCatalog(playerId: string, enabled: boolean = true) {
-  const useAggregateCatalog = appEnv.mobileEnablePlayerStatsCatalogAggregate;
-  const catalogQuery = useQuery({
+function buildCatalogFromSeasonDetails(
+  seasonDetails: Array<{ season: number; details: PlayerApiDetailsDto | null }>,
+): PlayerStatsCatalog {
+  const competitionsMap = new Map<string, TeamCompetitionOption>();
+
+  seasonDetails.forEach(({ season, details }) => {
+    if (!details) {
+      return;
+    }
+
+    const dataset = mapPlayerDetailsToSeasonStatsDataset(details, season);
+    dataset.byCompetition.forEach(item => {
+      if (!item.leagueId || item.season === null) {
+        return;
+      }
+
+      const existing = competitionsMap.get(item.leagueId);
+      if (existing) {
+        if (!existing.seasons.includes(item.season)) {
+          existing.seasons.push(item.season);
+        }
+        if (
+          existing.currentSeason === null ||
+          item.season > existing.currentSeason
+        ) {
+          existing.currentSeason = item.season;
+        }
+        if (!existing.leagueName && item.leagueName) {
+          existing.leagueName = item.leagueName;
+        }
+        if (!existing.leagueLogo && item.leagueLogo) {
+          existing.leagueLogo = item.leagueLogo;
+        }
+        return;
+      }
+
+      competitionsMap.set(item.leagueId, {
+        leagueId: item.leagueId,
+        leagueName: item.leagueName,
+        leagueLogo: item.leagueLogo,
+        type: null,
+        country: null,
+        seasons: [item.season],
+        currentSeason: item.season,
+      });
+    });
+  });
+
+  return buildCatalog(Array.from(competitionsMap.values()));
+}
+
+function selectPlayerStatsCatalogFromFull(
+  payload: PlayerFullPayload,
+  season: number,
+): PlayerStatsCatalog {
+  const catalog = payload.statsCatalog.response;
+  if (catalog) {
+    return {
+      competitions: (catalog.competitions ?? [])
+        .map(toTeamCompetitionOption)
+        .filter((competition): competition is TeamCompetitionOption => competition !== null),
+      defaultSelection: catalog.defaultSelection ?? EMPTY_SELECTION,
+    };
+  }
+
+  const details = payload.details.response[0] ?? null;
+  if (!details) {
+    return {
+      competitions: [],
+      defaultSelection: EMPTY_SELECTION,
+    };
+  }
+
+  return buildCatalogFromSeasonDetails([{ season, details }]);
+}
+
+export function usePlayerStatsCatalog(
+  playerId: string,
+  enabled: boolean = true,
+  season?: number,
+) {
+  const useFullPayload = appEnv.mobileEnableBffPlayerFull;
+  const useAggregateCatalog =
+    !useFullPayload && appEnv.mobileEnablePlayerStatsCatalogAggregate;
+  const fullSeason =
+    typeof season === 'number' && Number.isFinite(season) ? season : null;
+
+  const fullPlayerQuery = usePlayerFullQuery(
+    playerId,
+    fullSeason ?? 0,
+    useFullPayload && enabled && !!playerId && fullSeason !== null,
+  );
+  const fullCatalogData = useMemo(
+    () =>
+      fullPlayerQuery.data
+        ? selectPlayerStatsCatalogFromFull(
+            fullPlayerQuery.data as PlayerFullPayload,
+            fullSeason ?? 0,
+          )
+        : undefined,
+    [fullPlayerQuery.data, fullSeason],
+  );
+
+  const legacyCatalogQuery = useQuery({
     queryKey: useAggregateCatalog
       ? queryKeys.players.statsCatalogV2(playerId)
       : queryKeys.players.statsCatalog(playerId),
-    enabled: enabled && !!playerId,
+    enabled: !useFullPayload && enabled && !!playerId,
     queryFn: async ({ signal }): Promise<PlayerStatsCatalog> => {
       if (useAggregateCatalog) {
         const payload = await fetchPlayerStatsCatalog(playerId, signal);
@@ -120,73 +229,32 @@ export function usePlayerStatsCatalog(playerId: string, enabled: boolean = true)
       if (uniqueSeasons.length === 0) {
         return {
           competitions: [],
-          defaultSelection: {
-            leagueId: null,
-            season: null,
-          },
+          defaultSelection: EMPTY_SELECTION,
         };
       }
 
       const seasonDetails = await Promise.all(
-        uniqueSeasons.map(async season => {
+        uniqueSeasons.map(async seasonValue => {
           try {
-            const details = await fetchPlayerDetails(playerId, season, signal);
-            return { season, details };
+            const details = await fetchPlayerDetails(playerId, seasonValue, signal);
+            return { season: seasonValue, details };
           } catch {
-            return { season, details: null };
+            return { season: seasonValue, details: null };
           }
         }),
       );
 
-      const competitionsMap = new Map<string, TeamCompetitionOption>();
-
-      seasonDetails.forEach(({ season, details }) => {
-        if (!details) {
-          return;
-        }
-
-        const dataset = mapPlayerDetailsToSeasonStatsDataset(details, season);
-        dataset.byCompetition.forEach(item => {
-          if (!item.leagueId || item.season === null) {
-            return;
-          }
-
-          const existing = competitionsMap.get(item.leagueId);
-          if (existing) {
-            if (!existing.seasons.includes(item.season)) {
-              existing.seasons.push(item.season);
-            }
-            if (
-              existing.currentSeason === null ||
-              item.season > existing.currentSeason
-            ) {
-              existing.currentSeason = item.season;
-            }
-            if (!existing.leagueName && item.leagueName) {
-              existing.leagueName = item.leagueName;
-            }
-            if (!existing.leagueLogo && item.leagueLogo) {
-              existing.leagueLogo = item.leagueLogo;
-            }
-            return;
-          }
-
-          competitionsMap.set(item.leagueId, {
-            leagueId: item.leagueId,
-            leagueName: item.leagueName,
-            leagueLogo: item.leagueLogo,
-            type: null,
-            country: null,
-            seasons: [item.season],
-            currentSeason: item.season,
-          });
-        });
-      });
-
-      return buildCatalog(Array.from(competitionsMap.values()));
+      return buildCatalogFromSeasonDetails(seasonDetails);
     },
     ...featureQueryOptions.players.statsCatalog,
   });
+
+  const catalogQuery = useFullPayload
+    ? {
+        ...fullPlayerQuery,
+        data: fullCatalogData,
+      }
+    : legacyCatalogQuery;
 
   return {
     competitions: catalogQuery.data?.competitions ?? [],

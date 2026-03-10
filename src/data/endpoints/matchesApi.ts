@@ -1,4 +1,7 @@
-import { createMatchesReadService } from '@app-core/services/matchesService';
+import {
+  createMatchesReadService,
+  type MatchFullResponse as AppCoreMatchFullResponse,
+} from '@app-core/services/matchesService';
 import { mobileReadHttpAdapter, mobileReadTelemetryAdapter } from '@data/endpoints/sharedReadServiceAdapters';
 import type {
   ApiFootballFixtureDto,
@@ -8,6 +11,8 @@ const matchesReadService = createMatchesReadService({
   http: mobileReadHttpAdapter,
   telemetry: mobileReadTelemetryAdapter,
 });
+
+export type ApiFootballMatchFullResponse = AppCoreMatchFullResponse<ApiFootballFixtureDto, unknown>;
 
 type FetchFixturesByDateParams = {
   date: string;
@@ -45,6 +50,24 @@ export async function fetchFixtureById({
   signal,
 }: FetchFixtureByIdParams): Promise<ApiFootballFixtureDto | null> {
   return matchesReadService.fetchFixtureById<ApiFootballFixtureDto>({
+    fixtureId,
+    timezone,
+    signal,
+  });
+}
+
+type FetchMatchFullParams = {
+  fixtureId: string;
+  timezone: string;
+  signal?: AbortSignal;
+};
+
+export async function fetchMatchFull({
+  fixtureId,
+  timezone,
+  signal,
+}: FetchMatchFullParams): Promise<ApiFootballMatchFullResponse> {
+  return matchesReadService.fetchMatchFull<ApiFootballFixtureDto, unknown>({
     fixtureId,
     timezone,
     signal,

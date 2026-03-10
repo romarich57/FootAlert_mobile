@@ -1,11 +1,14 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
+import { appEnv } from '@data/config/env';
 import { fetchLeagueFixturesPage } from '@data/endpoints/competitionsApi';
 import { mapFixturesDtoToFixtures } from '@data/mappers/competitionsMapper';
 import { useCompetitionFixtures } from '@ui/features/competitions/hooks/useCompetitionFixtures';
+import { loadCompetitionFullPayload } from '@ui/features/competitions/hooks/competitionFullQuery';
 
 jest.mock('@tanstack/react-query', () => ({
   useInfiniteQuery: jest.fn(),
+  useQueryClient: jest.fn(),
 }));
 jest.mock('@data/endpoints/competitionsApi', () => ({
   fetchLeagueFixturesPage: jest.fn(),
@@ -13,19 +16,32 @@ jest.mock('@data/endpoints/competitionsApi', () => ({
 jest.mock('@data/mappers/competitionsMapper', () => ({
   mapFixturesDtoToFixtures: jest.fn((items: unknown[]) => items),
 }));
+jest.mock('@data/config/env', () => ({
+  appEnv: {
+    mobileEnableBffCompetitionFull: false,
+  },
+}));
+jest.mock('@ui/features/competitions/hooks/competitionFullQuery', () => ({
+  loadCompetitionFullPayload: jest.fn(),
+}));
 
 const mockedUseInfiniteQuery = jest.mocked(useInfiniteQuery);
+const mockedUseQueryClient = jest.mocked(useQueryClient);
 const mockedFetchLeagueFixturesPage = jest.mocked(fetchLeagueFixturesPage);
 const mockedMapFixturesDtoToFixtures = jest.mocked(mapFixturesDtoToFixtures);
+const mockedLoadCompetitionFullPayload = jest.mocked(loadCompetitionFullPayload);
 
 describe('useCompetitionFixtures', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    appEnv.mobileEnableBffCompetitionFull = false;
+    mockedUseQueryClient.mockReturnValue({} as never);
     mockedUseInfiniteQuery.mockReturnValue({} as never);
     mockedFetchLeagueFixturesPage.mockResolvedValue({
       items: [],
       pageInfo: undefined,
     });
+    mockedLoadCompetitionFullPayload.mockResolvedValue(null);
   });
 
   it('désactive la query quand leagueId est absent', () => {
@@ -147,6 +163,32 @@ describe('useCompetitionFixtures', () => {
       nextCursor: 'cursor_next',
       hasPrevious: true,
       previousCursor: 'cursor_prev',
+    });
+  });
+
+  it('queryFn utilise competitions.full comme source unique quand le flag est actif', async () => {
+    appEnv.mobileEnableBffCompetitionFull = true;
+    mockedLoadCompetitionFullPayload.mockResolvedValue({
+      matches: [{ fixture: { id: 88 } }],
+    } as never);
+    mockedMapFixturesDtoToFixtures.mockReturnValue([{ id: 88 }] as never);
+
+    useCompetitionFixtures(61, 2025);
+    const config = mockedUseInfiniteQuery.mock.calls[0]?.[0];
+    const queryFn = config?.queryFn as (ctx: {
+      pageParam: unknown;
+      signal: AbortSignal | undefined;
+    }) => Promise<unknown>;
+    const result = await queryFn({ pageParam: undefined, signal: undefined });
+
+    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalled();
+    expect(mockedFetchLeagueFixturesPage).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      items: [{ id: 88 }],
+      hasMore: false,
+      nextCursor: null,
+      hasPrevious: false,
+      previousCursor: null,
     });
   });
 });

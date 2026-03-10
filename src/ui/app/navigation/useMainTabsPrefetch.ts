@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { usePowerState } from 'react-native-device-info';
 
 import { appEnv } from '@data/config/env';
+import { resolvePrefetchGuardState } from '@data/prefetch/prefetchGuard';
 import { fetchAllLeagues } from '@data/endpoints/competitionsApi';
 import {
   fetchDiscoveryPlayers,
@@ -16,11 +17,19 @@ import {
   loadFollowedPlayerIds,
   loadFollowedTeamIds,
 } from '@data/storage/followsStorage';
-import { buildMatchesQueryResult, MATCHES_QUERY_STALE_TIME_MS, shouldRetryMatchesQuery } from '@ui/features/matches/hooks/useMatchesQuery';
+import {
+  buildMatchesQueryResult,
+  MATCHES_QUERY_STALE_TIME_MS,
+  shouldRetryMatchesQuery,
+} from '@data/matches/matchesQueryData';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import type { MainTabParamList } from '@ui/app/navigation/types';
 
 type PrefetchTabName = Extract<keyof MainTabParamList, 'Matches' | 'Competitions' | 'Follows'>;
+type IdleAwareGlobal = typeof globalThis & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
 
 type TabListener = {
   tabPress: () => void;
@@ -29,6 +38,11 @@ type TabListener = {
 export const TAB_PREFETCH_COOLDOWN_MS = 20_000;
 
 const COMPETITIONS_CATALOG_STALE_TIME_MS = 10 * 60_000;
+const TAB_IDLE_NEIGHBOR_MAP: Record<PrefetchTabName, PrefetchTabName> = {
+  Matches: 'Competitions',
+  Competitions: 'Matches',
+  Follows: 'Matches',
+};
 
 function toApiDateString(date: Date): string {
   const year = date.getFullYear();
@@ -126,12 +140,39 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
     await Promise.allSettled(prefetchTasks);
   }, [queryClient, timezone]);
 
+  const scheduleIdlePrefetch = useCallback((task: () => void) => {
+    const globalScope = globalThis as IdleAwareGlobal;
+
+    if (typeof globalScope.requestIdleCallback === 'function') {
+      const handle = globalScope.requestIdleCallback(() => task(), { timeout: 250 });
+      return () => globalScope.cancelIdleCallback?.(handle);
+    }
+
+    const timeoutHandle = setTimeout(task, 0);
+    return () => clearTimeout(timeoutHandle);
+  }, []);
+
+  const runTabPrefetch = useCallback((tabName: PrefetchTabName) => {
+    if (tabName === 'Matches') {
+      return prefetchMatchesTab();
+    }
+
+    if (tabName === 'Competitions') {
+      return prefetchCompetitionsTab();
+    }
+
+    return prefetchFollowsTab();
+  }, [prefetchCompetitionsTab, prefetchFollowsTab, prefetchMatchesTab]);
+
   const triggerTabPrefetch = useCallback((tabName: PrefetchTabName) => {
-    const isOffline =
-      netInfo.isConnected === false || netInfo.isInternetReachable === false;
-    const networkLiteMode = isOffline || netInfo.details?.isConnectionExpensive === true;
-    const batteryLiteMode = powerState.lowPowerMode === true;
-    if (isOffline) {
+    const guardState = resolvePrefetchGuardState({
+      isConnected: netInfo.isConnected,
+      isInternetReachable: netInfo.isInternetReachable,
+      isConnectionExpensive: netInfo.details?.isConnectionExpensive,
+      lowPowerMode: powerState.lowPowerMode,
+    });
+
+    if (guardState.isOffline) {
       return;
     }
 
@@ -142,31 +183,23 @@ export function useMainTabsPrefetch(): Record<PrefetchTabName, TabListener> {
     }
     lastPrefetchAtByTabRef.current[tabName] = now;
 
-    if (tabName === 'Matches') {
-      prefetchMatchesTab().catch(() => undefined);
+    runTabPrefetch(tabName).catch(() => undefined);
+
+    if (!guardState.allowIdle) {
       return;
     }
 
-    if (tabName === 'Competitions') {
-      if (networkLiteMode || batteryLiteMode) {
-        return;
-      }
-      prefetchCompetitionsTab().catch(() => undefined);
-      return;
-    }
-
-    if (networkLiteMode || batteryLiteMode) {
-      return;
-    }
-    prefetchFollowsTab().catch(() => undefined);
+    const idleNeighbor = TAB_IDLE_NEIGHBOR_MAP[tabName];
+    scheduleIdlePrefetch(() => {
+      runTabPrefetch(idleNeighbor).catch(() => undefined);
+    });
   }, [
     netInfo.isConnected,
     netInfo.isInternetReachable,
     netInfo.details?.isConnectionExpensive,
-    prefetchCompetitionsTab,
-    prefetchFollowsTab,
-    prefetchMatchesTab,
     powerState.lowPowerMode,
+    runTabPrefetch,
+    scheduleIdlePrefetch,
   ]);
 
   useEffect(() => {

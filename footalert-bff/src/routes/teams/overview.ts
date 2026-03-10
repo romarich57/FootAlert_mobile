@@ -40,6 +40,12 @@ import type {
   TeamOverviewLeadersResponse,
 } from './overview.types.js';
 
+export {
+  fetchOverviewFixtures,
+  fetchOverviewPlayers,
+  fetchOverviewStandings,
+} from './overview.fetchers.js';
+
 export async function fetchTeamOverviewLeadersPayload({
   teamId,
   leagueId,

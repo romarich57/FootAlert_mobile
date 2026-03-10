@@ -7,11 +7,12 @@ import {
   resolveDeviceLanguage,
 } from '@/shared/i18n/language';
 import { en } from '@ui/shared/i18n/locales/en';
+import { freshnessLocaleFragments } from '@ui/shared/i18n/locales/freshness';
 import { fr } from '@ui/shared/i18n/locales/fr';
 
 const resources = {
-  en: { translation: en },
-  fr: { translation: fr },
+  en: { translation: { ...en, ...freshnessLocaleFragments.en } },
+  fr: { translation: { ...fr, ...freshnessLocaleFragments.fr } },
 };
 
 if (!i18n.isInitialized) {

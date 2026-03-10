@@ -19,6 +19,12 @@ const optionalResponseSchema = z
 
 const objectResponseSchema = z.object({}).passthrough();
 
+const responseObjectSchema = z
+  .object({
+    response: z.unknown(),
+  })
+  .passthrough();
+
 const pagedResponseSchema = z
   .object({
     response: z.array(z.unknown()).default([]),
@@ -47,6 +53,41 @@ type TeamsServiceDependencies = {
 
 export function createTeamsReadService({ http, telemetry }: TeamsServiceDependencies) {
   return {
+    async fetchTeamFull<T = unknown>(
+      params: {
+        teamId: string;
+        timezone: string;
+        leagueId?: string | null;
+        season?: number | null;
+        historySeasons?: number[];
+      },
+      signal?: AbortSignal,
+    ): Promise<T> {
+      const rawPayload = await http.get<unknown>(
+        `/teams/${encodeURIComponent(params.teamId)}/full`,
+        {
+          timezone: params.timezone,
+          leagueId: params.leagueId ?? undefined,
+          season: params.season ?? undefined,
+          historySeasons:
+            params.historySeasons && params.historySeasons.length > 0
+              ? params.historySeasons.join(',')
+              : undefined,
+        },
+        { signal },
+      );
+      const payload = parseRuntimePayloadOrFallback({
+        schema: responseObjectSchema,
+        payload: rawPayload,
+        fallback: { response: {} },
+        telemetry,
+        feature: 'teams.full',
+        endpoint: `/teams/${params.teamId}/full`,
+      });
+
+      return payload as T;
+    },
+
     async fetchTeamDetails<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T | null> {
       const rawPayload = await http.get<unknown>(
         `/teams/${encodeURIComponent(teamId)}`,

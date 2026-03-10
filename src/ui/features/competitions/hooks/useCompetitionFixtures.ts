@@ -1,10 +1,13 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
+import { appEnv } from '@data/config/env';
 import { fetchLeagueFixturesPage } from '@data/endpoints/competitionsApi';
 import { mapFixturesDtoToFixtures } from '@data/mappers/competitionsMapper';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import type { Fixture } from '../types/competitions.types';
+
+import { loadCompetitionFullPayload } from './competitionFullQuery';
 
 const FIXTURES_PAGE_SIZE = 50;
 
@@ -20,6 +23,8 @@ export function useCompetitionFixtures(
   leagueId: number | undefined,
   season: number | undefined,
 ) {
+  const queryClient = useQueryClient();
+
   return useInfiniteQuery<FixturePage, Error>({
     queryKey: queryKeys.competitions.fixtures(leagueId, season),
     queryFn: async ({ pageParam, signal }) => {
@@ -32,6 +37,24 @@ export function useCompetitionFixtures(
           previousCursor: null,
         };
       }
+
+      if (appEnv.mobileEnableBffCompetitionFull) {
+        try {
+          const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
+          if (payload?.matches) {
+            return {
+              items: mapFixturesDtoToFixtures(payload.matches),
+              hasMore: false,
+              nextCursor: null,
+              hasPrevious: false,
+              previousCursor: null,
+            };
+          }
+        } catch {
+          // Fallback legacy conservé pour les erreurs réseau/full.
+        }
+      }
+
       const page = await fetchLeagueFixturesPage(
         leagueId,
         season,

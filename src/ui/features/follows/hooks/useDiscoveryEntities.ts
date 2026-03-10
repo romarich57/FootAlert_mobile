@@ -215,8 +215,14 @@ export function useDiscoveryEntities<TTab extends FollowEntityTab>({
     enabled && !hidden
       ? remoteUsableData ?? lastGoodData ?? seedData
       : null;
-  const resolvedItems = (resolvedData?.items ?? []) as DiscoveryItem[];
-  const remoteItems = (remoteUsableData?.items ?? []) as DiscoveryItem[];
+  const resolvedItems = useMemo(
+    () => (resolvedData?.items ?? []) as DiscoveryItem[],
+    [resolvedData],
+  );
+  const remoteItems = useMemo(
+    () => (remoteUsableData?.items ?? []) as DiscoveryItem[],
+    [remoteUsableData],
+  );
   const hasRemoteData = remoteUsableData !== null;
   const usedLastGood = !hasRemoteData && lastGoodData !== null;
   const usedSeedFallback =

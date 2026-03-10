@@ -8,6 +8,10 @@ module.exports = [
       'desktop/dist/**',
       'desktop/src-tauri/target/**',
       'footalert-bff/dist/**',
+      'site_vitrine/dist/**',
+      'android/app/build/**',
+      'ios/build/**',
+      'coverage/**',
     ],
   },
   {
@@ -37,6 +41,16 @@ module.exports = [
     rules: {
       'ft-flow/define-flow-type': 'off',
       'ft-flow/use-flow-type': 'off',
+    },
+  },
+  {
+    files: ['footalert-bff/scripts/perf/*.js'],
+    languageOptions: {
+      globals: {
+        __ENV: 'readonly',
+        __ITER: 'readonly',
+        __VU: 'readonly',
+      },
     },
   },
   {

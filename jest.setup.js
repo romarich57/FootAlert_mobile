@@ -54,6 +54,18 @@ jest.mock('react-native-config', () => ({
   API_FOOTBALL_KEY: 'test-key',
 }));
 
+jest.mock('@op-engineering/op-sqlite', () => {
+  const db = {
+    executeSync: jest.fn(() => ({ rows: [], rowsAffected: 0 })),
+    execute: jest.fn(async () => ({ rows: [], rowsAffected: 0 })),
+    close: jest.fn(),
+  };
+
+  return {
+    open: jest.fn(() => db),
+  };
+});
+
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 jest.mock('react-native-calendars', () => {
   const React = require('react');
@@ -155,7 +167,7 @@ jest.mock('jail-monkey', () => ({
   isJailBroken: jest.fn(() => false),
   hookDetected: jest.fn(() => false),
   isDebuggedMode: jest.fn(async () => false),
-}));
+}), { virtual: true });
 
 jest.mock('react-native-ssl-public-key-pinning', () => ({
   initializeSslPinning: jest.fn(async () => undefined),

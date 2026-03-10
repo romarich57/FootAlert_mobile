@@ -3,3 +3,4 @@ export type { SectionInProgressViewProps } from './SectionInProgressView.types';
 export { IconActionButton } from './IconActionButton';
 export { AppPressable } from './AppPressable';
 export { SkeletonBox } from './SkeletonBox';
+export { FreshnessIndicator } from './FreshnessIndicator';

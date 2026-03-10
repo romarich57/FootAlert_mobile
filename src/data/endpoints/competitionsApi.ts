@@ -186,6 +186,61 @@ export async function fetchCompetitionBracket(
   };
 }
 
+export type CompetitionFullPayload = {
+  competition: CompetitionsApiLeagueDto | null;
+  competitionKind: CompetitionKind;
+  season: number;
+  standings: CompetitionsApiStandingDto | null;
+  matches: CompetitionsApiFixtureDto[];
+  bracket: CompetitionBracket['bracket'];
+  playerStats: {
+    topScorers: CompetitionsApiPlayerStatDto[];
+    topAssists: CompetitionsApiPlayerStatDto[];
+    topYellowCards: CompetitionsApiPlayerStatDto[];
+    topRedCards: CompetitionsApiPlayerStatDto[];
+  };
+  teamStats: CompetitionTeamStatsDashboardData | null;
+  transfers: CompetitionsApiTransferDto[];
+};
+
+type RawCompetitionFullPayload = Omit<CompetitionFullPayload, 'competitionKind' | 'playerStats'> & {
+  competitionKind: string;
+  playerStats?: Partial<CompetitionFullPayload['playerStats']>;
+};
+
+export async function fetchCompetitionFull(
+  leagueId: number,
+  season?: number,
+  signal?: AbortSignal,
+): Promise<CompetitionFullPayload> {
+  const raw = await competitionsReadService.fetchCompetitionFull<RawCompetitionFullPayload>(
+    leagueId,
+    season,
+    signal,
+  );
+  const validKinds: CompetitionKind[] = ['league', 'cup', 'mixed'];
+  const competitionKind: CompetitionKind = validKinds.includes(raw.competitionKind as CompetitionKind)
+    ? (raw.competitionKind as CompetitionKind)
+    : 'league';
+
+  return {
+    competition: raw.competition ?? null,
+    competitionKind,
+    season: raw.season,
+    standings: raw.standings ?? null,
+    matches: raw.matches ?? [],
+    bracket: raw.bracket ?? null,
+    playerStats: {
+      topScorers: raw.playerStats?.topScorers ?? [],
+      topAssists: raw.playerStats?.topAssists ?? [],
+      topYellowCards: raw.playerStats?.topYellowCards ?? [],
+      topRedCards: raw.playerStats?.topRedCards ?? [],
+    },
+    teamStats: raw.teamStats ?? null,
+    transfers: raw.transfers ?? [],
+  };
+}
+
 export async function fetchCompetitionTotw(
   leagueId: number,
   season: number,

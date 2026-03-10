@@ -238,5 +238,17 @@ export function createCompetitionsReadService({ http, telemetry }: CompetitionsS
         { signal },
       );
     },
+
+    async fetchCompetitionFull<T = unknown>(
+      leagueId: number,
+      season?: number,
+      signal?: AbortSignal,
+    ): Promise<T> {
+      return http.get<T>(
+        `/competitions/${encodeURIComponent(String(leagueId))}/full`,
+        { season },
+        { signal },
+      );
+    },
   };
 }

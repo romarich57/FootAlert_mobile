@@ -7,6 +7,7 @@ import type {
   PlayerApiCareerTeamAggregateDto,
   PlayerApiDetailsDto,
   PlayerApiFixtureDto,
+  PlayerApiMatchPerformanceAggregateDto,
   PlayerApiOverviewResponse,
   PlayerApiMatchPerformanceDto,
   PlayerApiMatchesAggregateResponse,
@@ -32,6 +33,33 @@ const playersReadService = createPlayersReadService({
 });
 
 export { PLAYER_MATCHES_LIMIT };
+
+type PlayerApiFullResponse = {
+  details: {
+    response: PlayerApiDetailsDto[];
+  };
+  seasons: {
+    response: number[];
+  };
+  trophies: {
+    response: PlayerApiTrophyDto[];
+  };
+  career: {
+    response: {
+      seasons: PlayerApiCareerSeasonAggregateDto[];
+      teams: PlayerApiCareerTeamAggregateDto[];
+    };
+  };
+  overview: {
+    response: PlayerApiOverviewResponse | null;
+  };
+  statsCatalog: {
+    response: PlayerApiStatsCatalogResponse | null;
+  };
+  matches: {
+    response: PlayerMatchPerformance[];
+  };
+};
 
 export async function fetchPlayerDetails(
   playerId: string,
@@ -90,6 +118,76 @@ export async function fetchPlayerStatsCatalog(
   signal?: AbortSignal,
 ): Promise<PlayerApiStatsCatalogResponse | null> {
   return playersReadService.fetchPlayerStatsCatalog<PlayerApiStatsCatalogResponse>(playerId, signal);
+}
+
+export async function fetchPlayerFull(
+  playerId: string,
+  season: number,
+  signal?: AbortSignal,
+): Promise<PlayerApiFullResponse | null> {
+  const payload = await playersReadService.fetchPlayerFull<{
+    details?: {
+      response?: PlayerApiDetailsDto[];
+    };
+    seasons?: {
+      response?: number[];
+    };
+    trophies?: {
+      response?: PlayerApiTrophyDto[];
+    };
+    career?: {
+      response?: {
+        seasons?: PlayerApiCareerSeasonAggregateDto[];
+        teams?: PlayerApiCareerTeamAggregateDto[];
+      };
+    };
+    overview?: {
+      response?: PlayerApiOverviewResponse | null;
+    };
+    statsCatalog?: {
+      response?: PlayerApiStatsCatalogResponse | null;
+    };
+    matches?: {
+      response?: PlayerApiMatchPerformanceAggregateDto[];
+    };
+  }>(playerId, season, signal);
+
+  if (!payload) {
+    return null;
+  }
+
+  return {
+    details: {
+      response: Array.isArray(payload.details?.response) ? payload.details.response : [],
+    },
+    seasons: {
+      response: Array.isArray(payload.seasons?.response) ? payload.seasons.response : [],
+    },
+    trophies: {
+      response: Array.isArray(payload.trophies?.response) ? payload.trophies.response : [],
+    },
+    career: {
+      response: {
+        seasons: Array.isArray(payload.career?.response?.seasons)
+          ? payload.career.response.seasons
+          : [],
+        teams: Array.isArray(payload.career?.response?.teams)
+          ? payload.career.response.teams
+          : [],
+      },
+    },
+    overview: {
+      response: payload.overview?.response ?? null,
+    },
+    statsCatalog: {
+      response: payload.statsCatalog?.response ?? null,
+    },
+    matches: {
+      response: (Array.isArray(payload.matches?.response) ? payload.matches.response : [])
+        .map(mapPlayerMatchPerformanceAggregate)
+        .filter((item): item is PlayerMatchPerformance => item !== null),
+    },
+  };
 }
 
 export async function fetchTeamFixtures(

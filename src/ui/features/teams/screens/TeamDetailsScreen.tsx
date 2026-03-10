@@ -41,7 +41,7 @@ export function TeamDetailsScreen() {
 
   const offlineUi = useOfflineUiState({
     hasData: model.hasCachedData,
-    isLoading: model.isContextLoading,
+    isLoading: model.isContextLoading && !model.hasCachedData,
     lastUpdatedAt: model.lastUpdatedAt,
   });
   const offlineLastUpdatedAt = offlineUi.lastUpdatedAt

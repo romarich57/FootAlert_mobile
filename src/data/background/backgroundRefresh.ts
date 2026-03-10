@@ -1,19 +1,27 @@
-import { Platform } from 'react-native';
+import { DevSettings, Platform } from 'react-native';
+import type { QueryClient } from '@tanstack/react-query';
 import BackgroundFetch from 'react-native-background-fetch';
 
 import { appEnv } from '@data/config/env';
+import { runGarbageCollection } from '@data/db/garbageCollector';
 import { fetchAllLeagues } from '@data/endpoints/competitionsApi';
-import { fetchFixturesByDate } from '@data/endpoints/matchesApi';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
+import {
+  buildMatchesQueryResult,
+  MATCHES_QUERY_STALE_TIME_MS,
+  shouldRetryMatchesQuery,
+} from '@data/matches/matchesQueryData';
+import { queryKeys } from '@data/query/queryKeys';
 
 const BG_REFRESH_TASK_ID = 'com.footalert.app.refresh';
 const BG_MIN_FETCH_INTERVAL_MINUTES = 15;
 
 let hasRegisteredBackgroundRefresh = false;
+let hasRegisteredBackgroundRefreshDebugMenuItem = false;
 let lastBackgroundRefreshRunAtMs = 0;
 
-export type BackgroundRefreshPolicy = 'ios-only';
-export const BACKGROUND_REFRESH_POLICY: BackgroundRefreshPolicy = 'ios-only';
+export type BackgroundRefreshPolicy = 'shared-package';
+export const BACKGROUND_REFRESH_POLICY: BackgroundRefreshPolicy = 'shared-package';
 
 export type BackgroundRefreshEligibilityReason =
   | 'allowed'
@@ -30,11 +38,17 @@ export type BackgroundRefreshEligibilityInput = {
   lowPowerMode?: boolean;
   nowMs?: number;
   minIntervalMs?: number;
+  queryClient?: QueryClient;
 };
 
 export type BackgroundRefreshEligibilityResult = {
   allowed: boolean;
   reason: BackgroundRefreshEligibilityReason;
+};
+
+export type BackgroundRefreshDebugInput = {
+  queryClient?: QueryClient;
+  source?: 'dev_menu' | 'debug_helper';
 };
 
 function toApiDateString(date: Date): string {
@@ -48,19 +62,57 @@ function resolveTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
 }
 
-async function runBackgroundRefresh(): Promise<void> {
+function isDevRuntime(): boolean {
+  return typeof __DEV__ === 'boolean' && __DEV__;
+}
+
+async function runBackgroundRefresh(params: {
+  queryClient?: QueryClient;
+  source: 'scheduled' | 'dev_menu' | 'debug_helper';
+}): Promise<void> {
+  const { queryClient, source } = params;
   const today = toApiDateString(new Date());
   const timezone = resolveTimezone();
+  const startedAt = Date.now();
 
-  await Promise.allSettled([
-    fetchAllLeagues(),
-    fetchFixturesByDate({
-      date: today,
-      timezone,
-    }),
-  ]);
+  if (queryClient) {
+    await Promise.allSettled([
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.competitions.catalog(),
+        staleTime: 10 * 60_000,
+        queryFn: ({ signal }) => fetchAllLeagues(signal),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.matches(today, timezone),
+        staleTime: MATCHES_QUERY_STALE_TIME_MS,
+        retry: shouldRetryMatchesQuery,
+        queryFn: ({ signal }) => buildMatchesQueryResult({ date: today, timezone, signal }),
+      }),
+    ]);
+  } else {
+    await Promise.allSettled([
+      fetchAllLeagues(),
+      buildMatchesQueryResult({
+        date: today,
+        timezone,
+      }),
+    ]);
+  }
 
+  const garbageCollectionResult = runGarbageCollection();
   lastBackgroundRefreshRunAtMs = Date.now();
+  getMobileTelemetry().trackEvent('background.refresh.completed', {
+    date: today,
+    timezone,
+    source,
+    durationMs: Date.now() - startedAt,
+    gcDeletedTeams: garbageCollectionResult.deletedByType.team,
+    gcDeletedPlayers: garbageCollectionResult.deletedByType.player,
+    gcDeletedCompetitions: garbageCollectionResult.deletedByType.competition,
+    gcDeletedMatches: garbageCollectionResult.deletedByType.match,
+    gcDeletedMatchesByDate: garbageCollectionResult.matchesByDateDeleted,
+    dbSizeBytes: garbageCollectionResult.dbSizeBytes,
+  });
   getMobileTelemetry().addBreadcrumb('background.refresh.completed', {
     date: today,
     timezone,
@@ -73,7 +125,7 @@ export function isBackgroundRefreshEligible(
   const nowMs = input.nowMs ?? Date.now();
   const minIntervalMs = input.minIntervalMs ?? appEnv.matchesBatterySaverRefreshIntervalMs;
 
-  if (Platform.OS !== 'ios') {
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
     return {
       allowed: false,
       reason: 'unsupported_platform',
@@ -129,6 +181,11 @@ export async function registerBackgroundRefresh(
 ): Promise<void> {
   const eligibility = isBackgroundRefreshEligible(input);
   if (!eligibility.allowed) {
+    getMobileTelemetry().trackEvent('background.refresh.skipped', {
+      policy: BACKGROUND_REFRESH_POLICY,
+      platform: Platform.OS,
+      reason: eligibility.reason,
+    });
     getMobileTelemetry().addBreadcrumb('background.refresh.skipped', {
       policy: BACKGROUND_REFRESH_POLICY,
       platform: Platform.OS,
@@ -148,7 +205,10 @@ export async function registerBackgroundRefresh(
       },
       async taskId => {
         try {
-          await runBackgroundRefresh();
+          await runBackgroundRefresh({
+            queryClient: input.queryClient,
+            source: 'scheduled',
+          });
         } catch (error) {
           getMobileTelemetry().trackError(error, {
             feature: 'background.refresh',
@@ -173,6 +233,11 @@ export async function registerBackgroundRefresh(
     });
 
     hasRegisteredBackgroundRefresh = true;
+    getMobileTelemetry().trackEvent('background.refresh.registered', {
+      status,
+      taskId: BG_REFRESH_TASK_ID,
+      policy: BACKGROUND_REFRESH_POLICY,
+    });
     getMobileTelemetry().addBreadcrumb('background.refresh.registered', {
       status,
       taskId: BG_REFRESH_TASK_ID,
@@ -185,7 +250,52 @@ export async function registerBackgroundRefresh(
   }
 }
 
+export function registerBackgroundRefreshDebugMenuItem(
+  input: Pick<BackgroundRefreshDebugInput, 'queryClient'> = {},
+): void {
+  if (!isDevRuntime() || hasRegisteredBackgroundRefreshDebugMenuItem) {
+    return;
+  }
+
+  DevSettings.addMenuItem('Run SQLite Background Refresh', () => {
+    triggerDebugBackgroundRefresh({
+      queryClient: input.queryClient,
+      source: 'dev_menu',
+    }).catch(error => {
+      getMobileTelemetry().trackError(error, {
+        feature: 'background.refresh.debug',
+      });
+    });
+  });
+
+  hasRegisteredBackgroundRefreshDebugMenuItem = true;
+  getMobileTelemetry().addBreadcrumb('background.refresh.debug_menu_registered', {
+    policy: BACKGROUND_REFRESH_POLICY,
+  });
+}
+
+export async function triggerDebugBackgroundRefresh(
+  input: BackgroundRefreshDebugInput = {},
+): Promise<boolean> {
+  if (!isDevRuntime()) {
+    return false;
+  }
+
+  const source = input.source ?? 'debug_helper';
+  getMobileTelemetry().trackEvent('background.refresh.debug_triggered', {
+    source,
+    policy: BACKGROUND_REFRESH_POLICY,
+  });
+
+  await runBackgroundRefresh({
+    queryClient: input.queryClient,
+    source,
+  });
+  return true;
+}
+
 export function resetBackgroundRefreshStateForTests(): void {
   hasRegisteredBackgroundRefresh = false;
+  hasRegisteredBackgroundRefreshDebugMenuItem = false;
   lastBackgroundRefreshRunAtMs = 0;
 }

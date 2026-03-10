@@ -1,4 +1,11 @@
 import { normalizeFollowDiscoveryPlayerId } from '@app-core';
+import { appEnv } from '@data/config/env';
+import { getDatabase } from '@data/db/database';
+import {
+  listFollowedEntityIds,
+  replaceFollowedEntities,
+  type FollowedEntityType,
+} from '@data/db/followedEntitiesStore';
 import { getJsonValue, setJsonValue } from '@data/storage/asyncStorage';
 import type { FollowEntityTab } from '@domain/contracts/follows.types';
 
@@ -42,12 +49,63 @@ function normalizeAddedId(ids: string[], id: string): string[] {
 }
 
 async function loadIds(key: string): Promise<string[]> {
+  const entityType = mapFollowStorageKeyToEntityType(key);
+  if (appEnv.mobileEnableSqliteLocalFirst && entityType) {
+    try {
+      await getDatabase();
+      const sqliteIds = listFollowedEntityIds(entityType);
+      if (sqliteIds.length > 0) {
+        return sqliteIds;
+      }
+    } catch {
+      // Fallback AsyncStorage silencieux pendant la transition.
+    }
+  }
+
   const payload = await getJsonValue<unknown>(key);
-  return sanitizeIds(payload);
+  const ids = sanitizeIds(payload);
+
+  if (appEnv.mobileEnableSqliteLocalFirst && entityType) {
+    try {
+      await getDatabase();
+      replaceFollowedEntities(entityType, ids);
+    } catch {
+      // Garder AsyncStorage comme source de secours pendant la transition.
+    }
+  }
+
+  return ids;
 }
 
 async function saveIds(key: string, ids: string[]): Promise<void> {
   await setJsonValue<string[]>(key, ids);
+
+  if (!appEnv.mobileEnableSqliteLocalFirst) {
+    return;
+  }
+
+  const entityType = mapFollowStorageKeyToEntityType(key);
+  if (!entityType) {
+    return;
+  }
+
+  await getDatabase();
+  replaceFollowedEntities(entityType, ids);
+}
+
+function mapFollowStorageKeyToEntityType(key: string): FollowedEntityType | null {
+  switch (key) {
+    case FOLLOWED_TEAM_IDS_KEY:
+      return 'team';
+    case FOLLOWED_PLAYER_IDS_KEY:
+      return 'player';
+    case FOLLOWED_LEAGUE_IDS_KEY:
+      return 'competition';
+    case FOLLOWED_MATCH_IDS_KEY:
+      return 'match';
+    default:
+      return null;
+  }
 }
 
 async function toggleFollow(

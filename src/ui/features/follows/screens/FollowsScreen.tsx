@@ -76,6 +76,7 @@ export function FollowsScreen() {
       asPlayerTrends,
       asTeamTrends,
       hideTrendsCurrentTab,
+      isSectionLoading,
       search,
       selectedTab,
       t,

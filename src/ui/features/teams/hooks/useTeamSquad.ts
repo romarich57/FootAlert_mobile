@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
-import { fetchTeamSquad } from '@data/endpoints/teamsApi';
 import { mapSquadToTeamSquad } from '@data/mappers/teamsMapper';
+import { fetchTeamSquadData } from '@data/teams/teamQueryData';
+import { useTeamFull } from '@ui/features/teams/hooks/useTeamFull';
 import type { TeamSquadData } from '@ui/features/teams/types/teams.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -9,16 +11,6 @@ import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 type UseTeamSquadParams = {
   teamId: string;
   enabled?: boolean;
-};
-
-const EMPTY_TEAM_SQUAD: TeamSquadData = {
-  coach: null,
-  players: [],
-};
-
-type FetchTeamSquadDataParams = {
-  teamId: string;
-  signal?: AbortSignal;
 };
 
 function mergeTeamSquadData(
@@ -35,22 +27,30 @@ function mergeTeamSquadData(
   };
 }
 
-export async function fetchTeamSquadData({
+export function useTeamSquad({
   teamId,
-  signal,
-}: FetchTeamSquadDataParams): Promise<TeamSquadData> {
-  if (!teamId) {
-    return EMPTY_TEAM_SQUAD;
-  }
+  enabled = true,
+}: UseTeamSquadParams): UseQueryResult<TeamSquadData> {
+  const timezone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
+    [],
+  );
+  const teamFullQuery = useTeamFull({
+    teamId,
+    timezone,
+    enabled,
+  });
+  const fullSquadData = useMemo(
+    () =>
+      teamFullQuery.isFullEnabled
+        ? mapSquadToTeamSquad(teamFullQuery.data?.squad.response[0] ?? null)
+        : { coach: null, players: [] },
+    [teamFullQuery.data?.squad.response, teamFullQuery.isFullEnabled],
+  );
 
-  const payload = await fetchTeamSquad(teamId, signal);
-  return mapSquadToTeamSquad(payload);
-}
-
-export function useTeamSquad({ teamId, enabled = true }: UseTeamSquadParams) {
-  return useQuery<TeamSquadData>({
+  const query = useQuery<TeamSquadData>({
     queryKey: queryKeys.teams.squad(teamId),
-    enabled: enabled && Boolean(teamId),
+    enabled: enabled && Boolean(teamId) && !teamFullQuery.isFullEnabled,
     placeholderData: previousData => previousData,
     structuralSharing: (oldData, newData) =>
       mergeTeamSquadData(oldData as TeamSquadData | undefined, newData as TeamSquadData),
@@ -61,4 +61,18 @@ export function useTeamSquad({ teamId, enabled = true }: UseTeamSquadParams) {
         signal,
       }),
   });
+
+  return teamFullQuery.isFullEnabled
+      ? {
+          ...query,
+          data: fullSquadData,
+          isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
+        isFetching: teamFullQuery.isFetching,
+        isError: teamFullQuery.isError && !teamFullQuery.data,
+        isFetched: teamFullQuery.isFetched,
+          isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,
+          dataUpdatedAt: teamFullQuery.dataUpdatedAt,
+          refetch: teamFullQuery.refetch,
+      } as unknown as UseQueryResult<TeamSquadData>
+    : query;
 }

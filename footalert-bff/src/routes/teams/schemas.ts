@@ -48,6 +48,15 @@ export const teamOverviewQuerySchema = z
   })
   .strict();
 
+export const teamFullQuerySchema = z
+  .object({
+    leagueId: numericStringSchema.optional(),
+    season: seasonSchema.optional(),
+    timezone: timezoneSchema,
+    historySeasons: z.string().trim().min(1).max(256).optional(),
+  })
+  .strict();
+
 export const teamPlayersQuerySchema = z
   .object({
     leagueId: numericStringSchema,

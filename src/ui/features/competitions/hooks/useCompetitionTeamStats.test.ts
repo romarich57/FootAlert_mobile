@@ -2,7 +2,9 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
+import { appEnv } from '@data/config/env';
 import { fetchCompetitionTeamStats } from '@data/endpoints/competitionsApi';
+import { loadCompetitionFullPayload } from '@ui/features/competitions/hooks/competitionFullQuery';
 import { useCompetitionTeamStats } from '@ui/features/competitions/hooks/useCompetitionTeamStats';
 import { useCompetitionStandings } from '@ui/features/competitions/hooks/useCompetitionStandings';
 import type {
@@ -15,9 +17,18 @@ jest.mock('@ui/features/competitions/hooks/useCompetitionStandings');
 jest.mock('@data/endpoints/competitionsApi', () => ({
   fetchCompetitionTeamStats: jest.fn(),
 }));
+jest.mock('@data/config/env', () => ({
+  appEnv: {
+    mobileEnableBffCompetitionFull: false,
+  },
+}));
+jest.mock('@ui/features/competitions/hooks/competitionFullQuery', () => ({
+  loadCompetitionFullPayload: jest.fn(),
+}));
 
 const mockedUseCompetitionStandings = jest.mocked(useCompetitionStandings);
 const mockedFetchCompetitionTeamStats = jest.mocked(fetchCompetitionTeamStats);
+const mockedLoadCompetitionFullPayload = jest.mocked(loadCompetitionFullPayload);
 
 function createStandingRow(overrides: Partial<StandingRow> = {}): StandingRow {
   return {
@@ -253,6 +264,7 @@ function createWrapper() {
 describe('useCompetitionTeamStats', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    appEnv.mobileEnableBffCompetitionFull = false;
 
     mockedUseCompetitionStandings.mockReturnValue({
       data: createStandings([
@@ -264,6 +276,7 @@ describe('useCompetitionTeamStats', () => {
     } as never);
 
     mockedFetchCompetitionTeamStats.mockResolvedValue(createCompetitionTeamStatsResponse());
+    mockedLoadCompetitionFullPayload.mockResolvedValue(null);
   });
 
   it('returns base standings-derived sections when advanced is disabled', () => {
@@ -442,5 +455,30 @@ describe('useCompetitionTeamStats', () => {
     expect(result.current.shouldRenderAdvancedSection).toBe(false);
     expect(result.current.advanced.state).toBe('unavailable');
     expect(result.current.advanced.reason).toBe('provider_missing');
+  });
+
+  it('uses competitions.full for advanced data when available', async () => {
+    appEnv.mobileEnableBffCompetitionFull = true;
+    mockedLoadCompetitionFullPayload.mockResolvedValue({
+      teamStats: createCompetitionTeamStatsResponse(),
+    } as never);
+
+    const { result } = renderHook(
+      () =>
+        useCompetitionTeamStats({
+          leagueId: 61,
+          season: 2025,
+          advancedEnabled: true,
+        }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isAdvancedLoading).toBe(false);
+    });
+
+    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalled();
+    expect(mockedFetchCompetitionTeamStats).not.toHaveBeenCalled();
+    expect(result.current.advanced.state).toBe('available');
   });
 });

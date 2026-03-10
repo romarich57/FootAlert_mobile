@@ -1,19 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { NetInfoState } from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import type { QueryClient } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
-import {
-  fetchPlayerMatchesAggregate,
-  fetchPlayerStatsCatalog,
-  PLAYER_MATCHES_LIMIT,
-} from '@data/endpoints/playersApi';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
 import type { PlayerTabType } from '@ui/features/players/components/PlayerTabs';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type PlayerDetailsScreenModel = ReturnType<typeof usePlayerDetailsScreenModel>;
 
@@ -22,10 +14,6 @@ type UsePlayerDetailsScreenEffectsParams = {
   activeTab: PlayerTabType;
   screenModel: PlayerDetailsScreenModel;
   queryClient: QueryClient;
-  netInfo: NetInfoState;
-  powerState: {
-    lowPowerMode?: boolean;
-  };
 };
 
 export function usePlayerDetailsScreenEffects({
@@ -33,8 +21,6 @@ export function usePlayerDetailsScreenEffects({
   activeTab,
   screenModel,
   queryClient,
-  netInfo,
-  powerState,
 }: UsePlayerDetailsScreenEffectsParams) {
   const screenOpenedAtRef = useRef(Date.now());
   const firstContentTrackedRef = useRef(false);
@@ -46,18 +32,22 @@ export function usePlayerDetailsScreenEffects({
   useEffect(() => {
     screenOpenedAtRef.current = Date.now();
     firstContentTrackedRef.current = false;
-    tabLoadStartedAtRef.current = Date.now();
-    lastTrackedTabRef.current = activeTab;
     trackedTabLoadKeyRef.current = null;
     prefetchedContextRef.current = null;
     if (safePlayerId) {
       getMobileTelemetry().trackEvent('player_details.screen_open_ms', {
         playerId: safePlayerId,
-        tab: activeTab,
+        tab: lastTrackedTabRef.current,
         value: 0,
       });
     }
-  }, [activeTab, safePlayerId]);
+  }, [safePlayerId]);
+
+  useEffect(() => {
+    tabLoadStartedAtRef.current = Date.now();
+    lastTrackedTabRef.current = activeTab;
+    trackedTabLoadKeyRef.current = null;
+  }, [activeTab]);
 
   useFocusEffect(
     useCallback(() => {
@@ -169,79 +159,15 @@ export function usePlayerDetailsScreenEffects({
   ]);
 
   useEffect(() => {
-    const isOffline =
-      netInfo.isConnected === false || netInfo.isInternetReachable === false;
-    const networkLiteMode =
-      isOffline || netInfo.details?.isConnectionExpensive === true;
-    const batteryLiteMode = powerState.lowPowerMode === true;
-    const teamId = screenModel.profile?.team.id;
-
-    if (
-      !safePlayerId ||
-      !teamId ||
-      screenModel.isProfileLoading ||
-      isOffline ||
-      networkLiteMode ||
-      batteryLiteMode
-    ) {
+    if (!safePlayerId || !screenModel.profile?.team.id) {
+      prefetchedContextRef.current = null;
       return;
     }
 
-    const prefetchContextKey = [
+    prefetchedContextRef.current = [
       safePlayerId,
-      teamId,
+      screenModel.profile.team.id,
       screenModel.selectedSeason,
     ].join(':');
-    if (prefetchedContextRef.current === prefetchContextKey) {
-      return;
-    }
-    prefetchedContextRef.current = prefetchContextKey;
-
-    const prefetchTasks: Array<Promise<unknown>> = [];
-
-    if (appEnv.mobileEnablePlayerStatsCatalogAggregate) {
-      prefetchTasks.push(
-        queryClient.prefetchQuery({
-          queryKey: queryKeys.players.statsCatalogV2(safePlayerId),
-          queryFn: ({ signal }) => fetchPlayerStatsCatalog(safePlayerId, signal),
-          ...featureQueryOptions.players.statsCatalog,
-        }),
-      );
-    }
-
-    if (appEnv.mobileEnableBffPlayerAggregates) {
-      prefetchTasks.push(
-        queryClient.prefetchQuery({
-          queryKey: queryKeys.players.matchesAggregate(
-            safePlayerId,
-            teamId,
-            screenModel.selectedSeason,
-          ),
-          queryFn: ({ signal }) =>
-            fetchPlayerMatchesAggregate(
-              safePlayerId,
-              teamId,
-              screenModel.selectedSeason,
-              PLAYER_MATCHES_LIMIT,
-              signal,
-            ),
-          ...featureQueryOptions.players.matches,
-        }),
-      );
-    }
-
-    if (prefetchTasks.length > 0) {
-      void Promise.allSettled(prefetchTasks);
-    }
-  }, [
-    netInfo.details?.isConnectionExpensive,
-    netInfo.isConnected,
-    netInfo.isInternetReachable,
-    powerState.lowPowerMode,
-    queryClient,
-    safePlayerId,
-    screenModel.isProfileLoading,
-    screenModel.profile?.team.id,
-    screenModel.selectedSeason,
-  ]);
+  }, [safePlayerId, screenModel.profile?.team.id, screenModel.selectedSeason]);
 }
