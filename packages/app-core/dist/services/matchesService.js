@@ -13,6 +13,7 @@ const listResponseSchema = z
         .optional(),
 })
     .passthrough();
+const objectResponseSchema = z.object({}).passthrough();
 export function createMatchesReadService({ http, telemetry }) {
     return {
         async fetchFixturesByDate(params) {
@@ -45,6 +46,50 @@ export function createMatchesReadService({ http, telemetry }) {
                 endpoint: `/matches/${params.fixtureId}`,
             });
             return (payload.response[0] ?? null);
+        },
+        async fetchMatchFull(params) {
+            const rawPayload = await http.get(`/matches/${encodeURIComponent(params.fixtureId)}/full`, {
+                timezone: params.timezone,
+            }, { signal: params.signal });
+            const payload = parseRuntimePayloadOrFallback({
+                schema: objectResponseSchema,
+                payload: rawPayload,
+                fallback: {
+                    fixture: null,
+                    lifecycleState: 'pre_match',
+                    context: {
+                        leagueId: null,
+                        season: null,
+                        homeTeamId: null,
+                        awayTeamId: null,
+                    },
+                    events: [],
+                    statistics: {
+                        all: [],
+                        first: [],
+                        second: [],
+                    },
+                    lineups: [],
+                    predictions: [],
+                    absences: [],
+                    headToHead: [],
+                    standings: null,
+                    homeRecentResults: [],
+                    awayRecentResults: [],
+                    homeLeaders: null,
+                    awayLeaders: null,
+                    playersStats: {
+                        homeTeamId: null,
+                        awayTeamId: null,
+                        home: [],
+                        away: [],
+                    },
+                },
+                telemetry,
+                feature: 'matches.fixture_full',
+                endpoint: `/matches/${params.fixtureId}/full`,
+            });
+            return payload;
         },
         async fetchFixtureEvents(params) {
             const rawPayload = await http.get(`/matches/${encodeURIComponent(params.fixtureId)}/events`, undefined, { signal: params.signal });

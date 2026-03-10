@@ -97,25 +97,35 @@ function buildMetricPayload(rankEntries, teamId) {
         leaders: rankEntries.slice(0, 3),
     };
 }
-export async function computeLeagueAdvancedTeamStats(leagueId, season) {
-    const [fixturesPayload, standingsPayload] = await Promise.all([
-        apiFootballGet(`/fixtures?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`),
-        apiFootballGet(`/standings?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`),
-    ]);
+export async function computeLeagueAdvancedTeamStats(leagueId, season, seedProfiles) {
+    const [fixturesPayload, standingsPayload] = seedProfiles
+        ? [
+            await apiFootballGet(`/fixtures?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`),
+            null,
+        ]
+        : await Promise.all([
+            apiFootballGet(`/fixtures?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`),
+            apiFootballGet(`/standings?league=${encodeURIComponent(leagueId)}&season=${encodeURIComponent(String(season))}`),
+        ]);
     const teamProfiles = new Map();
     const metricAccumulators = buildEmptyMetricAccumulatorMap();
-    const standings = standingsPayload.response?.[0]?.league?.standings ?? [];
-    standings.forEach(group => {
-        group.forEach(row => {
-            const teamId = toNumericId(row.team?.id);
-            if (!teamId) {
-                return;
-            }
-            const teamName = typeof row.team?.name === 'string' ? row.team.name.trim() : '';
-            const teamLogo = typeof row.team?.logo === 'string' ? row.team.logo : '';
-            upsertTeamProfile(teamProfiles, teamId, teamName, teamLogo);
-        });
+    seedProfiles?.forEach(profile => {
+        upsertTeamProfile(teamProfiles, profile.teamId, profile.teamName, profile.teamLogo);
     });
+    if (standingsPayload) {
+        const standings = standingsPayload.response?.[0]?.league?.standings ?? [];
+        standings.forEach(group => {
+            group.forEach(row => {
+                const teamId = toNumericId(row.team?.id);
+                if (!teamId) {
+                    return;
+                }
+                const teamName = typeof row.team?.name === 'string' ? row.team.name.trim() : '';
+                const teamLogo = typeof row.team?.logo === 'string' ? row.team.logo : '';
+                upsertTeamProfile(teamProfiles, teamId, teamName, teamLogo);
+            });
+        });
+    }
     const finishedFixtureIds = (fixturesPayload.response ?? [])
         .map(item => {
         const fixtureId = toNumericId(item.fixture?.id);
@@ -154,6 +164,7 @@ export async function computeLeagueAdvancedTeamStats(leagueId, season) {
     return {
         leagueId: Number(leagueId),
         season,
+        sourceUpdatedAt: new Date().toISOString(),
         rankings: {
             possession: metricRankEntriesFromAccumulator(metricAccumulators.possession, teamProfiles),
             shotsOnTargetPerMatch: metricRankEntriesFromAccumulator(metricAccumulators.shotsOnTargetPerMatch, teamProfiles),
@@ -162,11 +173,12 @@ export async function computeLeagueAdvancedTeamStats(leagueId, season) {
         },
     };
 }
-export function buildTeamAdvancedStatsPayload(teamId, leagueId, season, rankings) {
+export function buildTeamAdvancedStatsPayload(teamId, leagueId, season, sourceUpdatedAt, rankings) {
     return {
         teamId,
         leagueId,
         season,
+        sourceUpdatedAt,
         metrics: {
             possession: buildMetricPayload(rankings.possession, teamId),
             shotsOnTargetPerMatch: buildMetricPayload(rankings.shotsOnTargetPerMatch, teamId),

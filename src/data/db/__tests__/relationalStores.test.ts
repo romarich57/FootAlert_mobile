@@ -102,6 +102,10 @@ describe('relational cache migration', () => {
       executedStatements.some(statement =>
         statement.sql.includes('ALTER TABLE matches_by_date ADD COLUMN home_team_id TEXT')),
     ).toBe(true);
+    expect(
+      executedStatements.some(statement =>
+        statement.sql.includes('CREATE TABLE IF NOT EXISTS bootstrap_snapshots')),
+    ).toBe(true);
   });
 });
 

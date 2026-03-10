@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +11,8 @@ type FreshnessIndicatorProps = {
   isRefreshing?: boolean;
   visible?: boolean;
 };
+
+type RelativeTimeUnit = 'minute' | 'hour' | 'day';
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -30,23 +33,63 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function formatRelativeTimestamp(timestamp: number, language: string): string {
+function resolveRelativeTime(timestamp: number): {
+  value: number;
+  unit: RelativeTimeUnit;
+} {
   const now = Date.now();
   const diffMs = timestamp - now;
   const diffMinutes = Math.round(diffMs / 60_000);
-  const rtf = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
 
   if (Math.abs(diffMinutes) < 60) {
-    return rtf.format(diffMinutes, 'minute');
+    return {
+      value: diffMinutes,
+      unit: 'minute',
+    };
   }
 
   const diffHours = Math.round(diffMinutes / 60);
   if (Math.abs(diffHours) < 24) {
-    return rtf.format(diffHours, 'hour');
+    return {
+      value: diffHours,
+      unit: 'hour',
+    };
   }
 
-  const diffDays = Math.round(diffHours / 24);
-  return rtf.format(diffDays, 'day');
+  return {
+    value: Math.round(diffHours / 24),
+    unit: 'day',
+  };
+}
+
+function normalizeRelativeTimeLanguage(language: string): 'en' | 'fr' {
+  return language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+}
+
+function formatRelativeTimestampFallback(
+  value: number,
+  unit: RelativeTimeUnit,
+  t: TFunction,
+): string {
+  if (value === 0) {
+    return t('freshness.relative.now');
+  }
+
+  const direction = value < 0 ? 'past' : 'future';
+  return t(`freshness.relative.${direction}.${unit}`, {
+    count: Math.abs(value),
+  });
+}
+
+function formatRelativeTimestamp(timestamp: number, language: string, t: TFunction): string {
+  const { value, unit } = resolveRelativeTime(timestamp);
+  const normalizedLanguage = normalizeRelativeTimeLanguage(language);
+
+  if (typeof Intl.RelativeTimeFormat === 'function') {
+    return new Intl.RelativeTimeFormat(normalizedLanguage, { numeric: 'auto' }).format(value, unit);
+  }
+
+  return formatRelativeTimestampFallback(value, unit, t);
 }
 
 export function FreshnessIndicator({
@@ -71,14 +114,30 @@ export function FreshnessIndicator({
     return null;
   }, [lastUpdatedAt]);
 
+  const relativeTime = useMemo(() => {
+    if (!timestamp) {
+      return null;
+    }
+
+    return resolveRelativeTime(timestamp);
+  }, [timestamp]);
+
   if (!visible || (!timestamp && !isRefreshing)) {
+    return null;
+  }
+
+  if (!isRefreshing && relativeTime?.value === 0) {
     return null;
   }
 
   const label = isRefreshing
     ? t('freshness.refreshing')
     : t('freshness.updated', {
-        value: formatRelativeTimestamp(timestamp as number, i18n.resolvedLanguage ?? i18n.language),
+        value: formatRelativeTimestamp(
+          timestamp as number,
+          i18n.resolvedLanguage ?? i18n.language,
+          t,
+        ),
       });
 
   return (

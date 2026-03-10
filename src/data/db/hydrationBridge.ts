@@ -16,12 +16,16 @@ import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { getEntitiesByIds, queryEntityRows } from './entityStore';
 import type { EntityType } from './types';
 
-/** Nombre max d'entités à hydrater par type au cold start. */
+/**
+ * Nombre max d'entités à hydrater par type au cold start.
+ * Augmenté pour couvrir les utilisateurs actifs avec beaucoup de follows
+ * (limite max follows = 200, donc 100 couvre la majorité des cas).
+ */
 const HYDRATION_LIMITS: Record<EntityType, number> = {
-  team: 30,
-  player: 30,
-  competition: 20,
-  match: 50,
+  team: 100,
+  player: 100,
+  competition: 50,
+  match: 200,
 };
 
 export type HydrationMapping = {

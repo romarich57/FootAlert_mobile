@@ -11,6 +11,11 @@ const optionalResponseSchema = z
 })
     .passthrough();
 const objectResponseSchema = z.object({}).passthrough();
+const responseObjectSchema = z
+    .object({
+    response: z.unknown(),
+})
+    .passthrough();
 const pagedResponseSchema = z
     .object({
     response: z.array(z.unknown()).default([]),
@@ -33,6 +38,25 @@ const pagedResponseSchema = z
     .passthrough();
 export function createTeamsReadService({ http, telemetry }) {
     return {
+        async fetchTeamFull(params, signal) {
+            const rawPayload = await http.get(`/teams/${encodeURIComponent(params.teamId)}/full`, {
+                timezone: params.timezone,
+                leagueId: params.leagueId ?? undefined,
+                season: params.season ?? undefined,
+                historySeasons: params.historySeasons && params.historySeasons.length > 0
+                    ? params.historySeasons.join(',')
+                    : undefined,
+            }, { signal });
+            const payload = parseRuntimePayloadOrFallback({
+                schema: responseObjectSchema,
+                payload: rawPayload,
+                fallback: { response: {} },
+                telemetry,
+                feature: 'teams.full',
+                endpoint: `/teams/${params.teamId}/full`,
+            });
+            return payload;
+        },
         async fetchTeamDetails(teamId, signal) {
             const rawPayload = await http.get(`/teams/${encodeURIComponent(teamId)}`, undefined, { signal });
             const payload = parseRuntimePayloadOrFallback({

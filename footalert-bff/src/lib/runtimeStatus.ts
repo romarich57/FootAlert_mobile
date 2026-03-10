@@ -5,6 +5,11 @@ import { getUpstreamGuardSnapshot } from './apiFootballClient.js';
 import { getCacheHealthSnapshot } from './cache.js';
 import { getNotificationsMetricsSnapshot } from './notifications/metrics.js';
 import { getNotificationsQueueClient } from './notifications/runtime.js';
+import { buildReadStoreScopeKey } from './readStore/readThrough.js';
+import {
+  getReadStore,
+  type SnapshotRefreshBacklog,
+} from './readStore/runtime.js';
 
 type DependencyStatus = 'ready' | 'degraded' | 'skipped';
 
@@ -33,6 +38,14 @@ export type ReadinessPayload = {
     queue: DependencyCheck<{
       enabled: boolean;
       initialized: boolean;
+      error?: string;
+    }>;
+    readStore: DependencyCheck<{
+      backend: 'memory' | 'postgres';
+      postgresReachable: boolean;
+      backlog: SnapshotRefreshBacklog;
+      bootstrapSnapshotAvailable: boolean;
+      defaultScopeKey: string;
       error?: string;
     }>;
     upstreamGuard: DependencyCheck<{
@@ -106,6 +119,27 @@ function buildMetricLine(
     .map(([key, labelValue]) => `${key}="${escapePrometheusLabelValue(labelValue)}"`)
     .join(',');
   return `${name}{${renderedLabels}} ${value}`;
+}
+
+function resolveDateInTimezone(timezone: string, now = new Date()): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  return formatter.format(now);
+}
+
+function resolveSeasonFromDate(date: string): number {
+  const year = Number.parseInt(date.slice(0, 4), 10);
+  const month = Number.parseInt(date.slice(5, 7), 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) {
+    return new Date().getUTCFullYear();
+  }
+
+  return month >= 7 ? year : year - 1;
 }
 
 function appendMetricBlock(
@@ -243,10 +277,15 @@ async function buildRedisCheck(): Promise<ReadinessPayload['checks']['redis']> {
 }
 
 async function buildPostgresCheck(): Promise<ReadinessPayload['checks']['postgres']> {
-  if (env.notificationsPersistenceBackend !== 'postgres') {
+  // Postgres est requis si notifications OU read-store l'utilisent.
+  const requiredForNotifications = env.notificationsPersistenceBackend === 'postgres';
+  const requiredForReadStore = Boolean(env.databaseUrl);
+  const required = requiredForNotifications || requiredForReadStore;
+
+  if (!required) {
     return buildSkippedCheck({
       backend: env.notificationsPersistenceBackend,
-      configured: Boolean(env.databaseUrl),
+      configured: false,
     });
   }
 
@@ -254,7 +293,7 @@ async function buildPostgresCheck(): Promise<ReadinessPayload['checks']['postgre
     return buildDegradedCheck({
       backend: env.notificationsPersistenceBackend,
       configured: false,
-      error: 'DATABASE_URL is required for postgres notifications persistence.',
+      error: 'DATABASE_URL is required for postgres persistence (notifications or read-store).',
     });
   }
 
@@ -320,6 +359,59 @@ async function buildQueueCheck(
   });
 }
 
+async function buildReadStoreCheck(): Promise<ReadinessPayload['checks']['readStore']> {
+  const defaultTimezone = 'Europe/Paris';
+  const defaultDate = resolveDateInTimezone(defaultTimezone);
+  const defaultSeason = resolveSeasonFromDate(defaultDate);
+  const defaultScopeKey = buildReadStoreScopeKey({
+    date: defaultDate,
+    timezone: defaultTimezone,
+    season: defaultSeason,
+  });
+
+  try {
+    const store = await getReadStore({
+      databaseUrl: env.databaseUrl,
+    });
+    const backlog = await store.countRefreshBacklog();
+    const bootstrapSnapshot = await store.getBootstrapSnapshot({
+      scopeKey: defaultScopeKey,
+    });
+
+    return {
+      required: Boolean(env.databaseUrl),
+      ready: true,
+      status: backlog.failed > 0 ? 'degraded' : 'ready',
+      details: {
+        backend: store.backend,
+        postgresReachable: store.backend === 'postgres',
+        backlog,
+        bootstrapSnapshotAvailable: bootstrapSnapshot.status !== 'miss',
+        defaultScopeKey,
+      },
+    };
+  } catch (error) {
+    return {
+      required: Boolean(env.databaseUrl),
+      ready: false,
+      status: 'degraded',
+      details: {
+        backend: env.databaseUrl ? 'postgres' : 'memory',
+        postgresReachable: false,
+        backlog: {
+          queued: 0,
+          inProgress: 0,
+          failed: 0,
+          total: 0,
+        },
+        bootstrapSnapshotAvailable: false,
+        defaultScopeKey,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+}
+
 async function buildUpstreamGuardCheck(): Promise<ReadinessPayload['checks']['upstreamGuard']> {
   const snapshot = await getUpstreamGuardSnapshot();
   const openFamilies = snapshot.circuitBreaker.openFamilies.map(item => item.family);
@@ -346,6 +438,7 @@ export async function buildReadinessPayload(): Promise<ReadinessPayload> {
   const redisCheck = await buildRedisCheck();
   const postgresCheck = await buildPostgresCheck();
   const queueCheck = await buildQueueCheck(redisCheck);
+  const readStoreCheck = await buildReadStoreCheck();
   const upstreamGuardCheck = await buildUpstreamGuardCheck();
 
   const status =
@@ -360,6 +453,7 @@ export async function buildReadinessPayload(): Promise<ReadinessPayload> {
       redis: redisCheck,
       postgres: postgresCheck,
       queue: queueCheck,
+      readStore: readStoreCheck,
       upstreamGuard: upstreamGuardCheck,
     },
   };
@@ -370,6 +464,15 @@ export async function renderPrometheusMetrics(): Promise<string> {
   const cacheSnapshot = getCacheHealthSnapshot();
   const notificationsSnapshot = getNotificationsMetricsSnapshot();
   const upstreamSnapshot = await getUpstreamGuardSnapshot();
+
+  // Récupérer le backlog read-store (best-effort, ne bloque pas les métriques)
+  let readStoreBacklog: { queued: number; inProgress: number; failed: number } | null = null;
+  try {
+    const store = await getReadStore({ databaseUrl: env.databaseUrl });
+    readStoreBacklog = await store.countRefreshBacklog();
+  } catch {
+    // ReadStore indisponible — on expose 0 pour les métriques.
+  }
 
   appendMetricBlock(lines, 'footalert_bff_up', 'gauge', 'Process liveness for the FootAlert BFF.', [
     'footalert_bff_up 1',
@@ -472,6 +575,30 @@ export async function renderPrometheusMetrics(): Promise<string> {
     'Observed quota-shed events by route family and priority class.',
     shedSeries.length > 0 ? shedSeries : ['footalert_bff_upstream_sheds_total 0'],
   );
+
+  if (readStoreBacklog) {
+    appendMetricBlock(
+      lines,
+      'footalert_bff_readstore_refresh_queued',
+      'gauge',
+      'Number of snapshot refresh jobs queued in read-store.',
+      [`footalert_bff_readstore_refresh_queued ${readStoreBacklog.queued}`],
+    );
+    appendMetricBlock(
+      lines,
+      'footalert_bff_readstore_refresh_in_progress',
+      'gauge',
+      'Number of snapshot refresh jobs in progress in read-store.',
+      [`footalert_bff_readstore_refresh_in_progress ${readStoreBacklog.inProgress}`],
+    );
+    appendMetricBlock(
+      lines,
+      'footalert_bff_readstore_refresh_failed',
+      'gauge',
+      'Number of failed snapshot refresh jobs in read-store.',
+      [`footalert_bff_readstore_refresh_failed ${readStoreBacklog.failed}`],
+    );
+  }
 
   for (const [name, value] of Object.entries(notificationsSnapshot.counters)) {
     appendMetricBlock(

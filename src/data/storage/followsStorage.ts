@@ -50,6 +50,8 @@ function normalizeAddedId(ids: string[], id: string): string[] {
 
 async function loadIds(key: string): Promise<string[]> {
   const entityType = mapFollowStorageKeyToEntityType(key);
+
+  // SQLite = source de vérité quand local-first est activé.
   if (appEnv.mobileEnableSqliteLocalFirst && entityType) {
     try {
       await getDatabase();
@@ -57,40 +59,40 @@ async function loadIds(key: string): Promise<string[]> {
       if (sqliteIds.length > 0) {
         return sqliteIds;
       }
+
+      // Migration one-shot : importer depuis AsyncStorage si SQLite est vide.
+      const legacyPayload = await getJsonValue<unknown>(key);
+      const legacyIds = sanitizeIds(legacyPayload);
+      if (legacyIds.length > 0) {
+        replaceFollowedEntities(entityType, legacyIds);
+        return legacyIds;
+      }
+
+      return [];
     } catch {
-      // Fallback AsyncStorage silencieux pendant la transition.
+      // Fallback AsyncStorage si SQLite indisponible (migration sûre).
     }
   }
 
   const payload = await getJsonValue<unknown>(key);
-  const ids = sanitizeIds(payload);
+  return sanitizeIds(payload);
+}
 
+async function saveIds(key: string, ids: string[]): Promise<void> {
+  const entityType = mapFollowStorageKeyToEntityType(key);
+
+  // SQLite = destination primaire quand local-first est activé.
   if (appEnv.mobileEnableSqliteLocalFirst && entityType) {
     try {
       await getDatabase();
       replaceFollowedEntities(entityType, ids);
     } catch {
-      // Garder AsyncStorage comme source de secours pendant la transition.
+      // Fallback AsyncStorage si SQLite échoue.
     }
   }
 
-  return ids;
-}
-
-async function saveIds(key: string, ids: string[]): Promise<void> {
+  // AsyncStorage reste écrit pour backward compat (suppression future).
   await setJsonValue<string[]>(key, ids);
-
-  if (!appEnv.mobileEnableSqliteLocalFirst) {
-    return;
-  }
-
-  const entityType = mapFollowStorageKeyToEntityType(key);
-  if (!entityType) {
-    return;
-  }
-
-  await getDatabase();
-  replaceFollowedEntities(entityType, ids);
 }
 
 function mapFollowStorageKeyToEntityType(key: string): FollowedEntityType | null {

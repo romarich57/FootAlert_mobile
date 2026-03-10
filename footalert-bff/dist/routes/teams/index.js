@@ -1,14 +1,85 @@
 import { z } from 'zod';
+import { env } from '../../config/env.js';
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
-import { withCache } from '../../lib/cache.js';
+import { buildCanonicalCacheKey, withCache, withCacheStaleWhileRevalidate, } from '../../lib/cache.js';
+import { PaginationCursorCodec, computePaginationFiltersHash, } from '../../lib/pagination/cursor.js';
+import { buildCursorPageInfo } from '../../lib/pagination/slice.js';
 import { timezoneSchema } from '../../lib/schemas.js';
 import { parseOrThrow } from '../../lib/validation.js';
 import { buildTeamAdvancedStatsPayload, computeLeagueAdvancedTeamStats, TEAM_ADVANCED_STATS_CACHE_TTL_MS, } from './advancedStats.js';
 import { buildFixtureQuery, normalizeStandingsPayload, toNumericId, } from './helpers.js';
-import { statsQuerySchema, standingsQuerySchema, teamFixturesQuerySchema, teamIdParamsSchema, teamPlayersQuerySchema, } from './schemas.js';
-import { fetchNormalizedTeamTransfers } from './transfers.js';
+import { fetchTeamOverviewCorePayload, fetchTeamOverviewLeadersPayload, parseOverviewHistorySeasons, } from './overview.js';
+import { registerTeamFullRoute } from './fullRoute.js';
+import { statsQuerySchema, standingsQuerySchema, teamFixturesQuerySchema, teamIdParamsSchema, teamOverviewLeadersQuerySchema, teamOverviewQuerySchema, teamPlayersQuerySchema, teamTransfersQuerySchema, } from './schemas.js';
+import { fetchNormalizedTeamTransfers, resolveTransfersCacheTtlMs, } from './transfers.js';
 import { fetchTeamTrophiesWithFallback } from './trophies.js';
+const TEAM_PLAYERS_ROUTE_PATH = '/v1/teams/:id/players';
+const TEAM_PLAYERS_DEFAULT_CURSOR_LIMIT = 50;
+const TEAM_PLAYERS_UPSTREAM_PAGE_SIZE_HINT = 20;
+const TEAM_PLAYERS_CURSOR_FETCH_MAX_PAGES = 12;
+const teamPlayersCursorCodec = new PaginationCursorCodec(env.paginationCursorSecret, env.paginationCursorTtlMs);
+async function fetchTeamPlayersCursorChunk(input) {
+    const normalizedStart = Math.max(0, Math.floor(input.startPosition));
+    const normalizedLimit = Math.max(1, Math.floor(input.limit));
+    const startPage = Math.floor(normalizedStart / TEAM_PLAYERS_UPSTREAM_PAGE_SIZE_HINT) + 1;
+    const startOffsetInPage = normalizedStart - (startPage - 1) * TEAM_PLAYERS_UPSTREAM_PAGE_SIZE_HINT;
+    const aggregated = [];
+    let page = startPage;
+    let pagesFetched = 0;
+    let hasMore = true;
+    let upstreamPageTotal;
+    while (aggregated.length < normalizedLimit &&
+        hasMore &&
+        pagesFetched < TEAM_PLAYERS_CURSOR_FETCH_MAX_PAGES) {
+        const searchParams = new URLSearchParams({
+            team: input.teamId,
+            league: input.leagueId,
+            season: String(input.season),
+            page: String(page),
+        });
+        const payload = await withCache(`team:players:${input.teamId}:${input.leagueId}:${input.season}:page:${page}`, 60_000, () => apiFootballGet(`/players?${searchParams.toString()}`));
+        const pageItems = Array.isArray(payload.response) ? payload.response : [];
+        const pageCurrent = typeof payload.paging?.current === 'number' ? payload.paging.current : page;
+        const pageTotal = typeof payload.paging?.total === 'number' ? payload.paging.total : undefined;
+        if (typeof pageTotal === 'number') {
+            upstreamPageTotal = pageTotal;
+        }
+        const effectiveItems = page === startPage ? pageItems.slice(startOffsetInPage) : pageItems;
+        const remaining = normalizedLimit - aggregated.length;
+        const consumedInThisPage = Math.min(remaining, effectiveItems.length);
+        if (consumedInThisPage > 0) {
+            aggregated.push(...effectiveItems.slice(0, consumedInThisPage));
+        }
+        const hasUnconsumedItemsInCurrentPage = consumedInThisPage < effectiveItems.length;
+        if (hasUnconsumedItemsInCurrentPage) {
+            hasMore = true;
+            break;
+        }
+        if (pageItems.length === 0) {
+            hasMore = false;
+            break;
+        }
+        if (typeof pageTotal === 'number') {
+            hasMore = pageCurrent < pageTotal;
+        }
+        else {
+            hasMore = pageItems.length > 0;
+        }
+        page += 1;
+        pagesFetched += 1;
+    }
+    return {
+        response: aggregated,
+        hasMore,
+        upstreamPageTotal,
+    };
+}
+async function fetchStandingsPayload(query) {
+    const data = await apiFootballGet(`/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`);
+    return normalizeStandingsPayload(data);
+}
 export async function registerTeamsRoutes(app) {
+    await registerTeamFullRoute(app);
     app.get('/v1/teams/standings', {
         config: {
             rateLimit: {
@@ -18,10 +89,7 @@ export async function registerTeamsRoutes(app) {
         },
     }, async (request) => {
         const query = parseOrThrow(standingsQuerySchema, request.query);
-        return withCache(`team:standings:${request.url}`, 60_000, async () => {
-            const data = await apiFootballGet(`/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`);
-            return normalizeStandingsPayload(data);
-        });
+        return withCache(`team:standings:${request.url}`, 60_000, () => fetchStandingsPayload(query));
     });
     app.get('/v1/teams/:id', async (request) => {
         const params = parseOrThrow(teamIdParamsSchema, request.params);
@@ -47,25 +115,53 @@ export async function registerTeamsRoutes(app) {
             .strict(), request.query);
         return withCache(`team:nextfixture:${request.url}`, 45_000, () => apiFootballGet(`/fixtures?team=${encodeURIComponent(params.id)}&next=1&timezone=${encodeURIComponent(query.timezone)}`));
     });
-    app.get('/v1/teams/:id/standings', {
-        config: {
-            rateLimit: {
-                max: 30,
-                timeWindow: '1 minute',
-            },
-        },
-    }, async (request) => {
+    app.get('/v1/teams/:id/standings', async (request) => {
         parseOrThrow(teamIdParamsSchema, request.params);
         const query = parseOrThrow(standingsQuerySchema, request.query);
-        return withCache(`team:standings:${request.url}`, 60_000, async () => {
-            const data = await apiFootballGet(`/standings?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}`);
-            return normalizeStandingsPayload(data);
-        });
+        return withCache(`team:standings:${request.url}`, 60_000, () => fetchStandingsPayload(query));
+    });
+    app.get('/v1/teams/:id/overview', async (request) => {
+        const params = parseOrThrow(teamIdParamsSchema, request.params);
+        const query = parseOrThrow(teamOverviewQuerySchema, request.query);
+        const historySeasons = parseOverviewHistorySeasons(query.historySeasons);
+        return withCache(buildCanonicalCacheKey('team:overview', {
+            teamId: params.id,
+            leagueId: query.leagueId,
+            season: query.season,
+            timezone: query.timezone,
+            historySeasons: historySeasons?.join(','),
+        }), 45_000, () => fetchTeamOverviewCorePayload({
+            teamId: params.id,
+            leagueId: query.leagueId,
+            season: query.season,
+            timezone: query.timezone,
+            historySeasons,
+            logger: request.log,
+        }));
+    });
+    app.get('/v1/teams/:id/overview-leaders', async (request) => {
+        const params = parseOrThrow(teamIdParamsSchema, request.params);
+        const query = parseOrThrow(teamOverviewLeadersQuerySchema, request.query);
+        return withCache(buildCanonicalCacheKey('team:overview-leaders', {
+            teamId: params.id,
+            leagueId: query.leagueId,
+            season: query.season,
+        }), 60_000, () => fetchTeamOverviewLeadersPayload({
+            teamId: params.id,
+            leagueId: query.leagueId,
+            season: query.season,
+        }));
     });
     app.get('/v1/teams/:id/stats', async (request) => {
         const params = parseOrThrow(teamIdParamsSchema, request.params);
         const query = parseOrThrow(statsQuerySchema, request.query);
-        return withCache(`team:stats:${request.url}`, 60_000, () => apiFootballGet(`/teams/statistics?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}&team=${encodeURIComponent(params.id)}`));
+        return withCache(`team:stats:${request.url}`, 60_000, async () => {
+            const payload = await apiFootballGet(`/teams/statistics?league=${encodeURIComponent(query.leagueId)}&season=${encodeURIComponent(String(query.season))}&team=${encodeURIComponent(params.id)}`);
+            const normalizedResponse = Array.isArray(payload.response)
+                ? (payload.response[0] ?? null)
+                : (payload.response ?? null);
+            return { response: normalizedResponse };
+        });
     });
     app.get('/v1/teams/:id/advanced-stats', {
         config: {
@@ -78,33 +174,97 @@ export async function registerTeamsRoutes(app) {
         const params = parseOrThrow(teamIdParamsSchema, request.params);
         const query = parseOrThrow(statsQuerySchema, request.query);
         const teamId = toNumericId(params.id) ?? Number(params.id);
-        const leagueSeasonStats = await withCache(`team:advancedstats:league:${query.leagueId}:season:${query.season}`, TEAM_ADVANCED_STATS_CACHE_TTL_MS, () => computeLeagueAdvancedTeamStats(query.leagueId, query.season));
+        const leagueSeasonStats = await withCacheStaleWhileRevalidate(`team:advancedstats:league:${query.leagueId}:season:${query.season}`, TEAM_ADVANCED_STATS_CACHE_TTL_MS, () => computeLeagueAdvancedTeamStats(query.leagueId, query.season));
         return {
-            response: buildTeamAdvancedStatsPayload(teamId, leagueSeasonStats.leagueId, leagueSeasonStats.season, leagueSeasonStats.rankings),
+            response: buildTeamAdvancedStatsPayload(teamId, leagueSeasonStats.leagueId, leagueSeasonStats.season, leagueSeasonStats.sourceUpdatedAt, leagueSeasonStats.rankings),
         };
     });
     app.get('/v1/teams/:id/players', async (request) => {
         const params = parseOrThrow(teamIdParamsSchema, request.params);
         const query = parseOrThrow(teamPlayersQuerySchema, request.query);
-        const searchParams = new URLSearchParams({
-            team: params.id,
-            league: query.leagueId,
-            season: String(query.season),
-        });
-        if (typeof query.page === 'number') {
-            searchParams.set('page', String(query.page));
+        const isCursorPagination = typeof query.limit === 'number' || typeof query.cursor === 'string';
+        if (!isCursorPagination) {
+            const searchParams = new URLSearchParams({
+                team: params.id,
+                league: query.leagueId,
+                season: String(query.season),
+            });
+            if (typeof query.page === 'number') {
+                searchParams.set('page', String(query.page));
+            }
+            return withCache(`team:players:${request.url}`, 60_000, () => apiFootballGet(`/players?${searchParams.toString()}`));
         }
-        return withCache(`team:players:${request.url}`, 60_000, () => apiFootballGet(`/players?${searchParams.toString()}`));
+        const limit = query.limit ?? TEAM_PLAYERS_DEFAULT_CURSOR_LIMIT;
+        const filtersHash = computePaginationFiltersHash({
+            teamId: params.id,
+            leagueId: query.leagueId,
+            season: query.season,
+        });
+        const startPositionFromPage = typeof query.page === 'number' ? Math.max(0, (query.page - 1) * limit) : 0;
+        const startPosition = query.cursor
+            ? teamPlayersCursorCodec.decode(query.cursor, {
+                route: TEAM_PLAYERS_ROUTE_PATH,
+                filtersHash,
+            }).position
+            : startPositionFromPage;
+        const paginatedPayload = await fetchTeamPlayersCursorChunk({
+            teamId: params.id,
+            leagueId: query.leagueId,
+            season: query.season,
+            startPosition,
+            limit,
+        });
+        const pageInfo = buildCursorPageInfo({
+            route: TEAM_PLAYERS_ROUTE_PATH,
+            filtersHash,
+            startPosition,
+            returnedCount: paginatedPayload.response.length,
+            hasMore: paginatedPayload.hasMore,
+            cursorCodec: teamPlayersCursorCodec,
+        });
+        const syntheticCurrentPage = typeof query.page === 'number' ? query.page : Math.floor(startPosition / limit) + 1;
+        return {
+            response: paginatedPayload.response,
+            paging: {
+                current: syntheticCurrentPage,
+                total: paginatedPayload.upstreamPageTotal,
+            },
+            pageInfo,
+        };
     });
     app.get('/v1/teams/:id/squad', async (request) => {
         const params = parseOrThrow(teamIdParamsSchema, request.params);
         parseOrThrow(z.object({}).strict(), request.query);
         return withCache(`team:squad:${request.url}`, 120_000, async () => {
-            const [squadRes, coachRes] = await Promise.all([
+            const [squadResult, coachResult] = await Promise.allSettled([
                 apiFootballGet(`/players/squads?team=${encodeURIComponent(params.id)}`),
                 apiFootballGet(`/coachs?team=${encodeURIComponent(params.id)}`),
             ]);
+            if (squadResult.status === 'rejected' && coachResult.status === 'rejected') {
+                throw squadResult.reason instanceof Error
+                    ? squadResult.reason
+                    : coachResult.reason instanceof Error
+                        ? coachResult.reason
+                        : new Error('Unable to load team squad datasets');
+            }
+            const squadRes = squadResult.status === 'fulfilled'
+                ? squadResult.value
+                : {
+                    response: [
+                        {
+                            players: [],
+                        },
+                    ],
+                };
+            const coachRes = coachResult.status === 'fulfilled'
+                ? coachResult.value
+                : {
+                    response: [],
+                };
             const squadData = squadRes.response?.[0] ?? { players: [] };
+            if (!Array.isArray(squadData.players)) {
+                squadData.players = [];
+            }
             const coaches = coachRes.response ?? [];
             const teamIdAsNumber = Number(params.id);
             const currentCoach = coaches.find(c => {
@@ -119,6 +279,9 @@ export async function registerTeamsRoutes(app) {
                     age: typeof currentCoach.age === 'number' ? currentCoach.age : null,
                 };
             }
+            else {
+                squadData.coach = null;
+            }
             return {
                 ...squadRes,
                 response: [squadData],
@@ -127,12 +290,16 @@ export async function registerTeamsRoutes(app) {
     });
     app.get('/v1/teams/:id/transfers', async (request) => {
         const params = parseOrThrow(teamIdParamsSchema, request.params);
-        parseOrThrow(z.object({}).strict(), request.query);
-        return withCache(`team:transfers:v2:${request.url}`, 120_000, () => fetchNormalizedTeamTransfers(params.id));
+        const query = parseOrThrow(teamTransfersQuerySchema, request.query);
+        const cacheTtlMs = resolveTransfersCacheTtlMs(query.season);
+        return withCache(buildCanonicalCacheKey('team:transfers:v3', {
+            teamId: params.id,
+            season: query.season,
+        }), cacheTtlMs, () => fetchNormalizedTeamTransfers(params.id, query.season));
     });
     app.get('/v1/teams/:id/trophies', async (request) => {
         const params = parseOrThrow(teamIdParamsSchema, request.params);
         parseOrThrow(z.object({}).strict(), request.query);
-        return withCache(`team:trophies:${request.url}`, 120_000, () => fetchTeamTrophiesWithFallback(params.id, request.log));
+        return withCache(buildCanonicalCacheKey('team:trophies', { teamId: params.id }), 120_000, () => fetchTeamTrophiesWithFallback(params.id, request.log));
     });
 }

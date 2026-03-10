@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { gzip as gzipCallback } from 'node:zlib';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
@@ -17,6 +18,7 @@ import {
 } from './lib/mobileApiRouteAuth.js';
 import { verifySensitiveMobileAuth } from './lib/mobileSessionAuth.js';
 import { buildReadinessPayload, renderPrometheusMetrics } from './lib/runtimeStatus.js';
+import { registerBootstrapRoutes } from './routes/bootstrap/index.js';
 import { registerCapabilitiesRoutes } from './routes/capabilities.js';
 import { registerCompetitionsRoutes } from './routes/competitions.js';
 import { registerFollowsRoutes } from './routes/follows.js';
@@ -47,6 +49,7 @@ const CACHE_CONTROL_BY_ROUTE: Record<string, string> = {
   '/v1/matches/:id/lineups': CACHE_CONTROL_SHORT,
   '/v1/matches/:id/players/:teamId/stats': CACHE_CONTROL_SHORT,
   '/v1/competitions/:id/matches': CACHE_CONTROL_SHORT,
+  '/v1/bootstrap': CACHE_CONTROL_SHORT,
   '/v1/teams/:id/fixtures': CACHE_CONTROL_SHORT,
   '/v1/teams/:id/next-fixture': CACHE_CONTROL_SHORT,
   '/v1/teams/:id/overview': CACHE_CONTROL_SHORT,
@@ -225,6 +228,18 @@ export async function buildServer(): Promise<FastifyInstance> {
     },
   });
 
+  // Propager ou générer un x-request-id pour le tracing distribué.
+  app.addHook('onRequest', (request, reply, done) => {
+    const incomingId = request.headers['x-request-id'];
+    const requestId =
+      typeof incomingId === 'string' && incomingId.length > 0 && incomingId.length <= 128
+        ? incomingId
+        : randomUUID();
+    reply.header('x-request-id', requestId);
+    request.headers['x-request-id'] = requestId;
+    done();
+  });
+
   if (env.corsAllowedOrigins.length > 0) {
     app.addHook('onRequest', (request, reply, done) => {
       const originHeader = request.headers.origin;
@@ -290,6 +305,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   app.addHook('onResponse', (request, reply, done) => {
     request.log.info({
       requestId: request.id,
+      xRequestId: request.headers['x-request-id'],
       route: request.routeOptions.url,
       statusCode: reply.statusCode,
       cacheStatus: String(reply.getHeader('x-footalert-cache-status') ?? 'unknown'),
@@ -343,6 +359,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   await registerCapabilitiesRoutes(app);
+  await registerBootstrapRoutes(app);
   await registerMatchesRoutes(app);
   await registerCompetitionsRoutes(app);
   await registerTeamsRoutes(app);

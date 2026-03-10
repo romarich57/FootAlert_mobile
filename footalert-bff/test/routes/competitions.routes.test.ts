@@ -414,3 +414,71 @@ test('GET /v1/competitions/:id/full returns null/[] for unavailable cup sections
   assert.equal(calls.some(call => String(call.input).includes('/players/topscorers')), false);
   assert.equal(calls.some(call => String(call.input).includes('/standings?league=100')), false);
 });
+
+test('GET /v1/competitions/:id/full serves snapshot after memory cache reset', async t => {
+  const firstCalls = installFetchMock(async call => {
+    const url = new URL(String(call.input));
+    const path = url.pathname;
+
+    if (path.endsWith('/leagues')) {
+      return jsonResponse({
+        response: [
+          {
+            league: { id: 100, type: 'Cup', name: 'National Cup' },
+            seasons: [{ year: 2025, current: true }],
+          },
+        ],
+      });
+    }
+
+    if (path.endsWith('/fixtures') && url.searchParams.get('league') === '100') {
+      return jsonResponse({
+        response: [
+          {
+            fixture: {
+              id: 4001,
+              date: '2025-10-01T20:00:00+00:00',
+              status: { short: 'FT', elapsed: 90 },
+            },
+            league: { id: 100, season: 2025, round: 'Quarter-finals' },
+            teams: {
+              home: { id: 1, name: 'Alpha', logo: 'alpha.png', winner: true },
+              away: { id: 3, name: 'Gamma', logo: 'gamma.png', winner: false },
+            },
+            goals: { home: 2, away: 0 },
+            score: { penalty: { home: null, away: null } },
+          },
+        ],
+      });
+    }
+
+    if (path.endsWith('/teams')) {
+      return jsonResponse({ response: [] });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+  const firstResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions/100/full?season=2025',
+  });
+  assert.equal(firstResponse.statusCode, 200);
+  assert.equal(firstCalls.length > 0, true);
+  const firstPayload = firstResponse.json();
+
+  const { resetCacheForTests } = await import('../../src/lib/cache.ts');
+  resetCacheForTests();
+
+  const secondCalls = installFetchMock(async () => {
+    throw new Error('Upstream should not be called when snapshot is available.');
+  });
+  const secondResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/competitions/100/full?season=2025',
+  });
+  assert.equal(secondResponse.statusCode, 200);
+  assert.deepEqual(secondResponse.json(), firstPayload);
+  assert.equal(secondCalls.length, 0);
+});

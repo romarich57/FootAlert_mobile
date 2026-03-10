@@ -47,6 +47,19 @@ export function isNetworkRequestFailedError(error: unknown): boolean {
   );
 }
 
+function generateRequestId(): string {
+  // Compact random hex ID (16 chars) — suffisant pour le tracing distribué.
+  const bytes = new Uint8Array(8);
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function httpRequest<T>(
   method: HttpMethod,
   url: string,
@@ -55,6 +68,7 @@ async function httpRequest<T>(
   const timeoutMs = options.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS;
   const requestHeaders: Record<string, string> = {
     Accept: 'application/json',
+    'x-request-id': generateRequestId(),
     ...options.headers,
   };
 

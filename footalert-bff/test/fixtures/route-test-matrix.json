@@ -31,6 +31,12 @@
   },
   {
     "method": "GET",
+    "path": "/v1/bootstrap",
+    "critical": true,
+    "testFile": "test/routes/bootstrap.routes.test.ts"
+  },
+  {
+    "method": "GET",
     "path": "/v1/competitions",
     "critical": true,
     "testFile": "test/routes/competitions.routes.test.ts"

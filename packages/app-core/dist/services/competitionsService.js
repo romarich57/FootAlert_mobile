@@ -91,5 +91,8 @@ export function createCompetitionsReadService({ http, telemetry }) {
         async fetchCompetitionTeamStats(leagueId, season, signal) {
             return http.get(`/competitions/${encodeURIComponent(String(leagueId))}/team-stats`, { season }, { signal });
         },
+        async fetchCompetitionFull(leagueId, season, signal) {
+            return http.get(`/competitions/${encodeURIComponent(String(leagueId))}/full`, { season }, { signal });
+        },
     };
 }

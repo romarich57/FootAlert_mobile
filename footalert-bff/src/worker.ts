@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { setTimeout as wait } from 'node:timers/promises';
+import type { FastifyBaseLogger } from 'fastify';
 
 import { env } from './config/env.js';
 import { BffError } from './lib/errors.js';
@@ -28,6 +29,29 @@ import {
   sortRecipientsForFanout,
   splitImmediateAndDeferred,
 } from './lib/notifications/workerPolicies.js';
+import {
+  buildReadStoreScopeKey,
+  buildSnapshotWindow,
+  decodeReadStoreScopeKey,
+} from './lib/readStore/readThrough.js';
+import {
+  closeReadStoreRuntime,
+  getReadStore,
+  type ReadStore,
+  type SnapshotRefreshJob,
+} from './lib/readStore/runtime.js';
+import {
+  BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+} from './routes/bootstrap/schemas.js';
+import {
+  buildBootstrapPayload,
+  buildBootstrapScopeKey,
+  parseBootstrapScopeKey,
+} from './routes/bootstrap/service.js';
+import { buildCompetitionFullResponse } from './routes/competitions/fullService.js';
+import { buildMatchFullResponse } from './routes/matches/fullService.js';
+import { fetchPlayerFullPayload } from './routes/players/fullService.js';
+import { fetchTeamFullPayload } from './routes/teams/fullService.js';
 
 type QueueLike = {
   add: (name: string, data: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
@@ -50,6 +74,29 @@ type JobLike<TPayload> = {
 };
 
 type WorkerLogLevel = 'info' | 'error';
+
+type TeamFullWorkerLogger = {
+  info: (obj: unknown, msg?: string) => void;
+  warn: (obj: unknown, msg?: string) => void;
+  error: (obj: unknown, msg?: string) => void;
+  debug: (obj: unknown, msg?: string) => void;
+  trace: (obj: unknown, msg?: string) => void;
+  fatal: (obj: unknown, msg?: string) => void;
+  child: () => TeamFullWorkerLogger;
+};
+
+const READ_STORE_DEFAULT_TIMEZONE = 'Europe/Paris';
+const READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS = 5 * 60_000;
+const READ_STORE_REFRESH_POLL_INTERVAL_MS = 30_000;
+const READ_STORE_REFRESH_CLAIM_LIMIT = 10;
+const READ_STORE_OVERLAY_STALE_MS = 15_000;
+const READ_STORE_OVERLAY_EXPIRES_MS = 120_000;
+
+/**
+ * IDs des Big 5 leagues + Champions League / Europa League pour le warmup au boot.
+ * Ces compétitions représentent la majorité du trafic utilisateur.
+ */
+const HOTSET_COMPETITION_IDS = ['39', '140', '135', '78', '61', '2', '3'];
 
 function hashSensitiveValue(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 12);
@@ -82,6 +129,390 @@ function buildRedactedEventContext(input: { eventId?: string; alertType?: string
 function logWorker(level: WorkerLogLevel, eventName: string, payload: Record<string, unknown>): void {
   const logger = level === 'error' ? console.error : console.info;
   logger(`[notifications.worker] ${eventName}`, payload);
+}
+
+function createWorkerServiceLogger(): TeamFullWorkerLogger {
+  const logger: TeamFullWorkerLogger = {
+    info: (obj, msg) => logWorker('info', msg ?? 'service_info', { payload: obj }),
+    warn: (obj, msg) => logWorker('info', msg ?? 'service_warn', { payload: obj }),
+    error: (obj, msg) => logWorker('error', msg ?? 'service_error', { payload: obj }),
+    debug: () => undefined,
+    trace: () => undefined,
+    fatal: (obj, msg) => logWorker('error', msg ?? 'service_fatal', { payload: obj }),
+    child: () => logger,
+  };
+
+  return logger;
+}
+
+function resolveDateInTimezone(timezone: string, now = new Date()): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  return formatter.format(now);
+}
+
+function resolveSeasonFromDate(date: string): number {
+  const year = Number.parseInt(date.slice(0, 4), 10);
+  const month = Number.parseInt(date.slice(5, 7), 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) {
+    return new Date().getUTCFullYear();
+  }
+
+  return month >= 7 ? year : year - 1;
+}
+
+function parseOptionalNumber(value: string | undefined): number | undefined {
+  if (!value || value.trim().length === 0) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseOptionalText(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+async function persistWorkerMatchOverlay(
+  readStore: ReadStore,
+  matchId: string,
+  payload: Awaited<ReturnType<typeof buildMatchFullResponse>>,
+): Promise<void> {
+  const isLive = payload.lifecycleState === 'live';
+  const window = buildSnapshotWindow({
+    staleAfterMs: isLive ? READ_STORE_OVERLAY_STALE_MS : 1_000,
+    expiresAfterMs: isLive ? READ_STORE_OVERLAY_EXPIRES_MS : 1_000,
+  });
+
+  await readStore.upsertMatchLiveOverlay({
+    matchId,
+    payload: {
+      fixture: payload.fixture,
+      lifecycleState: payload.lifecycleState,
+      context: payload.context,
+      events: payload.events,
+      statistics: payload.statistics,
+      lineups: payload.lineups,
+      absences: payload.absences,
+      playersStats: payload.playersStats,
+    },
+    generatedAt: window.generatedAt,
+    staleAt: window.staleAt,
+    expiresAt: window.expiresAt,
+    metadata: {
+      lifecycleState: payload.lifecycleState,
+      source: 'worker.refresh',
+    },
+  });
+}
+
+async function refreshSnapshotForJob(input: {
+  readStore: ReadStore;
+  job: SnapshotRefreshJob;
+  logger: TeamFullWorkerLogger;
+}): Promise<void> {
+  const { readStore, job, logger } = input;
+  const nowWindow = (ttlMs: number) =>
+    buildSnapshotWindow({
+      staleAfterMs: ttlMs,
+      expiresAfterMs: ttlMs * 3,
+    });
+
+  if (job.entityKind === 'bootstrap') {
+    const parsedScope = parseBootstrapScopeKey(job.scopeKey);
+    if (!parsedScope) {
+      throw new Error(`Invalid bootstrap scope key: ${job.scopeKey}`);
+    }
+
+    const payload = await buildBootstrapPayload({
+      date: parsedScope.date,
+      timezone: parsedScope.timezone,
+      season: parsedScope.season,
+      followedTeamIds: parsedScope.followedTeamIds,
+      followedPlayerIds: parsedScope.followedPlayerIds,
+      discoveryLimit: parsedScope.discoveryLimit,
+      logger: logger as unknown as FastifyBaseLogger,
+    });
+    const window = buildSnapshotWindow({
+      staleAfterMs: READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS,
+      expiresAfterMs: READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS * 6,
+    });
+
+    await readStore.upsertBootstrapSnapshot({
+      scopeKey: job.scopeKey,
+      payload,
+      generatedAt: window.generatedAt,
+      staleAt: window.staleAt,
+      expiresAt: window.expiresAt,
+      metadata: {
+        source: 'worker.refresh',
+      },
+    });
+
+    return;
+  }
+
+  const scope = decodeReadStoreScopeKey(job.scopeKey);
+
+  if (job.entityKind === 'team_full') {
+    const timezone = parseOptionalText(scope.timezone);
+    if (!timezone) {
+      throw new Error(`team_full scope missing timezone for job ${job.id}`);
+    }
+
+    const payload = await fetchTeamFullPayload({
+      teamId: job.entityId,
+      leagueId: parseOptionalText(scope.leagueId),
+      season: parseOptionalNumber(scope.season),
+      timezone,
+      historySeasons: parseOptionalText(scope.historySeasons),
+      logger: logger as unknown as FastifyBaseLogger,
+    });
+    const window = nowWindow(env.cacheTtl.teams);
+
+    await readStore.upsertEntitySnapshot({
+      entityKind: job.entityKind,
+      entityId: job.entityId,
+      scopeKey: job.scopeKey,
+      payload,
+      generatedAt: window.generatedAt,
+      staleAt: window.staleAt,
+      expiresAt: window.expiresAt,
+      metadata: {
+        source: 'worker.refresh',
+      },
+    });
+
+    return;
+  }
+
+  if (job.entityKind === 'player_full') {
+    const season = parseOptionalNumber(scope.season);
+    if (!season) {
+      throw new Error(`player_full scope missing season for job ${job.id}`);
+    }
+
+    const payload = await fetchPlayerFullPayload({
+      playerId: job.entityId,
+      season,
+    });
+    const window = nowWindow(env.cacheTtl.players);
+
+    await readStore.upsertEntitySnapshot({
+      entityKind: job.entityKind,
+      entityId: job.entityId,
+      scopeKey: job.scopeKey,
+      payload,
+      generatedAt: window.generatedAt,
+      staleAt: window.staleAt,
+      expiresAt: window.expiresAt,
+      metadata: {
+        source: 'worker.refresh',
+      },
+    });
+
+    return;
+  }
+
+  if (job.entityKind === 'competition_full') {
+    const season = parseOptionalNumber(scope.season);
+    const payload = await buildCompetitionFullResponse(job.entityId, season);
+    const window = nowWindow(env.cacheTtl.competitions);
+
+    await readStore.upsertEntitySnapshot({
+      entityKind: job.entityKind,
+      entityId: job.entityId,
+      scopeKey: job.scopeKey,
+      payload,
+      generatedAt: window.generatedAt,
+      staleAt: window.staleAt,
+      expiresAt: window.expiresAt,
+      metadata: {
+        source: 'worker.refresh',
+      },
+    });
+
+    return;
+  }
+
+  if (job.entityKind === 'match_full') {
+    const timezone = parseOptionalText(scope.timezone);
+    if (!timezone) {
+      throw new Error(`match_full scope missing timezone for job ${job.id}`);
+    }
+
+    const payload = await buildMatchFullResponse(job.entityId, timezone);
+    const window = nowWindow(env.cacheTtl.matches);
+
+    await readStore.upsertEntitySnapshot({
+      entityKind: job.entityKind,
+      entityId: job.entityId,
+      scopeKey: job.scopeKey,
+      payload,
+      generatedAt: window.generatedAt,
+      staleAt: window.staleAt,
+      expiresAt: window.expiresAt,
+      metadata: {
+        source: 'worker.refresh',
+      },
+    });
+    await persistWorkerMatchOverlay(readStore, job.entityId, payload);
+
+    return;
+  }
+
+  throw new Error(`Unsupported refresh entity kind: ${job.entityKind}`);
+}
+
+async function warmBootstrapSnapshot(readStore: ReadStore): Promise<void> {
+  const date = resolveDateInTimezone(READ_STORE_DEFAULT_TIMEZONE);
+  const season = resolveSeasonFromDate(date);
+  const scopeKey = buildBootstrapScopeKey({
+    date,
+    timezone: READ_STORE_DEFAULT_TIMEZONE,
+    season,
+  });
+  const payload = await buildBootstrapPayload({
+    date,
+    timezone: READ_STORE_DEFAULT_TIMEZONE,
+    season,
+    followedTeamIds: [],
+    followedPlayerIds: [],
+    discoveryLimit: BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+  });
+  const window = buildSnapshotWindow({
+    staleAfterMs: READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS,
+    expiresAfterMs: READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS * 6,
+  });
+
+  await readStore.upsertBootstrapSnapshot({
+    scopeKey,
+    payload,
+    generatedAt: window.generatedAt,
+    staleAt: window.staleAt,
+    expiresAt: window.expiresAt,
+    metadata: {
+      source: 'worker.warm',
+    },
+  });
+}
+
+/**
+ * Warmup initial au boot : pré-charge les snapshots des compétitions hot (Big 5 + coupes UEFA)
+ * et le bootstrap par défaut. Exécuté une seule fois au démarrage du worker.
+ *
+ * Objectif : que le premier utilisateur après un deploy ne subisse pas un cold miss.
+ */
+async function warmHotset(readStore: ReadStore, _logger: TeamFullWorkerLogger): Promise<void> {
+  const date = resolveDateInTimezone(READ_STORE_DEFAULT_TIMEZONE);
+  const season = resolveSeasonFromDate(date);
+
+  logWorker('info', 'hotset_warm_start', {
+    competitionCount: HOTSET_COMPETITION_IDS.length,
+    date,
+    season,
+  });
+
+  // Warm les compétitions Big 5 en parallèle (lots de 3 pour ne pas saturer le quota)
+  const CONCURRENCY = 3;
+  let warmedCount = 0;
+  let failedCount = 0;
+
+  for (let i = 0; i < HOTSET_COMPETITION_IDS.length; i += CONCURRENCY) {
+    const batch = HOTSET_COMPETITION_IDS.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async competitionId => {
+        const payload = await buildCompetitionFullResponse(competitionId, season);
+        const window = buildSnapshotWindow({
+          staleAfterMs: env.cacheTtl.competitions,
+          expiresAfterMs: env.cacheTtl.competitions * 3,
+        });
+        const scopeKey = buildReadStoreScopeKey({ season: String(season) });
+
+        await readStore.upsertEntitySnapshot({
+          entityKind: 'competition_full',
+          entityId: competitionId,
+          scopeKey,
+          payload,
+          generatedAt: window.generatedAt,
+          staleAt: window.staleAt,
+          expiresAt: window.expiresAt,
+          metadata: { source: 'worker.hotset_warm' },
+        });
+      }),
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        warmedCount++;
+      } else {
+        failedCount++;
+        logWorker('error', 'hotset_warm_competition_failed', {
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+      }
+    }
+  }
+
+  // Warm le bootstrap par défaut (sans follows spécifiques)
+  try {
+    await warmBootstrapSnapshot(readStore);
+  } catch (error) {
+    logWorker('error', 'hotset_warm_bootstrap_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  logWorker('info', 'hotset_warm_complete', {
+    warmedCompetitions: warmedCount,
+    failedCompetitions: failedCount,
+    totalCompetitions: HOTSET_COMPETITION_IDS.length,
+  });
+}
+
+async function processSnapshotRefreshQueue(
+  readStore: ReadStore,
+  logger: TeamFullWorkerLogger,
+): Promise<void> {
+  const claimedJobs = await readStore.claimRefreshJobs({
+    limit: READ_STORE_REFRESH_CLAIM_LIMIT,
+    workerId: `notifications-worker-${process.pid}`,
+  });
+
+  for (const job of claimedJobs) {
+    try {
+      await refreshSnapshotForJob({
+        readStore,
+        job,
+        logger,
+      });
+      await readStore.completeRefreshJob({
+        jobId: job.id,
+      });
+    } catch (error) {
+      await readStore.failRefreshJob({
+        jobId: job.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      logWorker('error', 'read_store_refresh_failed', {
+        jobId: job.id,
+        entityKind: job.entityKind,
+        entityId: hashSensitiveValue(job.entityId),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 }
 
 function resolveRedisConnection(redisUrl: string): {
@@ -203,6 +634,10 @@ async function startWorker(): Promise<void> {
     backend: env.notificationsPersistenceBackend,
     databaseUrl: env.databaseUrl,
   });
+  const readStore = await getReadStore({
+    databaseUrl: env.databaseUrl,
+  });
+  const readStoreLogger = createWorkerServiceLogger();
 
   const firebaseSender = await createFirebaseNotificationsSender({
     projectId: env.firebaseProjectId,
@@ -605,18 +1040,107 @@ async function startWorker(): Promise<void> {
     await sendQueue.close();
     await dlqQueue.close();
     await notificationsStore.close();
+    await closeReadStoreRuntime();
   };
 
-  process.once('SIGINT', () => {
-    void close().finally(() => process.exit(0));
-  });
-  process.once('SIGTERM', () => {
-    void close().finally(() => process.exit(0));
-  });
+  let isShuttingDown = false;
 
-  // Keep worker process alive.
-  while (true) {
-    await wait(60_000);
+  const gracefulShutdown = async (signal: string) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    logWorker('info', 'graceful_shutdown_start', { signal });
+
+    // Timeout de sécurité : force exit après 30s
+    const forceExitTimer = setTimeout(() => {
+      logWorker('error', 'graceful_shutdown_timeout', { signal });
+      process.exit(1);
+    }, 30_000);
+    forceExitTimer.unref();
+
+    await close().catch(error => {
+      logWorker('error', 'graceful_shutdown_error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    logWorker('info', 'graceful_shutdown_complete', { signal });
+    process.exit(0);
+  };
+
+  process.once('SIGINT', () => { gracefulShutdown('SIGINT').catch(() => process.exit(1)); });
+  process.once('SIGTERM', () => { gracefulShutdown('SIGTERM').catch(() => process.exit(1)); });
+
+  // Warmup initial au boot : pré-charge les compétitions hot + bootstrap
+  try {
+    await warmHotset(readStore, readStoreLogger);
+  } catch (error) {
+    logWorker('error', 'hotset_warm_fatal', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  let lastBootstrapWarmAt = Date.now(); // Skip premier cycle bootstrap (déjà fait par hotset)
+  let lastGcAt = 0;
+  let consecutiveRefreshErrors = 0;
+
+  const GC_INTERVAL_MS = 10 * 60_000; // GC toutes les 10 minutes
+  const HEARTBEAT_STALE_MS = 5 * 60_000; // Heartbeats > 5min considérés stale
+
+  // Keep worker process alive and run read-store maintenance tasks.
+  while (!isShuttingDown) {
+    const nowMs = Date.now();
+
+    if (nowMs - lastBootstrapWarmAt >= READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS) {
+      try {
+        await warmBootstrapSnapshot(readStore);
+      } catch (error) {
+        logWorker('error', 'bootstrap_warm_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      lastBootstrapWarmAt = nowMs;
+    }
+
+    // GC périodique : supprime snapshots expirés + heartbeats stale
+    if (nowMs - lastGcAt >= GC_INTERVAL_MS) {
+      try {
+        const now = new Date();
+        const staleBefore = new Date(nowMs - HEARTBEAT_STALE_MS);
+        const [deletedSnapshots, deletedHeartbeats] = await Promise.all([
+          readStore.deleteExpiredSnapshots(now),
+          readStore.deleteStaleHeartbeats(staleBefore),
+        ]);
+        if (deletedSnapshots > 0 || deletedHeartbeats > 0) {
+          logWorker('info', 'gc_complete', {
+            deletedSnapshots,
+            deletedHeartbeats,
+          });
+        }
+      } catch (error) {
+        logWorker('error', 'gc_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      lastGcAt = nowMs;
+    }
+
+    try {
+      await processSnapshotRefreshQueue(readStore, readStoreLogger);
+      consecutiveRefreshErrors = 0;
+    } catch (error) {
+      consecutiveRefreshErrors++;
+      logWorker('error', 'read_store_refresh_cycle_failed', {
+        error: error instanceof Error ? error.message : String(error),
+        consecutiveErrors: consecutiveRefreshErrors,
+      });
+    }
+
+    // Backoff exponentiel : 30s → 60s → 120s → 240s → max 5min
+    const backoffMs = Math.min(
+      READ_STORE_REFRESH_POLL_INTERVAL_MS * Math.pow(2, consecutiveRefreshErrors),
+      5 * 60_000,
+    );
+    await wait(consecutiveRefreshErrors > 0 ? backoffMs : READ_STORE_REFRESH_POLL_INTERVAL_MS);
   }
 }
 

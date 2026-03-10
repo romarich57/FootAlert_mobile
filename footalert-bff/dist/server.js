@@ -1,17 +1,25 @@
+import { randomUUID } from 'node:crypto';
 import { gzip as gzipCallback } from 'node:zlib';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import { promisify } from 'node:util';
 import { env } from './config/env.js';
-import { configureCache } from './lib/cache.js';
+import { assertCacheReadyOrThrow, configureCache, getCacheHealthSnapshot, } from './lib/cache.js';
 import { BffError } from './lib/errors.js';
+import { requiresGlobalMobileReadAuth, shouldEnforceHostScopedMobileAuth, } from './lib/mobileApiRouteAuth.js';
+import { verifySensitiveMobileAuth } from './lib/mobileSessionAuth.js';
+import { buildReadinessPayload, renderPrometheusMetrics } from './lib/runtimeStatus.js';
+import { registerBootstrapRoutes } from './routes/bootstrap/index.js';
 import { registerCapabilitiesRoutes } from './routes/capabilities.js';
 import { registerCompetitionsRoutes } from './routes/competitions.js';
 import { registerFollowsRoutes } from './routes/follows.js';
 import { registerMatchesRoutes } from './routes/matches.js';
+import { registerMobileSessionRoutes } from './routes/mobileSession.js';
 import { registerNotificationsRoutes } from './routes/notifications.js';
 import { registerPlayersRoutes } from './routes/players.js';
+import { registerPrivacyRoutes } from './routes/privacy.js';
+import { registerSearchRoutes } from './routes/search.js';
 import { registerTeamsRoutes } from './routes/teams.js';
 import { registerTelemetryRoutes } from './routes/telemetry.js';
 function isAllowedCorsOrigin(origin) {
@@ -29,8 +37,10 @@ const CACHE_CONTROL_BY_ROUTE = {
     '/v1/matches/:id/lineups': CACHE_CONTROL_SHORT,
     '/v1/matches/:id/players/:teamId/stats': CACHE_CONTROL_SHORT,
     '/v1/competitions/:id/matches': CACHE_CONTROL_SHORT,
+    '/v1/bootstrap': CACHE_CONTROL_SHORT,
     '/v1/teams/:id/fixtures': CACHE_CONTROL_SHORT,
     '/v1/teams/:id/next-fixture': CACHE_CONTROL_SHORT,
+    '/v1/teams/:id/overview': CACHE_CONTROL_SHORT,
     '/v1/follows/teams/:teamId/next-fixture': CACHE_CONTROL_SHORT,
     '/v1/players/:id/matches': CACHE_CONTROL_SHORT,
     '/v1/players/team/:teamId/fixtures': CACHE_CONTROL_SHORT,
@@ -38,6 +48,9 @@ const CACHE_CONTROL_BY_ROUTE = {
     '/v1/competitions/search': CACHE_CONTROL_MEDIUM,
     '/v1/follows/search/teams': CACHE_CONTROL_MEDIUM,
     '/v1/follows/search/players': CACHE_CONTROL_MEDIUM,
+    '/v1/follows/discovery/teams': CACHE_CONTROL_MEDIUM,
+    '/v1/follows/discovery/players': CACHE_CONTROL_MEDIUM,
+    '/v1/search/global': CACHE_CONTROL_MEDIUM,
     '/v1/follows/trends/teams': CACHE_CONTROL_MEDIUM,
     '/v1/follows/trends/players': CACHE_CONTROL_MEDIUM,
     '/v1/follows/teams/:teamId': CACHE_CONTROL_MEDIUM,
@@ -87,6 +100,16 @@ function appendVaryHeader(reply, value) {
         reply.header('Vary', entries.join(', '));
     }
 }
+function hasValidOpsMetricsAuthorization(authorizationHeader) {
+    if (!env.opsMetricsToken) {
+        return true;
+    }
+    if (!authorizationHeader?.startsWith('Bearer ')) {
+        return false;
+    }
+    const token = authorizationHeader.slice('Bearer '.length).trim();
+    return token === env.opsMetricsToken;
+}
 async function registerCompression(app) {
     const compressModuleName = '@fastify/compress';
     try {
@@ -135,16 +158,28 @@ async function registerCompression(app) {
 }
 export async function buildServer() {
     const app = Fastify({
-        logger: true,
+        logger: {
+            level: 'info',
+            base: {
+                service: 'footalert-bff',
+                appEnv: env.appEnv,
+                nodeRole: env.nodeRole,
+            },
+        },
         trustProxy: env.trustProxyHops > 0 ? env.trustProxyHops : false,
     });
     configureCache({
         maxEntries: env.cacheMaxEntries,
         cleanupIntervalMs: env.cacheCleanupIntervalMs,
+        ttlJitterPct: env.cacheTtlJitterPct,
+        lockTtlMs: env.cacheLockTtlMs,
+        coalesceWaitMs: env.cacheCoalesceWaitMs,
         backend: env.cacheBackend,
+        strictMode: env.cacheStrictMode,
         redisUrl: env.redisUrl,
         redisPrefix: env.redisCachePrefix,
     });
+    await assertCacheReadyOrThrow();
     await app.register(cors, {
         origin: (origin, callback) => {
             if (!origin || env.corsAllowedOrigins.length === 0) {
@@ -153,6 +188,16 @@ export async function buildServer() {
             }
             callback(null, isAllowedCorsOrigin(origin));
         },
+    });
+    // Propager ou générer un x-request-id pour le tracing distribué.
+    app.addHook('onRequest', (request, reply, done) => {
+        const incomingId = request.headers['x-request-id'];
+        const requestId = typeof incomingId === 'string' && incomingId.length > 0 && incomingId.length <= 128
+            ? incomingId
+            : randomUUID();
+        reply.header('x-request-id', requestId);
+        request.headers['x-request-id'] = requestId;
+        done();
     });
     if (env.corsAllowedOrigins.length > 0) {
         app.addHook('onRequest', (request, reply, done) => {
@@ -173,6 +218,26 @@ export async function buildServer() {
         timeWindow: env.rateLimitWindowMs,
         keyGenerator: request => request.ip,
     });
+    app.addHook('preHandler', async (request, reply) => {
+        if (!shouldEnforceHostScopedMobileAuth(request, env.mobileAuthEnforcedHosts)) {
+            return;
+        }
+        if (!requiresGlobalMobileReadAuth(request)) {
+            return;
+        }
+        const authResult = verifySensitiveMobileAuth(request, {
+            requiredScope: 'api:read',
+            jwtSecret: env.mobileSessionJwtSecret,
+            minIntegrity: 'device',
+        });
+        if (!authResult.ok) {
+            reply.code(authResult.failure.statusCode).send({
+                error: authResult.failure.code,
+                message: authResult.failure.message,
+            });
+            return;
+        }
+    });
     await registerCompression(app);
     app.addHook('onSend', (request, reply, payload, done) => {
         if (request.method === 'GET') {
@@ -186,13 +251,63 @@ export async function buildServer() {
         }
         done(null, payload);
     });
-    app.get('/health', async () => ({ status: 'ok' }));
+    app.addHook('onResponse', (request, reply, done) => {
+        request.log.info({
+            requestId: request.id,
+            xRequestId: request.headers['x-request-id'],
+            route: request.routeOptions.url,
+            statusCode: reply.statusCode,
+            cacheStatus: String(reply.getHeader('x-footalert-cache-status') ?? 'unknown'),
+            nodeRole: env.nodeRole,
+        }, 'request.completed');
+        done();
+    });
+    app.get('/health', async (_request, reply) => {
+        const cache = getCacheHealthSnapshot();
+        const status = cache.degraded ? 'degraded' : 'ok';
+        if (cache.degraded) {
+            reply.code(503);
+        }
+        return {
+            status,
+            cache,
+        };
+    });
+    app.get('/liveness', async () => {
+        return {
+            status: 'alive',
+            timestamp: new Date().toISOString(),
+            nodeRole: env.nodeRole,
+        };
+    });
+    app.get('/readiness', async (_request, reply) => {
+        const payload = await buildReadinessPayload();
+        if (payload.status !== 'ready') {
+            reply.code(503);
+        }
+        return payload;
+    });
+    app.get('/metrics', async (request, reply) => {
+        if (!hasValidOpsMetricsAuthorization(request.headers.authorization)) {
+            reply.code(403);
+            return {
+                error: 'OPS_METRICS_FORBIDDEN',
+                message: 'Metrics endpoint requires an operations bearer token.',
+            };
+        }
+        reply.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+        return renderPrometheusMetrics();
+    });
     await registerCapabilitiesRoutes(app);
+    await registerBootstrapRoutes(app);
     await registerMatchesRoutes(app);
     await registerCompetitionsRoutes(app);
     await registerTeamsRoutes(app);
     await registerPlayersRoutes(app);
     await registerFollowsRoutes(app);
+    await registerSearchRoutes(app);
+    await registerMobileSessionRoutes(app);
+    await registerPrivacyRoutes(app);
     await registerNotificationsRoutes(app);
     await registerTelemetryRoutes(app);
     app.setErrorHandler((error, _request, reply) => {

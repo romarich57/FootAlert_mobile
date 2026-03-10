@@ -1,6 +1,25 @@
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
 import { normalizeTransferDate, normalizeTransferKeyText, toNumericId, toTransferTimestamp, } from './helpers.js';
-export async function fetchNormalizedTeamTransfers(teamId) {
+function isDateInSeason(dateValue, season) {
+    if (!dateValue || typeof season !== 'number') {
+        return true;
+    }
+    const parsedDate = new Date(dateValue);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return true;
+    }
+    const seasonStart = new Date(Date.UTC(season, 6, 1, 0, 0, 0));
+    const seasonEnd = new Date(Date.UTC(season + 1, 5, 30, 23, 59, 59));
+    return parsedDate >= seasonStart && parsedDate <= seasonEnd;
+}
+export function resolveTransfersCacheTtlMs(season, now = new Date()) {
+    if (typeof season !== 'number') {
+        return 6 * 60 * 60_000;
+    }
+    const currentSeason = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+    return season >= currentSeason ? 6 * 60 * 60_000 : 24 * 60 * 60_000;
+}
+export async function fetchNormalizedTeamTransfers(teamId, season) {
     const data = await apiFootballGet(`/transfers?team=${encodeURIComponent(teamId)}`);
     const rawTransfers = Array.isArray(data?.response) ? data.response : [];
     const dedupedTransfersMap = new Map();
@@ -24,6 +43,9 @@ export async function fetchNormalizedTeamTransfers(teamId) {
             const transferDate = transferDateRaw ? normalizeTransferDate(transferDateRaw) : null;
             const transferType = typeof transfer.type === 'string' ? transfer.type.trim() : '';
             if (!transferDate || !transferType) {
+                continue;
+            }
+            if (!isDateInSeason(transferDate, season)) {
                 continue;
             }
             const transferTeams = (transfer.teams ?? {});

@@ -1,0 +1,27 @@
+
+> footalert-bff@0.1.0 prestart
+> npm run build
+
+
+> footalert-bff@0.1.0 prebuild
+> npm --prefix ../packages/app-core install --no-audit --no-fund && npm --prefix ../packages/app-core run build
+
+
+up to date in 129ms
+
+> @footalert/app-core@0.1.0 build
+> rm -rf dist && tsc -p tsconfig.json
+
+
+> footalert-bff@0.1.0 build
+> tsc -p tsconfig.json
+
+
+> footalert-bff@0.1.0 start
+> node dist/index.js
+
+Error: Missing MOBILE_SESSION_JWT_SECRET.
+    at file:///Users/romarich/Desktop/Projet_perso/Football_apps/Mobile_Foot/footalert-bff/dist/config/env.js:254:11
+    at ModuleJob.run (node:internal/modules/esm/module_job:413:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:654:26)
+    at async start (file:///Users/romarich/Desktop/Projet_perso/Football_apps/Mobile_Foot/footalert-bff/dist/index.js:13:21)

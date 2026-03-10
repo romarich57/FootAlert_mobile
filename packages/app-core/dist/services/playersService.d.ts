@@ -15,6 +15,7 @@ export declare function createPlayersReadService({ http, telemetry }: PlayersSer
     }>;
     fetchPlayerOverview<T = unknown>(playerId: string, season: number, signal?: AbortSignal): Promise<T | null>;
     fetchPlayerStatsCatalog<T = unknown>(playerId: string, signal?: AbortSignal): Promise<T | null>;
+    fetchPlayerFull<T = unknown>(playerId: string, season: number, signal?: AbortSignal): Promise<T | null>;
     fetchTeamFixtures<T = unknown>(teamId: string, season: number, amount?: number, signal?: AbortSignal): Promise<T[]>;
     fetchFixturePlayerStats<T = unknown>(fixtureId: string, teamId: string, signal?: AbortSignal): Promise<T | null>;
     fetchPlayerMatchesAggregate<T = unknown>(playerId: string, teamId: string, season: number, amount?: number, signal?: AbortSignal): Promise<T[]>;

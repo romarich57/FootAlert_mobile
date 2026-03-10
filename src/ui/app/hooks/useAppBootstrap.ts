@@ -5,15 +5,28 @@ import { AppState } from 'react-native';
 import { usePowerState } from 'react-native-device-info';
 
 import {
+  buildBootstrapSnapshotKey,
+  hydrateBootstrapIntoQueryCache,
+  prefetchWarmEntityRefs,
+  readBootstrapSnapshot,
+  writeBootstrapSnapshot,
+} from '@data/bootstrap/bootstrapHydration';
+import {
   registerBackgroundRefresh,
   registerBackgroundRefreshDebugMenuItem,
 } from '@data/background/backgroundRefresh';
 import { getAppVersion } from '@data/config/appMeta';
 import { appEnv, isMobileValidationMode } from '@data/config/env';
+import { getCurrentSeasonYear } from '@data/mappers/followsMapper';
+import { fetchBootstrapPayload } from '@data/endpoints/bootstrapApi';
 import { requestMobileConsentIfNeeded } from '@data/privacy/mobileConsent';
 import { requestInAppReviewWithFallback } from '@data/reviews/inAppReview';
 import { evaluateDeviceIntegrity } from '@data/security/deviceIntegrity';
 import { verifyMobileAttestationStartupHealth } from '@data/security/mobileSessionAuth';
+import {
+  loadFollowedPlayerIds,
+  loadFollowedTeamIds,
+} from '@data/storage/followsStorage';
 import {
   incrementAppLaunchCount,
   isReviewPromptEligible,
@@ -30,6 +43,19 @@ export type AppBootstrapResult = {
   phase: AppBootstrapPhase;
 };
 
+const DEFAULT_BOOTSTRAP_DISCOVERY_LIMIT = 8;
+
+function resolveTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+}
+
+function toApiDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function useAppBootstrap(): AppBootstrapResult {
   const queryClient = useQueryClient();
   const {
@@ -41,9 +67,15 @@ export function useAppBootstrap(): AppBootstrapResult {
   const [bootError, setBootError] = useState<Error | null>(null);
   const [phase, setPhase] = useState<AppBootstrapPhase>('blocking');
   const [hasCheckedStartupHealth, setHasCheckedStartupHealth] = useState(false);
+  const [hasCompletedBootstrapWarmup, setHasCompletedBootstrapWarmup] = useState(false);
   const hasRunDeferredRef = useRef(false);
   const hasRunOpportunisticRef = useRef(false);
+  const hasRunBootstrapWarmupRef = useRef(false);
   const isPerfValidationMode = isMobileValidationMode('perf');
+  const isOnline =
+    netInfo.isInternetReachable ??
+    netInfo.isConnected ??
+    true;
 
   useEffect(() => {
     if (isDevRuntime) {
@@ -79,12 +111,139 @@ export function useAppBootstrap(): AppBootstrapResult {
   }, [hasCheckedStartupHealth, isDevRuntime]);
 
   useEffect(() => {
-    if (phase !== 'blocking' || bootError || !hasCheckedStartupHealth || !isHydrated) {
+    if (
+      phase !== 'blocking' ||
+      bootError ||
+      !hasCheckedStartupHealth ||
+      !isHydrated ||
+      !hasCompletedBootstrapWarmup
+    ) {
       return;
     }
 
     setPhase('deferred');
-  }, [bootError, hasCheckedStartupHealth, isHydrated, phase]);
+  }, [bootError, hasCheckedStartupHealth, hasCompletedBootstrapWarmup, isHydrated, phase]);
+
+  useEffect(() => {
+    if (bootError || !hasCheckedStartupHealth || !isHydrated || hasRunBootstrapWarmupRef.current) {
+      return;
+    }
+
+    if (isPerfValidationMode) {
+      getMobileTelemetry().addBreadcrumb('bootstrap.validation_mode_skipped', {
+        mode: appEnv.mobileValidationMode,
+        stage: 'bootstrap_warmup',
+      });
+      setHasCompletedBootstrapWarmup(true);
+      hasRunBootstrapWarmupRef.current = true;
+      return;
+    }
+
+    hasRunBootstrapWarmupRef.current = true;
+    const telemetry = getMobileTelemetry();
+    const abortController = new AbortController();
+    let cancelled = false;
+
+    const runBootstrapWarmup = async () => {
+      const timezone = resolveTimezone();
+      const today = toApiDateString(new Date());
+      const season = getCurrentSeasonYear();
+      const [followedTeamIds, followedPlayerIds] = await Promise.all([
+        loadFollowedTeamIds(),
+        loadFollowedPlayerIds(),
+      ]);
+      const snapshotKey = buildBootstrapSnapshotKey({
+        date: today,
+        timezone,
+        season,
+        followedTeamIds,
+        followedPlayerIds,
+        discoveryLimit: DEFAULT_BOOTSTRAP_DISCOVERY_LIMIT,
+      });
+
+      const localSnapshot = readBootstrapSnapshot(snapshotKey);
+      if (localSnapshot) {
+        hydrateBootstrapIntoQueryCache({
+          queryClient,
+          payload: localSnapshot,
+          followedTeamIds,
+          followedPlayerIds,
+        });
+        telemetry.trackEvent('bootstrap.snapshot.local_hit', {
+          date: today,
+          timezone,
+        });
+      } else {
+        telemetry.trackEvent('bootstrap.snapshot.local_miss', {
+          date: today,
+          timezone,
+        });
+      }
+
+      if (!isOnline) {
+        return;
+      }
+
+      const remotePayload = await fetchBootstrapPayload({
+        date: today,
+        timezone,
+        season,
+        followedTeamIds,
+        followedPlayerIds,
+        discoveryLimit: DEFAULT_BOOTSTRAP_DISCOVERY_LIMIT,
+        signal: abortController.signal,
+      });
+
+      hydrateBootstrapIntoQueryCache({
+        queryClient,
+        payload: remotePayload,
+        followedTeamIds,
+        followedPlayerIds,
+      });
+      writeBootstrapSnapshot(snapshotKey, remotePayload);
+
+      // Prefetch entités chaudes en idle priority (ne bloque pas le boot)
+      if (remotePayload.warmEntityRefs.length > 0) {
+        prefetchWarmEntityRefs({
+          queryClient,
+          refs: remotePayload.warmEntityRefs,
+          timezone,
+          season,
+          signal: abortController.signal,
+        });
+      }
+
+      telemetry.trackEvent('bootstrap.snapshot.remote_applied', {
+        date: remotePayload.date,
+        timezone: remotePayload.timezone,
+        warmRefsCount: remotePayload.warmEntityRefs.length,
+      });
+    };
+
+    runBootstrapWarmup()
+      .catch(error => {
+        telemetry.trackError(error, {
+          feature: 'bootstrap.snapshot_warmup',
+        });
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setHasCompletedBootstrapWarmup(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
+  }, [
+    bootError,
+    hasCheckedStartupHealth,
+    isHydrated,
+    isOnline,
+    isPerfValidationMode,
+    queryClient,
+  ]);
 
   useEffect(() => {
     getMobileTelemetry().addBreadcrumb('bootstrap.phase', {
@@ -128,11 +287,6 @@ export function useAppBootstrap(): AppBootstrapResult {
         setPhase('opportunistic');
       });
   }, [isPerfValidationMode, phase]);
-
-  const isOnline =
-    netInfo.isInternetReachable ??
-    netInfo.isConnected ??
-    true;
 
   useEffect(() => {
     if (phase !== 'opportunistic') {

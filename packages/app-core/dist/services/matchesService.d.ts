@@ -4,6 +4,37 @@ type MatchesServiceDependencies = {
     http: HttpAdapter;
     telemetry: TelemetryAdapter;
 };
+export type MatchFullResponse<TFixture = unknown, TDataset = unknown> = {
+    fixture: TFixture | null;
+    lifecycleState: 'pre_match' | 'live' | 'finished';
+    context: {
+        leagueId: string | number | null;
+        season: string | number | null;
+        homeTeamId: string | number | null;
+        awayTeamId: string | number | null;
+    };
+    events: TDataset[];
+    statistics: {
+        all: TDataset[];
+        first: TDataset[];
+        second: TDataset[];
+    };
+    lineups: TDataset[];
+    predictions: TDataset[];
+    absences: TDataset[];
+    headToHead: TDataset[];
+    standings: TDataset | null;
+    homeRecentResults: TDataset[];
+    awayRecentResults: TDataset[];
+    homeLeaders: TDataset | null;
+    awayLeaders: TDataset | null;
+    playersStats: {
+        homeTeamId: string | number | null;
+        awayTeamId: string | number | null;
+        home: TDataset[];
+        away: TDataset[];
+    };
+};
 export declare function createMatchesReadService({ http, telemetry }: MatchesServiceDependencies): {
     fetchFixturesByDate<T = unknown>(params: {
         date: string;
@@ -17,6 +48,11 @@ export declare function createMatchesReadService({ http, telemetry }: MatchesSer
         timezone: string;
         signal?: AbortSignal;
     }): Promise<T | null>;
+    fetchMatchFull<TFixture = unknown, TDataset = unknown>(params: {
+        fixtureId: string;
+        timezone: string;
+        signal?: AbortSignal;
+    }): Promise<MatchFullResponse<TFixture, TDataset>>;
     fetchFixtureEvents<T = unknown>(params: {
         fixtureId: string;
         signal?: AbortSignal;

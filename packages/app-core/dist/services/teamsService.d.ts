@@ -6,6 +6,13 @@ type TeamsServiceDependencies = {
     telemetry: TelemetryAdapter;
 };
 export declare function createTeamsReadService({ http, telemetry }: TeamsServiceDependencies): {
+    fetchTeamFull<T = unknown>(params: {
+        teamId: string;
+        timezone: string;
+        leagueId?: string | null;
+        season?: number | null;
+        historySeasons?: number[];
+    }, signal?: AbortSignal): Promise<T>;
     fetchTeamDetails<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T | null>;
     fetchTeamLeagues<T = unknown>(teamId: string, signal?: AbortSignal): Promise<T[]>;
     fetchTeamFixtures<T = unknown>(params: {

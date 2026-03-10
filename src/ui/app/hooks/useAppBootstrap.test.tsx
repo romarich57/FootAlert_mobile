@@ -6,6 +6,45 @@ import { appEnv } from '@data/config/env';
 
 const mockRegisterBackgroundRefresh = jest.fn(async () => undefined);
 const mockRegisterBackgroundRefreshDebugMenuItem = jest.fn();
+const mockHydrateBootstrapIntoQueryCache = jest.fn();
+const mockReadBootstrapSnapshot = jest.fn(() => null);
+const mockWriteBootstrapSnapshot = jest.fn();
+const mockFetchBootstrapPayload = jest.fn(async () => ({
+  generatedAt: '2026-03-10T10:00:00.000Z',
+  date: '2026-03-10',
+  timezone: 'Europe/Paris',
+  season: 2025,
+  matchesToday: [],
+  topCompetitions: [],
+  competitionsCatalog: [],
+  followedTeamCards: [],
+  followedPlayerCards: [],
+  discovery: {
+    teams: {
+      items: [],
+      meta: {
+        source: 'static_seed',
+        complete: false,
+        seedCount: 0,
+        generatedAt: '2026-03-10T10:00:00.000Z',
+        refreshAfterMs: 1500,
+      },
+    },
+    players: {
+      items: [],
+      meta: {
+        source: 'static_seed',
+        complete: false,
+        seedCount: 0,
+        generatedAt: '2026-03-10T10:00:00.000Z',
+        refreshAfterMs: 1500,
+      },
+    },
+  },
+  warmEntityRefs: [],
+}));
+const mockLoadFollowedTeamIds = jest.fn(async () => []);
+const mockLoadFollowedPlayerIds = jest.fn(async () => []);
 const mockRequestMobileConsentIfNeeded = jest.fn(async () => ({
   status: 'granted',
   source: 'stored',
@@ -40,8 +79,23 @@ jest.mock('@data/background/backgroundRefresh', () => ({
   registerBackgroundRefreshDebugMenuItem: mockRegisterBackgroundRefreshDebugMenuItem,
 }));
 
+jest.mock('@data/bootstrap/bootstrapHydration', () => ({
+  buildBootstrapSnapshotKey: () => 'bootstrap-key',
+  hydrateBootstrapIntoQueryCache: mockHydrateBootstrapIntoQueryCache,
+  readBootstrapSnapshot: mockReadBootstrapSnapshot,
+  writeBootstrapSnapshot: mockWriteBootstrapSnapshot,
+}));
+
+jest.mock('@data/endpoints/bootstrapApi', () => ({
+  fetchBootstrapPayload: mockFetchBootstrapPayload,
+}));
+
 jest.mock('@data/config/appMeta', () => ({
   getAppVersion: () => '1.0.0',
+}));
+
+jest.mock('@data/mappers/followsMapper', () => ({
+  getCurrentSeasonYear: () => 2025,
 }));
 
 jest.mock('@data/privacy/mobileConsent', () => ({
@@ -60,6 +114,11 @@ jest.mock('@data/storage/reviewPromptStorage', () => ({
   incrementAppLaunchCount: mockIncrementAppLaunchCount,
   isReviewPromptEligible: mockIsReviewPromptEligible,
   markReviewPrompted: mockMarkReviewPrompted,
+}));
+
+jest.mock('@data/storage/followsStorage', () => ({
+  loadFollowedTeamIds: mockLoadFollowedTeamIds,
+  loadFollowedPlayerIds: mockLoadFollowedPlayerIds,
 }));
 
 jest.mock('@data/telemetry/mobileTelemetry', () => ({
@@ -138,5 +197,21 @@ describe('useAppBootstrap', () => {
         queryClient: expect.any(Object),
       }),
     );
+  });
+
+  it('hydrates bootstrap payload into query cache before advancing phases', async () => {
+    const { result } = renderHook(() => useAppBootstrap(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(mockLoadFollowedTeamIds).toHaveBeenCalledTimes(1);
+    expect(mockLoadFollowedPlayerIds).toHaveBeenCalledTimes(1);
+    expect(mockFetchBootstrapPayload).toHaveBeenCalledTimes(1);
+    expect(mockHydrateBootstrapIntoQueryCache).toHaveBeenCalledTimes(1);
+    expect(mockWriteBootstrapSnapshot).toHaveBeenCalledTimes(1);
   });
 });

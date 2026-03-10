@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { env } from '../config/env.js';
-import { verifyMobileRequestAuth } from '../lib/mobileRequestAuth.js';
+import { verifySensitiveMobileAuth } from '../lib/mobileSessionAuth.js';
 import { parseOrThrow } from '../lib/validation.js';
 const telemetryScalarSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const telemetryAttributesSchema = z
@@ -44,17 +44,45 @@ const telemetryBreadcrumbSchema = z
 const telemetryEventBatchSchema = z.array(telemetryEventSchema).min(1).max(100);
 const telemetryErrorBatchSchema = z.array(telemetryErrorSchema).min(1).max(100);
 const telemetryBreadcrumbBatchSchema = z.array(telemetryBreadcrumbSchema).min(1).max(100);
+function summarizeEventPayload(payload) {
+    return {
+        name: payload.name,
+        hasAttributes: Boolean(payload.attributes && Object.keys(payload.attributes).length > 0),
+        hasUserContext: Boolean(payload.userContext && Object.keys(payload.userContext).length > 0),
+        timestamp: payload.timestamp ?? null,
+    };
+}
+function summarizeErrorPayload(payload) {
+    return {
+        name: payload.name,
+        messageLength: payload.message.length,
+        hasStack: typeof payload.stack === 'string' && payload.stack.length > 0,
+        contextFeature: payload.context?.feature ?? null,
+        contextStatus: payload.context?.status ?? null,
+        hasUserContext: Boolean(payload.userContext && Object.keys(payload.userContext).length > 0),
+        timestamp: payload.timestamp ?? null,
+    };
+}
+function summarizeBreadcrumbPayload(payload) {
+    return {
+        name: payload.name,
+        hasAttributes: Boolean(payload.attributes && Object.keys(payload.attributes).length > 0),
+        hasUserContext: Boolean(payload.userContext && Object.keys(payload.userContext).length > 0),
+        timestamp: payload.timestamp ?? null,
+    };
+}
 function rejectUnauthorizedTelemetryRequest(request, reply) {
-    const authFailure = verifyMobileRequestAuth(request, {
-        signingKey: env.mobileRequestSigningKey,
-        maxSkewMs: env.mobileRequestSignatureMaxSkewMs,
+    const authResult = verifySensitiveMobileAuth(request, {
+        requiredScope: 'telemetry:write',
+        jwtSecret: env.mobileSessionJwtSecret,
+        minIntegrity: 'device',
     });
-    if (!authFailure) {
+    if (authResult.ok) {
         return false;
     }
-    reply.code(authFailure.statusCode).send({
-        error: authFailure.code,
-        message: authFailure.message,
+    reply.code(authResult.failure.statusCode).send({
+        error: authResult.failure.code,
+        message: authResult.failure.message,
     });
     return true;
 }
@@ -65,7 +93,7 @@ export async function registerTelemetryRoutes(app) {
         }
         parseOrThrow(z.object({}).strict(), request.query);
         const payload = parseOrThrow(telemetryEventSchema, request.body);
-        app.log.info({ payload }, 'mobile.telemetry.event');
+        app.log.info({ event: summarizeEventPayload(payload) }, 'mobile.telemetry.event');
         return {
             status: 'accepted',
             type: 'event',
@@ -90,7 +118,7 @@ export async function registerTelemetryRoutes(app) {
         }
         parseOrThrow(z.object({}).strict(), request.query);
         const payload = parseOrThrow(telemetryErrorSchema, request.body);
-        app.log.error({ payload }, 'mobile.telemetry.error');
+        app.log.error({ error: summarizeErrorPayload(payload) }, 'mobile.telemetry.error');
         return {
             status: 'accepted',
             type: 'error',
@@ -115,7 +143,7 @@ export async function registerTelemetryRoutes(app) {
         }
         parseOrThrow(z.object({}).strict(), request.query);
         const payload = parseOrThrow(telemetryBreadcrumbSchema, request.body);
-        app.log.info({ payload }, 'mobile.telemetry.breadcrumb');
+        app.log.info({ breadcrumb: summarizeBreadcrumbPayload(payload) }, 'mobile.telemetry.breadcrumb');
         return {
             status: 'accepted',
             type: 'breadcrumb',

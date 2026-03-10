@@ -37,6 +37,7 @@ export declare function createCompetitionsReadService({ http, telemetry }: Compe
         topRedCards: T[];
     }>;
     fetchCompetitionTeamStats<T = unknown>(leagueId: number, season: number, signal?: AbortSignal): Promise<T>;
+    fetchCompetitionFull<T = unknown>(leagueId: number, season?: number, signal?: AbortSignal): Promise<T>;
 };
 export {};
 //# sourceMappingURL=competitionsService.d.ts.map

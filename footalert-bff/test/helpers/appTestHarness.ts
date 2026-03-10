@@ -166,6 +166,7 @@ export async function buildApp(
   );
   const { resetNotificationsRuntimeForTests } = await import('../../src/lib/notifications/runtime.ts');
   const { resetNotificationsMetricsForTests } = await import('../../src/lib/notifications/metrics.ts');
+  const { resetReadStoreRuntimeForTests } = await import('../../src/lib/readStore/runtime.ts');
   const { resetRuntimeStatusForTests } = await import('../../src/lib/runtimeStatus.ts');
   resetCacheForTests();
   await resetPushTokenStoreForTests();
@@ -176,6 +177,7 @@ export async function buildApp(
   await resetFollowsDiscoveryRuntimeForTests();
   await resetNotificationsRuntimeForTests();
   resetNotificationsMetricsForTests();
+  await resetReadStoreRuntimeForTests();
   await resetRuntimeStatusForTests();
   const { buildServer } = await import(`../../src/server.ts?case=${Math.random().toString(36).slice(2)}`);
   const app = await buildServer();
