@@ -1,0 +1,24 @@
+appId: com.footalert.app
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: Matches
+- assertVisible:
+    id: match-card-101
+- tapOn:
+    text: Competitions
+- assertVisible:
+    text: Ligue 1
+- tapOn:
+    text: Follows
+- assertVisible:
+    text: Trending
+- tapOn:
+    text: More
+- assertVisible:
+    text: Preferences
+- tapOn:
+    text: Matches
+- assertVisible:
+    id: match-card-101

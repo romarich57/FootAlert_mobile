@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 process.env.API_FOOTBALL_KEY ??= 'test-server-key';
+process.env.MOBILE_SESSION_JWT_SECRET ??= 'test-mobile-session-secret';
+process.env.MOBILE_ATTESTATION_ACCEPT_MOCK ??= 'true';
+process.env.NOTIFICATIONS_BACKEND_ENABLED ??= 'true';
+process.env.NOTIFICATIONS_EVENT_INGEST_ENABLED ??= 'true';
+process.env.NOTIFICATIONS_PERSISTENCE_BACKEND ??= 'memory';
+process.env.NOTIFICATIONS_INGEST_TOKEN ??= 'test-notifications-ingest-token';
+process.env.PUSH_TOKEN_ENCRYPTION_KEY ??= 'test-notifications-encryption-key';
 
 const { filterInjuriesForMatch } = await import('../../src/routes/matches/absences.ts');
 

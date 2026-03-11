@@ -1,9 +1,14 @@
-name: Mobile E2E Match Details
+name: Mobile E2E Smoke and Match Details
 
 on:
   pull_request:
     paths:
-      - src/ui/features/matches/details/**
+      - src/ui/app/navigation/**
+      - src/ui/features/competitions/**
+      - src/ui/features/follows/**
+      - src/ui/features/matches/**
+      - src/ui/features/more/**
+      - src/ui/features/search/**
       - scripts/e2e/**
       - .maestro/**
       - .github/workflows/mobile-e2e-match-details.yml
@@ -11,16 +16,30 @@ on:
     branches:
       - main
     paths:
-      - src/ui/features/matches/details/**
+      - src/ui/app/navigation/**
+      - src/ui/features/competitions/**
+      - src/ui/features/follows/**
+      - src/ui/features/matches/**
+      - src/ui/features/more/**
+      - src/ui/features/search/**
       - scripts/e2e/**
       - .maestro/**
       - .github/workflows/mobile-e2e-match-details.yml
   workflow_dispatch:
+    inputs:
+      suite:
+        description: Maestro suite to run
+        required: false
+        default: full
+        type: choice
+        options:
+          - smoke
+          - full
 
 jobs:
   android-maestro:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -42,6 +61,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Select Maestro suite
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "FLOW_SUITE=smoke" >> "$GITHUB_ENV"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.suite }}" ]; then
+            echo "FLOW_SUITE=${{ github.event.inputs.suite }}" >> "$GITHUB_ENV"
+          else
+            echo "FLOW_SUITE=full" >> "$GITHUB_ENV"
+          fi
+
       - name: Install Maestro CLI
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
@@ -56,14 +85,14 @@ jobs:
           ram-size: 4096M
           heap-size: 1024M
           script: |
-            node scripts/e2e/mobile-bff-stub.mjs > /tmp/mobile-bff-stub.log 2>&1 &
+            node scripts/e2e/mobile-ci-bff-stub.mjs > /tmp/mobile-bff-stub.log 2>&1 &
             for attempt in $(seq 1 20); do
-              if curl -fsS 'http://127.0.0.1:3001/v1/matches/101?timezone=Europe%2FParis' >/dev/null; then
-                echo "Mobile BFF stub is ready."
+              if curl -fsS 'http://127.0.0.1:3001/v1/matches?date=2026-03-11&timezone=Europe%2FParis' >/dev/null; then
+                echo "Mobile CI BFF stub is ready."
                 break
               fi
               if [ "$attempt" = "20" ]; then
-                echo "Mobile BFF stub failed to start."
+                echo "Mobile CI BFF stub failed to start."
                 cat /tmp/mobile-bff-stub.log || true
                 exit 1
               fi
@@ -72,18 +101,35 @@ jobs:
             npm run start -- --port 8081 > /tmp/metro.log 2>&1 &
             npx react-native run-android --mode debug --active-arch-only
             adb reverse tcp:8081 tcp:8081
-            maestro test .maestro/match-details-summary-flow.yaml --format junit --output /tmp/maestro-summary-report.xml
-            maestro test .maestro/match-details-empty-blocks-flow.yaml --format junit --output /tmp/maestro-empty-blocks-report.xml
-            maestro test .maestro/match-details-error-flow.yaml --format junit --output /tmp/maestro-error-report.xml
+
+            if [ "$FLOW_SUITE" = "smoke" ]; then
+              flow_paths=(
+                ".maestro/main-tabs-smoke-flow.yaml"
+                ".maestro/matches-to-competition-flow.yaml"
+                ".maestro/search-to-competition-flow.yaml"
+              )
+            else
+              flow_paths=(
+                ".maestro/main-tabs-smoke-flow.yaml"
+                ".maestro/matches-to-competition-flow.yaml"
+                ".maestro/search-to-competition-flow.yaml"
+                ".maestro/match-details-summary-flow.yaml"
+                ".maestro/match-details-empty-blocks-flow.yaml"
+                ".maestro/match-details-error-flow.yaml"
+              )
+            fi
+
+            for flow_path in "${flow_paths[@]}"; do
+              report_name="$(basename "$flow_path" .yaml)"
+              bash scripts/e2e/run-maestro-flow.sh "$flow_path" "/tmp/${report_name}-report.xml"
+            done
 
       - name: Upload Maestro report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: maestro-match-details-report
+          name: maestro-mobile-report-${{ env.FLOW_SUITE }}
           path: |
-            /tmp/maestro-summary-report.xml
-            /tmp/maestro-empty-blocks-report.xml
-            /tmp/maestro-error-report.xml
+            /tmp/*-report.xml
             /tmp/metro.log
             /tmp/mobile-bff-stub.log

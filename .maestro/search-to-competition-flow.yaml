@@ -1,0 +1,23 @@
+appId: com.footalert.app
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: matches-header-search-button
+- tapOn:
+    id: matches-header-search-button
+- assertVisible:
+    id: search-screen-input
+- tapOn:
+    id: search-screen-input
+- inputText: Ligue
+- assertVisible:
+    id: search-result-competition-61
+- tapOn:
+    id: search-result-competition-61
+- assertVisible:
+    id: competition-tabs-tablist
+- assertVisible:
+    text: Ligue 1
+- assertVisible:
+    id: team-standing-row-1

@@ -44,7 +44,6 @@ export function MatchesScreen() {
         followedOnly={model.followedOnly}
         collapsedSections={model.collapsedSections}
         isCalendarModalVisible={model.isCalendarModalVisible}
-        isRefetching={model.isRefetching}
         showLoading={model.showLoading}
         showError={model.showError}
         showOfflineBanner={model.showOfflineBanner}

@@ -1,0 +1,22 @@
+appId: com.footalert.app
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: match-card-101
+- tapOn:
+    id: match-card-101
+- assertVisible:
+    id: match-details-screen
+- assertVisible:
+    text: Home FC
+- assertVisible:
+    text: Ligue 1
+- tapOn:
+    text: Ligue 1
+- assertVisible:
+    id: competition-tabs-tablist
+- assertVisible:
+    text: Ligue 1
+- assertVisible:
+    id: team-standing-row-1

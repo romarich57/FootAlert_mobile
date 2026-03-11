@@ -23,6 +23,15 @@ append_violation() {
   violations+="${file} (${lines} > ${limit})"
 }
 
+resolve_limit_for_file() {
+  local file="$1"
+  case "$file" in
+    footalert-bff/src/worker.ts) echo 200 ;;
+    footalert-bff/src/worker/*.ts|footalert-bff/src/config/env/*.ts) echo 300 ;;
+    *) echo "$SOURCE_LIMIT" ;;
+  esac
+}
+
 should_skip_file() {
   local file="$1"
   case "$file" in
@@ -41,8 +50,9 @@ while IFS= read -r file; do
   fi
 
   line_count="$(wc -l < "$file" | tr -d ' ')"
-  if (( line_count > SOURCE_LIMIT )); then
-    append_violation "$file" "$line_count" "$SOURCE_LIMIT"
+  limit="$(resolve_limit_for_file "$file")"
+  if (( line_count > limit )); then
+    append_violation "$file" "$line_count" "$limit"
   fi
 done < <(
   {

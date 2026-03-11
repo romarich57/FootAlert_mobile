@@ -234,21 +234,51 @@ npm run storybook:android
 
 Guide Storybook React Native: `docs/mobile/storybook-react-native.md`.
 
-## E2E mobile Match Details (Maestro)
+## Tests d'écran mobile
 
-Les flows Maestro pour `Match Details` sont dans `.maestro/`:
+Les tests RNTL restent **co-localisés** dans `src/ui/features/**` au plus près des écrans, hooks et composants concernés. Le repo n'utilise pas de `__tests__/` racine artificiel pour les features mobile.
+
+Harness partagé:
+
+- `src/ui/shared/testing/renderWithAppProviders.tsx`
+
+Matrice de couverture attendue pour les écrans prioritaires:
+
+- `loading`
+- `error`
+- `offline / cache`
+- `empty`
+- `ready`
+- action principale / navigation
+- persistance ou filtres quand c'est pertinent
+
+Référence courte: `docs/mobile/screen-test-matrix.md`.
+
+## E2E mobile smoke + Match Details (Maestro)
+
+Les flows Maestro déterministes sont dans `.maestro/`:
+
+- `main-tabs-smoke-flow.yaml`
+- `matches-to-competition-flow.yaml`
+- `search-to-competition-flow.yaml`
 
 - `match-details-summary-flow.yaml` (données complètes)
 - `match-details-empty-blocks-flow.yaml` (blocs optionnels absents)
 - `match-details-error-flow.yaml` (erreur BFF visible)
 
-Le workflow CI `.github/workflows/mobile-e2e-match-details.yml` lance ces flows avec un stub BFF déterministe local:
+Le workflow CI `.github/workflows/mobile-e2e-match-details.yml` exécute:
+
+- `smoke` sur PR
+- `full` sur `main`
+- `smoke` ou `full` via `workflow_dispatch`
+
+Le stub BFF déterministe local utilisé par la CI est:
 
 ```bash
 npm run e2e:mobile:bff-stub
 ```
 
-Puis l'app Android est lancée et testée via Maestro.
+En CI, ce stub est complété par `scripts/e2e/mobile-ci-bff-stub.mjs`, puis l'app Android est lancée et testée via Maestro sur émulateur.
 
 ## Performance runtime (Hermes + cold-start)
 
@@ -386,6 +416,5 @@ src/
 - Préflight ciblé: `npm run qa:competitions:team-stats:preflight`
 - Checklist manuelle (petits écrans / dark mode / scroll / lazy avancé):
   `docs/mobile/competition-team-stats-qa-checklist.md`
-
 
 

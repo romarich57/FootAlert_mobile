@@ -10,6 +10,7 @@ import { usePowerState } from 'react-native-device-info';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { composeMatchesFeed, type MatchesFeedItem } from '@app-core/domain/matches/index';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import { safeNavigateEntity } from '@ui/app/navigation/routeParams';
 import { fetchAllLeagues } from '@data/endpoints/competitionsApi';
@@ -28,30 +29,11 @@ import {
   toggleFollowedMatch,
 } from '@data/storage/followsStorage';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import type { CompetitionsApiLeagueDto } from '@domain/contracts/competitions.types';
 import type {
-  CompetitionSection,
   MatchItem,
   MatchNotificationPrefs,
   MatchStatusFilter,
 } from '@ui/features/matches/types/matches.types';
-
-type MatchesFeedItem =
-  | {
-    type: 'section';
-    key: string;
-    section: CompetitionSection;
-  }
-  | {
-    type: 'ad';
-    key: string;
-  };
-
-type CompetitionCatalogEntry = {
-  name: string;
-  country: string;
-  logo: string;
-};
 
 function toApiDateString(date: Date): string {
   const year = date.getFullYear();
@@ -60,143 +42,8 @@ function toApiDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function filterSectionsByStatus(
-  sections: CompetitionSection[],
-  filter: MatchStatusFilter,
-): CompetitionSection[] {
-  if (filter === 'all') {
-    return sections;
-  }
-
-  return sections
-    .map(section => ({
-      ...section,
-      matches: section.matches.filter(match => match.status === filter),
-    }))
-    .filter(section => section.matches.length > 0);
-}
-
-function sortMatchesByKickoff(matches: MatchItem[]): MatchItem[] {
-  return [...matches].sort(
-    (firstMatch, secondMatch) =>
-      new Date(firstMatch.startDate).getTime() - new Date(secondMatch.startDate).getTime(),
-  );
-}
-
-function buildFollowsSection(
-  sections: CompetitionSection[],
-  followedTeamIds: string[],
-  followedMatchIds: string[],
-  label: string,
-): CompetitionSection {
-  if (followedTeamIds.length === 0 && followedMatchIds.length === 0) {
-    return {
-      id: 'follows',
-      name: label,
-      logo: '',
-      country: '',
-      isFollowSection: true,
-      matches: [],
-    };
-  }
-
-  const followedTeamIdSet = new Set(followedTeamIds);
-  const followedMatchIdSet = new Set(followedMatchIds);
-  const allMatches = sections.flatMap(section => section.matches);
-
-  const starredMatches = sortMatchesByKickoff(
-    allMatches.filter(match => followedMatchIdSet.has(match.fixtureId)),
-  );
-
-  const teamMatches = sortMatchesByKickoff(
-    allMatches.filter(
-      match =>
-        !followedMatchIdSet.has(match.fixtureId) &&
-        (followedTeamIdSet.has(match.homeTeamId) || followedTeamIdSet.has(match.awayTeamId)),
-    ),
-  );
-
-  return {
-    id: 'follows',
-    name: label,
-    logo: '',
-    country: '',
-    isFollowSection: true,
-    matches: [...starredMatches, ...teamMatches],
-  };
-}
-
-function buildFeedItems(sections: CompetitionSection[]): MatchesFeedItem[] {
-  const nonFollowSectionsCount = sections.filter(section => !section.isFollowSection).length;
-  let hasInsertedAd = false;
-  const sectionOccurrences = new Map<string, number>();
-
-  return sections.flatMap(section => {
-    const baseKey = `section-${section.id}-${section.name}`;
-    const occurrence = (sectionOccurrences.get(baseKey) ?? 0) + 1;
-    sectionOccurrences.set(baseKey, occurrence);
-
-    const sectionItem: MatchesFeedItem = {
-      type: 'section',
-      key: occurrence === 1 ? baseKey : `${baseKey}-${occurrence}`,
-      section,
-    };
-
-    const shouldInsertAd =
-      !hasInsertedAd && !section.isFollowSection && nonFollowSectionsCount > 1;
-
-    if (!shouldInsertAd) {
-      return [sectionItem];
-    }
-
-    hasInsertedAd = true;
-    return [sectionItem, { type: 'ad', key: 'partner-ad-slot' }];
-  });
-}
-
 function computeNextIds(ids: string[], id: string): string[] {
   return ids.includes(id) ? ids.filter(value => value !== id) : [id, ...ids.filter(value => value !== id)];
-}
-
-function buildCompetitionCatalogMap(catalog: CompetitionsApiLeagueDto[]): Map<string, CompetitionCatalogEntry> {
-  const map = new Map<string, CompetitionCatalogEntry>();
-  catalog.forEach(item => {
-    map.set(String(item.league.id), {
-      name: item.league.name,
-      country: item.country.name,
-      logo: item.league.logo,
-    });
-  });
-  return map;
-}
-
-function applyCompetitionCatalog(
-  sections: CompetitionSection[],
-  catalogMap: Map<string, CompetitionCatalogEntry>,
-): CompetitionSection[] {
-  return sections.map(section => {
-    if (section.isFollowSection) {
-      return section;
-    }
-
-    const catalogEntry = catalogMap.get(section.id);
-    if (!catalogEntry) {
-      return section;
-    }
-
-    return {
-      ...section,
-      name: catalogEntry.name,
-      country: catalogEntry.country,
-      logo: catalogEntry.logo || section.logo,
-      matches: section.matches.map(match => ({
-        ...match,
-        competitionName: catalogEntry.name,
-        competitionCountry: catalogEntry.country,
-        competitionLogo: catalogEntry.logo || match.competitionLogo,
-      })),
-    };
-  });
 }
 
 export function useMatchesScreenModel() {
@@ -311,39 +158,35 @@ export function useMatchesScreenModel() {
     () => matchesQuery.data?.sections ?? [],
     [matchesQuery.data?.sections],
   );
-  const competitionCatalogMap = useMemo(
-    () => buildCompetitionCatalogMap(competitionsCatalogQuery.data ?? []),
-    [competitionsCatalogQuery.data],
-  );
-  const normalizedBaseSections = useMemo(
-    () => applyCompetitionCatalog(baseSections, competitionCatalogMap),
-    [baseSections, competitionCatalogMap],
-  );
-  const filteredSections = useMemo(
-    () => filterSectionsByStatus(normalizedBaseSections, statusFilter),
-    [normalizedBaseSections, statusFilter],
-  );
-  const followsSection = useMemo(
+  const matchesFeedModel = useMemo(
     () =>
-      buildFollowsSection(
-        filteredSections,
+      composeMatchesFeed({
+        baseSections,
+        catalog: competitionsCatalogQuery.data ?? [],
+        statusFilter,
         followedTeamIds,
         followedMatchIds,
-        t('matches.followsSectionTitle'),
-      ),
-    [filteredSections, followedMatchIds, followedTeamIds, t],
+        followsSectionLabel: t('matches.followsSectionTitle'),
+        hiddenCompetitionIds: hiddenIds,
+        followedOnly,
+      }),
+    [
+      baseSections,
+      competitionsCatalogQuery.data,
+      followedMatchIds,
+      followedOnly,
+      followedTeamIds,
+      hiddenIds,
+      statusFilter,
+      t,
+    ],
   );
-
-  const sectionsForFeed = useMemo<CompetitionSection[]>(() => {
-    if (followedOnly) {
-      return [followsSection];
-    }
-
-    const visibleCompetitionSections = filteredSections.filter(
-      section => !hiddenIds.includes(section.id),
-    );
-    return [followsSection, ...visibleCompetitionSections];
-  }, [filteredSections, followedOnly, followsSection, hiddenIds]);
+  const {
+    normalizedSections: normalizedBaseSections,
+    filteredSections,
+    followsSection,
+    feedItems,
+  } = matchesFeedModel;
 
   const hiddenCompetitionNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -364,7 +207,6 @@ export function useMatchesScreenModel() {
     [hiddenCompetitionNameById, hiddenIds],
   );
 
-  const feedItems = useMemo(() => buildFeedItems(sectionsForFeed), [sectionsForFeed]);
   const hasVisibleMatches = followedOnly
     ? followsSection.matches.length > 0
     : filteredSections.some(section => section.matches.length > 0);
@@ -468,7 +310,8 @@ export function useMatchesScreenModel() {
   const showEmpty = !showLoading && !showError && !showOfflineWithoutCache && !hasVisibleMatches;
   const showOfflineBanner = isOffline && hasCachedData;
   const showErrorBanner = matchesQuery.isError && hasCachedData;
-  const listData = showLoading || showError || showEmpty || showOfflineWithoutCache ? [] : feedItems;
+  const listData: MatchesFeedItem[] =
+    showLoading || showError || showEmpty || showOfflineWithoutCache ? [] : feedItems;
 
   return {
     selectedDate,

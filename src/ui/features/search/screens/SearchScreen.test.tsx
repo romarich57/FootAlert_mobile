@@ -11,6 +11,7 @@ import {
 } from '@data/endpoints/followsApi';
 import { searchGlobal } from '@data/endpoints/searchApi';
 import { SearchScreen } from '@ui/features/search/screens/SearchScreen';
+import i18n from '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 jest.mock('@react-navigation/native', () => {
@@ -134,6 +135,90 @@ describe('SearchScreen', () => {
     expect(navigateMock).toHaveBeenCalledWith('TeamDetails', {
       teamId: '529',
       followSource: 'search_tab',
+    });
+  });
+
+  it('shows a loading state while a global search request is in flight', async () => {
+    let resolveSearch: ((value: Awaited<ReturnType<typeof searchGlobal>>) => void) | null = null;
+    const pendingSearch = new Promise<Awaited<ReturnType<typeof searchGlobal>>>(resolve => {
+      resolveSearch = resolve;
+    });
+    mockedSearchGlobal.mockImplementationOnce(() => pendingSearch);
+
+    renderScreen();
+
+    fireEvent.changeText(screen.getByTestId('search-screen-input'), 'Ligue');
+    act(() => {
+      jest.advanceTimersByTime(appEnv.followsSearchDebounceMs + 10);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(i18n.t('screens.search.loading'))).toBeTruthy();
+    });
+
+    await act(async () => {
+      resolveSearch?.({
+        teams: [],
+        players: [],
+        competitions: [],
+        matches: [],
+        meta: {
+          partial: false,
+          degradedSources: [],
+        },
+      });
+      await Promise.resolve();
+    });
+  });
+
+  it('shows an empty state when no global result matches the query', async () => {
+    renderScreen();
+
+    fireEvent.changeText(screen.getByTestId('search-screen-input'), 'Ligue');
+    act(() => {
+      jest.advanceTimersByTime(appEnv.followsSearchDebounceMs + 10);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(i18n.t('screens.search.empty'))).toBeTruthy();
+    });
+  });
+
+  it('navigates to competition details from a competition result', async () => {
+    mockedSearchGlobal.mockResolvedValueOnce({
+      teams: [],
+      players: [],
+      competitions: [
+        {
+          id: '61',
+          name: 'Ligue 1',
+          logo: 'ligue1.png',
+          country: 'France',
+          type: 'League',
+        },
+      ],
+      matches: [],
+      meta: {
+        partial: false,
+        degradedSources: [],
+      },
+    });
+
+    renderScreen();
+
+    fireEvent.changeText(screen.getByTestId('search-screen-input'), 'Ligue');
+    act(() => {
+      jest.advanceTimersByTime(appEnv.followsSearchDebounceMs + 10);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('search-result-competition-61')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId('search-result-competition-61'));
+
+    expect(navigateMock).toHaveBeenCalledWith('CompetitionDetails', {
+      competitionId: '61',
     });
   });
 
