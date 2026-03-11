@@ -501,7 +501,7 @@ describe('TeamOverviewTab', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('shows empty state for competitions when no competition matches selected season', () => {
+  it('hides competitions section when no competition matches selected season', () => {
     renderWithAppProviders(
       <TeamOverviewTab
         team={team}
@@ -519,8 +519,7 @@ describe('TeamOverviewTab', () => {
       />,
     );
 
-    expect(screen.getByText(i18n.t('teamDetails.overview.competitions'))).toBeTruthy();
-    expect(screen.getAllByText(i18n.t('teamDetails.states.empty')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(i18n.t('teamDetails.overview.competitions'))).toBeNull();
   });
 
   it('uses MaterialCommunityIcons for season stats and removes emoji glyphs there', () => {

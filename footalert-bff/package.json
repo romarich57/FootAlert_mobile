@@ -29,7 +29,8 @@
     "smoke:staging": "node scripts/smoke-staging.mjs",
     "perf:k6:critical": "k6 run scripts/perf/k6-critical-routes.js",
     "perf:k6:notifications": "k6 run scripts/perf/k6-notifications-pressure.js",
-    "db:migrate:notifications": "node scripts/db/migrate-notifications.mjs"
+    "db:migrate:notifications": "node scripts/db/migrate-notifications.mjs",
+    "db:seed:read-store": "npx tsx scripts/db/seed-read-store.ts"
   },
   "engines": {
     "node": ">=22.11.0"

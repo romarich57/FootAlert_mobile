@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { FollowToggleButton } from '@ui/features/follows/components/FollowToggleButton';
 import type { FollowedTeamCard as FollowedTeamCardType } from '@ui/features/follows/types/follows.types';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { AppImage } from '@ui/shared/media/AppImage';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -17,7 +19,7 @@ function toDisplayValue(value: string | null | undefined): string {
   return normalized.length > 0 ? normalized : '';
 }
 
-function formatMatchDate(dateIso: string): string {
+function formatMatchDate(dateIso: string, locale: string): string {
   if (!dateIso) {
     return '';
   }
@@ -27,7 +29,7 @@ function formatMatchDate(dateIso: string): string {
     return '';
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
@@ -117,7 +119,9 @@ export function FollowedTeamCard({
   isEditMode,
 }: FollowedTeamCardProps) {
   const { colors } = useAppTheme();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
   const teamName = toDisplayValue(card.teamName);
   const opponentTeamName = toDisplayValue(card.nextMatch?.opponentTeamName);
 
@@ -147,10 +151,10 @@ export function FollowedTeamCard({
             <>
               {opponentTeamName ? (
                 <Text numberOfLines={1} style={styles.nextMatchLabel}>
-                  vs {opponentTeamName}
+                  {t('common:match.versusWithOpponent', { opponent: opponentTeamName })}
                 </Text>
               ) : null}
-              <Text style={styles.nextMatchDate}>{formatMatchDate(card.nextMatch.startDate)}</Text>
+              <Text style={styles.nextMatchDate}>{formatMatchDate(card.nextMatch.startDate, localeTag)}</Text>
             </>
           ) : (
             <Text style={styles.noMatch}>{noNextMatchLabel}</Text>

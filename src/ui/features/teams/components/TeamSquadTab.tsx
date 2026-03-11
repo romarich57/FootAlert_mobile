@@ -1,10 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { TabContentSkeleton } from '@ui/shared/components';
 import type {
   TeamSquadData,
   TeamSquadPlayer,
@@ -278,9 +279,7 @@ export function TeamSquadTab({
     <View style={styles.container}>
 
       {shouldShowLoadingState ? (
-        <View style={styles.stateCard}>
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-        </View>
+        <TabContentSkeleton />
       ) : null}
 
       {shouldShowErrorState ? (

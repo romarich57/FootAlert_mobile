@@ -41,6 +41,7 @@ export type QueryTimingOptions = QueryBaseOptions;
 const GC_LIVE = 5 * 60_000;
 const GC_DEFAULT = 30 * 60_000;
 const GC_STABLE = 60 * 60_000;
+const GC_STATIC = 7 * 24 * 60 * 60_000;
 
 const QUERY_FRESHNESS_PROFILES: Record<QueryFreshnessClass, QueryTimingOptions> = {
   live: {
@@ -57,6 +58,11 @@ const QUERY_FRESHNESS_PROFILES: Record<QueryFreshnessClass, QueryTimingOptions> 
     staleTime: 60 * 60_000,
     retry: 1,
     gcTime: GC_STABLE,
+  },
+  static: {
+    staleTime: Infinity,
+    retry: 1,
+    gcTime: GC_STATIC,
   },
 };
 

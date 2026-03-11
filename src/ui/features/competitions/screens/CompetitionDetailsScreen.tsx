@@ -1,11 +1,12 @@
 import { useMemo, useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { getCompetitionPrefetchStrategies } from '@data/prefetch/entityPrefetchOrchestrator';
 import { usePrefetchOnMount } from '@data/prefetch/usePrefetchOnMount';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
-import { FreshnessIndicator } from '@ui/shared/components';
+import { FreshnessIndicator, TabContentSkeleton } from '@ui/shared/components';
+import { CompetitionDetailsSkeleton } from '../components/CompetitionDetailsSkeleton';
 import { useOfflineUiState } from '@ui/shared/hooks';
 import { ScreenStateView } from '@ui/features/matches/components/ScreenStateView';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -109,11 +110,7 @@ export function CompetitionDetailsScreen() {
         : null;
 
     if (!screenModel.competition && screenModel.isCompetitionQueryLoading) {
-        return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-        );
+        return <CompetitionDetailsSkeleton />;
     }
 
     if (!screenModel.safeCompetitionId) {
@@ -149,9 +146,7 @@ export function CompetitionDetailsScreen() {
                     onOpenNotificationModal={openCompetitionNotificationModal}
                     onOpenSeasonPicker={screenModel.openSeasonPicker}
                 />
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </View>
+                <TabContentSkeleton />
             </View>
         );
     }
@@ -169,9 +164,7 @@ export function CompetitionDetailsScreen() {
                     onOpenNotificationModal={openCompetitionNotificationModal}
                     onOpenSeasonPicker={screenModel.openSeasonPicker}
                 />
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                </View>
+                <TabContentSkeleton rows={3} />
             </View>
         );
     }

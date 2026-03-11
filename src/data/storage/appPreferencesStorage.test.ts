@@ -72,7 +72,7 @@ describe('appPreferencesStorage', () => {
       APP_PREFERENCES_STORAGE_KEY,
       JSON.stringify({
         theme: 'neon',
-        language: 'de',
+        language: 'xx',
         currencyCode: 'INVALID',
         measurementSystem: 'other',
         notificationsEnabled: 'yes',
@@ -102,17 +102,45 @@ describe('appPreferencesStorage', () => {
     expect(loaded.notificationsEnabled).toBe(false);
   });
 
-  it('falls back to french when device locale is unsupported', async () => {
+  it('falls back to english when device locale is unsupported', async () => {
     mockedGetLocales.mockReturnValue([
       {
-        languageCode: 'de',
-        languageTag: 'de-DE',
-        countryCode: 'DE',
+        languageCode: 'cs',
+        languageTag: 'cs-CZ',
+        countryCode: 'CZ',
         isRTL: false,
       },
     ]);
 
     const loaded = await loadAppPreferences();
-    expect(loaded.language).toBe('fr');
+    expect(loaded.language).toBe('en');
+  });
+
+  it('normalizes zh-Hans device locale to zh_CN', async () => {
+    mockedGetLocales.mockReturnValue([
+      {
+        languageCode: 'zh',
+        languageTag: 'zh-Hans',
+        countryCode: 'CN',
+        isRTL: false,
+      },
+    ]);
+
+    const loaded = await loadAppPreferences();
+    expect(loaded.language).toBe('zh_CN');
+  });
+
+  it('normalizes pt-BR device locale to pt', async () => {
+    mockedGetLocales.mockReturnValue([
+      {
+        languageCode: 'pt',
+        languageTag: 'pt-BR',
+        countryCode: 'BR',
+        isRTL: false,
+      },
+    ]);
+
+    const loaded = await loadAppPreferences();
+    expect(loaded.language).toBe('pt');
   });
 });

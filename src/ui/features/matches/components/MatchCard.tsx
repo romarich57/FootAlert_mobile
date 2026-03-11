@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { MatchItem } from '@ui/features/matches/types/matches.types';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 type MatchCardProps = {
@@ -24,9 +25,9 @@ type MatchCardProps = {
   onPressAwayTeam?: (teamId: string) => void;
 };
 
-function formatKickoffTime(date: string): string {
+function formatKickoffTime(date: string, locale: string): string {
   const value = new Date(date);
-  return value.toLocaleTimeString([], {
+  return value.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -167,8 +168,9 @@ export function MatchCard({
   onPressAwayTeam,
 }: MatchCardProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
   const [homeLogoUnavailable, setHomeLogoUnavailable] = useState(!match.homeTeamLogo);
   const [awayLogoUnavailable, setAwayLogoUnavailable] = useState(!match.awayTeamLogo);
 
@@ -235,7 +237,7 @@ export function MatchCard({
 
           <View style={styles.centerScore}>
             {isUpcoming ? (
-              <Text style={styles.kickoffTime}>{formatKickoffTime(match.startDate)}</Text>
+              <Text style={styles.kickoffTime}>{formatKickoffTime(match.startDate, localeTag)}</Text>
             ) : (
               <Text style={styles.scoreText}>
                 {(match.homeGoals ?? 0).toString()} - {(match.awayGoals ?? 0).toString()}

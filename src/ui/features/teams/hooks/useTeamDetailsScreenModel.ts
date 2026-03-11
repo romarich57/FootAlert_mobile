@@ -160,6 +160,7 @@ export function useTeamDetailsScreenModel() {
     teamId,
     leagueId: standingsSelection.leagueId,
     season: standingsSelection.season,
+    timezone,
     enabled: hasStandingsSelection && isStandingsTabActive,
   });
 

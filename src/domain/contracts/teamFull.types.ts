@@ -1,3 +1,4 @@
+import type { PayloadFreshnessMeta } from './freshnessMeta.types';
 import type {
   TeamAdvancedStatsDto,
   TeamApiFixtureDto,
@@ -18,6 +19,7 @@ export type TeamFullSelection = {
 };
 
 export type TeamFullResponsePayload = {
+  _meta?: PayloadFreshnessMeta;
   response: {
     details: { response: TeamApiTeamDetailsDto[] };
     leagues: { response: TeamApiLeagueDto[] };

@@ -6,6 +6,7 @@ import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { OverviewNextMatchCard } from '@ui/features/teams/components/overview/OverviewNextMatchCard';
 import { createTeamOverviewStyles } from '@ui/features/teams/components/overview/TeamOverviewTab.styles';
 import type { TeamMatchItem } from '@ui/features/teams/types/teams.types';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { sampleTeamMatch } from '@ui/stories/fixtures/teamFixtures';
 
 type OverviewNextMatchCardStoryProps = {
@@ -14,11 +15,12 @@ type OverviewNextMatchCardStoryProps = {
 
 function OverviewNextMatchCardStory({ nextMatch }: OverviewNextMatchCardStoryProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createTeamOverviewStyles(colors), [colors]);
 
   return (
     <OverviewNextMatchCard
+      localeTag={resolveAppLocaleTag(i18n.language)}
       styles={styles}
       t={t}
       nextMatch={nextMatch}

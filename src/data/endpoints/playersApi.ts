@@ -35,6 +35,7 @@ const playersReadService = createPlayersReadService({
 export { PLAYER_MATCHES_LIMIT };
 
 type PlayerApiFullResponse = {
+  _meta?: import('@domain/contracts/freshnessMeta.types').PayloadFreshnessMeta;
   details: {
     response: PlayerApiDetailsDto[];
   };
@@ -126,6 +127,7 @@ export async function fetchPlayerFull(
   signal?: AbortSignal,
 ): Promise<PlayerApiFullResponse | null> {
   const payload = await playersReadService.fetchPlayerFull<{
+    _meta?: import('@domain/contracts/freshnessMeta.types').PayloadFreshnessMeta;
     details?: {
       response?: PlayerApiDetailsDto[];
     };
@@ -157,6 +159,7 @@ export async function fetchPlayerFull(
   }
 
   return {
+    _meta: payload._meta,
     details: {
       response: Array.isArray(payload.details?.response) ? payload.details.response : [],
     },

@@ -1,5 +1,6 @@
 import { createFollowsReadService } from '@app-core/services/followsService';
 import { bffGet, bffPost } from '@data/endpoints/bffClient';
+import type { BootstrapTopCompetition } from '@domain/contracts/bootstrap.types';
 import type {
   FollowDiscoveryPlayerItem,
   FollowDiscoveryResponse,
@@ -23,6 +24,10 @@ const followsReadService = createFollowsReadService({
   http: mobileReadHttpAdapter,
   telemetry: mobileReadTelemetryAdapter,
 });
+
+type CompetitionTrendsResponse = {
+  competitions: BootstrapTopCompetition[];
+};
 
 export async function searchTeamsByName(
   query: string,
@@ -98,6 +103,18 @@ export async function fetchDiscoveryPlayers(
     { limit },
     { signal },
   );
+}
+
+export async function fetchCompetitionTrends(
+  signal?: AbortSignal,
+): Promise<BootstrapTopCompetition[]> {
+  const response = await bffGet<CompetitionTrendsResponse>(
+    '/follows/trends/competitions',
+    undefined,
+    { signal },
+  );
+
+  return response.competitions;
 }
 
 export async function postFollowEvent(payload: FollowEventPayload): Promise<FollowEventResponse> {

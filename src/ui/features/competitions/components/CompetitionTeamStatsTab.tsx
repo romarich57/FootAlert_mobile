@@ -10,6 +10,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { TabContentSkeleton } from '@ui/shared/components';
 import {
   DEFAULT_HIT_SLOP,
 } from '@ui/shared/theme/theme';
@@ -105,11 +106,7 @@ export function CompetitionTeamStatsTab({ competitionId, season, onPressTeam }: 
     );
 
     if (isBaseLoading) {
-        return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-        );
+        return <TabContentSkeleton />;
     }
 
     if (baseError) {

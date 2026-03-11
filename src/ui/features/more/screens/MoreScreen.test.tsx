@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-native';
 
+import { LANGUAGE_SELECTOR_OPTIONS } from '@ui/features/more/components/languageSelector.constants';
 import { MoreScreen } from '@ui/features/more/screens/MoreScreen';
 import { useMoreSettings } from '@ui/features/more/hooks/useMoreSettings';
 import i18n from '@ui/shared/i18n';
@@ -69,7 +70,7 @@ function createMoreSettingsMock(
   return {
     preferences: {
       theme: 'system',
-      language: 'fr',
+      language: 'en',
       currencyCode: 'EUR',
       measurementSystem: 'metric',
       notificationsEnabled: true,
@@ -91,10 +92,6 @@ function createMoreSettingsMock(
       { value: 'system', label: 'system' },
       { value: 'light', label: 'light' },
       { value: 'dark', label: 'dark' },
-    ],
-    languageOptions: [
-      { value: 'fr', label: 'fr' },
-      { value: 'en', label: 'en' },
     ],
     measurementOptions: [
       { value: 'metric', label: 'metric' },
@@ -171,9 +168,11 @@ describe('MoreScreen', () => {
     renderScreen();
 
     fireEvent.press(screen.getByLabelText(i18n.t('more.rows.language')));
-    fireEvent.press(screen.getByText(i18n.t('more.values.language.en')));
+    fireEvent.press(screen.getByText(
+      LANGUAGE_SELECTOR_OPTIONS.find(option => option.value === 'fr')?.label ?? 'Français',
+    ));
 
-    expect(handleLanguageChangeMock).toHaveBeenCalledWith('en');
+    expect(handleLanguageChangeMock).toHaveBeenCalledWith('fr');
   });
 
   it('opens measurement modal and selects a value', () => {

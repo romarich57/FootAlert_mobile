@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
 export type ScreenState = 'loading' | 'empty' | 'error' | 'offline' | 'slow';
@@ -59,19 +60,20 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function formatTimestamp(value: string | null | undefined): string {
+function formatTimestamp(value: string | null | undefined, locale: string): string {
   if (!value) {
     return '-';
   }
 
   const date = new Date(value);
-  return date.toLocaleString();
+  return date.toLocaleString(locale);
 }
 
 export function ScreenStateView({ state, onRetry, lastUpdatedAt }: ScreenStateViewProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
 
   if (state === 'loading') {
     return (
@@ -95,7 +97,7 @@ export function ScreenStateView({ state, onRetry, lastUpdatedAt }: ScreenStateVi
       {state === 'offline' ? (
         <Text style={styles.subtitle}>
           {t('matches.states.offline.lastUpdate', {
-            value: formatTimestamp(lastUpdatedAt),
+            value: formatTimestamp(lastUpdatedAt, localeTag),
           })}
         </Text>
       ) : null}

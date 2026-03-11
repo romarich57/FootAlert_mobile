@@ -15,17 +15,29 @@ const TEST_INITIAL_METRICS = {
 
 const TEST_HYDRATED_PREFERENCES: AppPreferences = {
   theme: 'system',
-  language: 'fr',
+  language: 'en',
   currencyCode: 'EUR',
   measurementSystem: 'metric',
   notificationsEnabled: false,
   updatedAt: '1970-01-01T00:00:00.000Z',
 };
 
-function AppTestProviders({ children }: PropsWithChildren) {
+type RenderWithAppProvidersOptions = Omit<RenderOptions, 'wrapper'> & {
+  preferences?: Partial<AppPreferences>;
+};
+
+function AppTestProviders({
+  children,
+  preferences,
+}: PropsWithChildren<{ preferences?: Partial<AppPreferences> }>) {
+  const hydratedPreferences = {
+    ...TEST_HYDRATED_PREFERENCES,
+    ...preferences,
+  };
+
   return (
     <SafeAreaProvider initialMetrics={TEST_INITIAL_METRICS}>
-      <AppPreferencesProvider testHydratedPreferences={TEST_HYDRATED_PREFERENCES}>
+      <AppPreferencesProvider testHydratedPreferences={hydratedPreferences}>
         <AppThemeProvider>
           <QueryProvider
             enablePersistence={false}
@@ -41,10 +53,12 @@ function AppTestProviders({ children }: PropsWithChildren) {
 
 export function renderWithAppProviders(
   ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>,
+  options?: RenderWithAppProvidersOptions,
 ) {
+  const { preferences, ...renderOptions } = options ?? {};
+
   return render(ui, {
-    wrapper: AppTestProviders,
-    ...options,
+    wrapper: props => <AppTestProviders {...props} preferences={preferences} />,
+    ...renderOptions,
   });
 }

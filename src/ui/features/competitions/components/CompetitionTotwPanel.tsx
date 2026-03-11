@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { TabContentSkeleton } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 import { useCompetitionTotw } from '../hooks/useCompetitionTotw';
 import { CompetitionTotwTab } from './CompetitionTotwTab';
@@ -42,11 +43,7 @@ export function CompetitionTotwPanel({
   const totwQuery = useCompetitionTotw(competitionId, season);
 
   if (totwQuery.isLoading && !totwQuery.data) {
-    return (
-      <View style={styles.loadingWrap}>
-        <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
+    return <TabContentSkeleton rows={3} />;
   }
 
   if (totwQuery.error) {

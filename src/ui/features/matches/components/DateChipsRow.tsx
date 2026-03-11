@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -20,7 +21,11 @@ type DateChip = {
   isToday: boolean;
 };
 
-function buildDateChips(selectedDate: Date, language: string): DateChip[] {
+function buildDateChips(
+  selectedDate: Date,
+  localeTag: string,
+  todayShortLabel: string,
+): DateChip[] {
   const chips: DateChip[] = [];
   const baseDate = new Date(selectedDate);
   baseDate.setHours(0, 0, 0, 0);
@@ -31,11 +36,9 @@ function buildDateChips(selectedDate: Date, language: string): DateChip[] {
     const isToday = offset === 0;
 
     const dayLabel = isToday
-      ? language === 'fr'
-        ? 'AUJ'
-        : 'TOD'
+      ? todayShortLabel
       : chipDate
-        .toLocaleDateString(language, { weekday: 'short' })
+        .toLocaleDateString(localeTag, { weekday: 'short' })
         .replace('.', '')
         .slice(0, 3)
         .toUpperCase();
@@ -46,7 +49,7 @@ function buildDateChips(selectedDate: Date, language: string): DateChip[] {
       dayLabel,
       dayNumber: String(chipDate.getDate()).padStart(2, '0'),
       monthLabel: chipDate
-        .toLocaleDateString(language, { month: 'short' })
+        .toLocaleDateString(localeTag, { month: 'short' })
         .replace('.', '')
         .slice(0, 3)
         .toUpperCase(),
@@ -132,12 +135,18 @@ function createStyles(colors: ThemeColors) {
 }
 
 export function DateChipsRow({ selectedDate, onSelectDate }: DateChipsRowProps) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
   const chips = useMemo(
-    () => buildDateChips(selectedDate, i18n.language.startsWith('fr') ? 'fr' : 'en'),
-    [i18n.language, selectedDate],
+    () =>
+      buildDateChips(
+        selectedDate,
+        localeTag,
+        t('common:calendar.todayShort').toUpperCase(),
+      ),
+    [localeTag, selectedDate, t],
   );
 
   return (

@@ -27,6 +27,12 @@ export function TeamUpcomingColumn({
   onPressMatch,
   onPressTeam,
 }: TeamUpcomingColumnProps) {
+  const getMatchLabel = (homeTeamName: string | null | undefined, awayTeamName: string | null | undefined) =>
+    t('common:match.fixtureLabel', {
+      home: homeTeamName ?? '—',
+      away: awayTeamName ?? '—',
+    });
+
   return (
     <View style={styles.preMatchRecentColumn}>
       {teamId && onPressTeam ? (
@@ -69,10 +75,10 @@ export function TeamUpcomingColumn({
               style={styles.postMatchUpcomingInfo}
               onPress={() => onPressMatch(match.fixtureId)}
               accessibilityRole='button'
-              accessibilityLabel={`${match.homeTeamName ?? '—'} vs ${match.awayTeamName ?? '—'}`}
+              accessibilityLabel={getMatchLabel(match.homeTeamName, match.awayTeamName)}
             >
               <Text numberOfLines={1} style={styles.newsText}>
-                {match.homeTeamName ?? '—'} vs {match.awayTeamName ?? '—'}
+                {getMatchLabel(match.homeTeamName, match.awayTeamName)}
               </Text>
               <Text numberOfLines={1} style={styles.postMatchUpcomingMeta}>
                 {match.kickoffDisplay ?? t('matchDetails.values.unavailable')}
@@ -81,7 +87,7 @@ export function TeamUpcomingColumn({
           ) : (
             <View style={styles.postMatchUpcomingInfo}>
               <Text numberOfLines={1} style={styles.newsText}>
-                {match.homeTeamName ?? '—'} vs {match.awayTeamName ?? '—'}
+                {getMatchLabel(match.homeTeamName, match.awayTeamName)}
               </Text>
               <Text numberOfLines={1} style={styles.postMatchUpcomingMeta}>
                 {match.kickoffDisplay ?? t('matchDetails.values.unavailable')}

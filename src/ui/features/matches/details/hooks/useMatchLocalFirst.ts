@@ -11,7 +11,8 @@ import { isJestRuntime } from '@data/runtime/isJestRuntime';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
-const MATCH_FULL_MAX_AGE_MS = 30_000;
+/** Durée max en ms avant de considérer le cache match stale — aligné sur MATCH_DEFAULT_POLICY BFF (5min). */
+const MATCH_FULL_MAX_AGE_MS = 5 * 60_000;
 
 type UseMatchLocalFirstParams = {
   matchId: string | null;

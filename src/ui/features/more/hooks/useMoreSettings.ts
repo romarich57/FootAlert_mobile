@@ -1,3 +1,4 @@
+import type { AppLanguage } from '@/shared/i18n/languages';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +26,6 @@ import { eraseMobilePrivacyData } from '@data/security/mobileSessionAuth';
 import { incrementPositiveEventCount } from '@data/storage/reviewPromptStorage';
 import { useAppPreferences } from '@ui/app/providers/AppPreferencesProvider';
 import type {
-  LanguageOption,
   MeasurementOption,
   ThemeOption,
 } from '@ui/features/more/types/more.types';
@@ -83,14 +83,6 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
     [t],
   );
 
-  const languageOptions = useMemo<LanguageOption[]>(
-    () => [
-      { value: 'fr', label: t('more.values.language.fr') },
-      { value: 'en', label: t('more.values.language.en') },
-    ],
-    [t],
-  );
-
   const measurementOptions = useMemo<MeasurementOption[]>(
     () => [
       { value: 'metric', label: t('more.values.measurement.metric') },
@@ -107,7 +99,7 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
   );
 
   const handleLanguageChange = useCallback(
-    async (value: LanguageOption['value']) => {
+    async (value: AppLanguage) => {
       await setLanguagePreference(value);
     },
     [setLanguagePreference],
@@ -247,7 +239,6 @@ export function useMoreSettings(options: UseMoreSettingsOptions = {}) {
     currencyCatalog,
     currentCurrency,
     themeOptions,
-    languageOptions,
     measurementOptions,
     isUpdatingNotifications,
     isErasingData,

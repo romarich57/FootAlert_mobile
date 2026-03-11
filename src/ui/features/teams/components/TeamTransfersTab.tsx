@@ -1,10 +1,12 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
+import { TabContentSkeleton } from '@ui/shared/components';
 import type { TeamTransferDirection, TeamTransfersData } from '@ui/features/teams/types/teams.types';
 import { toDisplayDate, toDisplayValue } from '@ui/features/teams/utils/teamDisplay';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -183,12 +185,14 @@ function createStyles(colors: ThemeColors) {
 
 type TeamTransferRowProps = {
   item: TeamTransferItem;
+  localeTag: string;
   transferTypeLabel: string;
   styles: ReturnType<typeof createStyles>;
 };
 
 const TeamTransferRow = memo(function TeamTransferRow({
   item,
+  localeTag,
   transferTypeLabel,
   styles,
 }: TeamTransferRowProps) {
@@ -211,7 +215,7 @@ const TeamTransferRow = memo(function TeamTransferRow({
           <Text numberOfLines={1} style={styles.transferPlayer}>
             {toDisplayValue(item.playerName)}
           </Text>
-          <Text style={styles.transferDate}>{toDisplayDate(item.date)}</Text>
+          <Text style={styles.transferDate}>{toDisplayDate(item.date, localeTag)}</Text>
         </View>
       </View>
 
@@ -258,8 +262,9 @@ export function TeamTransfersTab({
   onRetry,
 }: TeamTransfersTabProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
   const [direction, setDirection] = useState<TeamTransferDirection>('arrival');
 
   const list = direction === 'arrival' ? data?.arrivals ?? [] : data?.departures ?? [];
@@ -272,11 +277,12 @@ export function TeamTransfersTab({
     ({ item }) => (
       <TeamTransferRow
         item={item}
+        localeTag={localeTag}
         transferTypeLabel={transferTypeLabel}
         styles={styles}
       />
     ),
-    [styles, transferTypeLabel],
+    [localeTag, styles, transferTypeLabel],
   );
 
   return (
@@ -302,9 +308,7 @@ export function TeamTransfersTab({
       </View>
 
       {shouldShowLoadingState ? (
-        <View style={styles.stateCard}>
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-        </View>
+        <TabContentSkeleton />
       ) : null}
 
       {shouldShowErrorState ? (

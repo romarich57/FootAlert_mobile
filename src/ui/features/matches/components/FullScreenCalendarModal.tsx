@@ -66,7 +66,7 @@ export function FullScreenCalendarModal({
   onClose,
 }: FullScreenCalendarModalProps) {
   const { colors } = useAppTheme();
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const selectedDateString = useMemo(() => toDateString(selectedDate), [selectedDate]);
 
@@ -140,7 +140,7 @@ export function FullScreenCalendarModal({
             horizontal={false}
             enableSwipeMonths
             style={{ backgroundColor: colors.background }}
-            monthFormat={i18n.language.startsWith('fr') ? 'MMMM yyyy' : 'MMMM yyyy'}
+            monthFormat='MMMM yyyy'
           />
         </View>
       </SafeAreaView>

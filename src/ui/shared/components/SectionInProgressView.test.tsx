@@ -2,7 +2,7 @@ import React from 'react';
 import { screen } from '@testing-library/react-native';
 
 import { SectionInProgressView } from '@ui/shared/components/SectionInProgressView';
-import { fr } from '@ui/shared/i18n/locales/fr';
+import i18n from '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 import '@ui/shared/i18n';
 
@@ -11,10 +11,10 @@ describe('SectionInProgressView', () => {
     renderWithAppProviders(<SectionInProgressView />);
 
     expect(screen.getByTestId('section-in-progress-title').props.children).toBe(
-      fr.placeholders.inProgress,
+      i18n.t('placeholders.inProgress'),
     );
     expect(screen.getByTestId('section-in-progress-subtitle').props.children).toBe(
-      fr.placeholders.inProgressSubtitle,
+      i18n.t('placeholders.inProgressSubtitle'),
     );
   });
 
@@ -38,7 +38,7 @@ describe('SectionInProgressView', () => {
     renderWithAppProviders(<SectionInProgressView />);
 
     expect(screen.getByTestId('section-in-progress-view').props.accessibilityLabel).toBe(
-      `${fr.placeholders.inProgress}. ${fr.placeholders.inProgressSubtitle}`,
+      `${i18n.t('placeholders.inProgress')}. ${i18n.t('placeholders.inProgressSubtitle')}`,
     );
   });
 });

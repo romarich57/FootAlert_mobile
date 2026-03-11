@@ -1,18 +1,22 @@
 import { getCountry, getCurrencies } from 'react-native-localize';
 
+import {
+  isAppLanguage,
+  DEFAULT_LANGUAGE,
+  type AppLanguage,
+} from '@/shared/i18n/languages';
 import { resolveSafeCurrencyCode } from '@data/config/currencyCatalog';
 import {
   getNotificationsPermissionStatus,
   isNotificationsPermissionGranted,
 } from '@data/permissions/notificationsPermission';
 import { getJsonValue, setJsonValue } from '@data/storage/asyncStorage';
-import { DEFAULT_LANGUAGE, resolveDeviceLanguage } from '@/shared/i18n/language';
 import type {
-  AppLanguage,
   AppPreferences,
   MeasurementSystem,
   ThemePreference,
 } from '@/shared/types/preferences.types';
+import { resolveDeviceLanguage } from '@/shared/i18n/language';
 
 export const APP_PREFERENCES_STORAGE_KEY = 'app_preferences_v1';
 
@@ -23,7 +27,7 @@ function isValidThemePreference(value: unknown): value is ThemePreference {
 }
 
 function isValidLanguage(value: unknown): value is AppLanguage {
-  return value === 'fr' || value === 'en';
+  return isAppLanguage(value);
 }
 
 function isValidMeasurementSystem(value: unknown): value is MeasurementSystem {

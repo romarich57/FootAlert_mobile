@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { ThemeColors } from '@ui/shared/theme/theme';
 
@@ -62,10 +63,6 @@ function resolveRelativeTime(timestamp: number): {
   };
 }
 
-function normalizeRelativeTimeLanguage(language: string): 'en' | 'fr' {
-  return language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
-}
-
 function formatRelativeTimestampFallback(
   value: number,
   unit: RelativeTimeUnit,
@@ -83,10 +80,10 @@ function formatRelativeTimestampFallback(
 
 function formatRelativeTimestamp(timestamp: number, language: string, t: TFunction): string {
   const { value, unit } = resolveRelativeTime(timestamp);
-  const normalizedLanguage = normalizeRelativeTimeLanguage(language);
+  const localeTag = resolveAppLocaleTag(language);
 
   if (typeof Intl.RelativeTimeFormat === 'function') {
-    return new Intl.RelativeTimeFormat(normalizedLanguage, { numeric: 'auto' }).format(value, unit);
+    return new Intl.RelativeTimeFormat(localeTag, { numeric: 'auto' }).format(value, unit);
   }
 
   return formatRelativeTimestampFallback(value, unit, t);

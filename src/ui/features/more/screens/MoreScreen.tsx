@@ -6,12 +6,13 @@ import { useTranslation } from 'react-i18next';
 
 import {
   CurrencyPickerModal,
+  LanguageSelector,
   SettingsSelectionModal,
 } from '@ui/features/more/components';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { getLanguageNativeLabel } from '@ui/features/more/components/languageSelector.constants';
 import { useMoreSettings } from '@ui/features/more/hooks/useMoreSettings';
 import type {
-  LanguageOption,
   MeasurementOption,
   MoreSettingsModalKey,
   ThemeOption,
@@ -41,7 +42,6 @@ export function MoreScreen() {
     currencyCatalog,
     currentCurrency,
     themeOptions,
-    languageOptions,
     measurementOptions,
     isUpdatingNotifications,
     isErasingData,
@@ -76,18 +76,13 @@ export function MoreScreen() {
     [t, themeOptions],
   );
 
-  const localizedLanguageOptions = useMemo(
-    () => languageOptions.map(option => ({ ...option, label: t(`more.values.language.${option.value}`) })),
-    [languageOptions, t],
-  );
-
   const localizedMeasurementOptions = useMemo(
     () => measurementOptions.map(option => ({ ...option, label: t(`more.values.measurement.${option.value}`) })),
     [measurementOptions, t],
   );
 
   const themeValue = t(`more.values.theme.${preferences.theme}`);
-  const languageValue = t(`more.values.language.${preferences.language}`);
+  const languageValue = getLanguageNativeLabel(preferences.language);
   const measurementValue = t(`more.values.measurement.${preferences.measurementSystem}`);
   const notificationsValue = t(
     preferences.notificationsEnabled ? 'more.values.notifications.on' : 'more.values.notifications.off',
@@ -116,7 +111,7 @@ export function MoreScreen() {
   );
 
   const handleSelectLanguage = useCallback(
-    (value: LanguageOption['value']) => {
+    (value: typeof preferences.language) => {
       handleLanguageChange(value).catch(() => undefined);
       setOpenedModal(null);
     },
@@ -307,10 +302,9 @@ export function MoreScreen() {
         onSelect={handleSelectTheme}
         onClose={() => setOpenedModal(null)}
       />
-      <SettingsSelectionModal
+      <LanguageSelector
         visible={openedModal === 'language'}
         title={t('more.modals.selectLanguage')}
-        options={localizedLanguageOptions}
         selectedValue={preferences.language}
         onSelect={handleSelectLanguage}
         onClose={() => setOpenedModal(null)}

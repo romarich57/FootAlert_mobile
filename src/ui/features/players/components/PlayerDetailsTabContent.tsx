@@ -1,12 +1,12 @@
 import React from 'react';
 
 import { PlayerCareerTab } from '@ui/features/players/components/PlayerCareerTab';
-import { PlayerDetailsSkeleton } from '@ui/features/players/components/PlayerDetailsSkeleton';
 import { PlayerMatchesTab } from '@ui/features/players/components/PlayerMatchesTab';
 import { PlayerProfileTab } from '@ui/features/players/components/PlayerProfileTab';
 import { PlayerStatsTab } from '@ui/features/players/components/PlayerStatsTab';
 import type { PlayerTabType } from '@ui/features/players/components/PlayerTabs';
 import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
+import { TabContentSkeleton } from '@ui/shared/components';
 
 type PlayerDetailsScreenModel = ReturnType<typeof usePlayerDetailsScreenModel>;
 
@@ -41,7 +41,7 @@ export function PlayerDetailsTabContent({
       );
     case 'matchs':
       return screenModel.isMatchesLoading ? (
-        <PlayerDetailsSkeleton />
+        <TabContentSkeleton />
       ) : (
         <PlayerMatchesTab
           matches={screenModel.matches}
@@ -52,7 +52,7 @@ export function PlayerDetailsTabContent({
       );
     case 'stats':
       return screenModel.isStatsLoading || !screenModel.stats ? (
-        <PlayerDetailsSkeleton />
+        <TabContentSkeleton />
       ) : (
         <PlayerStatsTab
           stats={screenModel.stats}
@@ -65,7 +65,7 @@ export function PlayerDetailsTabContent({
       );
     case 'carriere':
       return screenModel.isCareerLoading ? (
-        <PlayerDetailsSkeleton />
+        <TabContentSkeleton />
       ) : (
         <PlayerCareerTab
           seasons={screenModel.careerSeasons}

@@ -1,10 +1,12 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { FlashList, type ListRenderItem } from '@shopify/flash-list';
-import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
+import { TabContentSkeleton } from '@ui/shared/components';
 import type { TeamMatchItem, TeamMatchesData } from '@ui/features/teams/types/teams.types';
 import { createTeamMatchesTabStyles } from '@ui/features/teams/components/TeamMatchesTab.styles';
 import {
@@ -100,18 +102,20 @@ function buildFeedItems(
 
 const TeamMatchRow = memo(function TeamMatchRow({
   match,
+  localeTag,
   styles,
   onPressMatch,
   onPressTeam,
 }: {
   match: TeamMatchItem;
+  localeTag: string;
   styles: ReturnType<typeof createTeamMatchesTabStyles>;
   onPressMatch: (matchId: string) => void;
   onPressTeam: (teamId: string) => void;
 }) {
   const isUpcoming = match.status === 'upcoming';
   const scoreText = isUpcoming
-    ? toDisplayHour(match.date)
+    ? toDisplayHour(match.date, localeTag)
     : toDisplayScore(match.homeGoals, match.awayGoals);
 
   return (
@@ -122,7 +126,7 @@ const TeamMatchRow = memo(function TeamMatchRow({
     >
       <View style={styles.metaRow}>
         <View style={styles.metaLeft}>
-          <Text style={styles.metaText}>{toDisplayDate(match.date)}</Text>
+          <Text style={styles.metaText}>{toDisplayDate(match.date, localeTag)}</Text>
         </View>
         <View style={styles.metaLeft}>
           {match.leagueLogo ? (
@@ -202,8 +206,9 @@ export function TeamMatchesTab({
   onPressTeam,
 }: TeamMatchesTabProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createTeamMatchesTabStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
   const [venueFilter, setVenueFilter] = useState<VenueFilter>('all');
 
   const feedItems = useMemo(
@@ -226,16 +231,17 @@ export function TeamMatchesTab({
         return <Text style={styles.sectionHeader}>{item.title}</Text>;
       }
 
-      return (
-        <TeamMatchRow
-          match={item.match}
-          styles={styles}
-          onPressMatch={onPressMatch}
-          onPressTeam={onPressTeam}
-        />
-      );
-    },
-    [onPressMatch, onPressTeam, styles],
+        return (
+          <TeamMatchRow
+            match={item.match}
+            localeTag={localeTag}
+            styles={styles}
+            onPressMatch={onPressMatch}
+            onPressTeam={onPressTeam}
+          />
+        );
+      },
+    [localeTag, onPressMatch, onPressTeam, styles],
   );
 
   return (
@@ -259,9 +265,7 @@ export function TeamMatchesTab({
       </View>
 
       {shouldShowLoadingState ? (
-        <View style={styles.stateCard}>
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-        </View>
+        <TabContentSkeleton />
       ) : null}
 
       {shouldShowErrorState ? (

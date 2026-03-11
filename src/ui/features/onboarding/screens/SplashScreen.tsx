@@ -9,6 +9,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 
 import { isMobileValidationMode } from '@data/config/env';
 import { isOnboardingCompleted } from '@data/storage/onboardingStorage';
@@ -59,6 +60,7 @@ function createStyles(colors: ThemeColors) {
 
 export function SplashScreen({ navigation }: Props) {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
   const styles = createStyles(colors);
 
   const logoScale = useSharedValue(0.4);
@@ -144,7 +146,7 @@ export function SplashScreen({ navigation }: Props) {
         </Animated.View>
         <Animated.Text style={[styles.appName, nameStyle]}>FootAlert</Animated.Text>
         <Animated.Text style={[styles.tagline, taglineStyle]}>
-          Football en temps réel
+          {t('common:onboarding.tagline')}
         </Animated.Text>
       </View>
     </Animated.View>

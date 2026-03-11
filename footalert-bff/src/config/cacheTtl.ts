@@ -5,10 +5,14 @@ export type EntityCacheTtlConfig = {
   matches: number;
 };
 
+/**
+ * TTL L1 in-memory pour les routes standalone (non-full).
+ * Les routes /full utilisent les snapshot policies de policies.ts à la place.
+ */
 export const DEFAULT_ENTITY_CACHE_TTL_MS: EntityCacheTtlConfig = {
-  teams: 60_000,
-  players: 60_000,
-  competitions: 60_000,
+  teams: 5 * 60_000,
+  players: 5 * 60_000,
+  competitions: 3 * 60_000,
   matches: 45_000,
 };
 

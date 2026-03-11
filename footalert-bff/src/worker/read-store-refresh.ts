@@ -1,6 +1,12 @@
 import type { FastifyBaseLogger } from 'fastify';
 
 import type { EntityCacheTtlConfig } from '../config/cacheTtl.js';
+import {
+  COMPETITION_POLICY,
+  MATCH_DEFAULT_POLICY,
+  PLAYER_POLICY,
+  TEAM_POLICY,
+} from '../lib/readStore/policies.js';
 import type { ReadStore, SnapshotRefreshJob } from '../lib/readStore/runtime.js';
 import {
   hashSensitiveValue,
@@ -39,10 +45,10 @@ export function createReadStoreRefreshRuntime(input: {
   const services = resolveReadStoreRefreshServices(input.services);
   const workerId = input.workerId ?? `notifications-worker-${process.pid}`;
 
-  const nowWindow = (ttlMs: number) =>
+  const policyWindow = (policy: { freshMs: number; staleMs: number }) =>
     services.buildSnapshotWindow({
-      staleAfterMs: ttlMs,
-      expiresAfterMs: ttlMs * 3,
+      staleAfterMs: policy.freshMs,
+      expiresAfterMs: policy.staleMs,
     });
 
   async function refreshSnapshotForJob(job: SnapshotRefreshJob): Promise<void> {
@@ -98,7 +104,7 @@ export function createReadStoreRefreshRuntime(input: {
           logger: input.logger as unknown as FastifyBaseLogger,
         }),
         metadata: { source: 'worker.refresh' },
-        ...nowWindow(input.cacheTtl.teams),
+        ...policyWindow(TEAM_POLICY),
       });
       return;
     }
@@ -118,7 +124,7 @@ export function createReadStoreRefreshRuntime(input: {
           season,
         }),
         metadata: { source: 'worker.refresh' },
-        ...nowWindow(input.cacheTtl.players),
+        ...policyWindow(PLAYER_POLICY),
       });
       return;
     }
@@ -133,7 +139,7 @@ export function createReadStoreRefreshRuntime(input: {
           parseOptionalNumber(scope.season),
         ),
         metadata: { source: 'worker.refresh' },
-        ...nowWindow(input.cacheTtl.competitions),
+        ...policyWindow(COMPETITION_POLICY),
       });
       return;
     }
@@ -151,7 +157,7 @@ export function createReadStoreRefreshRuntime(input: {
         scopeKey: job.scopeKey,
         payload,
         metadata: { source: 'worker.refresh' },
-        ...nowWindow(input.cacheTtl.matches),
+        ...policyWindow(MATCH_DEFAULT_POLICY),
       });
       await persistWorkerMatchOverlay({
         readStore: input.readStore,
@@ -212,8 +218,8 @@ export function createReadStoreRefreshRuntime(input: {
       const results = await Promise.allSettled(
         HOTSET_COMPETITION_IDS.slice(i, i + 3).map(async competitionId => {
           const window = services.buildSnapshotWindow({
-            staleAfterMs: input.cacheTtl.competitions,
-            expiresAfterMs: input.cacheTtl.competitions * 3,
+            staleAfterMs: COMPETITION_POLICY.freshMs,
+            expiresAfterMs: COMPETITION_POLICY.staleMs,
           });
           await input.readStore.upsertEntitySnapshot({
             entityKind: 'competition_full',

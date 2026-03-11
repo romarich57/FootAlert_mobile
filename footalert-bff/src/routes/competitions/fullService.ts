@@ -5,6 +5,11 @@ import {
   withCache,
   withCacheStaleWhileRevalidate,
 } from '../../lib/cache.js';
+import {
+  buildFreshnessMeta,
+  freshnessHints,
+  type PayloadFreshnessMeta,
+} from '../../lib/freshnessMeta.js';
 import { mapWithConcurrency } from '../../lib/concurrency/mapWithConcurrency.js';
 
 import { buildCompetitionBracket } from './bracketMapper.js';
@@ -38,6 +43,7 @@ type CompetitionPlayerStatsBundle = {
 };
 
 export type CompetitionFullResponse = {
+  _meta: PayloadFreshnessMeta;
   competition: unknown | null;
   competitionKind: CompetitionKind;
   season: number;
@@ -380,6 +386,15 @@ export async function buildCompetitionFullResponse(
       ]);
 
       return {
+        _meta: buildFreshnessMeta({
+          competition: freshnessHints.static,
+          standings: freshnessHints.postMatch,
+          matches: freshnessHints.postMatch,
+          bracket: freshnessHints.postMatch,
+          playerStats: freshnessHints.postMatch,
+          teamStats: freshnessHints.postMatch,
+          transfers: freshnessHints.weekly,
+        }),
         competition,
         competitionKind,
         season,

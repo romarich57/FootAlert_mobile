@@ -106,6 +106,7 @@ export const queryKeys = {
   },
   competitions: {
     catalog: () => ['competitions', 'catalog'] as const,
+    trends: () => ['competitions', 'trends'] as const,
     search: (query: string) => ['competitions', 'search', query] as const,
     full: (competitionId: string, season: number | null) =>
       ['competitions', 'full', competitionId, season] as const,

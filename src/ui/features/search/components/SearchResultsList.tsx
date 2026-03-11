@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { appEnv } from '@data/config/env';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { getMatchStatusLabel } from '@ui/features/matches/utils/getMatchStatusLabel';
 import { buildSearchItems, formatMatchKickoff } from '@ui/features/search/components/searchResultsItems';
 import type {
   SearchEntityTab,
@@ -59,6 +61,7 @@ export function SearchResultsList({
   const { colors } = useAppTheme();
   const { i18n, t } = useTranslation();
   const styles = useMemo(() => createSearchResultsListStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
 
   const items = useMemo(
     () =>
@@ -198,7 +201,16 @@ export function SearchResultsList({
             item={item.item}
             styles={styles}
             iconColor={colors.textMuted}
-            kickoff={formatMatchKickoff(item.item.kickoffAt, i18n.language.startsWith('fr') ? 'fr' : 'en')}
+            kickoff={formatMatchKickoff(item.item.kickoffAt, localeTag)}
+            statusLabel={getMatchStatusLabel(
+              {
+                short: item.item.statusShort,
+                long: item.item.statusShort,
+                elapsed: null,
+              },
+              t,
+            )}
+            t={t}
             onPress={onPressMatch}
           />
         );

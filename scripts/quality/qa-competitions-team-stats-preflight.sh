@@ -14,8 +14,8 @@ npx eslint \
   src/ui/features/competitions/components/HorizontalBarChart.tsx \
   src/ui/shared/query/queryKeys.ts \
   src/ui/shared/query/queryOptions.ts \
-  src/ui/shared/i18n/locales/fr.ts \
-  src/ui/shared/i18n/locales/en.ts \
+  src/ui/shared/i18n/locales/fr/index.ts \
+  src/ui/shared/i18n/locales/en/index.ts \
   src/data/mappers/competitionsTeamStatsMapper.test.ts \
   src/ui/features/competitions/hooks/useCompetitionTeamStats.test.ts \
   src/ui/features/competitions/components/CompetitionTeamStatsTab.test.tsx

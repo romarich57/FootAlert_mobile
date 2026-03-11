@@ -1,11 +1,16 @@
 import { setTimeout as wait } from 'node:timers/promises';
 
 import type { ReadStore } from '../lib/readStore/runtime.js';
-import { logWorker } from './shared.js';
+import {
+  CALENDAR_POLL_INTERVAL_MS,
+  runCalendarScheduleCycle,
+} from './match-calendar-scheduler.js';
 import {
   READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS,
+  READ_STORE_DEFAULT_TIMEZONE,
   READ_STORE_REFRESH_POLL_INTERVAL_MS,
 } from './read-store-refresh.js';
+import { logWorker } from './shared.js';
 
 const GC_INTERVAL_MS = 10 * 60_000;
 const HEARTBEAT_STALE_MS = 5 * 60_000;
@@ -20,6 +25,7 @@ export async function runReadStoreMaintenanceLoop(input: {
 }): Promise<void> {
   let lastBootstrapWarmAt = Date.now();
   let lastGcAt = 0;
+  let lastCalendarAt = 0;
   let consecutiveRefreshErrors = 0;
 
   while (!input.isShuttingDown()) {
@@ -34,6 +40,20 @@ export async function runReadStoreMaintenanceLoop(input: {
         });
       }
       lastBootstrapWarmAt = nowMs;
+    }
+
+    if (nowMs - lastCalendarAt >= CALENDAR_POLL_INTERVAL_MS) {
+      try {
+        await runCalendarScheduleCycle({
+          readStore: input.readStore,
+          timezone: READ_STORE_DEFAULT_TIMEZONE,
+        });
+      } catch (error) {
+        logWorker('error', 'calendar_schedule_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      lastCalendarAt = nowMs;
     }
 
     if (nowMs - lastGcAt >= GC_INTERVAL_MS) {

@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState } from 'react';
 import { ActivityIndicator, View, Text, Image, Pressable } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { AppPressable } from '@ui/shared/components';
 import type { Fixture } from '../types/competitions.types';
@@ -38,7 +39,7 @@ export function CompetitionMatchesTab({
     const { colors } = useAppTheme();
     const { t, i18n } = useTranslation();
     const styles = useMemo(() => createCompetitionMatchesTabStyles(colors), [colors]);
-    const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-US';
+    const locale = resolveAppLocaleTag(i18n.language);
 
     const {
         data,

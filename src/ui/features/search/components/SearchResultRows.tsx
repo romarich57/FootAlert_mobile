@@ -171,16 +171,23 @@ export function SearchMatchRow({
   styles,
   iconColor,
   kickoff,
+  statusLabel,
+  t,
   onPress,
 }: {
   item: SearchMatchResult;
   styles: SearchResultsRowStyles;
   iconColor: string;
   kickoff: string | null;
+  statusLabel: string;
+  t: TFunction;
   onPress: (fixtureId: string) => void;
 }) {
-  const title = `${item.homeTeamName} vs ${item.awayTeamName}`;
-  const subtitle = [item.competitionName, kickoff || item.statusShort]
+  const title = t('common:match.fixtureLabel', {
+    home: item.homeTeamName,
+    away: item.awayTeamName,
+  });
+  const subtitle = [item.competitionName, kickoff || statusLabel]
     .filter(Boolean)
     .join(' • ');
 

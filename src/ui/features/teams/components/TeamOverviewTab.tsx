@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
+import { TabContentSkeleton } from '@ui/shared/components';
 import type {
   TeamCompetitionOption,
   TeamIdentity,
@@ -70,8 +72,9 @@ export function TeamOverviewTab({
   onPressTeam,
 }: TeamOverviewTabProps) {
   const { colors } = useAppTheme();
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const styles = useMemo(() => createTeamOverviewStyles(colors), [colors]);
+  const localeTag = useMemo(() => resolveAppLocaleTag(i18n.language), [i18n.language]);
 
   const competitionsForSeason = useMemo(
     () =>
@@ -158,6 +161,32 @@ export function TeamOverviewTab({
   const hasFetchAttempt = hasFetchedAfterMount || hasFetched;
   const shouldShowErrorState = !hasRenderableData && isError && hasFetchAttempt && !isFetching && !isLoading;
 
+  const overviewItems = useMemo<TeamOverviewListItemKey[]>(() => {
+    if (!data) return [];
+    const items: TeamOverviewListItemKey[] = [];
+
+    if (data.nextMatch) items.push('next-match');
+    if ((data.recentForm ?? []).length > 0) items.push('recent-form');
+    items.push('season-overview');
+    if (data.miniStanding) items.push('mini-standing');
+    if ((data.standingHistory ?? []).length > 0) items.push('standing-history');
+    if (data.coachPerformance) items.push('coach-performance');
+
+    const leaders = data.playerLeaders;
+    if (
+      (leaders?.scorers?.length ?? 0) > 0 ||
+      (leaders?.assisters?.length ?? 0) > 0 ||
+      (leaders?.ratings?.length ?? 0) > 0
+    ) {
+      items.push('player-leaders');
+    }
+
+    if (competitionsForSeason.length > 0) items.push('competitions');
+    items.push('stadium-info');
+
+    return items;
+  }, [data, competitionsForSeason.length]);
+
   if (shouldShowErrorState) {
     return (
       <View style={styles.container}>
@@ -176,26 +205,10 @@ export function TeamOverviewTab({
   if (!hasRenderableData) {
     return (
       <View style={styles.container}>
-        <View style={styles.content}>
-          <View style={styles.stateCard}>
-            <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
-          </View>
-        </View>
+        <TabContentSkeleton />
       </View>
     );
   }
-
-  const overviewItems: TeamOverviewListItemKey[] = [
-    'next-match',
-    'recent-form',
-    'season-overview',
-    'mini-standing',
-    'standing-history',
-    'coach-performance',
-    'player-leaders',
-    'competitions',
-    'stadium-info',
-  ];
 
   return (
     <View style={styles.container}>
@@ -208,6 +221,7 @@ export function TeamOverviewTab({
           if (item === 'next-match') {
             return (
               <OverviewNextMatchCard
+                localeTag={localeTag}
                 styles={styles}
                 t={t}
                 nextMatch={data?.nextMatch ?? null}

@@ -108,7 +108,14 @@ export function createPlayersReadService({ http, telemetry }) {
                 feature: 'players.full',
                 endpoint: `/players/${playerId}/full`,
             });
-            return (payload.response ?? null);
+            const responseData = payload.response ?? null;
+            if (responseData && typeof responseData === 'object') {
+                const raw = rawPayload;
+                if (raw && '_meta' in raw) {
+                    responseData._meta = raw._meta;
+                }
+            }
+            return responseData;
         },
         async fetchTeamFixtures(teamId, season, amount = PLAYER_MATCHES_LIMIT, signal) {
             const rawPayload = await http.get(`/players/team/${encodeURIComponent(teamId)}/fixtures`, {

@@ -241,7 +241,7 @@ export function MatchDetailsHeader({
           {lifecycleState === 'pre_match' ? (
             <>
               <Text style={styles.kickoffText}>{kickoffLabel || '--:--'}</Text>
-              <Text style={styles.countdownText}>{countdownLabel || 'Bientôt'}</Text>
+              <Text style={styles.countdownText}>{countdownLabel || t('common:status.comingSoon')}</Text>
             </>
           ) : null}
 

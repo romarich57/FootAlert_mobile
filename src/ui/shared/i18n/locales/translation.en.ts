@@ -16,6 +16,10 @@ export const en = {
   },
   common: {
     done: 'Done',
+    loading: 'Loading...',
+    error: 'An error occurred',
+    empty: 'No data available',
+    noData: 'No data',
   },
   placeholders: {
     inProgress: 'Section in progress',

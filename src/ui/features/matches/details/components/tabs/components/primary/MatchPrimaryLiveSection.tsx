@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 
 import type { EventRow, StatRow } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabTypes';
 import type { MatchDetailsTabStyles } from '@ui/features/matches/details/components/tabs/shared/matchDetailsTabStyles';
+import { getTimelineEventDisplayName } from '@ui/features/matches/details/components/tabs/shared/matchTimelineShared';
 
 type MatchPrimaryLiveSectionProps = {
   styles: MatchDetailsTabStyles;
@@ -78,7 +79,9 @@ export function MatchPrimaryLiveSection({
         {eventRows.slice(0, 6).map(event => (
           <View key={event.id} style={[styles.eventRow, event.isNew ? styles.eventRowNew : null]}>
             <Text style={styles.eventMinute}>{event.minute}</Text>
-            <Text style={styles.eventLabel}>{event.label}</Text>
+            <Text style={styles.eventLabel}>
+              {`${getTimelineEventDisplayName(event.type, event.detail, t)} · ${event.playerName}`}
+            </Text>
             {event.detail ? <Text style={styles.eventDetail}>{event.detail}</Text> : null}
           </View>
         ))}

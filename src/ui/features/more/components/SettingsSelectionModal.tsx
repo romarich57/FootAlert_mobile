@@ -16,7 +16,7 @@ import type { ThemeColors } from '@ui/shared/theme/theme';
 type SettingsSelectionModalProps<TValue extends string> = {
   visible: boolean;
   title: string;
-  options: SettingsSelectionOption<TValue>[];
+  options: readonly SettingsSelectionOption<TValue>[];
   selectedValue: TValue;
   onSelect: (value: TValue) => void;
   onClose: () => void;

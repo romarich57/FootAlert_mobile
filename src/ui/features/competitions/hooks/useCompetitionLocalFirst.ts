@@ -11,7 +11,8 @@ import { isJestRuntime } from '@data/runtime/isJestRuntime';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
-const COMPETITION_FULL_MAX_AGE_MS = 60_000;
+/** Durée max en ms avant de considérer le cache compétition stale — aligné sur COMPETITION_POLICY BFF (4h). */
+const COMPETITION_FULL_MAX_AGE_MS = 4 * 60 * 60_000;
 
 type UseCompetitionLocalFirstParams = {
   leagueId: number | undefined;

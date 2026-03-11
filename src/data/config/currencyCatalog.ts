@@ -1,6 +1,11 @@
 import CurrencyCodes from 'currency-codes';
 
-import type { AppLanguage } from '@/shared/types/preferences.types';
+import {
+  isAppLanguage,
+  resolveLanguageLocaleTag,
+  DEFAULT_LANGUAGE,
+  type AppLanguage,
+} from '@/shared/i18n/languages';
 
 export type CurrencyCatalogItem = {
   code: string;
@@ -10,7 +15,6 @@ export type CurrencyCatalogItem = {
 };
 
 const FALLBACK_CURRENCY = 'EUR';
-const SUPPORTED_LANGUAGES: AppLanguage[] = ['fr', 'en'];
 
 type IntlWithDisplayNames = typeof Intl & {
   DisplayNames?: new (locales?: string | string[], options?: { type: 'currency' }) => {
@@ -19,15 +23,11 @@ type IntlWithDisplayNames = typeof Intl & {
 };
 
 function normalizeLanguage(language: string): AppLanguage {
-  if (SUPPORTED_LANGUAGES.includes(language as AppLanguage)) {
+  if (isAppLanguage(language)) {
     return language as AppLanguage;
   }
 
-  return 'fr';
-}
-
-function localeFromLanguage(language: AppLanguage): string {
-  return language === 'fr' ? 'fr-FR' : 'en-US';
+  return DEFAULT_LANGUAGE;
 }
 
 function resolveCurrencyName(code: string, fallbackName: string, localeTag: string): string {
@@ -64,7 +64,7 @@ function resolveCurrencySymbol(code: string, localeTag: string): string {
 }
 
 function buildCatalog(language: AppLanguage): CurrencyCatalogItem[] {
-  const localeTag = localeFromLanguage(language);
+  const localeTag = resolveLanguageLocaleTag(language);
 
   return CurrencyCodes.data
     .filter(entry => Boolean(entry.code))
@@ -111,7 +111,10 @@ export function getCurrencySymbol(code: string, language: string): string {
     return cached;
   }
 
-  const symbol = resolveCurrencySymbol(normalizedCode, localeFromLanguage(normalizedLanguage));
+  const symbol = resolveCurrencySymbol(
+    normalizedCode,
+    resolveLanguageLocaleTag(normalizedLanguage),
+  );
   symbolCache.set(cacheKey, symbol);
   return symbol;
 }

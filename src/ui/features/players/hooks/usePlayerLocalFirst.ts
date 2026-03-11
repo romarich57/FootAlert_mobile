@@ -10,7 +10,8 @@ import { queryKeys } from '@ui/shared/query/queryKeys';
 
 import type { PlayerFullPayload } from './playerFullQuery';
 
-const PLAYER_FULL_MAX_AGE_MS = 60_000;
+/** Durée max en ms avant de considérer le cache player stale — aligné sur PLAYER_POLICY BFF (12h). */
+const PLAYER_FULL_MAX_AGE_MS = 12 * 60 * 60_000;
 
 type UsePlayerLocalFirstParams = {
   playerId: string;

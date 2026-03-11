@@ -5,7 +5,7 @@ import {
   AppPreferencesProvider,
   useAppPreferences,
 } from '@ui/app/providers/AppPreferencesProvider';
-import i18n from '@ui/shared/i18n';
+import i18n, * as i18nModule from '@ui/shared/i18n';
 import { loadAppPreferences, updateAppPreferences } from '@data/storage/appPreferencesStorage';
 import type { AppPreferences } from '@/shared/types/preferences.types';
 
@@ -19,7 +19,7 @@ const mockedUpdateAppPreferences = jest.mocked(updateAppPreferences);
 
 const initialPreferences: AppPreferences = {
   theme: 'system',
-  language: 'fr',
+  language: 'de',
   currencyCode: 'EUR',
   measurementSystem: 'metric',
   notificationsEnabled: true,
@@ -33,12 +33,17 @@ function wrapper({ children }: React.PropsWithChildren) {
 describe('AppPreferencesProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(i18nModule, 'ensureLanguageResources').mockResolvedValue(undefined);
     mockedLoadAppPreferences.mockResolvedValue(initialPreferences);
     mockedUpdateAppPreferences.mockImplementation(async partial => ({
       ...initialPreferences,
       ...partial,
       updatedAt: '2026-01-01T00:00:01.000Z',
     }));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('hydrates preferences and marks provider as ready', async () => {
@@ -48,7 +53,8 @@ describe('AppPreferencesProvider', () => {
       expect(result.current.isHydrated).toBe(true);
     });
 
-    expect(result.current.preferences.language).toBe('fr');
+    expect(result.current.preferences.language).toBe('de');
+    expect(i18nModule.ensureLanguageResources).toHaveBeenCalledWith('de');
   });
 
   it('applies language changes via storage update', async () => {
@@ -64,12 +70,12 @@ describe('AppPreferencesProvider', () => {
     changeLanguageSpy.mockClear();
 
     await act(async () => {
-      await result.current.setLanguagePreference('en');
+      await result.current.setLanguagePreference('ja');
     });
 
-    expect(mockedUpdateAppPreferences).toHaveBeenCalledWith({ language: 'en' });
+    expect(mockedUpdateAppPreferences).toHaveBeenCalledWith({ language: 'ja' });
     await waitFor(() => {
-      expect(changeLanguageSpy).toHaveBeenCalledWith('en');
+      expect(changeLanguageSpy).toHaveBeenCalledWith('ja');
     });
   });
 
@@ -84,6 +90,6 @@ describe('AppPreferencesProvider', () => {
 
     const { result } = renderHook(() => useAppPreferences(), { wrapper: syncWrapper });
     expect(result.current.isHydrated).toBe(true);
-    expect(result.current.preferences.language).toBe('fr');
+    expect(result.current.preferences.language).toBe('de');
   });
 });

@@ -187,6 +187,7 @@ export async function fetchCompetitionBracket(
 }
 
 export type CompetitionFullPayload = {
+  _meta?: import('@domain/contracts/freshnessMeta.types').PayloadFreshnessMeta;
   competition: CompetitionsApiLeagueDto | null;
   competitionKind: CompetitionKind;
   season: number;

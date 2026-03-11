@@ -7,6 +7,7 @@ import { AppImage } from '@ui/shared/media/AppImage';
 import type { TeamOverviewStyles } from './TeamOverviewTab.styles';
 
 type OverviewNextMatchCardProps = {
+  localeTag: string;
   styles: TeamOverviewStyles;
   t: (key: string) => string;
   nextMatch: TeamMatchItem | null;
@@ -15,6 +16,7 @@ type OverviewNextMatchCardProps = {
 };
 
 export function OverviewNextMatchCard({
+  localeTag,
   styles,
   t,
   nextMatch,
@@ -28,7 +30,7 @@ export function OverviewNextMatchCard({
       {nextMatch ? (
         <>
           <View style={styles.nextMetaRow}>
-            <Text style={styles.nextMeta}>{toDisplayDate(nextMatch.date)}</Text>
+            <Text style={styles.nextMeta}>{toDisplayDate(nextMatch.date, localeTag)}</Text>
             <View style={styles.leaguePill}>
               <Text numberOfLines={1} style={styles.leaguePillText}>
                 {toDisplayValue(nextMatch.leagueName)}
@@ -63,7 +65,7 @@ export function OverviewNextMatchCard({
               }}
               style={styles.kickoffWrap}
             >
-              <Text style={styles.kickoff}>{toDisplayHour(nextMatch.date)}</Text>
+              <Text style={styles.kickoff}>{toDisplayHour(nextMatch.date, localeTag)}</Text>
               <Text style={styles.kickoffLabel}>{t('teamDetails.overview.kickoff')}</Text>
             </Pressable>
 

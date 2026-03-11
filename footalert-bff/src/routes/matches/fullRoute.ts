@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
+import { MATCH_DEFAULT_POLICY } from '../../lib/readStore/policies.js';
 import { buildSnapshotWindow, readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
 import { parseOrThrow } from '../../lib/validation.js';
@@ -106,8 +107,8 @@ export function registerMatchFullRoute(app: FastifyInstance): void {
 
       const result = await readThroughSnapshot<MatchFullPayload>({
         cacheKey: `match_full:${params.id}:${scopeKey}`,
-        staleAfterMs: env.cacheTtl.matches,
-        expiresAfterMs: env.cacheTtl.matches * 3,
+        staleAfterMs: MATCH_DEFAULT_POLICY.freshMs,
+        expiresAfterMs: MATCH_DEFAULT_POLICY.staleMs,
         logger: request.log,
         getSnapshot: () =>
           readStore.getEntitySnapshot({

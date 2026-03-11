@@ -4,3 +4,4 @@ export { IconActionButton } from './IconActionButton';
 export { AppPressable } from './AppPressable';
 export { SkeletonBox } from './SkeletonBox';
 export { FreshnessIndicator } from './FreshnessIndicator';
+export { TabContentSkeleton } from './TabContentSkeleton';

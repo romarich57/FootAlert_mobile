@@ -30,8 +30,8 @@ type UseTeamLocalFirstParams = {
 
 export type TeamFullData = TeamFullResponsePayload['response'];
 
-/** Durée max en ms avant de considérer le cache team stale. */
-const TEAM_FULL_MAX_AGE_MS = 60_000;
+/** Durée max en ms avant de considérer le cache team stale — aligné sur TEAM_POLICY BFF (6h). */
+const TEAM_FULL_MAX_AGE_MS = 6 * 60 * 60_000;
 
 export function useTeamLocalFirst({
   teamId,

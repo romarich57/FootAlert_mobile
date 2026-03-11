@@ -181,7 +181,15 @@ export function createPlayersReadService({ http, telemetry }: PlayersServiceDepe
         endpoint: `/players/${playerId}/full`,
       });
 
-      return (payload.response ?? null) as T | null;
+      const responseData = payload.response ?? null;
+      if (responseData && typeof responseData === 'object') {
+        const raw = rawPayload as Record<string, unknown> | null;
+        if (raw && '_meta' in raw) {
+          (responseData as Record<string, unknown>)._meta = raw._meta;
+        }
+      }
+
+      return responseData as T | null;
     },
 
     async fetchTeamFixtures<T = unknown>(

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { TabContentSkeleton } from '@ui/shared/components';
 import {
     DEFAULT_HIT_SLOP,
     MIN_TOUCH_TARGET,
@@ -164,9 +165,7 @@ export function CompetitionPlayerStatsTab({
             </View>
 
             {isLoading ? (
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </View>
+                <TabContentSkeleton />
             ) : error || !leader ? (
                 <View style={styles.centerContainer}>
                     <Text style={styles.emptyText}>{t('competitionDetails.playerStats.unavailable')}</Text>

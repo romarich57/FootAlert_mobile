@@ -103,13 +103,13 @@ export function buildSearchItems(
   return allRows;
 }
 
-export function formatMatchKickoff(value: string, language: string): string {
+export function formatMatchKickoff(value: string, localeTag: string): string {
   const parsedDate = new Date(value);
   if (Number.isNaN(parsedDate.getTime())) {
     return '';
   }
 
-  return parsedDate.toLocaleString(language, {
+  return parsedDate.toLocaleString(localeTag, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

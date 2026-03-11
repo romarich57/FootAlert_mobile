@@ -4,6 +4,7 @@ import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 
+import { resolveAppLocaleTag } from '@ui/shared/i18n/locale';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import { AppPressable } from '@ui/shared/components';
 import type { ThemeColors } from '@ui/shared/theme/theme';
@@ -170,7 +171,7 @@ export function PlayerMatchesTab({ matches, onPressMatch, onPressCompetition, on
     const { colors } = useAppTheme();
     const { i18n } = useTranslation();
     const styles = useMemo(() => createStyles(colors), [colors]);
-    const locale = i18n.language.startsWith('fr') ? 'fr-FR' : 'en-US';
+    const locale = resolveAppLocaleTag(i18n.language);
 
     const renderItem = useCallback(
         ({ item }: ListRenderItemInfo<PlayerMatchPerformance>) => {

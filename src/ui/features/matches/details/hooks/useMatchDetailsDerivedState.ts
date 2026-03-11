@@ -2,8 +2,6 @@ import { useMemo } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 import {
-  classifyFixtureStatus,
-  formatStatusLabel,
 } from '@data/mappers/fixturesMapper';
 import { buildStatRows } from '@ui/features/matches/details/components/tabs/shared/matchDetailsSelectors';
 import type {
@@ -35,6 +33,7 @@ import type {
 import type {
   TeamTopPlayersByCategory,
 } from '@ui/features/teams/types/teams.types';
+import { getMatchStatusLabel } from '@ui/features/matches/utils/getMatchStatusLabel';
 
 type TranslationFn = (key: string, options?: Record<string, unknown>) => string;
 type QueryLike<TData = unknown> = {
@@ -361,19 +360,13 @@ export function useMatchDetailsDerivedState({
       return '';
     }
 
-    const normalizedStatus = classifyFixtureStatus(
-      fixture.fixture.status.short,
-      fixture.fixture.status.long,
-      fixture.fixture.status.elapsed,
-    );
-    if (normalizedStatus === 'upcoming') {
-      return t('matches.status.upcoming');
-    }
-
-    return formatStatusLabel(
-      normalizedStatus,
-      fixture.fixture.status.elapsed,
-      fixture.fixture.status.short,
+    return getMatchStatusLabel(
+      {
+        short: fixture.fixture.status.short,
+        long: fixture.fixture.status.long,
+        elapsed: fixture.fixture.status.elapsed,
+      },
+      t,
     );
   }, [fixture, t]);
 

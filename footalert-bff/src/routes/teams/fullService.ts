@@ -1,6 +1,11 @@
 import type { FastifyBaseLogger } from 'fastify';
 
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
+import {
+  buildFreshnessMeta,
+  freshnessHints,
+  type PayloadFreshnessMeta,
+} from '../../lib/freshnessMeta.js';
 
 import {
   buildTeamAdvancedStatsPayload,
@@ -66,6 +71,7 @@ type TeamFullSelection = {
 };
 
 export type TeamFullRoutePayload = {
+  _meta: PayloadFreshnessMeta;
   response: {
     details: { response: unknown[] };
     leagues: { response: unknown[] };
@@ -486,6 +492,20 @@ export async function fetchTeamFullPayload(params: {
   ] = secondaryResults;
 
   return {
+    _meta: buildFreshnessMeta({
+      details: freshnessHints.static,
+      leagues: freshnessHints.static,
+      trophies: freshnessHints.static,
+      squad: freshnessHints.postMatch,
+      overview: freshnessHints.postMatch,
+      overviewLeaders: freshnessHints.postMatch,
+      standings: freshnessHints.postMatch,
+      matches: freshnessHints.postMatch,
+      statistics: freshnessHints.postMatch,
+      statsPlayers: freshnessHints.postMatch,
+      advancedStats: freshnessHints.postMatch,
+      transfers: freshnessHints.weekly,
+    }),
     response: {
       details,
       leagues,

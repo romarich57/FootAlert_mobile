@@ -172,9 +172,22 @@ export function readBootstrapSnapshot(snapshotKey: string): BootstrapPayload | n
 /**
  * Nombre max de refs à prefetch en idle pour ne pas saturer le réseau au boot.
  * Les refs sont déjà triées par priorité côté BFF.
+ * Augmenté de 20→30 pour couvrir plus d'entités suivies.
  */
-const WARM_PREFETCH_MAX = 20;
+const WARM_PREFETCH_MAX = 30;
 const WARM_PREFETCH_CONCURRENCY = 3;
+
+/**
+ * staleTime par type d'entité pour le prefetch — alignés sur queryCachePolicyMatrix (Sprint 2).
+ * Évite les refetch inutiles : le prefetch ne se déclenche que si les données
+ * sont absentes ou plus vieilles que la durée de fraîcheur du BFF.
+ */
+const PREFETCH_STALE_TIME: Record<string, number> = {
+  team: 6 * 60 * 60_000,       // 6h — aligné TEAM_POLICY
+  player: 12 * 60 * 60_000,    // 12h — aligné PLAYER_POLICY
+  competition: 4 * 60 * 60_000, // 4h — aligné COMPETITION_POLICY
+  match: 60_000,                 // 1min — aligné MATCH_DEFAULT_POLICY (données souvent live)
+};
 
 /**
  * Prefetch les entités chaudes identifiées par le bootstrap, en idle priority.
@@ -212,7 +225,7 @@ export function prefetchWarmEntityRefs(input: {
                 await queryClient.prefetchQuery({
                   queryKey: key,
                   queryFn: () => fetchTeamFull({ teamId: ref.id, timezone }, signal),
-                  staleTime: 60_000,
+                  staleTime: PREFETCH_STALE_TIME.team,
                 });
                 prefetched++;
                 break;
@@ -223,7 +236,7 @@ export function prefetchWarmEntityRefs(input: {
                 await queryClient.prefetchQuery({
                   queryKey: key,
                   queryFn: () => fetchPlayerFull(ref.id, season, signal),
-                  staleTime: 60_000,
+                  staleTime: PREFETCH_STALE_TIME.player,
                 });
                 prefetched++;
                 break;
@@ -236,7 +249,7 @@ export function prefetchWarmEntityRefs(input: {
                 await queryClient.prefetchQuery({
                   queryKey: key,
                   queryFn: () => fetchCompetitionFull(leagueId, season, signal),
-                  staleTime: 120_000,
+                  staleTime: PREFETCH_STALE_TIME.competition,
                 });
                 prefetched++;
                 break;
@@ -247,7 +260,7 @@ export function prefetchWarmEntityRefs(input: {
                 await queryClient.prefetchQuery({
                   queryKey: key,
                   queryFn: () => fetchMatchFull({ fixtureId: ref.id, timezone, signal }),
-                  staleTime: 30_000,
+                  staleTime: PREFETCH_STALE_TIME.match,
                 });
                 prefetched++;
                 break;

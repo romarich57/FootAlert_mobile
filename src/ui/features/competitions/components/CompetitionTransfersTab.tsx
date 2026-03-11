@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FlashList } from '@shopify/flash-list';
 
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { TabContentSkeleton } from '@ui/shared/components';
 import {
     DEFAULT_HIT_SLOP,
     MIN_TOUCH_TARGET,
@@ -71,11 +72,7 @@ export function CompetitionTransfersTab({
     }, [onPressPlayer, onPressTeam]);
 
     if (isLoading) {
-        return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-        );
+        return <TabContentSkeleton />;
     }
 
     if (isError) {

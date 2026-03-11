@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fetchLeagueById } from '@data/endpoints/competitionsApi';
 import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
+import type { CompetitionsApiLeagueDto } from '@domain/contracts/competitions.types';
 import {
   loadFollowedLeagueIds,
   toggleFollowedLeague,
@@ -17,7 +18,7 @@ export function useFollowedCompetitions() {
   const queryClient = useQueryClient();
 
   const followedIdsQuery = useQuery({
-    queryKey: queryKeys.competitions.followedIds(),
+    queryKey: queryKeys.follows.followedLeagueIds(),
     queryFn: loadFollowedLeagueIds,
     staleTime: Infinity,
   });
@@ -27,6 +28,16 @@ export function useFollowedCompetitions() {
   const followedCompetitionsQuery = useQuery({
     queryKey: queryKeys.competitions.followedDetails(followedIds),
     queryFn: async ({ signal }) => {
+      const catalogEntries =
+        queryClient.getQueryData<CompetitionsApiLeagueDto[]>(
+          queryKeys.competitions.catalog(),
+        ) ?? [];
+      const catalogCompetitionsById = new Map(
+        catalogEntries
+          .map(dto => mapLeagueDtoToCompetition(dto))
+          .filter((competition): competition is Competition => competition !== null)
+          .map(competition => [competition.id, competition]),
+      );
       const results = await Promise.allSettled(
         followedIds.map(id => fetchLeagueById(id, signal)),
       );
@@ -40,13 +51,19 @@ export function useFollowedCompetitions() {
         throw abortedError.reason;
       }
 
-      return results
-        .filter(
-          (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof fetchLeagueById>>> =>
-            result.status === 'fulfilled',
-        )
-        .map(result => mapLeagueDtoToCompetition(result.value))
+      const followedCompetitions = followedIds
+        .map((id, index) => {
+          const result = results[index];
+
+          if (result?.status === 'fulfilled') {
+            return mapLeagueDtoToCompetition(result.value) ?? catalogCompetitionsById.get(id) ?? null;
+          }
+
+          return catalogCompetitionsById.get(id) ?? null;
+        })
         .filter(Boolean) as Competition[];
+
+      return followedCompetitions;
     },
     enabled: followedIds.length > 0,
     staleTime: 10 * 60_000,
@@ -57,11 +74,11 @@ export function useFollowedCompetitions() {
       toggleFollowedLeague(leagueId, MAX_FOLLOWED_LEAGUES),
     onMutate: async () => {
       const previousIds =
-        queryClient.getQueryData<string[]>(queryKeys.competitions.followedIds()) ?? [];
+        queryClient.getQueryData<string[]>(queryKeys.follows.followedLeagueIds()) ?? [];
       return { previousIds };
     },
     onSuccess: async (result, leagueId, context) => {
-      queryClient.setQueryData(queryKeys.competitions.followedIds(), result.ids);
+      queryClient.setQueryData(queryKeys.follows.followedLeagueIds(), result.ids);
 
       const wasAlreadyFollowed = context?.previousIds?.includes(leagueId) ?? false;
       const isNowFollowed = result.ids.includes(leagueId);

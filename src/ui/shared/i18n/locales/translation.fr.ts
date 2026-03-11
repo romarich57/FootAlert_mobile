@@ -16,6 +16,10 @@ export const fr = {
   },
   common: {
     done: 'Terminé',
+    loading: 'Chargement en cours...',
+    error: 'Une erreur est survenue',
+    empty: 'Aucune donnée disponible',
+    noData: 'Pas de données',
   },
   placeholders: {
     inProgress: 'Section en cours d’implémentation',

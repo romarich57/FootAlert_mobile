@@ -1,15 +1,15 @@
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { DEFAULT_LANGUAGE, type AppLanguage } from '@/shared/i18n/languages';
 import {
   loadAppPreferences,
   updateAppPreferences,
 } from '@data/storage/appPreferencesStorage';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
-import { DEFAULT_LANGUAGE, resolveDeviceLanguage } from '@/shared/i18n/language';
-import i18n from '@ui/shared/i18n';
+import { resolveDeviceLanguage } from '@/shared/i18n/language';
+import i18n, { ensureLanguageResources } from '@ui/shared/i18n';
 import type {
-  AppLanguage,
   AppPreferences,
   MeasurementSystem,
   ThemePreference,
@@ -57,7 +57,9 @@ export function AppPreferencesProvider({
     let isMounted = true;
 
     loadAppPreferences()
-      .then(payload => {
+      .then(async payload => {
+        await ensureLanguageResources(payload.language);
+
         if (!isMounted) {
           return;
         }
@@ -83,7 +85,15 @@ export function AppPreferencesProvider({
       return;
     }
 
-    i18n.changeLanguage(preferences.language).catch(() => undefined);
+    ensureLanguageResources(preferences.language)
+      .then(() => {
+        if (i18n.language === preferences.language) {
+          return;
+        }
+
+        return i18n.changeLanguage(preferences.language);
+      })
+      .catch(() => undefined);
   }, [isHydrated, preferences.language]);
 
   useEffect(() => {
