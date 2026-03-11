@@ -80,6 +80,15 @@ export {
 } from './queryCacheSyncMiddleware';
 export type { QuerySyncRule, SyncMiddlewareUnsubscribe } from './queryCacheSyncMiddleware';
 
+// --- Offline mutation queue ---
+export {
+  enqueueMutation,
+  drainMutationQueue,
+  registerMutationExecutor,
+  getPendingMutationCount,
+} from './offlineMutationQueue';
+export type { MutationType } from './offlineMutationQueue';
+
 // --- Types ---
 export type {
   EntityType,

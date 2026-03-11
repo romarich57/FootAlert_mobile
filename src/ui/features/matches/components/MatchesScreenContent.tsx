@@ -45,7 +45,6 @@ type MatchesScreenContentProps = {
   followedOnly: boolean;
   collapsedSections: Record<string, boolean>;
   isCalendarModalVisible: boolean;
-  isRefetching: boolean;
   showLoading: boolean;
   showError: boolean;
   showOfflineBanner: boolean;
@@ -86,7 +85,6 @@ export function MatchesScreenContent({
   followedOnly,
   collapsedSections,
   isCalendarModalVisible,
-  isRefetching,
   showLoading,
   showError,
   showOfflineBanner,
@@ -207,8 +205,8 @@ export function MatchesScreenContent({
         keyExtractor={keyExtractor}
         getItemType={item => item.type}
         estimatedItemSize={420}
-        refreshing={isRefetching}
         onRefresh={onRetry}
+        refreshing={false}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={listHeaderComponent}
       />

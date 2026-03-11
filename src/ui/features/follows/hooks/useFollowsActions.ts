@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
+import { enqueueMutation } from '@data/db/offlineMutationQueue';
 import { postFollowEvent } from '@data/endpoints/followsApi';
 import {
   loadFollowedLeagueIds,
@@ -52,7 +53,16 @@ function computeNextIds(ids: string[], id: string, maxAllowed: number): string[]
 }
 
 function trackFollowEvent(payload: FollowEventPayload): void {
-  void postFollowEvent(payload).catch(() => undefined);
+  postFollowEvent(payload).catch(() => {
+    // Échec réseau — persister dans la queue offline pour replay ultérieur
+    if (appEnv.mobileEnableSqliteLocalFirst) {
+      try {
+        enqueueMutation('follow_event', payload);
+      } catch {
+        // SQLite indisponible — abandon silencieux
+      }
+    }
+  });
 }
 
 export function useFollowsActions() {

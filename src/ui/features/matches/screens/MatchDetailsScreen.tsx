@@ -209,8 +209,9 @@ export function MatchDetailsScreen() {
         <View style={styles.stateWrap}>
           <FreshnessIndicator
             lastUpdatedAt={model.lastUpdatedAt}
-            isRefreshing={model.isLiveRefreshing}
-            visible={Boolean(model.lastUpdatedAt || model.isLiveRefreshing)}
+            visible={Boolean(
+              model.lastUpdatedAt,
+            )}
           />
         </View>
       ) : null}

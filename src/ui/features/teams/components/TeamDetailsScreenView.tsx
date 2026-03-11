@@ -65,7 +65,6 @@ export function TeamDetailsScreenView({
   onOpenNotificationModal,
   onSaveNotificationPrefs,
 }: TeamDetailsScreenViewProps) {
-  const isRefetchingSilently = model.hasCachedData && model.isContextLoading;
   const shouldShowBlockingSkeleton = model.isContextLoading && !model.hasCachedData;
   const shouldShowBlockingError = model.isContextError && !model.hasCachedData;
 
@@ -105,17 +104,16 @@ export function TeamDetailsScreenView({
         <View style={styles.stateWrap}>
           <FreshnessIndicator
             lastUpdatedAt={model.lastUpdatedAt}
-            isRefreshing={isRefetchingSilently}
-            visible={Boolean(model.lastUpdatedAt || isRefetchingSilently)}
+            visible={Boolean(model.lastUpdatedAt)}
           />
         </View>
       ) : null}
 
       {!offlineUi.showOfflineNoCache &&
-      model.activeTab !== 'overview' &&
-      model.activeTab !== 'squad' &&
-      model.activeTab !== 'transfers' &&
-      model.activeTab !== 'standings' ? (
+        model.activeTab !== 'overview' &&
+        model.activeTab !== 'squad' &&
+        model.activeTab !== 'transfers' &&
+        model.activeTab !== 'standings' ? (
         <TeamCompetitionSeasonSelector
           competitions={model.competitions}
           selectedLeagueId={model.contentSelection.leagueId}

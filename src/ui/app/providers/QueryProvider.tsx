@@ -15,8 +15,10 @@ import { getDatabase } from '@data/db/database';
 import { runGarbageCollection } from '@data/db/garbageCollector';
 import { hydrateQueryClientFromSqlite } from '@data/db/hydrationBridge';
 import { buildDefaultHydrationMappings } from '@data/db/hydrationMappings';
+import { drainMutationQueue, registerMutationExecutor } from '@data/db/offlineMutationQueue';
 import { setupQueryCacheSyncMiddleware } from '@data/db/queryCacheSyncMiddleware';
 import { getStoreSizeBytes } from '@data/db/entityStore';
+import { postFollowEvent } from '@data/endpoints/followsApi';
 import { getMobileTelemetry } from '@data/telemetry/mobileTelemetry';
 import { mmkvStorage } from '@data/storage/mmkvStorage';
 import {
@@ -58,11 +60,19 @@ function registerOnlineManagerIfNeeded(): void {
     return;
   }
 
+  let wasOnline = true;
+
   onlineManager.setEventListener(setOnline => {
     return NetInfo.addEventListener(state => {
       const isOnline =
         state.isConnected !== false && state.isInternetReachable !== false;
       setOnline(isOnline);
+
+      // Drain la queue offline à la reconnexion
+      if (isOnline && !wasOnline && appEnv.mobileEnableSqliteLocalFirst) {
+        drainMutationQueue().catch(() => undefined);
+      }
+      wasOnline = isOnline;
     });
   });
 
@@ -133,6 +143,14 @@ export function QueryProvider({
 
         syncCleanupRef.current?.();
         syncCleanupRef.current = setupQueryCacheSyncMiddleware(client.getQueryCache());
+
+        // Enregistrer l'executor pour les mutations follow offline
+        registerMutationExecutor('follow_event', async (payload) => {
+          await postFollowEvent(payload as Parameters<typeof postFollowEvent>[0]);
+        });
+
+        // Drainer la queue offline si on a des mutations en attente
+        drainMutationQueue().catch(() => undefined);
 
         getMobileTelemetry().trackEvent('db.bootstrap.complete', {
           durationMs: Date.now() - startedAt,

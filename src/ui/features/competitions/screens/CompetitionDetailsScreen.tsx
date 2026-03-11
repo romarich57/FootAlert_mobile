@@ -204,8 +204,7 @@ export function CompetitionDetailsScreen() {
                 <View style={styles.freshnessWrap}>
                     <FreshnessIndicator
                         lastUpdatedAt={screenModel.lastUpdatedAt}
-                        isRefreshing={screenModel.isRefetchingSilently}
-                        visible={Boolean(screenModel.lastUpdatedAt || screenModel.isRefetchingSilently)}
+                        visible={Boolean(screenModel.lastUpdatedAt)}
                     />
                 </View>
             ) : null}

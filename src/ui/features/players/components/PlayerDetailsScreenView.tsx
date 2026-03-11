@@ -55,15 +55,6 @@ export function PlayerDetailsScreenView({
   onOpenNotificationModal,
   onSaveNotificationPrefs,
 }: PlayerDetailsScreenViewProps) {
-  const isRefetchingSilently =
-    screenModel.hasCachedData &&
-    (
-      screenModel.isProfileLoading ||
-      screenModel.isMatchesLoading ||
-      screenModel.isStatsLoading ||
-      screenModel.isCareerLoading
-    );
-
   if (!safePlayerId) {
     return (
       <View style={[playerDetailsScreenStyles.center, { backgroundColor }]}>
@@ -115,8 +106,7 @@ export function PlayerDetailsScreenView({
         <View style={playerDetailsScreenStyles.offlineBannerWrap}>
           <FreshnessIndicator
             lastUpdatedAt={screenModel.lastUpdatedAt}
-            isRefreshing={isRefetchingSilently}
-            visible={Boolean(screenModel.lastUpdatedAt || isRefetchingSilently)}
+            visible={Boolean(screenModel.lastUpdatedAt)}
           />
         </View>
       ) : null}

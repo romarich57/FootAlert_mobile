@@ -92,6 +92,59 @@ let observedQuotaUsed = 0;
 const circuitStateByFamily = new Map<string, CircuitState>();
 const familyTrafficByName = new Map<string, FamilyTrafficState>();
 
+// --- Circuit breaker distribué via Redis ---
+
+const CIRCUIT_REDIS_KEY_PREFIX = 'circuit:';
+const CIRCUIT_REDIS_TTL_MS = 120_000; // 2min — auto-expire si aucune mise à jour
+
+function buildCircuitRedisKey(family: string): string {
+  return `${env.redisCachePrefix}${CIRCUIT_REDIS_KEY_PREFIX}${family}`;
+}
+
+/**
+ * Synchronise l'état du circuit breaker depuis Redis vers le cache local.
+ * Appelé avant chaque vérification du circuit.
+ * Non-bloquant : en cas d'erreur Redis, on utilise le cache local.
+ */
+async function syncCircuitStateFromRedis(family: string): Promise<void> {
+  if (!quotaRedisClient || !quotaRedisReady) return;
+
+  try {
+    const raw = await quotaRedisClient.get(buildCircuitRedisKey(family));
+    if (!raw) return;
+
+    const remote = JSON.parse(raw) as CircuitState;
+    const local = circuitStateByFamily.get(family);
+
+    // Le remote gagne si son openUntilMs est plus récent
+    if (!local || remote.openUntilMs > local.openUntilMs) {
+      circuitStateByFamily.set(family, {
+        openUntilMs: remote.openUntilMs,
+        consecutiveFailures: remote.consecutiveFailures,
+        consecutiveRateLimits: remote.consecutiveRateLimits,
+      });
+    }
+  } catch {
+    // Redis indisponible — continuer avec le cache local
+  }
+}
+
+/**
+ * Publie l'état du circuit breaker vers Redis après un changement.
+ * Fire-and-forget — ne bloque pas le chemin critique.
+ */
+function publishCircuitStateToRedis(family: string, state: CircuitState): void {
+  if (!quotaRedisClient || !quotaRedisReady) return;
+
+  const key = buildCircuitRedisKey(family);
+  const ttlSeconds = Math.ceil(CIRCUIT_REDIS_TTL_MS / 1_000);
+  const payload = JSON.stringify(state);
+
+  quotaRedisClient.set(key, payload, 'EX', ttlSeconds).catch(() => {
+    // Redis indisponible — l'état local reste la source de vérité pour cette instance
+  });
+}
+
 function readNonNegativeInt(rawValue: string | undefined, fallback: number): number {
   if (!rawValue) {
     return fallback;
@@ -448,8 +501,13 @@ function getCircuitState(family: string): CircuitState {
   return nextState;
 }
 
-function isCircuitOpen(family: string, now = Date.now()): boolean {
+function isCircuitOpenLocal(family: string, now = Date.now()): boolean {
   return now < getCircuitState(family).openUntilMs;
+}
+
+async function isCircuitOpen(family: string, now = Date.now()): Promise<boolean> {
+  await syncCircuitStateFromRedis(family);
+  return isCircuitOpenLocal(family, now);
 }
 
 function recordCircuitSuccess(family: string): void {
@@ -457,6 +515,7 @@ function recordCircuitSuccess(family: string): void {
   state.openUntilMs = 0;
   state.consecutiveFailures = 0;
   state.consecutiveRateLimits = 0;
+  publishCircuitStateToRedis(family, state);
 }
 
 function recordCircuitFailure(family: string, statusCode: number): void {
@@ -483,6 +542,7 @@ function recordCircuitFailure(family: string, statusCode: number): void {
 
   const nextOpenUntil = Date.now() + resolveUpstreamCircuitBreakerWindowMs();
   state.openUntilMs = Math.max(state.openUntilMs, nextOpenUntil);
+  publishCircuitStateToRedis(family, state);
   console.warn('[circuit-breaker] upstream family opened', {
     family,
     consecutiveFailures: state.consecutiveFailures,
@@ -573,7 +633,7 @@ export async function apiFootballGet<T>(
   const circuitFamily = resolveCircuitFamily(pathWithQuery);
   const priority = resolveUpstreamPriority(pathWithQuery);
 
-  if (isCircuitOpen(circuitFamily)) {
+  if (await isCircuitOpen(circuitFamily)) {
     const state = getCircuitState(circuitFamily);
     throw new UpstreamBffError(
       429,
