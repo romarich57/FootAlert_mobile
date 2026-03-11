@@ -723,8 +723,34 @@ export async function apiFootballGet<T>(
         );
       }
 
+      const data = await response.json();
+      const rawErrors = (data as any)?.errors;
+      const hasApiError =
+        rawErrors &&
+        ((Array.isArray(rawErrors) && rawErrors.length > 0) ||
+          (typeof rawErrors === 'object' && !Array.isArray(rawErrors) && Object.keys(rawErrors).length > 0));
+
+      if (hasApiError) {
+        const errorMessage = JSON.stringify(rawErrors);
+        const isRateLimit = errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('requests maximum');
+
+        recordCircuitFailure(circuitFamily, isRateLimit ? 429 : 403);
+
+        if (attempt < env.apiMaxRetries && isRateLimit) {
+          await sleep(150 * (attempt + 1));
+          continue;
+        }
+
+        throw new UpstreamBffError(
+          isRateLimit ? 429 : 403,
+          isRateLimit ? 'UPSTREAM_API_RATE_LIMIT' : 'UPSTREAM_API_ERROR',
+          isRateLimit ? 'API-Football rate limit reached' : 'API-Football business error',
+          rawErrors,
+        );
+      }
+
       recordCircuitSuccess(circuitFamily);
-      return (await response.json()) as T;
+      return data as T;
     } catch (error) {
       if (error instanceof UpstreamBffError) {
         throw error;
