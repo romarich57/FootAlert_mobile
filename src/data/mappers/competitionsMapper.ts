@@ -39,12 +39,21 @@ export function mapLeagueDtoToCompetition(dto: CompetitionsApiLeagueDto | null):
         return null;
     }
 
+    const leagueId = normalizeNumber(dto.league?.id);
+    const leagueName = normalizeString(dto.league?.name);
+    const leagueType = normalizeString(dto.league?.type);
+    const countryName = normalizeString(dto.country?.name);
+
+    if (leagueId === null || !leagueName || !leagueType || !countryName) {
+        return null;
+    }
+
     return {
-        id: String(dto.league.id),
-        name: dto.league.name,
-        logo: dto.league.logo,
-        type: dto.league.type,
-        countryName: dto.country.name,
+        id: String(leagueId),
+        name: leagueName,
+        logo: normalizeString(dto.league?.logo) || '',
+        type: leagueType,
+        countryName,
     };
 }
 

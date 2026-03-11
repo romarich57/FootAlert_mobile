@@ -1,12 +1,30 @@
 import {
   mapCompetitionPlayerStatsToTotw,
+  mapLeagueDtoToCompetition,
   mapPlayerStatsDtoToPlayerStats,
   mapTransfersDtoToCompetitionTransfers,
 } from '@data/mappers/competitionsMapper';
 import type {
   CompetitionPlayerStat,
+  CompetitionsApiLeagueDto,
   CompetitionsApiTransferDto,
 } from '@domain/contracts/competitions.types';
+
+describe('competitionsMapper catalog', () => {
+  it('returns null for incomplete league entries instead of throwing', () => {
+    const brokenDto = {
+      league: undefined,
+      country: {
+        name: 'England',
+        code: 'GB',
+        flag: 'flag.png',
+      },
+      seasons: [],
+    } as unknown as CompetitionsApiLeagueDto;
+
+    expect(mapLeagueDtoToCompetition(brokenDto)).toBeNull();
+  });
+});
 
 describe('competitionsMapper transfers', () => {
   it('maps, deduplicates and sorts transfers with direction flags', () => {
