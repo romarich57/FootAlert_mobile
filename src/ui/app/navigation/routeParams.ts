@@ -1,3 +1,4 @@
+import { CommonActions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
@@ -18,6 +19,10 @@ const ENTITY_ID_KEY_BY_ROUTE: Record<EntityRouteName, string> = {
 };
 
 type EntityNavigation = Pick<NativeStackNavigationProp<RootStackParamList>, 'navigate'>;
+type DetailBackNavigation = Pick<
+  NativeStackNavigationProp<RootStackParamList>,
+  'canGoBack' | 'goBack' | 'dispatch'
+>;
 
 type EntityRouteExtraParams<RouteName extends EntityRouteName> = Omit<
   RootStackParamList[RouteName],
@@ -63,4 +68,25 @@ export function safeNavigateEntity<RouteName extends EntityRouteName>(
   ) => void;
   navigateWithParams(routeName, routeParams);
   return true;
+}
+
+export function safeGoBackFromDetail(navigation: DetailBackNavigation): void {
+  if (typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
+    navigation.goBack();
+    return;
+  }
+
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [
+        {
+          name: 'MainTabs',
+          params: {
+            screen: 'Matches',
+          },
+        },
+      ],
+    }),
+  );
 }

@@ -9,7 +9,11 @@ import { getPlayerPrefetchStrategies } from '@data/prefetch/entityPrefetchOrches
 import { usePrefetchOnMount } from '@data/prefetch/usePrefetchOnMount';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
 import type { RootStackParamList } from '@ui/app/navigation/types';
-import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import {
+  safeGoBackFromDetail,
+  safeNavigateEntity,
+  sanitizeNumericEntityId,
+} from '@ui/app/navigation/routeParams';
 import { PlayerDetailsScreenView } from '@ui/features/players/components/PlayerDetailsScreenView';
 import type { PlayerTabType } from '@ui/features/players/components/PlayerTabs';
 import { usePlayerDetailsScreenModel } from '@ui/features/players/hooks/usePlayerDetailsScreenModel';
@@ -84,7 +88,7 @@ export function PlayerDetailsScreen() {
         : null;
 
     const handleBack = useCallback(() => {
-        navigation.goBack();
+        safeGoBackFromDetail(navigation);
     }, [navigation]);
     const handlePressMatch = useCallback((fixtureId: string) => {
         safeNavigateEntity(navigation, 'MatchDetails', fixtureId);

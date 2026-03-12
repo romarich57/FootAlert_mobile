@@ -1,7 +1,9 @@
 import {
+  safeGoBackFromDetail,
   safeNavigateEntity,
   sanitizeNumericEntityId,
 } from '@ui/app/navigation/routeParams';
+import { CommonActions } from '@react-navigation/native';
 
 describe('routeParams', () => {
   it('accepts strict numeric ids', () => {
@@ -60,5 +62,47 @@ describe('routeParams', () => {
       competitionId: '39',
       competition,
     });
+  });
+
+  it('uses goBack when navigation history is available', () => {
+    const goBack = jest.fn();
+    const dispatch = jest.fn();
+    const navigation = {
+      canGoBack: () => true,
+      goBack,
+      dispatch,
+    } as never;
+
+    safeGoBackFromDetail(navigation);
+
+    expect(goBack).toHaveBeenCalledTimes(1);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('resets to MainTabs > Matches when no back history is available', () => {
+    const goBack = jest.fn();
+    const dispatch = jest.fn();
+    const navigation = {
+      canGoBack: () => false,
+      goBack,
+      dispatch,
+    } as never;
+
+    safeGoBackFromDetail(navigation);
+
+    expect(goBack).not.toHaveBeenCalled();
+    expect(dispatch).toHaveBeenCalledWith(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'MainTabs',
+            params: {
+              screen: 'Matches',
+            },
+          },
+        ],
+      }),
+    );
   });
 });

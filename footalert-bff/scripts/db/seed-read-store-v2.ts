@@ -37,7 +37,7 @@ import { fetchTeamFullPayload } from '../../src/routes/teams/fullService.js';
 const SEED_TIMEZONE = 'Europe/Paris';
 
 /** Compétitions à seeder — top 5 ligues européennes + Ligue des Champions + Europa League */
-const SEED_COMPETITION_IDS = ['39', '140', '135', '78', '61', '2', '3'];
+const SEED_COMPETITION_IDS = ['39'];
 
 /** Nombre max d'équipes à seeder par compétition */
 const MAX_TEAMS_PER_COMPETITION = 20;

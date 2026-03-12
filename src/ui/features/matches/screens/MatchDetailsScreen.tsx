@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getMatchPrefetchStrategies } from '@data/prefetch/entityPrefetchOrchestrator';
 import { usePrefetchOnMount } from '@data/prefetch/usePrefetchOnMount';
 import { useAppTheme } from '@ui/app/providers/ThemeProvider';
+import { safeGoBackFromDetail } from '@ui/app/navigation/routeParams';
 import { MatchDetailsHeader } from '@ui/features/matches/details/components/MatchDetailsHeader';
 import { MatchDetailsTabContent } from '@ui/features/matches/details/components/MatchDetailsTabContent';
 import { MatchDetailsTabs } from '@ui/features/matches/details/components/MatchDetailsTabs';
@@ -190,7 +191,7 @@ export function MatchDetailsScreen() {
           statusLabel={model.statusLabel}
           kickoffLabel={model.kickoffLabel}
           countdownLabel={model.countdownLabel}
-          onBack={() => model.navigation.goBack()}
+          onBack={() => safeGoBackFromDetail(model.navigation)}
         />
       </View>
 

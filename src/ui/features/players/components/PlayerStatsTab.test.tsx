@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { PlayerStatsTab } from '@ui/features/players/components/PlayerStatsTab';
 import type { PlayerSeasonStats } from '@ui/features/players/types/players.types';
@@ -65,7 +65,7 @@ const competitions: TeamCompetitionOption[] = [
 ];
 
 describe('PlayerStatsTab', () => {
-  it('renders competition season selector and forwards selected option', () => {
+  it('renders competition season selector and forwards selected option', async () => {
     const onSelectLeagueSeason = jest.fn();
 
     renderWithAppProviders(
@@ -84,6 +84,8 @@ describe('PlayerStatsTab', () => {
     fireEvent.press(screen.getByTestId('team-competition-season-trigger'));
     fireEvent.press(screen.getByTestId('team-competition-season-option-39-2024'));
 
-    expect(onSelectLeagueSeason).toHaveBeenCalledWith('39', 2024);
+    await waitFor(() => {
+      expect(onSelectLeagueSeason).toHaveBeenCalledWith('39', 2024);
+    });
   });
 });

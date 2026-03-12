@@ -44,7 +44,16 @@ function selectPlayerOverviewFromFull(
 
   const dto = payload.details.response[0] ?? null;
   if (!dto) {
-    throw new Error('Player not found');
+    return {
+      profile: null,
+      characteristics: null,
+      positions: null,
+      seasonStats: null,
+      seasonStatsDataset: null,
+      profileCompetitionStats: null,
+      profileTrophiesByClub: [],
+      trophies,
+    };
   }
 
   const seasonStatsDataset = mapPlayerDetailsToSeasonStatsDataset(dto, season);

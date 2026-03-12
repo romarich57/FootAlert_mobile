@@ -9,6 +9,7 @@ import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 import type { PlayerFullPayload } from './playerFullQuery';
+import { hasPlayerFullIdentity } from './playerFullPayload';
 
 /** Durée max en ms avant de considérer le cache player stale — aligné sur PLAYER_POLICY BFF (12h). */
 const PLAYER_FULL_MAX_AGE_MS = 12 * 60 * 60_000;
@@ -35,7 +36,7 @@ export function usePlayerLocalFirst({
   const fetchFn = useCallback(
     async (signal?: AbortSignal) => {
       const payload = await fetchPlayerFull(playerId, season, signal);
-      if (!payload) {
+      if (!payload || !hasPlayerFullIdentity(payload)) {
         throw new Error('Player not found');
       }
 

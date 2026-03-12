@@ -417,4 +417,57 @@ describe('player full hooks', () => {
 
     queryClient.clear();
   });
+
+  it('surfaces a query error when the full payload has no resolvable player identity', async () => {
+    appEnv.mobileEnableBffPlayerFull = true;
+    appEnv.mobileEnablePlayerOverviewAggregate = false;
+    appEnv.mobileEnablePlayerStatsCatalogAggregate = false;
+    appEnv.mobileEnableBffPlayerAggregates = false;
+
+    jest.spyOn(playersApi, 'fetchPlayerFull').mockResolvedValue({
+      details: {
+        response: [],
+      },
+      seasons: {
+        response: [],
+      },
+      trophies: {
+        response: [],
+      },
+      career: {
+        response: {
+          seasons: [],
+          teams: [],
+        },
+      },
+      overview: {
+        response: null,
+      },
+      statsCatalog: {
+        response: null,
+      },
+      matches: {
+        response: [],
+      },
+    });
+
+    const { wrapper, queryClient } = createWrapper();
+    const { result } = renderHook(
+      () => ({
+        overview: usePlayerOverview('278', 2025),
+        statsCatalog: usePlayerStatsCatalog('278', true, 2025),
+      }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.overview.isError).toBe(true);
+      expect(result.current.statsCatalog.isError).toBe(true);
+    }, { timeout: 5000 });
+
+    expect(result.current.overview.profile).toBeNull();
+    expect(result.current.statsCatalog.competitions).toEqual([]);
+
+    queryClient.clear();
+  });
 });

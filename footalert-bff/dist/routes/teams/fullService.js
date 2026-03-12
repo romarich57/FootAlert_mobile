@@ -1,4 +1,5 @@
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
+import { buildFreshnessMeta, freshnessHints, } from '../../lib/freshnessMeta.js';
 import { buildTeamAdvancedStatsPayload, computeLeagueAdvancedTeamStats, } from './advancedStats.js';
 import { toNumericId } from './helpers.js';
 import { fetchOverviewFixtures, fetchOverviewPlayers, fetchOverviewStandings, fetchTeamOverviewCorePayload, fetchTeamOverviewLeadersPayload, parseOverviewHistorySeasons, } from './overview.js';
@@ -285,6 +286,20 @@ export async function fetchTeamFullPayload(params) {
     ]);
     const [overview, overviewLeaders, standings, matches, statistics, advancedStats, statsPlayers, squad, transfers, trophies,] = secondaryResults;
     return {
+        _meta: buildFreshnessMeta({
+            details: freshnessHints.static,
+            leagues: freshnessHints.static,
+            trophies: freshnessHints.static,
+            squad: freshnessHints.postMatch,
+            overview: freshnessHints.postMatch,
+            overviewLeaders: freshnessHints.postMatch,
+            standings: freshnessHints.postMatch,
+            matches: freshnessHints.postMatch,
+            statistics: freshnessHints.postMatch,
+            statsPlayers: freshnessHints.postMatch,
+            advancedStats: freshnessHints.postMatch,
+            transfers: freshnessHints.weekly,
+        }),
         response: {
             details,
             leagues,

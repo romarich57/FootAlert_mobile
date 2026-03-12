@@ -3,17 +3,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useFollowedPlayersCards } from '@ui/features/follows/hooks/useFollowedPlayersCards';
-import { fetchPlayerSeasonStats } from '@data/endpoints/followsApi';
+import { fetchFollowedPlayerCards } from '@data/endpoints/followsApi';
 
 jest.mock('@data/endpoints/followsApi', () => ({
-  fetchPlayerSeasonStats: jest.fn(async () => null),
-  searchTeamsByName: jest.fn(async () => []),
-  searchPlayersByName: jest.fn(async () => []),
-  fetchNextFixtureForTeam: jest.fn(async () => null),
-  fetchTeamById: jest.fn(async () => null),
+  fetchFollowedPlayerCards: jest.fn(async () => []),
 }));
 
-const mockedFetchPlayerSeasonStats = jest.mocked(fetchPlayerSeasonStats);
+const mockedFetchFollowedPlayerCards = jest.mocked(fetchFollowedPlayerCards);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -40,36 +36,23 @@ describe('useFollowedPlayersCards', () => {
     });
 
     expect(result.current.fetchStatus).toBe('idle');
-    expect(mockedFetchPlayerSeasonStats).not.toHaveBeenCalled();
+    expect(mockedFetchFollowedPlayerCards).not.toHaveBeenCalled();
   });
 
   it('hydrates cards from API', async () => {
-    mockedFetchPlayerSeasonStats.mockResolvedValueOnce({
-      player: {
-        id: 154,
-        name: 'Cristiano Ronaldo',
-        photo: 'cr7.png',
+    mockedFetchFollowedPlayerCards.mockResolvedValueOnce([
+      {
+        playerId: '154',
+        playerName: 'Cristiano Ronaldo',
+        playerPhoto: 'cr7.png',
+        position: 'Attacker',
+        teamName: 'Al-Nassr',
+        teamLogo: 'nassr.png',
+        leagueName: 'Saudi League',
+        goals: 24,
+        assists: 8,
       },
-      statistics: [
-        {
-          team: {
-            name: 'Al-Nassr',
-            logo: 'nassr.png',
-          },
-          league: {
-            name: 'Saudi League',
-            season: 2025,
-          },
-          games: {
-            position: 'Attacker',
-          },
-          goals: {
-            total: 24,
-            assists: 8,
-          },
-        },
-      ],
-    });
+    ]);
 
     const { result } = renderHook(() => useFollowedPlayersCards({ playerIds: ['154'] }), {
       wrapper: createWrapper(),
@@ -79,6 +62,6 @@ describe('useFollowedPlayersCards', () => {
       expect(result.current.data?.[0].playerName).toBe('Cristiano Ronaldo');
     });
 
-    expect(mockedFetchPlayerSeasonStats).toHaveBeenCalledTimes(1);
+    expect(mockedFetchFollowedPlayerCards).toHaveBeenCalledTimes(1);
   });
 });

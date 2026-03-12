@@ -6,6 +6,7 @@ import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
 import { usePlayerLocalFirst } from './usePlayerLocalFirst';
+import { hasPlayerFullIdentity } from './playerFullPayload';
 
 export type PlayerFullQueryKey = ReturnType<typeof queryKeys.players.full>;
 
@@ -26,7 +27,7 @@ export async function fetchPlayerFullQuery(
   const [, , playerId, season] = context.queryKey;
   const payload = await fetchPlayerFull(playerId, season, context.signal);
 
-  if (!payload) {
+  if (!payload || !hasPlayerFullIdentity(payload)) {
     throw new Error('Player not found');
   }
 
@@ -49,23 +50,24 @@ export function usePlayerFullQuery(
     season,
     enabled: useSqliteLocalFirst && enabled,
   });
+  const isLocalFirstActive = localFirstQuery.isFullEnabled;
 
   const networkQuery = useQuery<PlayerFullPayload, Error>({
     queryKey: getPlayerFullQueryKey(playerId, season),
     queryFn: async ({ signal }) => {
       const payload = await fetchPlayerFull(playerId, season, signal);
-      if (!payload) {
+      if (!payload || !hasPlayerFullIdentity(payload)) {
         throw new Error('Player not found');
       }
 
       return payload;
     },
-    enabled: !useSqliteLocalFirst && fullEnabled,
+    enabled: !isLocalFirstActive && fullEnabled,
     placeholderData: previousData => previousData,
     ...featureQueryOptions.players.full,
   });
 
-  if (useSqliteLocalFirst) {
+  if (isLocalFirstActive) {
     return localFirstQuery;
   }
 

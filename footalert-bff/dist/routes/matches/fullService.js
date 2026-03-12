@@ -1,6 +1,7 @@
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
 import { env } from '../../config/env.js';
 import { buildCanonicalCacheKey, withCache, withCacheStaleWhileRevalidate, } from '../../lib/cache.js';
+import { buildFreshnessMeta, freshnessHints, } from '../../lib/freshnessMeta.js';
 import { buildOverviewLeadersPayload } from '../teams/overview.fetchers.js';
 import { fetchOverviewFixtures as fetchTeamOverviewFixtures, fetchOverviewPlayers, fetchOverviewStandings, } from '../teams/overview.js';
 import { filterInjuriesForMatch } from './absences.js';
@@ -222,7 +223,26 @@ export async function buildMatchFullResponse(matchId, timezone) {
             context.homeTeamId !== null ? fetchPlayersStats(matchId, context.homeTeamId) : [],
             context.awayTeamId !== null ? fetchPlayersStats(matchId, context.awayTeamId) : [],
         ]);
+        const isLive = lifecycleState === 'live';
+        const isFinished = lifecycleState === 'finished';
+        const fixtureHint = isFinished ? freshnessHints.static : freshnessHints.live;
+        const matchDataHint = isLive ? freshnessHints.live : isFinished ? freshnessHints.static : freshnessHints.postMatch;
         return {
+            _meta: buildFreshnessMeta({
+                fixture: fixtureHint,
+                events: matchDataHint,
+                statistics: matchDataHint,
+                lineups: isFinished ? freshnessHints.static : freshnessHints.postMatch,
+                playersStats: matchDataHint,
+                predictions: freshnessHints.static,
+                absences: freshnessHints.postMatch,
+                headToHead: freshnessHints.static,
+                standings: freshnessHints.postMatch,
+                homeRecentResults: freshnessHints.postMatch,
+                awayRecentResults: freshnessHints.postMatch,
+                homeLeaders: freshnessHints.postMatch,
+                awayLeaders: freshnessHints.postMatch,
+            }),
             fixture,
             lifecycleState,
             context: {

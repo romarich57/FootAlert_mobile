@@ -1,6 +1,7 @@
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
 import { env } from '../../config/env.js';
 import { buildCanonicalCacheKey, withCache, withCacheStaleWhileRevalidate, } from '../../lib/cache.js';
+import { buildFreshnessMeta, freshnessHints, } from '../../lib/freshnessMeta.js';
 import { mapWithConcurrency } from '../../lib/concurrency/mapWithConcurrency.js';
 import { buildCompetitionBracket } from './bracketMapper.js';
 import { COMPETITION_TRANSFERS_MAX_CONCURRENCY, } from './schemas.js';
@@ -235,6 +236,15 @@ export async function buildCompetitionFullResponse(competitionId, requestedSeaso
             shouldLoadAnalytics ? buildCompetitionTeamStatsResponse(competitionId, season) : null,
         ]);
         return {
+            _meta: buildFreshnessMeta({
+                competition: freshnessHints.static,
+                standings: freshnessHints.postMatch,
+                matches: freshnessHints.postMatch,
+                bracket: freshnessHints.postMatch,
+                playerStats: freshnessHints.postMatch,
+                teamStats: freshnessHints.postMatch,
+                transfers: freshnessHints.weekly,
+            }),
             competition,
             competitionKind,
             season,

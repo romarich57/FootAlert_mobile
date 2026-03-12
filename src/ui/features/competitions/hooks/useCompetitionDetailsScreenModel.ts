@@ -5,7 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
 import type { RootStackParamList } from '@ui/app/navigation/types';
-import { safeNavigateEntity, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import {
+  safeGoBackFromDetail,
+  safeNavigateEntity,
+  sanitizeNumericEntityId,
+} from '@ui/app/navigation/routeParams';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { fetchLeagueById } from '@data/endpoints/competitionsApi';
@@ -188,7 +192,7 @@ export function useCompetitionDetailsScreenModel() {
   }, [activeTab, tabs]);
 
   const handleBack = useCallback(() => {
-    navigation.goBack();
+    safeGoBackFromDetail(navigation);
   }, [navigation]);
 
   const handleToggleFollow = useCallback(() => {

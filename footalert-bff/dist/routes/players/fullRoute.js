@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { PLAYER_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
 import { parseOrThrow } from '../../lib/validation.js';
@@ -16,8 +17,8 @@ export async function registerPlayerFullRoute(app) {
         });
         const result = await readThroughSnapshot({
             cacheKey: `player_full:${params.id}:${scopeKey}`,
-            staleAfterMs: env.cacheTtl.players,
-            expiresAfterMs: env.cacheTtl.players * 3,
+            staleAfterMs: PLAYER_POLICY.freshMs,
+            expiresAfterMs: PLAYER_POLICY.staleMs,
             logger: request.log,
             getSnapshot: () => readStore.getEntitySnapshot({
                 entityKind: 'player_full',

@@ -3,15 +3,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useFollowedTeamsCards } from '@ui/features/follows/hooks/useFollowedTeamsCards';
-import { fetchNextFixtureForTeam, fetchTeamById } from '@data/endpoints/followsApi';
+import { fetchFollowedTeamCards } from '@data/endpoints/followsApi';
 
 jest.mock('@data/endpoints/followsApi', () => ({
-  fetchNextFixtureForTeam: jest.fn(async () => null),
-  fetchTeamById: jest.fn(async () => null),
+  fetchFollowedTeamCards: jest.fn(async () => []),
 }));
 
-const mockedFetchNextFixtureForTeam = jest.mocked(fetchNextFixtureForTeam);
-const mockedFetchTeamById = jest.mocked(fetchTeamById);
+const mockedFetchFollowedTeamCards = jest.mocked(fetchFollowedTeamCards);
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -43,21 +41,23 @@ describe('useFollowedTeamsCards', () => {
     );
 
     expect(result.current.fetchStatus).toBe('idle');
-    expect(mockedFetchTeamById).not.toHaveBeenCalled();
-    expect(mockedFetchNextFixtureForTeam).not.toHaveBeenCalled();
+    expect(mockedFetchFollowedTeamCards).not.toHaveBeenCalled();
   });
 
   it('hydrates cards from API', async () => {
-    mockedFetchTeamById.mockResolvedValueOnce({
-      team: { id: 529, name: 'Barcelona', logo: 'barca.png' },
-    });
-    mockedFetchNextFixtureForTeam.mockResolvedValueOnce({
-      fixture: { id: 90, date: '2026-03-20T20:00:00+00:00' },
-      teams: {
-        home: { id: 529, name: 'Barcelona', logo: 'barca.png' },
-        away: { id: 541, name: 'Real Madrid', logo: 'rm.png' },
+    mockedFetchFollowedTeamCards.mockResolvedValueOnce([
+      {
+        teamId: '529',
+        teamName: 'Barcelona',
+        teamLogo: 'barca.png',
+        nextMatch: {
+          fixtureId: '90',
+          opponentTeamName: 'Real Madrid',
+          opponentTeamLogo: 'rm.png',
+          startDate: '2026-03-20T20:00:00+00:00',
+        },
       },
-    });
+    ]);
 
     const { result } = renderHook(
       () =>
@@ -72,7 +72,6 @@ describe('useFollowedTeamsCards', () => {
       expect(result.current.data?.[0].teamName).toBe('Barcelona');
     });
 
-    expect(mockedFetchTeamById).toHaveBeenCalledTimes(1);
-    expect(mockedFetchNextFixtureForTeam).toHaveBeenCalledTimes(1);
+    expect(mockedFetchFollowedTeamCards).toHaveBeenCalledTimes(1);
   });
 });

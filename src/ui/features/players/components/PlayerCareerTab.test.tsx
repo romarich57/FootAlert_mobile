@@ -6,7 +6,7 @@ import type {
   PlayerCareerSeason,
   PlayerCareerTeam,
 } from '@ui/features/players/types/players.types';
-import '@ui/shared/i18n';
+import i18n from '@ui/shared/i18n';
 import { renderWithAppProviders } from '@ui/shared/testing/renderWithAppProviders';
 
 const seasons: PlayerCareerSeason[] = [
@@ -71,19 +71,19 @@ describe('PlayerCareerTab', () => {
       />,
     );
 
-    expect(screen.getByText('Carrière professionnelle')).toBeTruthy();
+    expect(screen.getByText(i18n.t('playerDetails.career.labels.professionalCareer'))).toBeTruthy();
     expect(screen.getByText('2025/2026')).toBeTruthy();
     expect(screen.getByText(/7[,.]8/)).toBeTruthy();
 
-    fireEvent.press(screen.getByText('Équipe'));
+    fireEvent.press(screen.getByText(i18n.t('playerDetails.career.tabs.team')));
 
-    expect(screen.getByText('Équipe nationale')).toBeTruthy();
+    expect(screen.getByText(i18n.t('playerDetails.career.labels.nationalTeam'))).toBeTruthy();
     expect(screen.getByText('2023 - 2025')).toBeTruthy();
     expect(screen.getByText('2003 - 2025')).toBeTruthy();
-    expect(screen.getByText('MATCHS JOUÉS')).toBeTruthy();
-    expect(screen.getByText('BUTS')).toBeTruthy();
+    expect(screen.getByText(i18n.t('playerDetails.career.labels.matchesPlayed'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('playerDetails.career.labels.goals'))).toBeTruthy();
 
-    fireEvent.press(screen.getByText('Saison'));
+    fireEvent.press(screen.getByText(i18n.t('playerDetails.career.tabs.season')));
     expect(screen.getByText('2025/2026')).toBeTruthy();
   });
 
@@ -129,7 +129,7 @@ describe('PlayerCareerTab', () => {
       />,
     );
 
-    fireEvent.press(screen.getByText('Équipe'));
+    fireEvent.press(screen.getByText(i18n.t('playerDetails.career.tabs.team')));
 
     const renderedTree = JSON.stringify(toJSON());
     const longCycleIndex = renderedTree.indexOf('Long Cycle FC');

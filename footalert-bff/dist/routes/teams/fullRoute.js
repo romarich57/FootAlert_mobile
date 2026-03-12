@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { TEAM_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
 import { parseOrThrow } from '../../lib/validation.js';
@@ -19,8 +20,8 @@ export async function registerTeamFullRoute(app) {
         });
         const result = await readThroughSnapshot({
             cacheKey: `team_full:${params.id}:${scopeKey}`,
-            staleAfterMs: env.cacheTtl.teams,
-            expiresAfterMs: env.cacheTtl.teams * 3,
+            staleAfterMs: TEAM_POLICY.freshMs,
+            expiresAfterMs: TEAM_POLICY.staleMs,
             logger: request.log,
             getSnapshot: () => readStore.getEntitySnapshot({
                 entityKind: 'team_full',

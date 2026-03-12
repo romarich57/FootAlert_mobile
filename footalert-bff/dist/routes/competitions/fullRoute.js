@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { COMPETITION_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
 import { parseOrThrow } from '../../lib/validation.js';
@@ -29,8 +30,8 @@ export function registerCompetitionFullRoute(app) {
         reply.header('Cache-Control', CACHE_CONTROL_SHORT);
         const result = await readThroughSnapshot({
             cacheKey: `competition_full:${params.id}:${scopeKey}`,
-            staleAfterMs: env.cacheTtl.competitions,
-            expiresAfterMs: env.cacheTtl.competitions * 3,
+            staleAfterMs: COMPETITION_POLICY.freshMs,
+            expiresAfterMs: COMPETITION_POLICY.staleMs,
             logger: request.log,
             getSnapshot: () => readStore.getEntitySnapshot({
                 entityKind: 'competition_full',

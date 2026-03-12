@@ -26,6 +26,7 @@ function createWrapper() {
 
 describe('usePlayerMatches', () => {
   const initialFlag = appEnv.mobileEnableBffPlayerAggregates;
+  const initialFullFlag = appEnv.mobileEnableBffPlayerFull;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -33,10 +34,12 @@ describe('usePlayerMatches', () => {
 
   afterAll(() => {
     appEnv.mobileEnableBffPlayerAggregates = initialFlag;
+    appEnv.mobileEnableBffPlayerFull = initialFullFlag;
   });
 
   it('uses aggregated endpoint when feature flag is enabled', async () => {
     appEnv.mobileEnableBffPlayerAggregates = true;
+    appEnv.mobileEnableBffPlayerFull = false;
 
     jest.spyOn(playersApi, 'fetchPlayerMatchesAggregate').mockResolvedValue([
       {
@@ -92,6 +95,7 @@ describe('usePlayerMatches', () => {
 
   it('falls back to legacy team fixtures strategy when feature flag is disabled', async () => {
     appEnv.mobileEnableBffPlayerAggregates = false;
+    appEnv.mobileEnableBffPlayerFull = false;
 
     jest.spyOn(playersApi, 'fetchTeamFixtures').mockResolvedValue([
       {

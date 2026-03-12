@@ -8,7 +8,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 
 import type { RootStackParamList } from '@ui/app/navigation/types';
-import { sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
+import { safeGoBackFromDetail, sanitizeNumericEntityId } from '@ui/app/navigation/routeParams';
 import {
   areSelectionsEqual,
   isLeagueCompetition,
@@ -539,6 +539,6 @@ export function useTeamDetailsScreenModel() {
     isNotificationModalOpen,
     openNotificationModal,
     closeNotificationModal,
-    onBack: () => navigation.goBack(),
+    onBack: () => safeGoBackFromDetail(navigation),
   };
 }

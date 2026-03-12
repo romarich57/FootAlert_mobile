@@ -26,6 +26,7 @@ function createWrapper() {
 
 describe('usePlayerStatsCatalog', () => {
   const initialFlag = appEnv.mobileEnablePlayerStatsCatalogAggregate;
+  const initialFullFlag = appEnv.mobileEnableBffPlayerFull;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -33,10 +34,12 @@ describe('usePlayerStatsCatalog', () => {
 
   afterAll(() => {
     appEnv.mobileEnablePlayerStatsCatalogAggregate = initialFlag;
+    appEnv.mobileEnableBffPlayerFull = initialFullFlag;
   });
 
   it('uses the aggregated stats catalog endpoint when the feature flag is enabled', async () => {
     appEnv.mobileEnablePlayerStatsCatalogAggregate = true;
+    appEnv.mobileEnableBffPlayerFull = false;
 
     const aggregateSpy = jest.spyOn(playersApi, 'fetchPlayerStatsCatalog').mockResolvedValue({
       competitions: [

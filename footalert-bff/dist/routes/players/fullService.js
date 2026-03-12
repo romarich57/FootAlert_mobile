@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import { apiFootballGet } from '../../lib/apiFootballClient.js';
 import { buildCanonicalCacheKey, withCache } from '../../lib/cache.js';
+import { buildFreshnessMeta, freshnessHints, } from '../../lib/freshnessMeta.js';
 import { fetchPlayerOverview, fetchPlayerStatsCatalog } from './aggregates.js';
 import { fetchPlayerDetailForSeason, fetchPlayerSeasons, fetchPlayerTrophies } from './aggregates/playerApi.js';
 import { fetchPlayerCareer } from './careerService.js';
@@ -94,6 +95,15 @@ export async function fetchPlayerFullPayload(params) {
         : '';
     const matches = await fetchPlayerMatchesPayload(params.playerId, teamId || null, params.season);
     return {
+        _meta: buildFreshnessMeta({
+            details: freshnessHints.static,
+            seasons: freshnessHints.static,
+            trophies: freshnessHints.static,
+            career: freshnessHints.static,
+            overview: freshnessHints.postMatch,
+            statsCatalog: freshnessHints.static,
+            matches: freshnessHints.postMatch,
+        }),
         response: {
             details: resolveSettledValue(details, { response: [] }),
             seasons: resolveSettledValue(seasons, { response: [] }),
