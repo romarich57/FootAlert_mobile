@@ -731,8 +731,9 @@ export async function apiFootballGet<T>(
           (typeof rawErrors === 'object' && !Array.isArray(rawErrors) && Object.keys(rawErrors).length > 0));
 
       if (hasApiError) {
+        console.error("DEBUG API FOOTBALL ERROR:", rawErrors);
         const errorMessage = JSON.stringify(rawErrors);
-        const isRateLimit = errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('requests maximum');
+        const isRateLimit = errorMessage.toLowerCase().includes('ratelimit') || errorMessage.toLowerCase().includes('limit') || errorMessage.toLowerCase().includes('too many requests');
 
         recordCircuitFailure(circuitFamily, isRateLimit ? 429 : 403);
 
