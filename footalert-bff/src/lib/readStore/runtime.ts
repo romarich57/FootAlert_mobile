@@ -2,6 +2,7 @@ import type {
   SnapshotRecord,
   SnapshotRefreshTask,
   SnapshotRefreshTaskInput,
+  ReadStoreStatusSnapshot,
   SnapshotStore,
 } from './snapshotStore.js';
 import { createSnapshotStore } from './snapshotStore.js';
@@ -111,6 +112,12 @@ export type ReadStore = {
     nextAttemptAt?: Date;
   }) => Promise<void>;
   countRefreshBacklog: () => Promise<SnapshotRefreshBacklog>;
+  upsertWorkerHeartbeat: (input: {
+    workerId: string;
+    seenAt: Date;
+    metadata?: Record<string, unknown> | null;
+  }) => Promise<void>;
+  getStatusSnapshot: (now?: Date) => Promise<ReadStoreStatusSnapshot>;
   deleteExpiredSnapshots: (now?: Date) => Promise<number>;
   deleteStaleHeartbeats: (staleBefore: Date) => Promise<number>;
   close: () => Promise<void>;
@@ -321,6 +328,12 @@ function createReadStore(baseStore: SnapshotStore, backend: 'memory' | 'postgres
     },
     async countRefreshBacklog(): Promise<SnapshotRefreshBacklog> {
       return baseStore.countRefreshBacklog();
+    },
+    async upsertWorkerHeartbeat(input): Promise<void> {
+      await baseStore.upsertWorkerHeartbeat(input);
+    },
+    async getStatusSnapshot(now?: Date): Promise<ReadStoreStatusSnapshot> {
+      return baseStore.getStatusSnapshot(now ?? new Date());
     },
     async deleteExpiredSnapshots(now?: Date): Promise<number> {
       return baseStore.deleteExpiredSnapshots(now ?? new Date());

@@ -4,7 +4,6 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { mapStandingsToTeamData } from '@data/mappers/teamsMapper';
 import { fetchTeamStandingsData } from '@data/teams/teamQueryData';
 import {
-  doesTeamFullSelectionMatch,
   useTeamFull,
 } from '@ui/features/teams/hooks/useTeamFull';
 import type { TeamStandingsData } from '@ui/features/teams/types/teams.types';
@@ -35,8 +34,7 @@ export function useTeamStandings({
   });
 
   const canUseFullPayload =
-    teamFullQuery.isFullEnabled &&
-    doesTeamFullSelectionMatch(teamFullQuery.data, leagueId, season);
+    teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
 
   const standaloneQuery = useQuery<TeamStandingsData>({
     queryKey: queryKeys.teams.standings(teamId, leagueId, season),

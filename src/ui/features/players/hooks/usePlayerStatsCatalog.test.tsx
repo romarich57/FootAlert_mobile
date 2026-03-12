@@ -37,33 +37,65 @@ describe('usePlayerStatsCatalog', () => {
     appEnv.mobileEnableBffPlayerFull = initialFullFlag;
   });
 
-  it('uses the aggregated stats catalog endpoint when the feature flag is enabled', async () => {
+  it('uses player full stats catalog as the unique source and skips legacy catalog endpoints', async () => {
     appEnv.mobileEnablePlayerStatsCatalogAggregate = true;
-    appEnv.mobileEnableBffPlayerFull = false;
+    appEnv.mobileEnableBffPlayerFull = true;
 
-    const aggregateSpy = jest.spyOn(playersApi, 'fetchPlayerStatsCatalog').mockResolvedValue({
-      competitions: [
-        {
-          leagueId: '39',
-          leagueName: 'Premier League',
-          leagueLogo: 'pl.png',
-          type: null,
-          country: null,
-          seasons: [2025, 2024],
-          currentSeason: 2025,
-        },
-      ],
-      defaultSelection: {
-        leagueId: '39',
-        season: 2025,
+    const fullSpy = jest.spyOn(playersApi, 'fetchPlayerFull').mockResolvedValue({
+      details: {
+        response: [
+          {
+            player: {
+              id: 278,
+            },
+          },
+        ],
       },
-      availableSeasons: [2025, 2024],
+      seasons: {
+        response: [2025, 2024],
+      },
+      trophies: {
+        response: [],
+      },
+      career: {
+        response: {
+          seasons: [],
+          teams: [],
+        },
+      },
+      overview: {
+        response: null,
+      },
+      statsCatalog: {
+        response: {
+          competitions: [
+            {
+              leagueId: '39',
+              leagueName: 'Premier League',
+              leagueLogo: 'pl.png',
+              type: null,
+              country: null,
+              seasons: [2025, 2024],
+              currentSeason: 2025,
+            },
+          ],
+          defaultSelection: {
+            leagueId: '39',
+            season: 2025,
+          },
+          availableSeasons: [2025, 2024],
+        },
+      },
+      matches: {
+        response: [],
+      },
     });
+    const aggregateSpy = jest.spyOn(playersApi, 'fetchPlayerStatsCatalog');
     const seasonsSpy = jest.spyOn(playersApi, 'fetchPlayerSeasons');
     const detailsSpy = jest.spyOn(playersApi, 'fetchPlayerDetails');
 
     const { wrapper, queryClient } = createWrapper();
-    const { result } = renderHook(() => usePlayerStatsCatalog('278', true), {
+    const { result } = renderHook(() => usePlayerStatsCatalog('278', true, 2025), {
       wrapper,
     });
 
@@ -76,7 +108,8 @@ describe('usePlayerStatsCatalog', () => {
       leagueId: '39',
       season: 2025,
     });
-    expect(aggregateSpy).toHaveBeenCalledWith('278', expect.anything());
+    expect(fullSpy).toHaveBeenCalledWith('278', expect.anything(), expect.anything());
+    expect(aggregateSpy).not.toHaveBeenCalled();
     expect(seasonsSpy).not.toHaveBeenCalled();
     expect(detailsSpy).not.toHaveBeenCalled();
 

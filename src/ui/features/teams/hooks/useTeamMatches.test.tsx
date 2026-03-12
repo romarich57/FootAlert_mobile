@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
 import {
-  doesTeamFullSelectionMatch,
   useTeamFull,
 } from '@ui/features/teams/hooks/useTeamFull';
 import { useTeamMatches } from '@ui/features/teams/hooks/useTeamMatches';
@@ -12,12 +11,10 @@ jest.mock('@tanstack/react-query', () => ({
 
 jest.mock('@ui/features/teams/hooks/useTeamFull', () => ({
   useTeamFull: jest.fn(),
-  doesTeamFullSelectionMatch: jest.fn(),
 }));
 
 const mockedUseQuery = jest.mocked(useQuery);
 const mockedUseTeamFull = jest.mocked(useTeamFull);
-const mockedDoesTeamFullSelectionMatch = jest.mocked(doesTeamFullSelectionMatch);
 
 describe('useTeamMatches', () => {
   beforeEach(() => {
@@ -34,7 +31,6 @@ describe('useTeamMatches', () => {
       isLoading: false,
       refetch: jest.fn(async () => ({}) as never),
     } as never);
-    mockedDoesTeamFullSelectionMatch.mockReturnValue(false);
   });
 
   it('disables the query when league or season is missing', () => {
@@ -68,7 +64,7 @@ describe('useTeamMatches', () => {
     );
   });
 
-  it('uses team full payload first when the selected season matches', () => {
+  it('uses team full payload first when a canonical payload is available', () => {
     mockedUseTeamFull.mockReturnValue({
       data: {
         selection: {
@@ -121,7 +117,6 @@ describe('useTeamMatches', () => {
       isLoading: false,
       refetch: jest.fn(async () => ({}) as never),
     } as never);
-    mockedDoesTeamFullSelectionMatch.mockReturnValue(true);
 
     const result = useTeamMatches({
       teamId: '529',

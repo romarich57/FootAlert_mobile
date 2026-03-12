@@ -1,41 +1,41 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-import type { PlayerApiOverviewResponse } from '@domain/contracts/players.types';
-import { fetchPlayerDetails } from '@data/endpoints/playersApi';
 import { mapPlayerDetailsToSeasonStatsDataset } from '@data/mappers/playersMapper';
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
+
+import { type PlayerFullPayload, usePlayerFullQuery } from './playerFullQuery';
+
+function selectPlayerStatsFromFull(
+  payload: PlayerFullPayload,
+  season: number,
+) {
+  const overviewDataset = payload.overview.response?.seasonStatsDataset;
+  if (overviewDataset) {
+    return overviewDataset;
+  }
+
+  const details = payload.details.response[0] ?? null;
+  return details ? mapPlayerDetailsToSeasonStatsDataset(details, season) : null;
+}
 
 export function usePlayerStats(
   playerId: string,
   season: number,
   enabled: boolean = true,
 ) {
-  const queryClient = useQueryClient();
-  const statsQuery = useQuery({
-    queryKey: queryKeys.players.stats(playerId, season),
-    queryFn: async ({ signal }) => {
-      const cachedOverview = queryClient.getQueryData<PlayerApiOverviewResponse>(
-        queryKeys.players.overview(playerId, season),
-      );
-      if (cachedOverview?.seasonStatsDataset) {
-        return cachedOverview.seasonStatsDataset;
-      }
-
-      const dto = await fetchPlayerDetails(playerId, season, signal);
-      if (!dto) throw new Error('Player not found');
-
-      return mapPlayerDetailsToSeasonStatsDataset(dto, season);
-    },
-    enabled: enabled && !!playerId && !!season,
-    ...featureQueryOptions.players.stats,
-  });
+  const fullPlayerQuery = usePlayerFullQuery(playerId, season, enabled && !!playerId && !!season);
+  const stats = useMemo(
+    () =>
+      fullPlayerQuery.data
+        ? selectPlayerStatsFromFull(fullPlayerQuery.data as PlayerFullPayload, season)
+        : null,
+    [fullPlayerQuery.data, season],
+  );
 
   return {
-    stats: statsQuery.data ?? null,
-    isLoading: statsQuery.isLoading,
-    isError: statsQuery.isError,
-    dataUpdatedAt: statsQuery.dataUpdatedAt,
-    refetch: statsQuery.refetch,
+    stats,
+    isLoading: fullPlayerQuery.isLoading,
+    isError: fullPlayerQuery.isError,
+    dataUpdatedAt: fullPlayerQuery.dataUpdatedAt,
+    refetch: fullPlayerQuery.refetch,
   };
 }

@@ -21,7 +21,6 @@ import type {
   TeamStatsData,
 } from '@ui/features/teams/types/teams.types';
 import {
-  doesTeamFullSelectionMatch,
   useTeamFull,
   type TeamFullData,
 } from '@ui/features/teams/hooks/useTeamFull';
@@ -250,8 +249,7 @@ export function useTeamStats({
     enabled: isCoreEnabled,
   });
   const canUseFullPayload =
-    teamFullQuery.isFullEnabled &&
-    doesTeamFullSelectionMatch(teamFullQuery.data, leagueId, season);
+    teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
 
   const coreQuery = useQuery<TeamStatsCoreData>({
     queryKey: queryKeys.teams.statsCore(teamId, leagueId, season),

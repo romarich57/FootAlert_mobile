@@ -1,7 +1,46 @@
 export const COMPETITION_FULL_BASE_SEASON = 'base';
+export const TEAM_FULL_BASE_LEAGUE = 'base';
+export const TEAM_FULL_BASE_SEASON = 'base';
 
-export function buildTeamFullEntityId(teamId: string): string {
-  return teamId;
+export function buildTeamFullEntityId(
+  teamId: string,
+  leagueId?: string | null,
+  season?: number | null,
+  timezone: string = 'Europe/Paris',
+): string {
+  return [
+    teamId,
+    leagueId ?? TEAM_FULL_BASE_LEAGUE,
+    typeof season === 'number' ? season : TEAM_FULL_BASE_SEASON,
+    timezone,
+  ].join(':');
+}
+
+export function parseTeamFullEntityId(entityId: string): {
+  teamId: string;
+  leagueId: string | null;
+  season: number | null;
+  timezone: string;
+} | null {
+  const [teamId, leagueIdValue, seasonValue, ...timezoneParts] = entityId.split(':');
+  const timezone = timezoneParts.join(':');
+
+  if (!teamId || !leagueIdValue || !seasonValue || !timezone) {
+    return null;
+  }
+
+  const season =
+    seasonValue === TEAM_FULL_BASE_SEASON ? null : Number(seasonValue);
+  if (seasonValue !== TEAM_FULL_BASE_SEASON && !Number.isFinite(season)) {
+    return null;
+  }
+
+  return {
+    teamId,
+    leagueId: leagueIdValue === TEAM_FULL_BASE_LEAGUE ? null : leagueIdValue,
+    season,
+    timezone,
+  };
 }
 
 export function buildPlayerFullEntityId(playerId: string, season: number): string {

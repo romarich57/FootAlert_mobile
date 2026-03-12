@@ -127,4 +127,79 @@ describe('usePlayerDetailsScreenModel behavior', () => {
 
     expect(mockedUsePlayerCareer).toHaveBeenLastCalledWith('278', false);
   });
+
+  it('surfaces a coherent active-tab error state for matches', () => {
+    mockedUsePlayerMatches.mockReturnValue({
+      matches: [],
+      isLoading: false,
+      isError: true,
+      dataUpdatedAt: 0,
+      refetch: jest.fn(),
+    } as never);
+
+    const { result } = renderHook(() =>
+      usePlayerDetailsScreenModel({
+        playerId: '278',
+        activeTab: 'matchs',
+      }),
+    );
+
+    expect(result.current.isMatchesError).toBe(true);
+    expect(result.current.hasActiveTabError).toBe(true);
+  });
+
+  it('keeps the matches query enabled even when the overview has no resolved team yet', () => {
+    mockedUsePlayerOverview.mockReturnValue({
+      profile: {
+        id: '278',
+        name: 'Player',
+        team: { id: '', name: '', logo: null },
+        league: { id: '39', name: 'Premier League', logo: null },
+      },
+      characteristics: null,
+      positions: null,
+      seasonStats: null,
+      seasonStatsDataset: {
+        overall: {},
+        byCompetition: [],
+      },
+      profileCompetitionStats: null,
+      profileTrophiesByClub: [],
+      trophies: [],
+      isLoading: false,
+      isError: false,
+      dataUpdatedAt: 0,
+      refetch: jest.fn(),
+    } as never);
+
+    renderHook(() =>
+      usePlayerDetailsScreenModel({
+        playerId: '278',
+        activeTab: 'matchs',
+      }),
+    );
+
+    expect(mockedUsePlayerMatches).toHaveBeenLastCalledWith('278', '', expect.any(Number), true);
+  });
+
+  it('does not mark the active tab as errored when only an inactive tab failed', () => {
+    mockedUsePlayerCareer.mockReturnValue({
+      careerSeasons: [],
+      careerTeams: [],
+      isLoading: false,
+      isError: true,
+      dataUpdatedAt: 0,
+      refetch: jest.fn(),
+    } as never);
+
+    const { result } = renderHook(() =>
+      usePlayerDetailsScreenModel({
+        playerId: '278',
+        activeTab: 'profil',
+      }),
+    );
+
+    expect(result.current.isCareerError).toBe(true);
+    expect(result.current.hasActiveTabError).toBe(false);
+  });
 });

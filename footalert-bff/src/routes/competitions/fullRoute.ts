@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
+import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
 import { COMPETITION_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
@@ -14,6 +15,28 @@ const CACHE_CONTROL_SHORT = [
   `max-age=${Math.max(1, Math.floor(Math.min(env.cacheTtl.competitions, 30_000) / 1_000))}`,
   `stale-while-revalidate=${Math.max(1, Math.floor(Math.min(env.cacheTtl.competitions, 30_000) / 1_000))}`,
 ].join(', ');
+
+function validateCompetitionFullPayload(
+  payload: Awaited<ReturnType<typeof buildCompetitionFullResponse>>,
+): void {
+  if (payload.competition == null || !Number.isFinite(payload.season)) {
+    throw new ReadStoreSnapshotInvalidBffError({
+      entityKind: 'competition_full',
+      season: payload.season,
+    });
+  }
+}
+
+function isValidCompetitionFullPayload(
+  payload: Awaited<ReturnType<typeof buildCompetitionFullResponse>>,
+): boolean {
+  try {
+    validateCompetitionFullPayload(payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function registerCompetitionFullRoute(app: FastifyInstance): void {
   app.get(
@@ -43,7 +66,7 @@ export function registerCompetitionFullRoute(app: FastifyInstance): void {
         expiresAfterMs: COMPETITION_POLICY.staleMs,
         logger: request.log,
         getSnapshot: () =>
-          readStore.getEntitySnapshot({
+          readStore.getEntitySnapshot<Awaited<ReturnType<typeof buildCompetitionFullResponse>>>({
             entityKind: 'competition_full',
             entityId: params.id,
             scopeKey,
@@ -62,6 +85,8 @@ export function registerCompetitionFullRoute(app: FastifyInstance): void {
             },
           }),
         fetchFresh: () => buildCompetitionFullResponse(params.id, query.season),
+        isSnapshotPayloadValid: isValidCompetitionFullPayload,
+        validateFreshPayload: validateCompetitionFullPayload,
         queue: {
           store: readStore,
           target: {

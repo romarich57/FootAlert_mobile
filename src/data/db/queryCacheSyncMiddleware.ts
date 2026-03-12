@@ -46,7 +46,14 @@ export const defaultSyncRules: QuerySyncRule[] = [
     match: (key) => key[0] === 'teams' && key[1] === 'full',
     entityType: 'team',
     extractEntityId: (key) =>
-      typeof key[2] === 'string' ? buildTeamFullEntityId(key[2]) : null,
+      typeof key[2] === 'string' && typeof key[3] === 'string'
+        ? buildTeamFullEntityId(
+            key[2],
+            typeof key[4] === 'string' ? key[4] : null,
+            typeof key[5] === 'number' ? key[5] : null,
+            key[3],
+          )
+        : null,
   },
   {
     match: (key) => key[0] === 'players' && key[1] === 'full',

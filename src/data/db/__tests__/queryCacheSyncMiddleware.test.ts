@@ -93,7 +93,7 @@ describe('queryCacheSyncMiddleware', () => {
     );
     expect(insertCalls).toHaveLength(1);
     expect(insertCalls[0].params[0]).toBe('team');
-    expect(insertCalls[0].params[1]).toBe('42');
+    expect(insertCalls[0].params[1]).toBe('42:base:base:Europe/Paris');
   });
 
   it('écrit en SQLite pour players/full', () => {

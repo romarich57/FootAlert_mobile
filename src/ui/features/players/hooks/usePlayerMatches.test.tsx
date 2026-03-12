@@ -37,36 +37,68 @@ describe('usePlayerMatches', () => {
     appEnv.mobileEnableBffPlayerFull = initialFullFlag;
   });
 
-  it('uses aggregated endpoint when feature flag is enabled', async () => {
+  it('uses player full matches as the unique source and skips all legacy endpoints', async () => {
     appEnv.mobileEnableBffPlayerAggregates = true;
-    appEnv.mobileEnableBffPlayerFull = false;
+    appEnv.mobileEnableBffPlayerFull = true;
 
-    jest.spyOn(playersApi, 'fetchPlayerMatchesAggregate').mockResolvedValue([
-      {
-        fixtureId: '9001',
-        date: '2026-02-20T20:00:00Z',
-        playerTeamId: '40',
-        competition: { id: '39', name: 'Premier League', logo: null },
-        homeTeam: { id: '40', name: 'Team A', logo: null },
-        awayTeam: { id: '50', name: 'Team B', logo: null },
-        goalsHome: 2,
-        goalsAway: 1,
-        playerStats: {
-          minutes: 90,
-          rating: '7.8',
-          goals: 1,
-          assists: 0,
-          yellowCards: 0,
-          secondYellowCards: 0,
-          redCards: 0,
-          saves: 0,
-          penaltiesSaved: 0,
-          penaltiesMissed: 0,
-          isStarter: true,
+    const fullSpy = jest.spyOn(playersApi, 'fetchPlayerFull').mockResolvedValue({
+      details: {
+        response: [
+          {
+            player: {
+              id: 278,
+            },
+          },
+        ],
+      },
+      seasons: {
+        response: [2025],
+      },
+      trophies: {
+        response: [],
+      },
+      career: {
+        response: {
+          seasons: [],
+          teams: [],
         },
       },
-    ]);
+      overview: {
+        response: null,
+      },
+      statsCatalog: {
+        response: null,
+      },
+      matches: {
+        response: [
+          {
+            fixtureId: '9001',
+            date: '2026-02-20T20:00:00Z',
+            playerTeamId: '40',
+            competition: { id: '39', name: 'Premier League', logo: null },
+            homeTeam: { id: '40', name: 'Team A', logo: null },
+            awayTeam: { id: '50', name: 'Team B', logo: null },
+            goalsHome: 2,
+            goalsAway: 1,
+            playerStats: {
+              minutes: 90,
+              rating: '7.8',
+              goals: 1,
+              assists: 0,
+              yellowCards: 0,
+              secondYellowCards: 0,
+              redCards: 0,
+              saves: 0,
+              penaltiesSaved: 0,
+              penaltiesMissed: 0,
+              isStarter: true,
+            },
+          },
+        ],
+      },
+    });
 
+    const aggregateSpy = jest.spyOn(playersApi, 'fetchPlayerMatchesAggregate');
     const fixturesSpy = jest.spyOn(playersApi, 'fetchTeamFixtures');
     const fixtureStatsSpy = jest.spyOn(playersApi, 'fetchFixturePlayerStats');
 
@@ -80,56 +112,54 @@ describe('usePlayerMatches', () => {
     });
 
     expect(result.current.matches).toHaveLength(1);
-    expect(playersApi.fetchPlayerMatchesAggregate).toHaveBeenCalledWith(
-      '278',
-      '40',
-      2025,
-      99,
-      expect.anything(),
-    );
+    expect(fullSpy).toHaveBeenCalledWith('278', 2025, expect.anything());
+    expect(aggregateSpy).not.toHaveBeenCalled();
     expect(fixturesSpy).not.toHaveBeenCalled();
     expect(fixtureStatsSpy).not.toHaveBeenCalled();
 
     queryClient.clear();
   });
 
-  it('falls back to legacy team fixtures strategy when feature flag is disabled', async () => {
+  it('returns an empty matches list from the full payload without falling back to legacy endpoints', async () => {
     appEnv.mobileEnableBffPlayerAggregates = false;
-    appEnv.mobileEnableBffPlayerFull = false;
+    appEnv.mobileEnableBffPlayerFull = true;
 
-    jest.spyOn(playersApi, 'fetchTeamFixtures').mockResolvedValue([
-      {
-        fixture: { id: 9001, date: '2026-02-20T20:00:00Z' },
-        league: { id: 39, name: 'Premier League', logo: undefined, season: 2025 },
-        teams: {
-          home: { id: 40, name: 'Team A', logo: undefined },
-          away: { id: 50, name: 'Team B', logo: undefined },
-        },
-        goals: { home: 2, away: 1 },
-      },
-    ]);
-
-    jest.spyOn(playersApi, 'fetchFixturePlayerStats').mockResolvedValue({
-      players: [
-        {
-          team: { id: 40, name: 'Team A', logo: undefined },
-          players: [
-            {
-              player: { id: 278, name: 'Player', photo: undefined },
-              statistics: [
-                {
-                  games: { minutes: 90, rating: '7.8', substitute: false },
-                  goals: { total: 1, assists: 0 },
-                  cards: { yellow: 0, red: 0 },
-                },
-              ],
+    jest.spyOn(playersApi, 'fetchPlayerFull').mockResolvedValue({
+      details: {
+        response: [
+          {
+            player: {
+              id: 278,
             },
-          ],
+          },
+        ],
+      },
+      seasons: {
+        response: [2025],
+      },
+      trophies: {
+        response: [],
+      },
+      career: {
+        response: {
+          seasons: [],
+          teams: [],
         },
-      ],
+      },
+      overview: {
+        response: null,
+      },
+      statsCatalog: {
+        response: null,
+      },
+      matches: {
+        response: [],
+      },
     });
 
     const aggregateSpy = jest.spyOn(playersApi, 'fetchPlayerMatchesAggregate');
+    const fixturesSpy = jest.spyOn(playersApi, 'fetchTeamFixtures');
+    const fixtureStatsSpy = jest.spyOn(playersApi, 'fetchFixturePlayerStats');
 
     const { wrapper, queryClient } = createWrapper();
     const { result } = renderHook(() => usePlayerMatches('278', '40', 2025), {
@@ -140,14 +170,10 @@ describe('usePlayerMatches', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.matches).toHaveLength(1);
-    expect(playersApi.fetchTeamFixtures).toHaveBeenCalledWith('40', 2025, 99, expect.anything());
-    expect(playersApi.fetchFixturePlayerStats).toHaveBeenCalledWith(
-      '9001',
-      '40',
-      expect.anything(),
-    );
+    expect(result.current.matches).toEqual([]);
     expect(aggregateSpy).not.toHaveBeenCalled();
+    expect(fixturesSpy).not.toHaveBeenCalled();
+    expect(fixtureStatsSpy).not.toHaveBeenCalled();
 
     queryClient.clear();
   });

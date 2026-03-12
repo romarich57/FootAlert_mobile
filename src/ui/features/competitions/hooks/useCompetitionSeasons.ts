@@ -1,7 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
-import { fetchLeagueById } from '@data/endpoints/competitionsApi';
 import type { CompetitionsApiLeagueDto } from '@domain/contracts/competitions.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -20,18 +18,8 @@ export function useCompetitionSeasons(leagueId: number | undefined) {
         return null;
       }
 
-      if (appEnv.mobileEnableBffCompetitionFull) {
-        try {
-          const payload = await loadCompetitionFullPayload(queryClient, leagueId);
-          if (payload?.competition) {
-            return payload.competition;
-          }
-        } catch {
-          // Fallback legacy conservé pour les erreurs ou payloads incomplets.
-        }
-      }
-
-      return fetchLeagueById(leagueId.toString(), signal);
+      const payload = await loadCompetitionFullPayload(queryClient, leagueId);
+      return payload?.competition ?? null;
     },
     enabled: !!leagueId,
     select: dto => (dto?.seasons ?? []).sort((a, b) => b.year - a.year),

@@ -4,7 +4,6 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { mapTransfersToTeamTransfers } from '@data/mappers/teamsMapper';
 import { fetchTeamTransfersData } from '@data/teams/teamQueryData';
 import {
-  doesTeamFullSelectionMatch,
   useTeamFull,
 } from '@ui/features/teams/hooks/useTeamFull';
 import type { TeamTransfersData } from '@ui/features/teams/types/teams.types';
@@ -32,8 +31,7 @@ export function useTeamTransfers({
     enabled,
   });
   const canUseFullPayload =
-    teamFullQuery.isFullEnabled &&
-    doesTeamFullSelectionMatch(teamFullQuery.data, teamFullQuery.data?.selection.leagueId ?? null, season);
+    teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
   const fullTransfers = useMemo(
     () =>
       canUseFullPayload
@@ -56,16 +54,16 @@ export function useTeamTransfers({
   });
 
   return canUseFullPayload
-      ? {
-          ...query,
-          data: fullTransfers,
-          isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
+    ? {
+        ...query,
+        data: fullTransfers,
+        isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
         isFetching: teamFullQuery.isFetching,
         isError: teamFullQuery.isError && !teamFullQuery.data,
         isFetched: teamFullQuery.isFetched,
-          isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,
-          dataUpdatedAt: teamFullQuery.dataUpdatedAt,
-          refetch: teamFullQuery.refetch,
+        isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,
+        dataUpdatedAt: teamFullQuery.dataUpdatedAt,
+        refetch: teamFullQuery.refetch,
       } as unknown as UseQueryResult<TeamTransfersData>
     : query;
 }

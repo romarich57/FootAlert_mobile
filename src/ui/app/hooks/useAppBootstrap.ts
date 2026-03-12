@@ -5,6 +5,10 @@ import { AppState } from 'react-native';
 import { usePowerState } from 'react-native-device-info';
 
 import {
+  ApiError,
+  isNetworkRequestFailedError,
+} from '@data/api/http/client';
+import {
   buildBootstrapSnapshotKey,
   hydrateBootstrapIntoQueryCache,
   prefetchWarmEntityRefs,
@@ -44,6 +48,29 @@ export type AppBootstrapResult = {
 };
 
 const DEFAULT_BOOTSTRAP_DISCOVERY_LIMIT = 8;
+
+function trackBootstrapWarmupFailure(error: unknown): void {
+  const telemetry = getMobileTelemetry();
+
+  if (error instanceof ApiError) {
+    telemetry.addBreadcrumb('bootstrap.snapshot.remote_failed', {
+      status: error.status,
+      kind: 'http',
+    });
+    return;
+  }
+
+  if (isNetworkRequestFailedError(error)) {
+    telemetry.addBreadcrumb('bootstrap.snapshot.remote_failed', {
+      kind: 'transport',
+    });
+    return;
+  }
+
+  telemetry.trackError(error, {
+    feature: 'bootstrap.snapshot_warmup',
+  });
+}
 
 function resolveTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
@@ -222,9 +249,7 @@ export function useAppBootstrap(): AppBootstrapResult {
 
     runBootstrapWarmup()
       .catch(error => {
-        telemetry.trackError(error, {
-          feature: 'bootstrap.snapshot_warmup',
-        });
+        trackBootstrapWarmupFailure(error);
       })
       .finally(() => {
         if (!cancelled) {

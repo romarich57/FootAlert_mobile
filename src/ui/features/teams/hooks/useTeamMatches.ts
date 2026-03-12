@@ -3,7 +3,6 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { mapFixturesToTeamMatches } from '@data/mappers/teamsMapper';
 import { fetchTeamMatchesData } from '@data/teams/teamQueryData';
 import {
-  doesTeamFullSelectionMatch,
   useTeamFull,
 } from '@ui/features/teams/hooks/useTeamFull';
 import type { TeamMatchesData } from '@ui/features/teams/types/teams.types';
@@ -33,8 +32,7 @@ export function useTeamMatches({
     enabled,
   });
   const canUseFullPayload =
-    teamFullQuery.isFullEnabled &&
-    doesTeamFullSelectionMatch(teamFullQuery.data, leagueId, season);
+    teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
 
   const query = useQuery<TeamMatchesData>({
     queryKey: queryKeys.teams.matches(teamId, leagueId, season, timezone),

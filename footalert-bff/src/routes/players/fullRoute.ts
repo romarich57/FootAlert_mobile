@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
+import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
 import { PLAYER_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
@@ -8,6 +9,31 @@ import { parseOrThrow } from '../../lib/validation.js';
 
 import { fetchPlayerFullPayload } from './fullService.js';
 import { playerDetailsQuerySchema, playerIdParamsSchema } from './schemas.js';
+
+function validatePlayerFullPayload(payload: Awaited<ReturnType<typeof fetchPlayerFullPayload>>): void {
+  const response = payload.response;
+
+  if (
+    !Array.isArray(response?.details?.response)
+    || response.details.response.length === 0
+    || !Array.isArray(response?.seasons?.response)
+    || response.seasons.response.length === 0
+    || response?.overview?.response == null
+  ) {
+    throw new ReadStoreSnapshotInvalidBffError({
+      entityKind: 'player_full',
+    });
+  }
+}
+
+function isValidPlayerFullPayload(payload: Awaited<ReturnType<typeof fetchPlayerFullPayload>>): boolean {
+  try {
+    validatePlayerFullPayload(payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function registerPlayerFullRoute(app: FastifyInstance): Promise<void> {
   app.get('/v1/players/:id/full', async request => {
@@ -26,7 +52,7 @@ export async function registerPlayerFullRoute(app: FastifyInstance): Promise<voi
       expiresAfterMs: PLAYER_POLICY.staleMs,
       logger: request.log,
       getSnapshot: () =>
-        readStore.getEntitySnapshot({
+        readStore.getEntitySnapshot<Awaited<ReturnType<typeof fetchPlayerFullPayload>>>({
           entityKind: 'player_full',
           entityId: params.id,
           scopeKey,
@@ -49,6 +75,8 @@ export async function registerPlayerFullRoute(app: FastifyInstance): Promise<voi
           playerId: params.id,
           season: query.season,
         }),
+      isSnapshotPayloadValid: isValidPlayerFullPayload,
+      validateFreshPayload: validatePlayerFullPayload,
       queue: {
         store: readStore,
         target: {

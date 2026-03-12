@@ -1,12 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
-import {
-  fetchPlayerDetails,
-  fetchPlayerOverview,
-  fetchPlayerTrophies,
-} from '@data/endpoints/playersApi';
 import {
   mapPlayerDetailsToCharacteristics,
   mapPlayerDetailsToPositions,
@@ -19,8 +12,6 @@ import {
   type PlayerFullPayload,
 } from '@ui/features/players/hooks/playerFullQuery';
 import type { PlayerTrophyEntry } from '@ui/features/players/types/players.types';
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 function selectPlayerOverviewFromFull(
   payload: PlayerFullPayload,
@@ -71,14 +62,10 @@ function selectPlayerOverviewFromFull(
 }
 
 export function usePlayerOverview(playerId: string, season: number) {
-  const useFullPayload = appEnv.mobileEnableBffPlayerFull;
-  const useAggregateOverview =
-    !useFullPayload && appEnv.mobileEnablePlayerOverviewAggregate;
-
   const fullPlayerQuery = usePlayerFullQuery(
     playerId,
     season,
-    useFullPayload && !!playerId && !!season,
+    !!playerId && !!season,
   );
   const fullOverviewData = useMemo(
     () =>
@@ -87,64 +74,21 @@ export function usePlayerOverview(playerId: string, season: number) {
         : undefined,
     [fullPlayerQuery.data, season],
   );
-
-  const legacyOverviewQuery = useQuery({
-    queryKey: useAggregateOverview
-      ? queryKeys.players.overview(playerId, season)
-      : queryKeys.players.details(playerId, season),
-    queryFn: async ({ signal }) => {
-      if (useAggregateOverview) {
-        const overview = await fetchPlayerOverview(playerId, season, signal);
-        if (!overview?.profile) {
-          throw new Error('Player not found');
+  const query = {
+    ...fullPlayerQuery,
+    data: fullOverviewData as
+      | {
+          profile: ReturnType<typeof mapPlayerDetailsToProfile> | null;
+          characteristics: ReturnType<typeof mapPlayerDetailsToCharacteristics> | null;
+          positions: ReturnType<typeof mapPlayerDetailsToPositions> | null;
+          seasonStats: ReturnType<typeof mapPlayerDetailsToSeasonStatsDataset>['overall'] | null;
+          seasonStatsDataset: ReturnType<typeof mapPlayerDetailsToSeasonStatsDataset> | null;
+          profileCompetitionStats: ReturnType<typeof selectPlayerOverviewFromFull>['profileCompetitionStats'];
+          profileTrophiesByClub: ReturnType<typeof selectPlayerOverviewFromFull>['profileTrophiesByClub'];
+          trophies: PlayerTrophyEntry[];
         }
-
-        return {
-          profile: overview.profile,
-          characteristics: overview.characteristics,
-          positions: overview.positions,
-          seasonStats: overview.seasonStats ?? overview.seasonStatsDataset?.overall ?? null,
-          seasonStatsDataset: overview.seasonStatsDataset,
-          profileCompetitionStats: overview.profileCompetitionStats,
-          profileTrophiesByClub: overview.trophiesByClub ?? [],
-          trophies: [] as PlayerTrophyEntry[],
-        };
-      }
-
-      const [dto, trophiesDtos] = await Promise.all([
-        fetchPlayerDetails(playerId, season, signal),
-        fetchPlayerTrophies(playerId, signal),
-      ]);
-
-      if (!dto) {
-        throw new Error('Player not found');
-      }
-
-      const seasonStatsDataset = mapPlayerDetailsToSeasonStatsDataset(dto, season);
-
-      return {
-        profile: mapPlayerDetailsToProfile(dto, season),
-        characteristics: mapPlayerDetailsToCharacteristics(dto, season),
-        positions: mapPlayerDetailsToPositions(dto, season),
-        seasonStats: seasonStatsDataset.overall,
-        seasonStatsDataset,
-        profileCompetitionStats: null,
-        profileTrophiesByClub: [],
-        trophies: mapPlayerTrophies(trophiesDtos),
-      };
-    },
-    enabled: !useFullPayload && !!playerId && !!season,
-    staleTime: featureQueryOptions.players.overview.staleTime,
-    gcTime: featureQueryOptions.players.overview.gcTime,
-    retry: featureQueryOptions.players.overview.retry,
-  });
-
-  const query = useFullPayload
-    ? {
-        ...fullPlayerQuery,
-        data: fullOverviewData,
-      }
-    : legacyOverviewQuery;
+      | undefined,
+  };
 
   return {
     profile: query.data?.profile ?? null,

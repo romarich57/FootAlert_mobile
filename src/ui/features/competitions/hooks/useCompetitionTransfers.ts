@@ -1,7 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
-import { fetchLeagueTransfers } from '@data/endpoints/competitionsApi';
 import { mapTransfersDtoToCompetitionTransfers } from '@data/mappers/competitionsMapper';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -22,19 +20,8 @@ export function useCompetitionTransfers(
         return [];
       }
 
-      if (appEnv.mobileEnableBffCompetitionFull) {
-        try {
-          const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
-          if (payload?.transfers) {
-            return mapTransfersDtoToCompetitionTransfers(payload.transfers, season);
-          }
-        } catch {
-          // Fallback legacy conservé pour les erreurs réseau/full.
-        }
-      }
-
-      const dtos = await fetchLeagueTransfers(leagueId, season, signal);
-      return mapTransfersDtoToCompetitionTransfers(dtos, season);
+      const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
+      return mapTransfersDtoToCompetitionTransfers(payload?.transfers ?? [], season);
     },
     enabled: !!leagueId && !!season,
     ...featureQueryOptions.competitions.transfers,

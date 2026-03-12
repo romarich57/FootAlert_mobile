@@ -6,7 +6,6 @@ import {
   fetchTeamOverviewLeaders,
 } from '@data/endpoints/teamsApi';
 import {
-  doesTeamFullSelectionMatch,
   useTeamFull,
 } from '@ui/features/teams/hooks/useTeamFull';
 import type {
@@ -107,8 +106,7 @@ export function useTeamOverview({
     enabled,
   });
   const canUseFullPayload =
-    teamFullQuery.isFullEnabled &&
-    doesTeamFullSelectionMatch(teamFullQuery.data, leagueId, season);
+    teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
 
   const coreQuery = useQuery<TeamOverviewCoreData>({
     queryKey: queryKeys.teams.overview(teamId, leagueId, season, timezone, historySeasonsKey),

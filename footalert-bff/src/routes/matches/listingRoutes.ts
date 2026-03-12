@@ -1,19 +1,33 @@
 import type { FastifyInstance } from 'fastify';
 
-import { env } from '../../config/env.js';
-import { apiFootballGet } from '../../lib/apiFootballClient.js';
-import { buildCanonicalCacheKey, withCache } from '../../lib/cache.js';
+import { BOOTSTRAP_POLICY } from '../../lib/readStore/policies.js';
+import { readThroughSnapshot } from '../../lib/readStore/readThrough.js';
+import { getReadStore } from '../../lib/readStore/runtime.js';
+import { parseOrThrow } from '../../lib/validation.js';
+import {
+  BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+} from '../bootstrap/schemas.js';
+import {
+  buildBootstrapPayload,
+  buildBootstrapScopeKey,
+  type BootstrapPayload,
+} from '../bootstrap/service.js';
 import {
   PaginationCursorCodec,
   computePaginationFiltersHash,
 } from '../../lib/pagination/cursor.js';
 import { buildCursorPageInfo, sliceByOffset } from '../../lib/pagination/slice.js';
-import { parseOrThrow } from '../../lib/validation.js';
+import { env } from '../../config/env.js';
 
 import { matchesQuerySchema } from './schemas.js';
 
 const ROUTE_PATH = '/v1/matches';
 const DEFAULT_PAGINATION_LIMIT = 50;
+const CACHE_CONTROL_SHORT = [
+  'public',
+  `max-age=${Math.max(1, Math.floor(Math.min(env.cacheTtl.matches, 30_000) / 1_000))}`,
+  `stale-while-revalidate=${Math.max(1, Math.floor(Math.min(env.cacheTtl.matches, 30_000) / 1_000))}`,
+].join(', ');
 const cursorCodec = new PaginationCursorCodec(
   env.paginationCursorSecret,
   env.paginationCursorTtlMs,
@@ -23,20 +37,85 @@ type MatchesEnvelope = {
   response?: unknown[];
 } & Record<string, unknown>;
 
+function resolveSeasonFromDate(date: string): number {
+  const year = Number.parseInt(date.slice(0, 4), 10);
+  const month = Number.parseInt(date.slice(5, 7), 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) {
+    return new Date().getUTCFullYear();
+  }
+
+  return month >= 7 ? year : year - 1;
+}
+
+function toMatchesEnvelope(payload: BootstrapPayload): MatchesEnvelope {
+  return {
+    response: payload.matchesToday,
+    date: payload.date,
+    timezone: payload.timezone,
+    season: payload.season,
+    generatedAt: payload.generatedAt,
+    source: 'bootstrap_snapshot',
+  };
+}
+
 export function registerMatchesListingRoutes(app: FastifyInstance): void {
-  app.get('/v1/matches', async request => {
+  app.get('/v1/matches', async (request, reply) => {
     const query = parseOrThrow(matchesQuerySchema, request.query);
     const isCursorPagination = typeof query.limit === 'number' || typeof query.cursor === 'string';
-
-    const cacheKey = buildCanonicalCacheKey('matches:listing', {
+    const season = resolveSeasonFromDate(query.date);
+    const scopeKey = buildBootstrapScopeKey({
       date: query.date,
       timezone: query.timezone,
+      season,
+      discoveryLimit: BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+      followedPlayerIds: [],
+      followedTeamIds: [],
     });
-    const payload = await withCache(cacheKey, 30_000, () =>
-      apiFootballGet<MatchesEnvelope>(
-        `/fixtures?date=${encodeURIComponent(query.date)}&timezone=${encodeURIComponent(query.timezone)}`,
-      ),
-    );
+    const readStore = await getReadStore({
+      databaseUrl: env.databaseUrl,
+    });
+    const snapshot = await readThroughSnapshot<BootstrapPayload>({
+      cacheKey: `matches_listing:${scopeKey}`,
+      staleAfterMs: BOOTSTRAP_POLICY.freshMs,
+      expiresAfterMs: BOOTSTRAP_POLICY.staleMs,
+      logger: request.log,
+      getSnapshot: () =>
+        readStore.getBootstrapSnapshot({
+          scopeKey,
+        }),
+      upsertSnapshot: input =>
+        readStore.upsertBootstrapSnapshot({
+          scopeKey,
+          payload: input.payload,
+          generatedAt: input.generatedAt,
+          staleAt: input.staleAt,
+          expiresAt: input.expiresAt,
+          metadata: {
+            route: '/v1/matches',
+            source: 'route.matches.bootstrap',
+          },
+        }),
+      fetchFresh: () =>
+        buildBootstrapPayload({
+          date: query.date,
+          timezone: query.timezone,
+          season,
+          followedTeamIds: [],
+          followedPlayerIds: [],
+          discoveryLimit: BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+          logger: request.log,
+        }),
+      queue: {
+        store: readStore,
+        target: {
+          entityKind: 'bootstrap',
+          entityId: 'bootstrap',
+          scopeKey,
+        },
+      },
+    });
+    const payload = toMatchesEnvelope(snapshot.payload);
+    reply.header('Cache-Control', CACHE_CONTROL_SHORT);
 
     if (!isCursorPagination) {
       return payload;

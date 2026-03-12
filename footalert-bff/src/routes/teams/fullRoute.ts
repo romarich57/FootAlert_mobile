@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
+import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
 import { TEAM_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
@@ -8,6 +9,39 @@ import { parseOrThrow } from '../../lib/validation.js';
 
 import { fetchTeamFullPayload } from './fullService.js';
 import { teamFullQuerySchema, teamIdParamsSchema } from './schemas.js';
+
+function validateTeamFullPayload(payload: Awaited<ReturnType<typeof fetchTeamFullPayload>>): void {
+  const response = payload.response;
+  const details = response?.details?.response;
+  const leagues = response?.leagues?.response;
+  const selection = response?.selection;
+
+  if (
+    !Array.isArray(details)
+    || details.length === 0
+    || !Array.isArray(leagues)
+    || leagues.length === 0
+    || !selection
+    || typeof selection.leagueId !== 'string'
+    || selection.leagueId.trim().length === 0
+    || typeof selection.season !== 'number'
+    || !Number.isFinite(selection.season)
+  ) {
+    throw new ReadStoreSnapshotInvalidBffError({
+      entityKind: 'team_full',
+      selection,
+    });
+  }
+}
+
+function isValidTeamFullPayload(payload: Awaited<ReturnType<typeof fetchTeamFullPayload>>): boolean {
+  try {
+    validateTeamFullPayload(payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function registerTeamFullRoute(app: FastifyInstance): Promise<void> {
   app.get('/v1/teams/:id/full', async request => {
@@ -29,7 +63,7 @@ export async function registerTeamFullRoute(app: FastifyInstance): Promise<void>
       expiresAfterMs: TEAM_POLICY.staleMs,
       logger: request.log,
       getSnapshot: () =>
-        readStore.getEntitySnapshot({
+        readStore.getEntitySnapshot<Awaited<ReturnType<typeof fetchTeamFullPayload>>>({
           entityKind: 'team_full',
           entityId: params.id,
           scopeKey,
@@ -56,6 +90,8 @@ export async function registerTeamFullRoute(app: FastifyInstance): Promise<void>
           historySeasons: query.historySeasons,
           logger: request.log,
         }),
+      isSnapshotPayloadValid: isValidTeamFullPayload,
+      validateFreshPayload: validateTeamFullPayload,
       queue: {
         store: readStore,
         target: {

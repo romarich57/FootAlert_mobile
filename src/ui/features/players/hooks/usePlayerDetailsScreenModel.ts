@@ -160,18 +160,20 @@ export function usePlayerDetailsScreenModel({
   const {
     matches,
     isLoading: isMatchesLoading,
+    isError: isMatchesError,
     dataUpdatedAt: matchesDataUpdatedAt,
   } = usePlayerMatches(
     playerId,
     teamId,
     selectedSeason,
-    isMatchesTabActive && Boolean(teamId),
+    isMatchesTabActive,
   );
 
   const {
     competitions: statsCompetitions,
     defaultSelection: statsDefaultSelection,
     isLoading: isStatsCatalogLoading,
+    isError: isStatsCatalogError,
     dataUpdatedAt: statsCatalogDataUpdatedAt,
   } = usePlayerStatsCatalog(playerId, isStatsTabActive, selectedSeason);
 
@@ -181,6 +183,7 @@ export function usePlayerDetailsScreenModel({
   const {
     stats: statsDataset,
     isLoading: isStatsDatasetLoading,
+    isError: isStatsDatasetError,
     dataUpdatedAt: statsDataUpdatedAt,
   } = usePlayerStats(
     playerId,
@@ -192,8 +195,25 @@ export function usePlayerDetailsScreenModel({
     careerSeasons,
     careerTeams,
     isLoading: isCareerLoading,
+    isError: isCareerError,
     dataUpdatedAt: careerDataUpdatedAt,
   } = usePlayerCareer(playerId, shouldLoadCareer);
+
+  const isStatsError = isStatsDatasetError || isStatsCatalogError;
+  const hasActiveTabError = (() => {
+    switch (activeTab) {
+      case 'profil':
+        return isProfileError;
+      case 'matchs':
+        return isMatchesError;
+      case 'stats':
+        return isStatsError;
+      case 'carriere':
+        return isCareerError;
+      default:
+        return false;
+    }
+  })();
 
   const lastUpdatedAt = useMemo(() => {
     const maxUpdatedAt = Math.max(
@@ -421,8 +441,10 @@ export function usePlayerDetailsScreenModel({
     isProfileError,
     matches,
     isMatchesLoading,
+    isMatchesError,
     stats,
     isStatsLoading: isStatsDatasetLoading || isStatsCatalogLoading,
+    isStatsError,
     statsCompetitions,
     statsSelectedSeason: statsSeason,
     statsSelectedLeagueId: statsSelection.leagueId,
@@ -434,6 +456,8 @@ export function usePlayerDetailsScreenModel({
     careerSeasons,
     careerTeams,
     isCareerLoading,
+    isCareerError,
+    hasActiveTabError,
     hasCachedData,
     lastUpdatedAt,
     setSeason: handleSetSeason,

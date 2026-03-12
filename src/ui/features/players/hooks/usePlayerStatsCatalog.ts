@@ -1,12 +1,5 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
-import {
-  fetchPlayerDetails,
-  fetchPlayerSeasons,
-  fetchPlayerStatsCatalog,
-} from '@data/endpoints/playersApi';
 import { mapPlayerDetailsToSeasonStatsDataset } from '@data/mappers/playersMapper';
 import type {
   PlayerApiDetailsDto,
@@ -17,8 +10,6 @@ import {
   type PlayerFullPayload,
 } from '@ui/features/players/hooks/playerFullQuery';
 import type { TeamCompetitionOption } from '@ui/features/teams/types/teams.types';
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 type PlayerStatsSelection = {
   leagueId: string | null;
@@ -182,16 +173,13 @@ export function usePlayerStatsCatalog(
   enabled: boolean = true,
   season?: number,
 ) {
-  const useFullPayload = appEnv.mobileEnableBffPlayerFull;
-  const useAggregateCatalog =
-    !useFullPayload && appEnv.mobileEnablePlayerStatsCatalogAggregate;
   const fullSeason =
     typeof season === 'number' && Number.isFinite(season) ? season : null;
 
   const fullPlayerQuery = usePlayerFullQuery(
     playerId,
     fullSeason ?? 0,
-    useFullPayload && enabled && !!playerId && fullSeason !== null,
+    enabled && !!playerId && fullSeason !== null,
   );
   const fullCatalogData = useMemo(
     () =>
@@ -203,58 +191,10 @@ export function usePlayerStatsCatalog(
         : undefined,
     [fullPlayerQuery.data, fullSeason],
   );
-
-  const legacyCatalogQuery = useQuery({
-    queryKey: useAggregateCatalog
-      ? queryKeys.players.statsCatalogV2(playerId)
-      : queryKeys.players.statsCatalog(playerId),
-    enabled: !useFullPayload && enabled && !!playerId,
-    queryFn: async ({ signal }): Promise<PlayerStatsCatalog> => {
-      if (useAggregateCatalog) {
-        const payload = await fetchPlayerStatsCatalog(playerId, signal);
-
-        return {
-          competitions: (payload?.competitions ?? [])
-            .map(toTeamCompetitionOption)
-            .filter((competition): competition is TeamCompetitionOption => competition !== null),
-          defaultSelection: payload?.defaultSelection ?? EMPTY_SELECTION,
-        };
-      }
-
-      const seasons = await fetchPlayerSeasons(playerId, signal);
-      const uniqueSeasons = Array.from(
-        new Set(seasons.filter(value => Number.isFinite(value))),
-      ).sort((first, second) => second - first);
-
-      if (uniqueSeasons.length === 0) {
-        return {
-          competitions: [],
-          defaultSelection: EMPTY_SELECTION,
-        };
-      }
-
-      const seasonDetails = await Promise.all(
-        uniqueSeasons.map(async seasonValue => {
-          try {
-            const details = await fetchPlayerDetails(playerId, seasonValue, signal);
-            return { season: seasonValue, details };
-          } catch {
-            return { season: seasonValue, details: null };
-          }
-        }),
-      );
-
-      return buildCatalogFromSeasonDetails(seasonDetails);
-    },
-    ...featureQueryOptions.players.statsCatalog,
-  });
-
-  const catalogQuery = useFullPayload
-    ? {
-        ...fullPlayerQuery,
-        data: fullCatalogData,
-      }
-    : legacyCatalogQuery;
+  const catalogQuery = {
+    ...fullPlayerQuery,
+    data: fullCatalogData as PlayerStatsCatalog | undefined,
+  };
 
   return {
     competitions: catalogQuery.data?.competitions ?? [],

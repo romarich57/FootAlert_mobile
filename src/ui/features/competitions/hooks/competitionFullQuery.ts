@@ -41,7 +41,6 @@ function createCompetitionFullQueryFn(
 
 function canUseCompetitionFull(leagueId: number | undefined): leagueId is number {
   return (
-    appEnv.mobileEnableBffCompetitionFull &&
     typeof leagueId === 'number' &&
     Number.isFinite(leagueId)
   );

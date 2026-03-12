@@ -314,7 +314,7 @@ describe('useCompetitionTeamStats', () => {
     });
   });
 
-  it('runs a single aggregated request when advanced is enabled', async () => {
+  it('keeps advanced data derived from standings when competitions.full has no advanced team stats', async () => {
     const { result } = renderHook(
       () =>
         useCompetitionTeamStats({
@@ -326,21 +326,18 @@ describe('useCompetitionTeamStats', () => {
     );
 
     await waitFor(() => {
-      expect(mockedFetchCompetitionTeamStats).toHaveBeenCalledTimes(1);
-    });
-
-    await waitFor(() => {
       expect(result.current.isAdvancedLoading).toBe(false);
     });
 
+    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalled();
+    expect(mockedFetchCompetitionTeamStats).not.toHaveBeenCalled();
     expect(result.current.isAdvancedLoading).toBe(false);
-    expect(result.current.advancedProgress).toBe(100);
-    expect(result.current.hasAdvancedData).toBe(true);
-    expect(result.current.advanced.state).toBe('available');
-    expect(result.current.advanced.leaderboards.xGPerMatch.items[0]?.value).toBe(1.91);
+    expect(result.current.advancedProgress).toBe(0);
+    expect(result.current.hasAdvancedData).toBe(false);
+    expect(result.current.advanced.state).toBe('unavailable');
   });
 
-  it('keeps the aggregated advanced request enabled on network-lite mode after user opt-in', async () => {
+  it('does not fall back to the legacy team-stats endpoint on network-lite mode', async () => {
     renderHook(
       () =>
         useCompetitionTeamStats({
@@ -353,8 +350,10 @@ describe('useCompetitionTeamStats', () => {
     );
 
     await waitFor(() => {
-      expect(mockedFetchCompetitionTeamStats).toHaveBeenCalledTimes(1);
+      expect(mockedLoadCompetitionFullPayload).toHaveBeenCalledTimes(1);
     });
+
+    expect(mockedFetchCompetitionTeamStats).not.toHaveBeenCalled();
   });
 
   it('hides the advanced section for grouped competitions without hitting the aggregated endpoint', async () => {
@@ -388,8 +387,8 @@ describe('useCompetitionTeamStats', () => {
   });
 
   it('hides the advanced section when backend marks advanced data unavailable', async () => {
-    mockedFetchCompetitionTeamStats.mockResolvedValue(
-      createCompetitionTeamStatsResponse({
+    mockedLoadCompetitionFullPayload.mockResolvedValue({
+      teamStats: createCompetitionTeamStatsResponse({
         advanced: {
           ...createCompetitionTeamStatsResponse().advanced,
           rows: [],
@@ -431,7 +430,7 @@ describe('useCompetitionTeamStats', () => {
           },
         },
       }),
-    );
+    } as never);
 
     const { result } = renderHook(
       () =>
@@ -444,7 +443,7 @@ describe('useCompetitionTeamStats', () => {
     );
 
     await waitFor(() => {
-      expect(mockedFetchCompetitionTeamStats).toHaveBeenCalledTimes(1);
+      expect(mockedLoadCompetitionFullPayload).toHaveBeenCalledTimes(1);
     });
 
     await waitFor(() => {
@@ -455,6 +454,7 @@ describe('useCompetitionTeamStats', () => {
     expect(result.current.shouldRenderAdvancedSection).toBe(false);
     expect(result.current.advanced.state).toBe('unavailable');
     expect(result.current.advanced.reason).toBe('provider_missing');
+    expect(mockedFetchCompetitionTeamStats).not.toHaveBeenCalled();
   });
 
   it('uses competitions.full for advanced data when available', async () => {

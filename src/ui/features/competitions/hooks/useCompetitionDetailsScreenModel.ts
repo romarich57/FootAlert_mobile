@@ -1,18 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useQuery } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
 import type { RootStackParamList } from '@ui/app/navigation/types';
 import {
   safeGoBackFromDetail,
   safeNavigateEntity,
   sanitizeNumericEntityId,
 } from '@ui/app/navigation/routeParams';
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
-import { fetchLeagueById } from '@data/endpoints/competitionsApi';
 import { mapLeagueDtoToCompetition } from '@data/mappers/competitionsMapper';
 import { useFollowedCompetitions } from '@ui/features/competitions/hooks/useFollowedCompetitions';
 import { useCompetitionSeasons } from '@ui/features/competitions/hooks/useCompetitionSeasons';
@@ -44,34 +39,33 @@ export function useCompetitionDetailsScreenModel() {
     () => mapLeagueDtoToCompetition(competitionFullQuery.data?.competition ?? null),
     [competitionFullQuery.data?.competition],
   );
-  const shouldFallbackToLegacyCompetition =
-    !appEnv.mobileEnableBffCompetitionFull ||
-    competitionFullQuery.isError ||
-    (competitionFullQuery.isFetched && !competitionFullQuery.data?.competition);
-
-  const competitionQuery = useQuery({
-    queryKey: queryKeys.competitions.detailsHeader(safeCompetitionId ?? 'invalid'),
-    queryFn: async ({ signal }) => {
-      const dto = await fetchLeagueById(safeCompetitionId ?? '', signal);
-      return mapLeagueDtoToCompetition(dto);
-    },
-    enabled:
-      Boolean(safeCompetitionId) &&
-      (!routeCompetition || routeCompetition.id !== safeCompetitionId) &&
-      shouldFallbackToLegacyCompetition,
-    ...featureQueryOptions.competitions.header,
-  });
 
   const competition = useMemo(() => {
     if (!safeCompetitionId) {
       return null;
     }
 
-    if (routeCompetition && routeCompetition.id === safeCompetitionId) {
+    if (fullCompetition) {
+      return fullCompetition;
+    }
+
+    if (
+      routeCompetition &&
+      routeCompetition.id === safeCompetitionId &&
+      !competitionFullQuery.isFetched &&
+      !competitionFullQuery.isError
+    ) {
       return routeCompetition;
     }
-    return fullCompetition ?? competitionQuery.data ?? null;
-  }, [competitionQuery.data, fullCompetition, routeCompetition, safeCompetitionId]);
+
+    return null;
+  }, [
+    competitionFullQuery.isError,
+    competitionFullQuery.isFetched,
+    fullCompetition,
+    routeCompetition,
+    safeCompetitionId,
+  ]);
 
   const [activeTab, setActiveTab] = useState<CompetitionTabKey>('standings');
   const [isSeasonPickerOpen, setIsSeasonPickerOpen] = useState(false);
@@ -88,7 +82,6 @@ export function useCompetitionDetailsScreenModel() {
 
   const defaultSeason = useMemo(() => {
     if (
-      appEnv.mobileEnableBffCompetitionFull &&
       typeof competitionFullQuery.data?.season === 'number' &&
       Number.isFinite(competitionFullQuery.data.season)
     ) {
@@ -137,11 +130,10 @@ export function useCompetitionDetailsScreenModel() {
     ? 'competitionDetails.tabs.bracket'
     : 'competitionDetails.tabs.standings';
   const hasCachedData =
-    Boolean(competition) ||
+    Boolean(fullCompetition) ||
     availableSeasons.length > 0 ||
     Boolean(competitionFullQuery.data);
   const lastUpdatedAt = Math.max(
-    competitionQuery.dataUpdatedAt,
     competitionFullQuery.dataUpdatedAt,
     seasonsQuery.dataUpdatedAt,
     competitionBracketQuery.dataUpdatedAt ?? 0,
@@ -151,14 +143,9 @@ export function useCompetitionDetailsScreenModel() {
     hasCachedData &&
     (
       competitionFullQuery.isFetching ||
-      competitionQuery.isFetching ||
       competitionBracketQuery.isFetching
     );
-  const isCompetitionQueryLoading = !competition && (
-    shouldFallbackToLegacyCompetition
-      ? competitionQuery.isLoading
-      : competitionFullQuery.isLoading
-  );
+  const isCompetitionQueryLoading = !competition && competitionFullQuery.isLoading;
 
   const tabs = useMemo<CompetitionTabKey[]>(() => {
     const showStandingsTab = !isCupOnlyCompetition || hasBracketRounds;

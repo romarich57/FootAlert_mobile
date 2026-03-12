@@ -4,6 +4,7 @@ import { queryKeys } from '@data/query/queryKeys';
 
 import { listFollowedEntityIds } from './followedEntitiesStore';
 import {
+  parseTeamFullEntityId,
   parseCompetitionFullEntityId,
   parsePlayerFullEntityId,
 } from './fullEntityIds';
@@ -16,13 +17,14 @@ export function buildDefaultHydrationMappings(timezone: string): HydrationMappin
       priorityEntityIds: () => listFollowedEntityIds('team'),
       buildQueryKey: entity => {
         const payload = entity.data as TeamFullResponsePayload['response'] | null;
-        if (!payload?.selection || !entity.id) {
+        const parsed = parseTeamFullEntityId(entity.id);
+        if (!payload?.selection || !parsed) {
           return null;
         }
 
         return queryKeys.teams.full(
-          entity.id,
-          timezone,
+          parsed.teamId,
+          parsed.timezone || timezone,
           payload.selection.leagueId ?? null,
           payload.selection.season ?? null,
         );

@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
-import { fetchCompetitionTeamStats } from '@data/endpoints/competitionsApi';
 import { buildCompetitionTeamStatsDashboardData } from '@data/mappers/competitionsTeamStatsMapper';
 import type {
+  CompetitionTeamStatsDashboardData,
   CompetitionTeamAdvancedReason,
   CompetitionTeamAdvancedSection,
   CompetitionTeamHomeAwayMetricKey,
@@ -80,25 +79,14 @@ export function useCompetitionTeamStats({
       typeof season === 'number' &&
       Number.isFinite(season) &&
       !isGroupedCompetition,
-    queryFn: ({ signal }) =>
-      (async () => {
-        if (appEnv.mobileEnableBffCompetitionFull) {
-          try {
-            const payload = await loadCompetitionFullPayload(
-              queryClient,
-              leagueId as number,
-              season as number,
-            );
-            if (payload?.teamStats) {
-              return payload.teamStats;
-            }
-          } catch {
-            // Fallback legacy conservé pour les erreurs réseau/full.
-          }
-        }
-
-        return fetchCompetitionTeamStats(leagueId as number, season as number, signal);
-      })(),
+    queryFn: async (): Promise<CompetitionTeamStatsDashboardData | null> => {
+      const payload = await loadCompetitionFullPayload(
+        queryClient,
+        leagueId as number,
+        season as number,
+      );
+      return payload?.teamStats ?? null;
+    },
     ...featureQueryOptions.competitions.teamStats,
   });
 

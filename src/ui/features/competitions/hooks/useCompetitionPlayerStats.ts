@@ -1,12 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { appEnv } from '@data/config/env';
-import {
-  fetchLeagueTopAssists,
-  fetchLeagueTopRedCards,
-  fetchLeagueTopScorers,
-  fetchLeagueTopYellowCards,
-} from '@data/endpoints/competitionsApi';
 import { mapPlayerStatsDtoToPlayerStats } from '@data/mappers/competitionsMapper';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -53,37 +46,8 @@ export function useCompetitionPlayerStats(
         return [];
       }
 
-      if (appEnv.mobileEnableBffCompetitionFull) {
-        try {
-          const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
-          const fullStats = readPlayerStatsFromFullPayload(statType, payload, season);
-          if (fullStats) {
-            return fullStats;
-          }
-        } catch {
-          // Fallback legacy conservé pour les erreurs réseau/full.
-        }
-      }
-
-      let dtos;
-      switch (statType) {
-        case 'goals':
-          dtos = await fetchLeagueTopScorers(leagueId, season, signal);
-          break;
-        case 'assists':
-          dtos = await fetchLeagueTopAssists(leagueId, season, signal);
-          break;
-        case 'yellowCards':
-          dtos = await fetchLeagueTopYellowCards(leagueId, season, signal);
-          break;
-        case 'redCards':
-          dtos = await fetchLeagueTopRedCards(leagueId, season, signal);
-          break;
-        default:
-          return [];
-      }
-
-      return mapPlayerStatsDtoToPlayerStats(dtos, season);
+      const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
+      return readPlayerStatsFromFullPayload(statType, payload, season) ?? [];
     },
     enabled: !!leagueId && !!season,
     ...featureQueryOptions.competitions.playerStats,

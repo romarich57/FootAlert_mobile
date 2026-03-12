@@ -2,6 +2,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 
+import { ApiError } from '@data/api/http/client';
 import { appEnv } from '@data/config/env';
 
 const mockRegisterBackgroundRefresh = jest.fn(async () => undefined);
@@ -213,5 +214,19 @@ describe('useAppBootstrap', () => {
     expect(mockFetchBootstrapPayload).toHaveBeenCalledTimes(1);
     expect(mockHydrateBootstrapIntoQueryCache).toHaveBeenCalledTimes(1);
     expect(mockWriteBootstrapSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not duplicate network error telemetry when bootstrap warmup request fails', async () => {
+    mockFetchBootstrapPayload.mockRejectedValueOnce(new ApiError('HTTP 403', 403, '{}'));
+
+    const { result } = renderHook(() => useAppBootstrap(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isReady).toBe(true);
+    });
+
+    expect(mockTelemetry.trackError).not.toHaveBeenCalled();
   });
 });

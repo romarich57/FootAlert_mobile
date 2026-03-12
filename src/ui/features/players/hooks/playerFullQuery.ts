@@ -41,10 +41,7 @@ export function usePlayerFullQuery(
 ) {
   const useSqliteLocalFirst = appEnv.mobileEnableSqliteLocalFirst;
   const fullEnabled =
-    enabled &&
-    appEnv.mobileEnableBffPlayerFull &&
-    Boolean(playerId) &&
-    Number.isFinite(season);
+    enabled && Boolean(playerId) && Number.isFinite(season);
   const localFirstQuery = usePlayerLocalFirst({
     playerId,
     season,

@@ -29,15 +29,59 @@ function buildFixture({
   };
 }
 
-test('GET /v1/matches proxies upstream and applies short cache header', async t => {
-  const calls = installFetchMock(async () => jsonResponse({ response: [{ fixture: { id: 1001 } }] }));
+test('GET /v1/matches serves the canonical bootstrap snapshot and applies short cache header', async t => {
+  const calls = installFetchMock(async () => jsonResponse({ response: [{ fixture: { id: 9999 } }] }));
   const app = await buildApp(t);
+  const [{ getReadStore }, { BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT }, { buildBootstrapScopeKey }] =
+    await Promise.all([
+      import('../../src/lib/readStore/runtime.ts'),
+      import('../../src/routes/bootstrap/schemas.ts'),
+      import('../../src/routes/bootstrap/service.ts'),
+    ]);
+  const generatedAt = new Date('2026-02-21T10:00:00.000Z');
+  const staleAt = new Date(Date.now() + 5 * 60_000);
+  const expiresAt = new Date(Date.now() + 15 * 60_000);
+  const readStore = await getReadStore({
+    databaseUrl: process.env.DATABASE_URL ?? null,
+  });
+  const scopeKey = buildBootstrapScopeKey({
+    date: '2026-02-21',
+    timezone: 'Europe/Paris',
+    season: 2025,
+    discoveryLimit: BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+    followedPlayerIds: [],
+    followedTeamIds: [],
+  });
+  await readStore.upsertBootstrapSnapshot({
+    scopeKey,
+    payload: {
+      generatedAt: generatedAt.toISOString(),
+      date: '2026-02-21',
+      timezone: 'Europe/Paris',
+      season: 2025,
+      matchesToday: [{ fixture: { id: 1001 } }],
+    },
+    generatedAt,
+    staleAt,
+    expiresAt,
+    metadata: {
+      route: '/v1/matches',
+      source: 'test.bootstrap.snapshot',
+    },
+  });
   const response = await app.inject({ method: 'GET', url: '/v1/matches?date=2026-02-21&timezone=Europe/Paris' });
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.json(), { response: [{ fixture: { id: 1001 } }] });
+  assert.deepEqual(response.json(), {
+    response: [{ fixture: { id: 1001 } }],
+    date: '2026-02-21',
+    timezone: 'Europe/Paris',
+    season: 2025,
+    generatedAt: generatedAt.toISOString(),
+    source: 'bootstrap_snapshot',
+  });
   assert.equal(response.headers['cache-control'], 'public, max-age=30, stale-while-revalidate=30');
   assert.match(String(response.headers.vary ?? ''), /accept-encoding/i);
-  assert.equal(String(calls[0].input), 'https://api-football.test/fixtures?date=2026-02-21&timezone=Europe%2FParis');
+  assert.equal(calls.length, 0);
 });
 
 test('critical match routes are registered and do not return 404', async t => {

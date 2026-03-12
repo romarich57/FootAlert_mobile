@@ -156,6 +156,7 @@ async function startWorker(): Promise<void> {
   await runReadStoreMaintenanceLoop({
     readStore,
     readStoreRefreshRuntime,
+    workerId: readStoreRefreshRuntime.workerId,
     isShuttingDown: () => isShuttingDown,
   });
 }

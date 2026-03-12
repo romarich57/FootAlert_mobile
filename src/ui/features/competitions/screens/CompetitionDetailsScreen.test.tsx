@@ -154,7 +154,7 @@ describe('CompetitionDetailsScreen', () => {
     fireEvent.press(screen.getByTestId('competition-season-option-2024'));
 
     await waitFor(() => {
-      expect(screen.getByText('Saison 2024/2025')).toBeTruthy();
+      expect(screen.getByText(/2024\/2025/)).toBeTruthy();
     });
   });
 

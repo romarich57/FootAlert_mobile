@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
+import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
 import { MATCH_DEFAULT_POLICY } from '../../lib/readStore/policies.js';
 import { buildSnapshotWindow, readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
@@ -65,6 +66,23 @@ function applyMatchLiveOverlay(
   };
 }
 
+function validateMatchFullPayload(payload: MatchFullPayload): void {
+  if (payload.fixture == null) {
+    throw new ReadStoreSnapshotInvalidBffError({
+      entityKind: 'match_full',
+    });
+  }
+}
+
+function isValidMatchFullPayload(payload: MatchFullPayload): boolean {
+  try {
+    validateMatchFullPayload(payload);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function registerMatchFullRoute(app: FastifyInstance): void {
   app.get(
     '/v1/matches/:id/full',
@@ -111,7 +129,7 @@ export function registerMatchFullRoute(app: FastifyInstance): void {
         expiresAfterMs: MATCH_DEFAULT_POLICY.staleMs,
         logger: request.log,
         getSnapshot: () =>
-          readStore.getEntitySnapshot({
+          readStore.getEntitySnapshot<MatchFullPayload>({
             entityKind: 'match_full',
             entityId: params.id,
             scopeKey,
@@ -134,6 +152,8 @@ export function registerMatchFullRoute(app: FastifyInstance): void {
           await persistLiveOverlay(payload);
           return payload;
         },
+        isSnapshotPayloadValid: isValidMatchFullPayload,
+        validateFreshPayload: validateMatchFullPayload,
         queue: {
           store: readStore,
           target: {

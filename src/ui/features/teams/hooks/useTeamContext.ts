@@ -26,17 +26,18 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     timezone,
     enabled: Boolean(teamId),
   });
+  const canUseFullPayload = teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
 
   const teamQuery = useQuery({
     queryKey: queryKeys.teams.details(teamId),
-    enabled: Boolean(teamId) && !teamFullQuery.isFullEnabled,
+    enabled: Boolean(teamId) && !canUseFullPayload,
     ...featureQueryOptions.teams.details,
     queryFn: ({ signal }) => fetchTeamDetails(teamId, signal),
   });
 
   const leaguesQuery = useQuery({
     queryKey: queryKeys.teams.leagues(teamId),
-    enabled: Boolean(teamId) && !teamFullQuery.isFullEnabled,
+    enabled: Boolean(teamId) && !canUseFullPayload,
     ...featureQueryOptions.teams.leagues,
     queryFn: ({ signal }) => fetchTeamLeagues(teamId, signal),
   });
@@ -61,19 +62,19 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
   );
 
   const refetch = useCallback(() => {
-    if (teamFullQuery.isFullEnabled) {
+    if (canUseFullPayload) {
       teamFullQuery.refetch().catch(() => undefined);
       return;
     }
 
     teamQuery.refetch().catch(() => undefined);
     leaguesQuery.refetch().catch(() => undefined);
-  }, [leaguesQuery, teamFullQuery, teamQuery]);
+  }, [canUseFullPayload, leaguesQuery, teamFullQuery, teamQuery]);
 
-  const lastUpdatedAt = teamFullQuery.isFullEnabled
+  const lastUpdatedAt = canUseFullPayload
     ? teamFullQuery.dataUpdatedAt
     : Math.max(teamQuery.dataUpdatedAt, leaguesQuery.dataUpdatedAt);
-  const hasCachedData = teamFullQuery.isFullEnabled
+  const hasCachedData = canUseFullPayload
     ? Boolean(teamFullQuery.data?.details.response[0]) || competitions.length > 0
     : Boolean(teamQuery.data) || competitions.length > 0;
 
@@ -82,8 +83,8 @@ export function useTeamContext({ teamId }: UseTeamContextParams) {
     timezone,
     competitions,
     defaultSelection,
-    isLoading: teamFullQuery.isFullEnabled ? teamFullQuery.isLoading : teamQuery.isLoading || leaguesQuery.isLoading,
-    isError: teamFullQuery.isFullEnabled ? teamFullQuery.isError : teamQuery.isError || leaguesQuery.isError,
+    isLoading: canUseFullPayload ? teamFullQuery.isLoading : teamQuery.isLoading || leaguesQuery.isLoading,
+    isError: canUseFullPayload ? teamFullQuery.isError : teamQuery.isError || leaguesQuery.isError,
     lastUpdatedAt: lastUpdatedAt > 0 ? lastUpdatedAt : null,
     hasCachedData,
     refetch,

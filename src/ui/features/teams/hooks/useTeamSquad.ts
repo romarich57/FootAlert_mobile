@@ -40,17 +40,18 @@ export function useTeamSquad({
     timezone,
     enabled,
   });
+  const canUseFullPayload = teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
   const fullSquadData = useMemo(
     () =>
-      teamFullQuery.isFullEnabled
+      canUseFullPayload
         ? mapSquadToTeamSquad(teamFullQuery.data?.squad.response[0] ?? null)
         : { coach: null, players: [] },
-    [teamFullQuery.data?.squad.response, teamFullQuery.isFullEnabled],
+    [canUseFullPayload, teamFullQuery.data?.squad.response],
   );
 
   const query = useQuery<TeamSquadData>({
     queryKey: queryKeys.teams.squad(teamId),
-    enabled: enabled && Boolean(teamId) && !teamFullQuery.isFullEnabled,
+    enabled: enabled && Boolean(teamId) && !canUseFullPayload,
     placeholderData: previousData => previousData,
     structuralSharing: (oldData, newData) =>
       mergeTeamSquadData(oldData as TeamSquadData | undefined, newData as TeamSquadData),
@@ -62,17 +63,17 @@ export function useTeamSquad({
       }),
   });
 
-  return teamFullQuery.isFullEnabled
-      ? {
-          ...query,
-          data: fullSquadData,
-          isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
+  return canUseFullPayload
+    ? {
+        ...query,
+        data: fullSquadData,
+        isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
         isFetching: teamFullQuery.isFetching,
         isError: teamFullQuery.isError && !teamFullQuery.data,
         isFetched: teamFullQuery.isFetched,
-          isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,
-          dataUpdatedAt: teamFullQuery.dataUpdatedAt,
-          refetch: teamFullQuery.refetch,
+        isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,
+        dataUpdatedAt: teamFullQuery.dataUpdatedAt,
+        refetch: teamFullQuery.refetch,
       } as unknown as UseQueryResult<TeamSquadData>
     : query;
 }

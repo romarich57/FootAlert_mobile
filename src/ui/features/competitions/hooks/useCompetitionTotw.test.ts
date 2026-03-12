@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
-import { fetchCompetitionTotw } from '@data/endpoints/competitionsApi';
 import {
   mapCompetitionPlayerStatsToTotw,
   mapPlayerStatsDtoToPlayerStats,
@@ -18,11 +17,6 @@ jest.mock('@data/config/env', () => ({
     mobileEnableBffCompetitionFull: false,
   },
 }));
-
-jest.mock('@data/endpoints/competitionsApi', () => ({
-  fetchCompetitionTotw: jest.fn(),
-}));
-
 jest.mock('@data/mappers/competitionsMapper', () => ({
   mapPlayerStatsDtoToPlayerStats: jest.fn(),
   mapCompetitionPlayerStatsToTotw: jest.fn(),
@@ -33,7 +27,6 @@ jest.mock('@ui/features/competitions/hooks/competitionFullQuery', () => ({
 
 const mockedUseQuery = jest.mocked(useQuery);
 const mockedUseQueryClient = jest.mocked(useQueryClient);
-const mockedFetchCompetitionTotw = jest.mocked(fetchCompetitionTotw);
 const mockedMapPlayerStatsDtoToPlayerStats = jest.mocked(mapPlayerStatsDtoToPlayerStats);
 const mockedMapCompetitionPlayerStatsToTotw = jest.mocked(mapCompetitionPlayerStatsToTotw);
 const mockedLoadCompetitionFullPayload = jest.mocked(loadCompetitionFullPayload);
@@ -70,24 +63,26 @@ describe('useCompetitionTotw', () => {
       expect.objectContaining({
         queryKey: ['competition_totw', 61, 2025],
         enabled: true,
-        staleTime: 30 * 60 * 1000,
+        staleTime: 24 * 60 * 60 * 1000,
       }),
     );
   });
 
-  it('aggregates 4 endpoints via a single BFF call and forwards data to strict TOTW mapper', async () => {
+  it('builds TOTW from competitions.full player stats and forwards data to the strict mapper', async () => {
+    appEnv.mobileEnableBffCompetitionFull = true;
     const signal = new AbortController().signal;
     const topScorersRaw = [{ key: 'scorer' }] as never;
     const topAssistsRaw = [{ key: 'assist' }] as never;
     const topYellowRaw = [{ key: 'yellow' }] as never;
     const topRedRaw = [{ key: 'red' }] as never;
-
-    mockedFetchCompetitionTotw.mockResolvedValue({
-      topScorers: topScorersRaw,
-      topAssists: topAssistsRaw,
-      topYellowCards: topYellowRaw,
-      topRedCards: topRedRaw,
-    });
+    mockedLoadCompetitionFullPayload.mockResolvedValue({
+      playerStats: {
+        topScorers: topScorersRaw,
+        topAssists: topAssistsRaw,
+        topYellowCards: topYellowRaw,
+        topRedCards: topRedRaw,
+      },
+    } as never);
 
     mockedMapPlayerStatsDtoToPlayerStats
       .mockReturnValueOnce([{ playerId: 1 }] as never)
@@ -103,8 +98,7 @@ describe('useCompetitionTotw', () => {
     const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>;
     const result = await queryFn({ signal });
 
-    expect(mockedFetchCompetitionTotw).toHaveBeenCalledWith(61, 2025, signal);
-
+    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalledWith(expect.anything(), 61, 2025);
     expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(1, topScorersRaw, 2025);
     expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(2, topAssistsRaw, 2025);
     expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(3, topYellowRaw, 2025);
@@ -116,17 +110,18 @@ describe('useCompetitionTotw', () => {
     expect(result).toEqual(expectedTotw);
   });
 
-  it('propagates BFF error when the aggregated endpoint fails', async () => {
+  it('propagates the full-query error when competitions.full fails', async () => {
+    appEnv.mobileEnableBffCompetitionFull = true;
     const signal = new AbortController().signal;
-    const upstreamError = new Error('BFF upstream failed');
+    const upstreamError = new Error('competition full unavailable');
 
-    mockedFetchCompetitionTotw.mockRejectedValue(upstreamError);
+    mockedLoadCompetitionFullPayload.mockRejectedValue(upstreamError);
 
     useCompetitionTotw(61, 2025);
     const queryConfig = mockedUseQuery.mock.calls[0]?.[0];
     const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>;
 
-    await expect(queryFn({ signal })).rejects.toThrow('BFF upstream failed');
+    await expect(queryFn({ signal })).rejects.toThrow('competition full unavailable');
     expect(mockedMapPlayerStatsDtoToPlayerStats).not.toHaveBeenCalled();
     expect(mockedMapCompetitionPlayerStatsToTotw).not.toHaveBeenCalled();
   });
@@ -154,7 +149,6 @@ describe('useCompetitionTotw', () => {
     const result = await queryFn({ signal: new AbortController().signal });
 
     expect(mockedLoadCompetitionFullPayload).toHaveBeenCalled();
-    expect(mockedFetchCompetitionTotw).not.toHaveBeenCalled();
     expect(result).toEqual({ formation: '4-3-3' });
   });
 });

@@ -22,6 +22,7 @@
 import { env } from '../../src/config/env.js';
 import {
     COMPETITION_POLICY,
+    PLAYER_POLICY,
     TEAM_POLICY,
 } from '../../src/lib/readStore/policies.js';
 import {
@@ -30,14 +31,24 @@ import {
 } from '../../src/lib/readStore/readThrough.js';
 import { getReadStore } from '../../src/lib/readStore/runtime.js';
 import { buildCompetitionFullResponse } from '../../src/routes/competitions/fullService.js';
+import { fetchPlayerFullPayload } from '../../src/routes/players/fullService.js';
 import { fetchTeamFullPayload } from '../../src/routes/teams/fullService.js';
+import {
+    extractPlayerSeedEntriesFromCompetitionPayload,
+    extractPlayerSeedEntriesFromTeamPayload,
+    HOTSET_COMPETITION_IDS,
+    isCompetitionFullPayloadComplete,
+    isPlayerFullPayloadComplete,
+    isTeamFullPayloadComplete,
+    type PlayerSeedEntry,
+} from '../../src/worker/read-store-refresh-support.js';
 
 // ─── Configuration ───
 
 const SEED_TIMEZONE = 'Europe/Paris';
 
-/** Compétitions à seeder — top 5 ligues européennes + Ligue des Champions + Europa League */
-const SEED_COMPETITION_IDS = ['39'];
+/** Compétitions à seeder — top 5 ligues européennes strictes */
+const SEED_COMPETITION_IDS = HOTSET_COMPETITION_IDS;
 
 /** Nombre max d'équipes à seeder par compétition */
 const MAX_TEAMS_PER_COMPETITION = 20;
@@ -91,6 +102,16 @@ type TeamIdEntry = {
     teamId: string;
     leagueId: string;
     season: number;
+};
+
+type CompetitionSeedResult = {
+    teamEntries: TeamIdEntry[];
+    playerEntries: PlayerSeedEntry[];
+};
+
+type TeamSeedResult = {
+    status: 'seeded' | 'skipped' | 'invalid';
+    playerEntries: PlayerSeedEntry[];
 };
 
 function extractTeamIdsFromCompetitionPayload(
@@ -156,24 +177,19 @@ function extractTeamIdsFromCompetitionPayload(
 function isCompetitionPayloadValid(
     payload: Awaited<ReturnType<typeof buildCompetitionFullResponse>>,
 ): boolean {
-    const hasMatches = Array.isArray(payload.matches) && payload.matches.length > 0;
-    const hasStandings = payload.standings !== null && payload.standings !== undefined;
-    const hasPlayerStats =
-        payload.playerStats?.topScorers?.length > 0 ||
-        payload.playerStats?.topAssists?.length > 0;
-
-    // Au moins une des trois conditions doit être vraie
-    return hasMatches || hasStandings || hasPlayerStats;
+    return isCompetitionFullPayloadComplete(payload);
 }
 
 function isTeamPayloadValid(
     payload: Awaited<ReturnType<typeof fetchTeamFullPayload>>,
 ): boolean {
-    const response = payload.response;
-    if (!response) return false;
+    return isTeamFullPayloadComplete(payload);
+}
 
-    const hasDetails = Array.isArray(response.details?.response) && response.details.response.length > 0;
-    return hasDetails;
+function isPlayerPayloadValid(
+    payload: Awaited<ReturnType<typeof fetchPlayerFullPayload>>,
+): boolean {
+    return isPlayerFullPayloadComplete(payload);
 }
 
 // ─── Retry wrapper ───
@@ -242,7 +258,7 @@ async function seedCompetition(
     season: number,
     index: number,
     total: number,
-): Promise<TeamIdEntry[]> {
+): Promise<CompetitionSeedResult> {
     const scopeKey = buildReadStoreScopeKey({ season: String(season) });
 
     // Check if already fresh
@@ -257,14 +273,18 @@ async function seedCompetition(
                 scopeKey,
             });
             if (existing && existing.status !== 'miss' && existing.payload) {
-                return extractTeamIdsFromCompetitionPayload(
-                    existing.payload as Awaited<ReturnType<typeof buildCompetitionFullResponse>>,
-                    competitionId,
-                    season,
-                );
+                const payload =
+                    existing.payload as Awaited<ReturnType<typeof buildCompetitionFullResponse>>;
+                return {
+                    teamEntries: extractTeamIdsFromCompetitionPayload(payload, competitionId, season),
+                    playerEntries: extractPlayerSeedEntriesFromCompetitionPayload(payload, season),
+                };
             }
         } catch { /* fallthrough */ }
-        return [];
+        return {
+            teamEntries: [],
+            playerEntries: [],
+        };
     }
 
     log('info', 'seed_competition_start', { competitionId, season, progress: `${index + 1}/${total}` });
@@ -280,7 +300,10 @@ async function seedCompetition(
             matchesCount: payload.matches?.length ?? 0,
             hasStandings: payload.standings !== null,
         });
-        return [];
+        return {
+            teamEntries: [],
+            playerEntries: [],
+        };
     }
 
     const window = buildSnapshotWindow({
@@ -308,14 +331,19 @@ async function seedCompetition(
     });
 
     const teamEntries = extractTeamIdsFromCompetitionPayload(payload, competitionId, season);
+    const playerEntries = extractPlayerSeedEntriesFromCompetitionPayload(payload, season);
     log('info', 'seed_competition_done', {
         competitionId,
         matchesCount: payload.matches?.length ?? 0,
         teamsExtracted: teamEntries.length,
+        playersExtracted: playerEntries.length,
         progress: `${index + 1}/${total}`,
     });
 
-    return teamEntries;
+    return {
+        teamEntries,
+        playerEntries,
+    };
 }
 
 async function seedTeam(
@@ -323,7 +351,7 @@ async function seedTeam(
     entry: TeamIdEntry,
     index: number,
     total: number,
-): Promise<boolean> {
+): Promise<TeamSeedResult> {
     const scopeKey = buildReadStoreScopeKey({
         leagueId: entry.leagueId,
         season: String(entry.season),
@@ -334,7 +362,26 @@ async function seedTeam(
     const alreadyFresh = await isEntityFresh(readStore, 'team_full', entry.teamId, scopeKey);
     if (alreadyFresh) {
         log('info', 'seed_team_skip', { teamId: entry.teamId, leagueId: entry.leagueId, reason: 'already_fresh', progress: `${index + 1}/${total}` });
-        return true;
+        try {
+            const existing = await readStore.getEntitySnapshot({
+                entityKind: 'team_full',
+                entityId: entry.teamId,
+                scopeKey,
+            });
+            if (existing && existing.status !== 'miss' && existing.payload) {
+                return {
+                    status: 'skipped',
+                    playerEntries: extractPlayerSeedEntriesFromTeamPayload(
+                        existing.payload as Awaited<ReturnType<typeof fetchTeamFullPayload>>,
+                        entry.season,
+                    ),
+                };
+            }
+        } catch { /* fallthrough */ }
+        return {
+            status: 'skipped',
+            playerEntries: [],
+        };
     }
 
     log('info', 'seed_team_start', { teamId: entry.teamId, leagueId: entry.leagueId, progress: `${index + 1}/${total}` });
@@ -352,7 +399,10 @@ async function seedTeam(
 
     if (!isTeamPayloadValid(payload)) {
         log('warn', 'seed_team_empty', { teamId: entry.teamId, leagueId: entry.leagueId });
-        return false;
+        return {
+            status: 'invalid',
+            playerEntries: [],
+        };
     }
 
     const window = buildSnapshotWindow({
@@ -380,7 +430,81 @@ async function seedTeam(
     });
 
     log('info', 'seed_team_done', { teamId: entry.teamId, progress: `${index + 1}/${total}` });
-    return true;
+    return {
+        status: 'seeded',
+        playerEntries: extractPlayerSeedEntriesFromTeamPayload(payload, entry.season),
+    };
+}
+
+async function seedPlayer(
+    readStore: Awaited<ReturnType<typeof getReadStore>>,
+    entry: PlayerSeedEntry,
+    index: number,
+    total: number,
+): Promise<'seeded' | 'skipped' | 'invalid'> {
+    const scopeKey = buildReadStoreScopeKey({
+        season: String(entry.season),
+    });
+
+    const alreadyFresh = await isEntityFresh(readStore, 'player_full', entry.playerId, scopeKey);
+    if (alreadyFresh) {
+        log('info', 'seed_player_skip', {
+            playerId: entry.playerId,
+            reason: 'already_fresh',
+            progress: `${index + 1}/${total}`,
+        });
+        return 'skipped';
+    }
+
+    log('info', 'seed_player_start', {
+        playerId: entry.playerId,
+        progress: `${index + 1}/${total}`,
+    });
+
+    const payload = await withRetry(`player:${entry.playerId}`, () =>
+        fetchPlayerFullPayload({
+            playerId: entry.playerId,
+            season: entry.season,
+        }),
+    );
+
+    if (!isPlayerPayloadValid(payload)) {
+        log('warn', 'seed_player_empty', {
+            playerId: entry.playerId,
+            season: entry.season,
+        });
+        return 'invalid';
+    }
+
+    const window = buildSnapshotWindow({
+        staleAfterMs: PLAYER_POLICY.freshMs,
+        expiresAfterMs: PLAYER_POLICY.staleMs,
+    });
+
+    await readStore.upsertEntitySnapshot({
+        entityKind: 'player_full',
+        entityId: entry.playerId,
+        scopeKey,
+        payload,
+        generatedAt: window.generatedAt,
+        staleAt: window.staleAt,
+        expiresAt: window.expiresAt,
+        metadata: { source: 'seed-v2', priority: SEED_PRIORITY },
+    });
+
+    await readStore.enqueueRefresh({
+        entityKind: 'player_full',
+        entityId: entry.playerId,
+        scopeKey,
+        priority: SEED_PRIORITY,
+        notBefore: window.staleAt,
+    });
+
+    log('info', 'seed_player_done', {
+        playerId: entry.playerId,
+        progress: `${index + 1}/${total}`,
+    });
+    return 'seeded';
 }
 
 // ─── Main ───
@@ -416,6 +540,7 @@ async function main() {
     log('info', 'phase1_start', { phase: 'competitions', count: SEED_COMPETITION_IDS.length });
 
     const allTeamEntries: TeamIdEntry[] = [];
+    const allPlayerEntries: PlayerSeedEntry[] = [];
     let competitionsSucceeded = 0;
     let competitionsFailed = 0;
     let competitionsSkipped = 0;
@@ -423,8 +548,9 @@ async function main() {
     for (let i = 0; i < SEED_COMPETITION_IDS.length; i++) {
         const competitionId = SEED_COMPETITION_IDS[i];
         try {
-            const entries = await seedCompetition(readStore, competitionId, season, i, SEED_COMPETITION_IDS.length);
-            allTeamEntries.push(...entries);
+            const result = await seedCompetition(readStore, competitionId, season, i, SEED_COMPETITION_IDS.length);
+            allTeamEntries.push(...result.teamEntries);
+            allPlayerEntries.push(...result.playerEntries);
             competitionsSucceeded++;
         } catch (error) {
             competitionsFailed++;
@@ -445,6 +571,7 @@ async function main() {
         failed: competitionsFailed,
         skipped: competitionsSkipped,
         totalTeamsExtracted: allTeamEntries.length,
+        totalPlayersExtracted: allPlayerEntries.length,
     });
 
     // ═══════════════════════════════════════════════
@@ -468,8 +595,9 @@ async function main() {
     for (let i = 0; i < teamsToSeed.length; i++) {
         const entry = teamsToSeed[i];
         try {
-            const success = await seedTeam(readStore, entry, i, teamsToSeed.length);
-            if (success) {
+            const result = await seedTeam(readStore, entry, i, teamsToSeed.length);
+            allPlayerEntries.push(...result.playerEntries);
+            if (result.status === 'seeded') {
                 teamsSucceeded++;
             } else {
                 teamsSkipped++;
@@ -485,6 +613,48 @@ async function main() {
 
         // Pause between teams (except after the last one)
         if (i < teamsToSeed.length - 1) {
+            await sleep(DELAY_BETWEEN_ENTITIES_MS);
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    // Phase 3 : Seed des joueurs (séquentiel)
+    // ═══════════════════════════════════════════════
+
+    const uniquePlayers = new Map<string, PlayerSeedEntry>();
+    for (const entry of allPlayerEntries) {
+        const key = `${entry.playerId}:${entry.season}`;
+        if (!uniquePlayers.has(key)) {
+            uniquePlayers.set(key, entry);
+        }
+    }
+
+    const playersToSeed = Array.from(uniquePlayers.values());
+    log('info', 'phase3_start', { phase: 'players', count: playersToSeed.length });
+
+    let playersSucceeded = 0;
+    let playersFailed = 0;
+    let playersSkipped = 0;
+
+    for (let i = 0; i < playersToSeed.length; i++) {
+        const entry = playersToSeed[i];
+        try {
+            const status = await seedPlayer(readStore, entry, i, playersToSeed.length);
+            if (status === 'seeded') {
+                playersSucceeded++;
+            } else {
+                playersSkipped++;
+            }
+        } catch (error) {
+            playersFailed++;
+            log('error', 'seed_player_failed', {
+                playerId: entry.playerId,
+                season: entry.season,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+
+        if (i < playersToSeed.length - 1) {
             await sleep(DELAY_BETWEEN_ENTITIES_MS);
         }
     }
@@ -509,11 +679,17 @@ async function main() {
             failed: teamsFailed,
             skipped: teamsSkipped,
         },
+        players: {
+            total: playersToSeed.length,
+            succeeded: playersSucceeded,
+            failed: playersFailed,
+            skipped: playersSkipped,
+        },
         season,
     });
 
     await readStore.close();
-    process.exit(competitionsFailed + teamsFailed > 0 ? 1 : 0);
+    process.exit(competitionsFailed + teamsFailed + playersFailed > 0 ? 1 : 0);
 }
 
 main().catch(error => {

@@ -19,7 +19,6 @@ import {
   useTeamStats,
 } from '@ui/features/teams/hooks/useTeamStats';
 import {
-  doesTeamFullSelectionMatch,
   useTeamFull,
 } from '@ui/features/teams/hooks/useTeamFull';
 import { fetchAllTeamPlayers } from '@data/teams/teamQueryData';
@@ -54,7 +53,6 @@ jest.mock('@data/teams/teamQueryData', () => ({
 
 jest.mock('@ui/features/teams/hooks/useTeamFull', () => ({
   useTeamFull: jest.fn(),
-  doesTeamFullSelectionMatch: jest.fn(),
 }));
 
 const mockedUseQuery = jest.mocked(useQuery);
@@ -67,7 +65,6 @@ const mockedMapPlayersToTopPlayersByCategory = jest.mocked(mapPlayersToTopPlayer
 const mockedMapTeamAdvancedComparisonMetrics = jest.mocked(mapTeamAdvancedComparisonMetrics);
 const mockedMapTeamStatisticsToStats = jest.mocked(mapTeamStatisticsToStats);
 const mockedUseTeamFull = jest.mocked(useTeamFull);
-const mockedDoesTeamFullSelectionMatch = jest.mocked(doesTeamFullSelectionMatch);
 
 const BASE_COMPARISON_METRICS: TeamComparisonMetric[] = [
   {
@@ -185,7 +182,6 @@ describe('useTeamStats', () => {
       isLoading: false,
       refetch: jest.fn(async () => ({}) as never),
     } as never);
-    mockedDoesTeamFullSelectionMatch.mockReturnValue(false);
     mockedMapTeamStatisticsToStats.mockReturnValue({
       ...BASE_CORE_DATA,
       topPlayers: [],
@@ -373,7 +369,7 @@ describe('useTeamStats', () => {
     expect(result.current.data?.topPlayers).toEqual([BASE_TOP_PLAYER]);
   });
 
-  it('uses team full payload first when the requested selection matches', () => {
+  it('uses team full payload first when a canonical payload is available', () => {
     mockedUseTeamFull.mockReturnValue({
       data: {
         selection: {
@@ -503,7 +499,6 @@ describe('useTeamStats', () => {
       isLoading: false,
       refetch: jest.fn(async () => ({}) as never),
     } as never);
-    mockedDoesTeamFullSelectionMatch.mockReturnValue(true);
     mockedMapTeamAdvancedComparisonMetrics.mockReturnValue(BASE_COMPARISON_METRICS as never);
     mockedMapTeamStatisticsToStats.mockReturnValue({
       ...BASE_CORE_DATA,

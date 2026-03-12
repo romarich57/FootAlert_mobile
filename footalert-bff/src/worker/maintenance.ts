@@ -20,7 +20,9 @@ export async function runReadStoreMaintenanceLoop(input: {
   readStoreRefreshRuntime: {
     warmBootstrapSnapshot: () => Promise<void>;
     processSnapshotRefreshQueue: () => Promise<void>;
+    publishWorkerHeartbeat?: (source?: string) => Promise<void>;
   };
+  workerId?: string;
   isShuttingDown: () => boolean;
 }): Promise<void> {
   let lastBootstrapWarmAt = Date.now();
@@ -30,6 +32,10 @@ export async function runReadStoreMaintenanceLoop(input: {
 
   while (!input.isShuttingDown()) {
     const nowMs = Date.now();
+
+    if (input.readStoreRefreshRuntime.publishWorkerHeartbeat) {
+      await input.readStoreRefreshRuntime.publishWorkerHeartbeat('worker.maintenance');
+    }
 
     if (nowMs - lastBootstrapWarmAt >= READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS) {
       try {

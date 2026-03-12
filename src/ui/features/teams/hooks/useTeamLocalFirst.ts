@@ -13,6 +13,7 @@
 import { useCallback } from 'react';
 
 import { appEnv } from '@data/config/env';
+import { buildTeamFullEntityId } from '@data/db/fullEntityIds';
 import { useLocalFirstQuery } from '@data/db/useLocalFirstQuery';
 import { fetchTeamFull } from '@data/endpoints/teamsApi';
 import { isJestRuntime } from '@data/runtime/isJestRuntime';
@@ -61,7 +62,7 @@ export function useTeamLocalFirst({
   const query = useLocalFirstQuery<TeamFullData>({
     queryKey: queryKeys.teams.full(teamId, timezone, leagueId, season),
     entityType: 'team',
-    entityId: teamId,
+    entityId: buildTeamFullEntityId(teamId, leagueId, season, timezone),
     maxAgeMs: TEAM_FULL_MAX_AGE_MS,
     fetchFn,
     enabled: fullEnabled,
