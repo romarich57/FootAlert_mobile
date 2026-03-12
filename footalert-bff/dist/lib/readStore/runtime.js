@@ -156,6 +156,12 @@ function createReadStore(baseStore, backend) {
         async countRefreshBacklog() {
             return baseStore.countRefreshBacklog();
         },
+        async upsertWorkerHeartbeat(input) {
+            await baseStore.upsertWorkerHeartbeat(input);
+        },
+        async getStatusSnapshot(now) {
+            return baseStore.getStatusSnapshot(now ?? new Date());
+        },
         async deleteExpiredSnapshots(now) {
             return baseStore.deleteExpiredSnapshots(now ?? new Date());
         },

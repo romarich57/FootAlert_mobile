@@ -1,3 +1,4 @@
+import './loadEnvFile.js';
 import { env } from './config/env.js';
 import { createFirebaseNotificationsSender } from './lib/notifications/firebaseSender.js';
 import { NOTIFICATIONS_DEFERRED_PROMOTION_QUEUE, NOTIFICATIONS_DISPATCH_QUEUE, NOTIFICATIONS_SEND_QUEUE, } from './lib/notifications/queue.js';
@@ -104,6 +105,7 @@ async function startWorker() {
     await runReadStoreMaintenanceLoop({
         readStore,
         readStoreRefreshRuntime,
+        workerId: readStoreRefreshRuntime.workerId,
         isShuttingDown: () => isShuttingDown,
     });
 }

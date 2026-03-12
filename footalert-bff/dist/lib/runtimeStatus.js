@@ -4,11 +4,26 @@ import { getUpstreamGuardSnapshot } from './apiFootballClient.js';
 import { getCacheHealthSnapshot } from './cache.js';
 import { getNotificationsMetricsSnapshot } from './notifications/metrics.js';
 import { getNotificationsQueueClient } from './notifications/runtime.js';
-import { buildReadStoreScopeKey } from './readStore/readThrough.js';
-import { getReadStore, } from './readStore/runtime.js';
+import { getReadStore, getSnapshotStore, } from './readStore/runtime.js';
+import { BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT } from '../routes/bootstrap/schemas.js';
+import { buildBootstrapScopeKey } from '../routes/bootstrap/service.js';
+const READ_STORE_HEARTBEAT_STALE_MS = 5 * 60_000;
 let readinessRedisClient = null;
 let readinessRedisUrl = null;
 let postgresHealthClient = null;
+const defaultRuntimeStatusDependencies = {
+    getCacheHealthSnapshot,
+    getNotificationsMetricsSnapshot,
+    getNotificationsQueueClient,
+    getReadStore,
+    getSnapshotStore,
+    getUpstreamGuardSnapshot,
+    pingRedis,
+    pingPostgres,
+};
+let runtimeStatusDependencies = {
+    ...defaultRuntimeStatusDependencies,
+};
 function isProductionLikeEnv() {
     return env.appEnv === 'staging' || env.appEnv === 'production';
 }
@@ -115,7 +130,7 @@ async function pingPostgres(databaseUrl) {
     await client.query('SELECT 1');
 }
 async function buildRedisCheck() {
-    const cacheSnapshot = getCacheHealthSnapshot();
+    const cacheSnapshot = runtimeStatusDependencies.getCacheHealthSnapshot();
     const required = cacheSnapshot.backend === 'redis' || (env.notificationsBackendEnabled && isProductionLikeEnv());
     if (!required) {
         return buildSkippedCheck({
@@ -148,7 +163,7 @@ async function buildRedisCheck() {
         });
     }
     try {
-        await pingRedis(env.redisUrl);
+        await runtimeStatusDependencies.pingRedis(env.redisUrl);
     }
     catch (error) {
         return buildDegradedCheck({
@@ -191,7 +206,7 @@ async function buildPostgresCheck() {
         });
     }
     try {
-        await pingPostgres(env.databaseUrl);
+        await runtimeStatusDependencies.pingPostgres(env.databaseUrl);
     }
     catch (error) {
         return buildDegradedCheck({
@@ -221,7 +236,7 @@ async function buildQueueCheck(redisCheck) {
         });
     }
     try {
-        await getNotificationsQueueClient({
+        await runtimeStatusDependencies.getNotificationsQueueClient({
             redisUrl: env.redisUrl,
             enabled: env.notificationsBackendEnabled,
         });
@@ -249,39 +264,107 @@ async function buildReadStoreCheck() {
     const defaultTimezone = 'Europe/Paris';
     const defaultDate = resolveDateInTimezone(defaultTimezone);
     const defaultSeason = resolveSeasonFromDate(defaultDate);
-    const defaultScopeKey = buildReadStoreScopeKey({
+    const defaultScopeKey = buildBootstrapScopeKey({
         date: defaultDate,
         timezone: defaultTimezone,
         season: defaultSeason,
+        discoveryLimit: BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+        followedPlayerIds: [],
+        followedTeamIds: [],
     });
+    if (!env.databaseUrl) {
+        return buildSkippedCheck({
+            backend: 'memory',
+            postgresReachable: false,
+            backlog: {
+                queued: 0,
+                inProgress: 0,
+                failed: 0,
+                total: 0,
+            },
+            bootstrapSnapshotAvailable: false,
+            defaultScopeKey,
+            workerHeartbeatAgeMs: null,
+            workerHeartbeatStale: false,
+            backlogBlocked: false,
+            refreshFailureRows: 0,
+            degradedReasons: [],
+        });
+    }
     try {
-        const store = await getReadStore({
-            databaseUrl: env.databaseUrl,
-        });
-        const backlog = await store.countRefreshBacklog();
-        const bootstrapSnapshot = await store.getBootstrapSnapshot({
-            scopeKey: defaultScopeKey,
-        });
+        const [store, snapshotStore] = await Promise.all([
+            runtimeStatusDependencies.getReadStore({
+                databaseUrl: env.databaseUrl,
+            }),
+            runtimeStatusDependencies.getSnapshotStore({
+                backend: 'postgres',
+                databaseUrl: env.databaseUrl,
+            }),
+        ]);
+        const [backlog, statusSnapshot, bootstrapSnapshot] = await Promise.all([
+            store.countRefreshBacklog(),
+            snapshotStore.getStatusSnapshot(),
+            store.getBootstrapSnapshot({
+                scopeKey: defaultScopeKey,
+            }),
+        ]);
+        const bootstrapSnapshotAvailable = bootstrapSnapshot.status !== 'miss';
+        const workerHeartbeatAgeMs = statusSnapshot.workerHeartbeatAgeMs;
+        const workerHeartbeatMissing = workerHeartbeatAgeMs === null;
+        const workerHeartbeatStale = workerHeartbeatAgeMs !== null && workerHeartbeatAgeMs > READ_STORE_HEARTBEAT_STALE_MS;
+        const backlogBlocked = backlog.queued > 0 &&
+            backlog.inProgress === 0 &&
+            (workerHeartbeatMissing
+                || workerHeartbeatStale
+                || statusSnapshot.refreshFailureRows > 0);
+        const hasRefreshFailures = backlog.failed > 0 || statusSnapshot.refreshFailureRows > 0;
+        const degradedReasons = [];
+        if (!bootstrapSnapshotAvailable) {
+            degradedReasons.push('bootstrap_snapshot_missing');
+        }
+        if (workerHeartbeatMissing) {
+            degradedReasons.push('worker_heartbeat_missing');
+        }
+        else if (workerHeartbeatStale) {
+            degradedReasons.push('worker_heartbeat_stale');
+        }
+        if (backlogBlocked) {
+            degradedReasons.push('refresh_backlog_blocked');
+        }
+        if (hasRefreshFailures) {
+            degradedReasons.push('refresh_failures_present');
+        }
+        const ready = bootstrapSnapshotAvailable &&
+            !workerHeartbeatMissing &&
+            !workerHeartbeatStale &&
+            !backlogBlocked &&
+            !hasRefreshFailures;
+        const status = ready ? 'ready' : 'degraded';
         return {
-            required: Boolean(env.databaseUrl),
-            ready: true,
-            status: backlog.failed > 0 ? 'degraded' : 'ready',
+            required: true,
+            ready,
+            status,
             details: {
                 backend: store.backend,
-                postgresReachable: store.backend === 'postgres',
+                postgresReachable: true,
                 backlog,
-                bootstrapSnapshotAvailable: bootstrapSnapshot.status !== 'miss',
+                bootstrapSnapshotAvailable,
                 defaultScopeKey,
+                workerHeartbeatAgeMs,
+                workerHeartbeatStale,
+                backlogBlocked,
+                refreshFailureRows: statusSnapshot.refreshFailureRows,
+                degradedReasons,
             },
         };
     }
     catch (error) {
         return {
-            required: Boolean(env.databaseUrl),
+            required: true,
             ready: false,
             status: 'degraded',
             details: {
-                backend: env.databaseUrl ? 'postgres' : 'memory',
+                backend: 'postgres',
                 postgresReachable: false,
                 backlog: {
                     queued: 0,
@@ -291,13 +374,18 @@ async function buildReadStoreCheck() {
                 },
                 bootstrapSnapshotAvailable: false,
                 defaultScopeKey,
+                workerHeartbeatAgeMs: null,
+                workerHeartbeatStale: false,
+                backlogBlocked: false,
+                refreshFailureRows: 0,
+                degradedReasons: ['read_store_unreachable'],
                 error: error instanceof Error ? error.message : String(error),
             },
         };
     }
 }
 async function buildUpstreamGuardCheck() {
-    const snapshot = await getUpstreamGuardSnapshot();
+    const snapshot = await runtimeStatusDependencies.getUpstreamGuardSnapshot();
     const openFamilies = snapshot.circuitBreaker.openFamilies.map(item => item.family);
     const ready = snapshot.quota.state !== 'exhausted';
     const status = !ready || openFamilies.length > 0 || snapshot.quota.state === 'critical'
@@ -321,7 +409,11 @@ export async function buildReadinessPayload() {
     const queueCheck = await buildQueueCheck(redisCheck);
     const readStoreCheck = await buildReadStoreCheck();
     const upstreamGuardCheck = await buildUpstreamGuardCheck();
-    const status = redisCheck.ready && postgresCheck.ready && queueCheck.ready && upstreamGuardCheck.ready
+    const status = redisCheck.ready &&
+        postgresCheck.ready &&
+        queueCheck.ready &&
+        readStoreCheck.ready &&
+        upstreamGuardCheck.ready
         ? 'ready'
         : 'degraded';
     return {
@@ -338,17 +430,47 @@ export async function buildReadinessPayload() {
 }
 export async function renderPrometheusMetrics() {
     const lines = [];
-    const cacheSnapshot = getCacheHealthSnapshot();
-    const notificationsSnapshot = getNotificationsMetricsSnapshot();
-    const upstreamSnapshot = await getUpstreamGuardSnapshot();
-    // Récupérer le backlog read-store (best-effort, ne bloque pas les métriques)
-    let readStoreBacklog = null;
+    const cacheSnapshot = runtimeStatusDependencies.getCacheHealthSnapshot();
+    const notificationsSnapshot = runtimeStatusDependencies.getNotificationsMetricsSnapshot();
+    const upstreamSnapshot = await runtimeStatusDependencies.getUpstreamGuardSnapshot();
+    let readStoreMetrics = null;
     try {
-        const store = await getReadStore({ databaseUrl: env.databaseUrl });
-        readStoreBacklog = await store.countRefreshBacklog();
+        const defaultScopeKey = buildBootstrapScopeKey({
+            date: resolveDateInTimezone('Europe/Paris'),
+            timezone: 'Europe/Paris',
+            season: resolveSeasonFromDate(resolveDateInTimezone('Europe/Paris')),
+            discoveryLimit: BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT,
+            followedPlayerIds: [],
+            followedTeamIds: [],
+        });
+        const [store, snapshotStore] = await Promise.all([
+            runtimeStatusDependencies.getReadStore({ databaseUrl: env.databaseUrl }),
+            runtimeStatusDependencies.getSnapshotStore({
+                backend: env.databaseUrl ? 'postgres' : 'memory',
+                databaseUrl: env.databaseUrl,
+            }),
+        ]);
+        const [backlog, bootstrapSnapshot, statusSnapshot] = await Promise.all([
+            store.countRefreshBacklog(),
+            store.getBootstrapSnapshot({ scopeKey: defaultScopeKey }),
+            snapshotStore.getStatusSnapshot(),
+        ]);
+        const workerHeartbeatAgeMs = statusSnapshot.workerHeartbeatAgeMs;
+        const workerHeartbeatStale = workerHeartbeatAgeMs !== null && workerHeartbeatAgeMs > READ_STORE_HEARTBEAT_STALE_MS;
+        readStoreMetrics = {
+            backlog,
+            bootstrapAvailable: bootstrapSnapshot.status !== 'miss',
+            workerHeartbeatAgeMs: statusSnapshot.workerHeartbeatAgeMs,
+            backlogBlocked: backlog.queued > 0
+                && backlog.inProgress === 0
+                && (workerHeartbeatAgeMs === null
+                    || workerHeartbeatStale
+                    || statusSnapshot.refreshFailureRows > 0),
+            refreshFailureRows: statusSnapshot.refreshFailureRows,
+        };
     }
     catch {
-        // ReadStore indisponible — on expose 0 pour les métriques.
+        readStoreMetrics = null;
     }
     appendMetricBlock(lines, 'footalert_bff_up', 'gauge', 'Process liveness for the FootAlert BFF.', [
         'footalert_bff_up 1',
@@ -373,10 +495,15 @@ export async function renderPrometheusMetrics() {
         priority: item.priority,
     }));
     appendMetricBlock(lines, 'footalert_bff_upstream_sheds_total', 'counter', 'Observed quota-shed events by route family and priority class.', shedSeries.length > 0 ? shedSeries : ['footalert_bff_upstream_sheds_total 0']);
-    if (readStoreBacklog) {
-        appendMetricBlock(lines, 'footalert_bff_readstore_refresh_queued', 'gauge', 'Number of snapshot refresh jobs queued in read-store.', [`footalert_bff_readstore_refresh_queued ${readStoreBacklog.queued}`]);
-        appendMetricBlock(lines, 'footalert_bff_readstore_refresh_in_progress', 'gauge', 'Number of snapshot refresh jobs in progress in read-store.', [`footalert_bff_readstore_refresh_in_progress ${readStoreBacklog.inProgress}`]);
-        appendMetricBlock(lines, 'footalert_bff_readstore_refresh_failed', 'gauge', 'Number of failed snapshot refresh jobs in read-store.', [`footalert_bff_readstore_refresh_failed ${readStoreBacklog.failed}`]);
+    if (readStoreMetrics) {
+        appendMetricBlock(lines, 'footalert_bff_readstore_refresh_queued', 'gauge', 'Number of snapshot refresh jobs queued in read-store.', [`footalert_bff_readstore_refresh_queued ${readStoreMetrics.backlog.queued}`]);
+        appendMetricBlock(lines, 'footalert_bff_readstore_refresh_in_progress', 'gauge', 'Number of snapshot refresh jobs in progress in read-store.', [`footalert_bff_readstore_refresh_in_progress ${readStoreMetrics.backlog.inProgress}`]);
+        appendMetricBlock(lines, 'footalert_bff_readstore_refresh_failed', 'gauge', 'Number of failed snapshot refresh jobs in read-store.', [`footalert_bff_readstore_refresh_failed ${readStoreMetrics.backlog.failed}`]);
+        appendMetricBlock(lines, 'footalert_bff_readstore_backlog_total', 'gauge', 'Total number of snapshot refresh jobs currently tracked in read-store.', [`footalert_bff_readstore_backlog_total ${readStoreMetrics.backlog.total}`]);
+        appendMetricBlock(lines, 'footalert_bff_readstore_bootstrap_available', 'gauge', 'Whether the default bootstrap snapshot is currently available in read-store.', [`footalert_bff_readstore_bootstrap_available ${readStoreMetrics.bootstrapAvailable ? 1 : 0}`]);
+        appendMetricBlock(lines, 'footalert_bff_readstore_worker_heartbeat_age_ms', 'gauge', 'Age in milliseconds of the latest read-store worker heartbeat.', [`footalert_bff_readstore_worker_heartbeat_age_ms ${readStoreMetrics.workerHeartbeatAgeMs ?? 0}`]);
+        appendMetricBlock(lines, 'footalert_bff_readstore_backlog_blocked', 'gauge', 'Whether the read-store refresh backlog is currently blocked.', [`footalert_bff_readstore_backlog_blocked ${readStoreMetrics.backlogBlocked ? 1 : 0}`]);
+        appendMetricBlock(lines, 'footalert_bff_readstore_refresh_failure_rows', 'gauge', 'Number of refresh queue rows carrying a last_error value.', [`footalert_bff_readstore_refresh_failure_rows ${readStoreMetrics.refreshFailureRows}`]);
     }
     for (const [name, value] of Object.entries(notificationsSnapshot.counters)) {
         appendMetricBlock(lines, name, 'counter', `Notification counter ${name}.`, [`${name} ${value}`]);
@@ -386,6 +513,12 @@ export async function renderPrometheusMetrics() {
     }
     return `${lines.join('\n')}\n`;
 }
+export function configureRuntimeStatusForTests(overrides) {
+    runtimeStatusDependencies = {
+        ...defaultRuntimeStatusDependencies,
+        ...overrides,
+    };
+}
 export async function resetRuntimeStatusForTests() {
     readinessRedisClient?.disconnect();
     readinessRedisClient = null;
@@ -394,4 +527,7 @@ export async function resetRuntimeStatusForTests() {
         await postgresHealthClient.end();
     }
     postgresHealthClient = null;
+    runtimeStatusDependencies = {
+        ...defaultRuntimeStatusDependencies,
+    };
 }

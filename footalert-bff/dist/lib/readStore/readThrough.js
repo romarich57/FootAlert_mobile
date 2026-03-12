@@ -1,3 +1,4 @@
+import { ReadStoreSnapshotUnavailableBffError, } from './errors.js';
 const inFlightSnapshotRefreshes = new Map();
 function normalizeScopeValue(value) {
     if (typeof value === 'boolean') {
@@ -62,6 +63,14 @@ export async function readThroughSnapshot(input) {
         }, 'read_store.snapshot_read_failed');
         snapshot = { status: 'miss' };
     }
+    if (snapshot.status !== 'miss'
+        && input.isSnapshotPayloadValid?.(snapshot.payload) === false) {
+        input.logger?.warn({
+            cacheKey: input.cacheKey,
+            snapshotStatus: snapshot.status,
+        }, 'read_store.snapshot_invalid');
+        snapshot = { status: 'miss' };
+    }
     if (snapshot.status === 'fresh') {
         return {
             payload: snapshot.payload,
@@ -74,6 +83,7 @@ export async function readThroughSnapshot(input) {
             const backgroundRefresh = (async () => {
                 try {
                     const payload = await input.fetchFresh();
+                    input.validateFreshPayload?.(payload);
                     const window = buildSnapshotWindow({
                         staleAfterMs: input.staleAfterMs,
                         expiresAfterMs: input.expiresAfterMs,
@@ -111,14 +121,26 @@ export async function readThroughSnapshot(input) {
         };
     }
     const payload = await input.fetchFresh();
+    input.validateFreshPayload?.(payload);
     const window = buildSnapshotWindow({
         staleAfterMs: input.staleAfterMs,
         expiresAfterMs: input.expiresAfterMs,
     });
-    await input.upsertSnapshot({
-        payload,
-        ...window,
-    });
+    try {
+        await input.upsertSnapshot({
+            payload,
+            ...window,
+        });
+    }
+    catch (error) {
+        input.logger?.warn({
+            err: error instanceof Error ? error.message : String(error),
+            cacheKey: input.cacheKey,
+        }, 'read_store.snapshot_write_failed');
+        throw new ReadStoreSnapshotUnavailableBffError({
+            cacheKey: input.cacheKey,
+        });
+    }
     return {
         payload,
         freshness: 'miss',

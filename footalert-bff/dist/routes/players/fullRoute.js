@@ -1,10 +1,32 @@
 import { env } from '../../config/env.js';
+import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
 import { PLAYER_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
 import { parseOrThrow } from '../../lib/validation.js';
 import { fetchPlayerFullPayload } from './fullService.js';
 import { playerDetailsQuerySchema, playerIdParamsSchema } from './schemas.js';
+function validatePlayerFullPayload(payload) {
+    const response = payload.response;
+    if (!Array.isArray(response?.details?.response)
+        || response.details.response.length === 0
+        || !Array.isArray(response?.seasons?.response)
+        || response.seasons.response.length === 0
+        || response?.overview?.response == null) {
+        throw new ReadStoreSnapshotInvalidBffError({
+            entityKind: 'player_full',
+        });
+    }
+}
+function isValidPlayerFullPayload(payload) {
+    try {
+        validatePlayerFullPayload(payload);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 export async function registerPlayerFullRoute(app) {
     app.get('/v1/players/:id/full', async (request) => {
         const params = parseOrThrow(playerIdParamsSchema, request.params);
@@ -41,6 +63,8 @@ export async function registerPlayerFullRoute(app) {
                 playerId: params.id,
                 season: query.season,
             }),
+            isSnapshotPayloadValid: isValidPlayerFullPayload,
+            validateFreshPayload: validatePlayerFullPayload,
             queue: {
                 store: readStore,
                 target: {

@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
 import { COMPETITION_POLICY } from '../../lib/readStore/policies.js';
 import { readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
@@ -10,6 +11,23 @@ const CACHE_CONTROL_SHORT = [
     `max-age=${Math.max(1, Math.floor(Math.min(env.cacheTtl.competitions, 30_000) / 1_000))}`,
     `stale-while-revalidate=${Math.max(1, Math.floor(Math.min(env.cacheTtl.competitions, 30_000) / 1_000))}`,
 ].join(', ');
+function validateCompetitionFullPayload(payload) {
+    if (payload.competition == null || !Number.isFinite(payload.season)) {
+        throw new ReadStoreSnapshotInvalidBffError({
+            entityKind: 'competition_full',
+            season: payload.season,
+        });
+    }
+}
+function isValidCompetitionFullPayload(payload) {
+    try {
+        validateCompetitionFullPayload(payload);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 export function registerCompetitionFullRoute(app) {
     app.get('/v1/competitions/:id/full', {
         config: {
@@ -51,6 +69,8 @@ export function registerCompetitionFullRoute(app) {
                 },
             }),
             fetchFresh: () => buildCompetitionFullResponse(params.id, query.season),
+            isSnapshotPayloadValid: isValidCompetitionFullPayload,
+            validateFreshPayload: validateCompetitionFullPayload,
             queue: {
                 store: readStore,
                 target: {

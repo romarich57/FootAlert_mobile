@@ -1,3 +1,4 @@
+import './loadEnvFile.js';
 import { env } from './config/env.js';
 import { createFirebaseNotificationsSender } from './lib/notifications/firebaseSender.js';
 import {

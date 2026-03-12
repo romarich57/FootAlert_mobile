@@ -1,4 +1,5 @@
 import { env } from '../../config/env.js';
+import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
 import { MATCH_DEFAULT_POLICY } from '../../lib/readStore/policies.js';
 import { buildSnapshotWindow, readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
@@ -39,6 +40,22 @@ function applyMatchLiveOverlay(payload, overlay) {
         absences: overlay.absences ?? payload.absences,
         playersStats: overlay.playersStats ?? payload.playersStats,
     };
+}
+function validateMatchFullPayload(payload) {
+    if (payload.fixture == null) {
+        throw new ReadStoreSnapshotInvalidBffError({
+            entityKind: 'match_full',
+        });
+    }
+}
+function isValidMatchFullPayload(payload) {
+    try {
+        validateMatchFullPayload(payload);
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 export function registerMatchFullRoute(app) {
     app.get('/v1/matches/:id/full', {
@@ -101,6 +118,8 @@ export function registerMatchFullRoute(app) {
                 await persistLiveOverlay(payload);
                 return payload;
             },
+            isSnapshotPayloadValid: isValidMatchFullPayload,
+            validateFreshPayload: validateMatchFullPayload,
             queue: {
                 store: readStore,
                 target: {

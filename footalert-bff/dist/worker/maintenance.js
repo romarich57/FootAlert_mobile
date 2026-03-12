@@ -11,6 +11,9 @@ export async function runReadStoreMaintenanceLoop(input) {
     let consecutiveRefreshErrors = 0;
     while (!input.isShuttingDown()) {
         const nowMs = Date.now();
+        if (input.readStoreRefreshRuntime.publishWorkerHeartbeat) {
+            await input.readStoreRefreshRuntime.publishWorkerHeartbeat('worker.maintenance');
+        }
         if (nowMs - lastBootstrapWarmAt >= READ_STORE_BOOTSTRAP_WARM_INTERVAL_MS) {
             try {
                 await input.readStoreRefreshRuntime.warmBootstrapSnapshot();
