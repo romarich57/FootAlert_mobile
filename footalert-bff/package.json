@@ -30,7 +30,8 @@
     "perf:k6:critical": "k6 run scripts/perf/k6-critical-routes.js",
     "perf:k6:notifications": "k6 run scripts/perf/k6-notifications-pressure.js",
     "db:migrate:notifications": "node scripts/db/migrate-notifications.mjs",
-    "db:seed:read-store": "tsx --env-file=.env scripts/db/seed-read-store.ts"
+    "db:seed:read-store": "tsx --env-file=.env scripts/db/seed-read-store.ts",
+    "db:seed:prod": "tsx --env-file=.env scripts/db/seed-read-store-v2.ts"
   },
   "engines": {
     "node": ">=22.11.0"
