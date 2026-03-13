@@ -304,6 +304,10 @@ test('GET /v1/matches/:id/full follows pre-match lifecycle policy', async t => {
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['cache-control'], 'public, max-age=30, stale-while-revalidate=30');
   assert.equal(payload.lifecycleState, 'pre_match');
+  assert.equal(payload._hydration.status, 'full_ready');
+  assert.equal(payload._hydration.enqueuedHeavyRefresh, false);
+  assert.equal(payload._hydration.sections.fixture.state, 'ready');
+  assert.equal(payload._hydration.sections.statistics.freshness, 'fresh');
   assert.deepEqual(payload.events, []);
   assert.deepEqual(payload.statistics, { all: [], first: [], second: [] });
   assert.equal(payload.predictions.length, 1);
@@ -348,6 +352,9 @@ test('GET /v1/matches/:id/full aggregates finished-match sections', async t => {
   const payload = response.json();
   assert.equal(response.statusCode, 200);
   assert.equal(payload.lifecycleState, 'finished');
+  assert.equal(payload._hydration.status, 'full_ready');
+  assert.equal(payload._hydration.sections.events.state, 'ready');
+  assert.equal(payload._hydration.sections.playersStats.freshness, 'fresh');
   assert.equal(payload.events.length, 1);
   assert.equal(payload.statistics.all.length, 1);
   assert.deepEqual(payload.statistics.first, [{ team: { id: 10 }, statistics: [{ type: 'Shots on Goal', value: 2 }] }, { team: { id: 20 }, statistics: [{ type: 'Shots on Goal', value: 1 }] }]);

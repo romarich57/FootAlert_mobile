@@ -2,10 +2,18 @@ import { useQuery } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
 import { fetchTeamFull } from '@data/endpoints/teamsApi';
+import {
+  getHydrationSection,
+  isHydrationPending,
+  resolveProgressiveHydrationRefetchInterval,
+} from '@domain/contracts/fullPayloadHydration.types';
 import { useTeamLocalFirst } from '@ui/features/teams/hooks/useTeamLocalFirst';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import type { TeamFullResponsePayload } from '@domain/contracts/teamFull.types';
+import type {
+  TeamFullData,
+  TeamFullResponsePayload,
+} from '@domain/contracts/teamFull.types';
 
 type UseTeamFullParams = {
   teamId: string;
@@ -15,7 +23,13 @@ type UseTeamFullParams = {
   enabled?: boolean;
 };
 
-export type TeamFullData = TeamFullResponsePayload['response'];
+function flattenTeamFullPayload(payload: TeamFullResponsePayload): TeamFullData {
+  return {
+    ...payload.response,
+    _meta: payload._meta,
+    _hydration: payload._hydration,
+  };
+}
 
 export function doesTeamFullSelectionMatch(
   payload: TeamFullData | null | undefined,
@@ -50,6 +64,12 @@ export function useTeamFull({
     queryKey: queryKeys.teams.full(teamId, timezone, leagueId, season),
     enabled: !useSqliteLocalFirst && fullEnabled,
     placeholderData: previousData => previousData,
+    refetchInterval: query =>
+      resolveProgressiveHydrationRefetchInterval(
+        query.state.data?._hydration,
+        query.state.dataUpdatedAt,
+      ),
+    refetchIntervalInBackground: false,
     ...featureQueryOptions.teams.full,
     queryFn: async ({ signal }) => {
       const payload = await fetchTeamFull(
@@ -61,7 +81,7 @@ export function useTeamFull({
         },
         signal,
       );
-      return payload.response;
+      return flattenTeamFullPayload(payload);
     },
   });
 
@@ -72,5 +92,11 @@ export function useTeamFull({
   return {
     ...networkQuery,
     isFullEnabled: fullEnabled,
+    hydration: networkQuery.data?._hydration ?? null,
+    hydrationStatus: networkQuery.data?._hydration?.status ?? null,
+    hydrationSections: networkQuery.data?._hydration?.sections ?? {},
+    isHydrationPending: isHydrationPending(networkQuery.data?._hydration),
+    getSectionHydration: (sectionKey: string) =>
+      getHydrationSection(networkQuery.data?._hydration, sectionKey),
   };
 }

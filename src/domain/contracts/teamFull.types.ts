@@ -1,5 +1,9 @@
 import type { PayloadFreshnessMeta } from './freshnessMeta.types';
 import type {
+  MobileFullPayloadHydration,
+  MobileProgressivePayloadMeta,
+} from './fullPayloadHydration.types';
+import type {
   TeamAdvancedStatsDto,
   TeamApiFixtureDto,
   TeamApiLeagueDto,
@@ -20,6 +24,7 @@ export type TeamFullSelection = {
 
 export type TeamFullResponsePayload = {
   _meta?: PayloadFreshnessMeta;
+  _hydration?: MobileFullPayloadHydration;
   response: {
     details: { response: TeamApiTeamDetailsDto[] };
     leagues: { response: TeamApiLeagueDto[] };
@@ -36,3 +41,5 @@ export type TeamFullResponsePayload = {
     trophies: { response: unknown[] };
   };
 };
+
+export type TeamFullData = TeamFullResponsePayload['response'] & MobileProgressivePayloadMeta;

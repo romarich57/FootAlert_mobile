@@ -133,6 +133,8 @@ export async function readThroughSnapshot<TPayload>(input: {
       entityKind: string;
       entityId: string;
       scopeKey?: string | null;
+      priority?: number;
+      payload?: Record<string, unknown> | null;
     };
   };
 }): Promise<ReadThroughSnapshotResult<TPayload>> {
@@ -214,7 +216,9 @@ export async function readThroughSnapshot<TPayload>(input: {
         entityKind: input.queue.target.entityKind,
         entityId: input.queue.target.entityId,
         scopeKey: input.queue.target.scopeKey ?? null,
+        priority: input.queue.target.priority,
         notBefore: new Date(),
+        payload: input.queue.target.payload ?? null,
       }).catch(error => {
         input.logger?.warn(
           {

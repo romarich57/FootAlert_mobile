@@ -4,6 +4,11 @@ import { appEnv } from '@data/config/env';
 import { buildCompetitionFullEntityId } from '@data/db/fullEntityIds';
 import { createLocalFirstQueryFn } from '@data/db/localFirstAdapter';
 import {
+  getHydrationSection,
+  isHydrationPending,
+  resolveProgressiveHydrationRefetchInterval,
+} from '@domain/contracts/fullPayloadHydration.types';
+import {
   fetchCompetitionFull,
   type CompetitionFullPayload,
 } from '@data/endpoints/competitionsApi';
@@ -124,6 +129,12 @@ export function useCompetitionFullQuery(
     enabled: !useSqliteLocalFirst && enabled && canUseCompetitionFull(leagueId),
     queryFn: createCompetitionFullQueryFn(leagueId as number, season),
     placeholderData: previousData => previousData,
+    refetchInterval: query =>
+      resolveProgressiveHydrationRefetchInterval(
+        query.state.data?._hydration,
+        query.state.dataUpdatedAt,
+      ),
+    refetchIntervalInBackground: false,
     ...featureQueryOptions.competitions.full,
   });
 
@@ -131,5 +142,13 @@ export function useCompetitionFullQuery(
     return localFirstQuery;
   }
 
-  return networkQuery;
+  return {
+    ...networkQuery,
+    hydration: networkQuery.data?._hydration ?? null,
+    hydrationStatus: networkQuery.data?._hydration?.status ?? null,
+    hydrationSections: networkQuery.data?._hydration?.sections ?? {},
+    isHydrationPending: isHydrationPending(networkQuery.data?._hydration),
+    getSectionHydration: (sectionKey: string) =>
+      getHydrationSection(networkQuery.data?._hydration, sectionKey),
+  };
 }

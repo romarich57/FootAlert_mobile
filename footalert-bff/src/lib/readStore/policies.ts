@@ -53,6 +53,47 @@ export const COMPETITION_POLICY: SnapshotPolicy = {
   refreshIntervalMs: 4 * 60 * 60_000,
 };
 
+// ─── Politiques sectionnées pour les payloads full progressifs ───
+
+export const TEAM_CORE_POLICY: SnapshotPolicy = {
+  freshMs: 30 * 60_000,
+  staleMs: 6 * 60 * 60_000,
+  refreshIntervalMs: 30 * 60_000,
+};
+
+export const TEAM_STATISTICS_POLICY = POST_MATCH_POLICY;
+export const TEAM_ADVANCED_STATS_POLICY = POST_MATCH_POLICY;
+export const TEAM_STATS_PLAYERS_POLICY = POST_MATCH_POLICY;
+export const TEAM_SQUAD_POLICY = WEEKLY_POLICY;
+export const TEAM_TRANSFERS_POLICY = WEEKLY_POLICY;
+export const TEAM_TROPHIES_POLICY = STATIC_LIFETIME_POLICY;
+
+export const PLAYER_CORE_POLICY: SnapshotPolicy = {
+  freshMs: 30 * 60_000,
+  staleMs: 6 * 60 * 60_000,
+  refreshIntervalMs: 30 * 60_000,
+};
+
+export const PLAYER_MATCHES_POLICY = POST_MATCH_POLICY;
+export const PLAYER_STATS_CATALOG_POLICY: SnapshotPolicy = {
+  freshMs: 7 * 24 * 60 * 60_000,
+  staleMs: 30 * 24 * 60 * 60_000,
+  refreshIntervalMs: 7 * 24 * 60 * 60_000,
+};
+export const PLAYER_CAREER_POLICY = STATIC_LIFETIME_POLICY;
+export const PLAYER_TROPHIES_POLICY = STATIC_LIFETIME_POLICY;
+
+export const COMPETITION_CORE_POLICY: SnapshotPolicy = {
+  freshMs: 15 * 60_000,
+  staleMs: 6 * 60 * 60_000,
+  refreshIntervalMs: 15 * 60_000,
+};
+
+export const COMPETITION_BRACKET_POLICY = POST_MATCH_POLICY;
+export const COMPETITION_PLAYER_STATS_POLICY = POST_MATCH_POLICY;
+export const COMPETITION_TEAM_STATS_POLICY = POST_MATCH_POLICY;
+export const COMPETITION_TRANSFERS_POLICY = WEEKLY_POLICY;
+
 // ─── Politiques match par état du cycle de vie ───
 
 export const MATCH_DEFAULT_POLICY: SnapshotPolicy = {

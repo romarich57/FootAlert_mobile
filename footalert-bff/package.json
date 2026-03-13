@@ -31,7 +31,12 @@
     "perf:k6:notifications": "k6 run scripts/perf/k6-notifications-pressure.js",
     "db:migrate:notifications": "node scripts/db/migrate-notifications.mjs",
     "db:seed:read-store": "tsx --env-file=.env scripts/db/seed-read-store.ts",
-    "db:seed:prod": "tsx --env-file=.env scripts/db/seed-read-store-v2.ts"
+    "db:seed:prod": "tsx --env-file=.env scripts/db/seed-read-store-v2.ts",
+    "db:backfill:read-store": "tsx --env-file=.env scripts/db/backfill-read-store.ts",
+    "db:backfill:read-store:detach": "bash scripts/db/run-backfill-read-store-detached.sh start",
+    "db:backfill:read-store:status": "bash scripts/db/run-backfill-read-store-detached.sh status",
+    "db:backfill:read-store:tail": "bash scripts/db/run-backfill-read-store-detached.sh tail",
+    "db:backfill:read-store:stop": "bash scripts/db/run-backfill-read-store-detached.sh stop"
   },
   "engines": {
     "node": ">=22.11.0"

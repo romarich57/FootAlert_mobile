@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import { mapSquadToTeamSquad } from '@data/mappers/teamsMapper';
 import { fetchTeamSquadData } from '@data/teams/teamQueryData';
 import { useTeamFull } from '@ui/features/teams/hooks/useTeamFull';
@@ -41,12 +42,14 @@ export function useTeamSquad({
     enabled,
   });
   const canUseFullPayload = teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
+  const isFullSquadSectionLoading =
+    canUseFullPayload && isHydrationSectionLoading(teamFullQuery.hydration, 'squad');
   const fullSquadData = useMemo(
     () =>
-      canUseFullPayload
+      canUseFullPayload && !isFullSquadSectionLoading
         ? mapSquadToTeamSquad(teamFullQuery.data?.squad.response[0] ?? null)
         : { coach: null, players: [] },
-    [canUseFullPayload, teamFullQuery.data?.squad.response],
+    [canUseFullPayload, isFullSquadSectionLoading, teamFullQuery.data?.squad.response],
   );
 
   const query = useQuery<TeamSquadData>({
@@ -67,8 +70,8 @@ export function useTeamSquad({
     ? {
         ...query,
         data: fullSquadData,
-        isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
-        isFetching: teamFullQuery.isFetching,
+        isLoading: (teamFullQuery.isLoading && !teamFullQuery.data) || isFullSquadSectionLoading,
+        isFetching: teamFullQuery.isFetching || isFullSquadSectionLoading,
         isError: teamFullQuery.isError && !teamFullQuery.data,
         isFetched: teamFullQuery.isFetched,
         isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,

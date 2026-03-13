@@ -26,6 +26,10 @@ import {
   mobileReadHttpAdapter,
   mobileReadTelemetryAdapter,
 } from '@data/endpoints/sharedReadServiceAdapters';
+import type {
+  MobileFullPayloadHydration,
+} from '@domain/contracts/fullPayloadHydration.types';
+import type { PayloadFreshnessMeta } from '@domain/contracts/freshnessMeta.types';
 
 const playersReadService = createPlayersReadService({
   http: mobileReadHttpAdapter,
@@ -35,7 +39,8 @@ const playersReadService = createPlayersReadService({
 export { PLAYER_MATCHES_LIMIT };
 
 type PlayerApiFullResponse = {
-  _meta?: import('@domain/contracts/freshnessMeta.types').PayloadFreshnessMeta;
+  _meta?: PayloadFreshnessMeta;
+  _hydration?: MobileFullPayloadHydration;
   details: {
     response: PlayerApiDetailsDto[];
   };
@@ -127,7 +132,8 @@ export async function fetchPlayerFull(
   signal?: AbortSignal,
 ): Promise<PlayerApiFullResponse | null> {
   const payload = await playersReadService.fetchPlayerFull<{
-    _meta?: import('@domain/contracts/freshnessMeta.types').PayloadFreshnessMeta;
+    _meta?: PayloadFreshnessMeta;
+    _hydration?: MobileFullPayloadHydration;
     details?: {
       response?: PlayerApiDetailsDto[];
     };
@@ -160,6 +166,7 @@ export async function fetchPlayerFull(
 
   return {
     _meta: payload._meta,
+    _hydration: payload._hydration,
     details: {
       response: Array.isArray(payload.details?.response) ? payload.details.response : [],
     },

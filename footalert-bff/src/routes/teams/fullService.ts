@@ -6,6 +6,7 @@ import {
   freshnessHints,
   type PayloadFreshnessMeta,
 } from '../../lib/freshnessMeta.js';
+import type { FullPayloadHydration } from '../../lib/readStore/hydration.js';
 
 import {
   buildTeamAdvancedStatsPayload,
@@ -72,6 +73,7 @@ type TeamFullSelection = {
 
 export type TeamFullRoutePayload = {
   _meta: PayloadFreshnessMeta;
+  _hydration?: FullPayloadHydration;
   response: {
     details: { response: unknown[] };
     leagues: { response: unknown[] };
@@ -88,6 +90,18 @@ export type TeamFullRoutePayload = {
     trophies: { response: unknown[] };
   };
 };
+
+export type TeamCoreSnapshotPayload = Pick<
+  TeamFullRoutePayload['response'],
+  'details' | 'leagues' | 'selection' | 'overview' | 'overviewLeaders' | 'standings' | 'matches'
+>;
+
+export type TeamStatisticsSectionPayload = TeamFullRoutePayload['response']['statistics'];
+export type TeamAdvancedStatsSectionPayload = TeamFullRoutePayload['response']['advancedStats'];
+export type TeamStatsPlayersSectionPayload = TeamFullRoutePayload['response']['statsPlayers'];
+export type TeamSquadSectionPayload = TeamFullRoutePayload['response']['squad'];
+export type TeamTransfersSectionPayload = TeamFullRoutePayload['response']['transfers'];
+export type TeamTrophiesSectionPayload = TeamFullRoutePayload['response']['trophies'];
 
 function firstSettledError(results: PromiseSettledResult<unknown>[]): Error {
   for (const result of results) {
@@ -262,6 +276,24 @@ function resolveRequestedSelection(input: {
   return resolveDefaultTeamSelection(competitions);
 }
 
+function hasResolvedSelection(
+  selection: TeamFullSelection,
+): selection is { leagueId: string; season: number } {
+  return (
+    typeof selection.leagueId === 'string'
+    && selection.leagueId.trim().length > 0
+    && typeof selection.season === 'number'
+    && Number.isFinite(selection.season)
+  );
+}
+
+type TeamSelectionContext = {
+  details: { response: unknown[] };
+  leagues: { response: unknown[] };
+  selection: TeamFullSelection;
+  historySeasons: number[];
+};
+
 async function fetchTeamDetailsPayload(teamId: string): Promise<{ response: unknown[] }> {
   const payload = await apiFootballGet<ApiFootballListResponse<unknown>>(
     `/teams?id=${encodeURIComponent(teamId)}`,
@@ -399,14 +431,14 @@ async function fetchTeamTrophiesPayload(
   };
 }
 
-export async function fetchTeamFullPayload(params: {
+async function buildTeamSelectionContext(params: {
   teamId: string;
   leagueId?: string;
   season?: number;
   timezone: string;
   historySeasons?: string;
   logger: FastifyBaseLogger;
-}): Promise<TeamFullRoutePayload> {
+}): Promise<TeamSelectionContext> {
   const baseResults = await Promise.allSettled([
     fetchTeamDetailsPayload(params.teamId),
     fetchTeamLeaguesPayload(params.teamId),
@@ -433,64 +465,155 @@ export async function fetchTeamFullPayload(params: {
     derivedHistorySeasons.length > 0
       ? derivedHistorySeasons
       : (selectedCompetition?.seasons ?? []).filter(season => season !== selection.season).slice(0, 5);
-  const hasSelection = Boolean(selection.leagueId) && typeof selection.season === 'number';
+
+  return {
+    details,
+    leagues,
+    selection,
+    historySeasons,
+  };
+}
+
+export async function buildTeamCoreSnapshot(params: {
+  teamId: string;
+  leagueId?: string;
+  season?: number;
+  timezone: string;
+  historySeasons?: string;
+  logger: FastifyBaseLogger;
+}): Promise<TeamCoreSnapshotPayload> {
+  const context = await buildTeamSelectionContext(params);
+  const selected = hasResolvedSelection(context.selection);
+  const resolvedSelection = selected
+    ? {
+        leagueId: context.selection.leagueId as string,
+        season: context.selection.season as number,
+      }
+    : null;
 
   const secondaryResults = await Promise.allSettled([
-    hasSelection
+    resolvedSelection
       ? fetchTeamOverviewCorePayload({
           teamId: params.teamId,
-          leagueId: selection.leagueId ?? '',
-          season: selection.season ?? 0,
+          leagueId: resolvedSelection.leagueId,
+          season: resolvedSelection.season,
           timezone: params.timezone,
-          historySeasons,
+          historySeasons: context.historySeasons,
           logger: params.logger,
         })
       : Promise.resolve(null),
-    hasSelection
+    resolvedSelection
       ? fetchTeamOverviewLeadersPayload({
           teamId: params.teamId,
-          leagueId: selection.leagueId ?? '',
-          season: selection.season ?? 0,
+          leagueId: resolvedSelection.leagueId,
+          season: resolvedSelection.season,
         })
       : Promise.resolve(null),
-    hasSelection
-      ? fetchTeamStandingsPayload(selection.leagueId ?? '', selection.season ?? 0)
+    resolvedSelection
+      ? fetchTeamStandingsPayload(resolvedSelection.leagueId, resolvedSelection.season)
       : Promise.resolve({ response: null }),
-    hasSelection
+    resolvedSelection
       ? fetchTeamMatchesPayload({
           teamId: params.teamId,
-          leagueId: selection.leagueId ?? '',
-          season: selection.season ?? 0,
+          leagueId: resolvedSelection.leagueId,
+          season: resolvedSelection.season,
           timezone: params.timezone,
         })
       : Promise.resolve({ response: [] }),
-    hasSelection
-      ? fetchTeamStatisticsPayload(params.teamId, selection.leagueId ?? '', selection.season ?? 0)
-      : Promise.resolve({ response: null }),
-    hasSelection
-      ? fetchTeamAdvancedStatsPayload(params.teamId, selection.leagueId ?? '', selection.season ?? 0)
-      : Promise.resolve({ response: null }),
-    hasSelection
-      ? fetchTeamStatsPlayersPayload(params.teamId, selection.leagueId ?? '', selection.season ?? 0)
-      : Promise.resolve({ response: [] }),
-    fetchTeamSquadPayload(params.teamId),
-    fetchNormalizedTeamTransfers(params.teamId, selection.season ?? params.season),
-    fetchTeamTrophiesPayload(params.teamId, params.logger),
   ]);
 
-  const [
-    overview,
-    overviewLeaders,
-    standings,
-    matches,
-    statistics,
-    advancedStats,
-    statsPlayers,
-    squad,
-    transfers,
-    trophies,
-  ] = secondaryResults;
+  const [overview, overviewLeaders, standings, matches] = secondaryResults;
 
+  return {
+    details: context.details,
+    leagues: context.leagues,
+    selection: context.selection,
+    overview: resolveSettledValue(overview, null),
+    overviewLeaders: resolveSettledValue(overviewLeaders, null),
+    standings: resolveSettledValue(standings, { response: null }),
+    matches: resolveSettledValue(matches, { response: [] }),
+  };
+}
+
+export async function buildTeamStatisticsSection(input: {
+  teamId: string;
+  selection: TeamFullSelection;
+}): Promise<TeamStatisticsSectionPayload> {
+  if (!hasResolvedSelection(input.selection)) {
+    return { response: null };
+  }
+
+  return fetchTeamStatisticsPayload(
+    input.teamId,
+    input.selection.leagueId,
+    input.selection.season,
+  );
+}
+
+export async function buildTeamAdvancedStatsSection(input: {
+  teamId: string;
+  selection: TeamFullSelection;
+}): Promise<TeamAdvancedStatsSectionPayload> {
+  if (!hasResolvedSelection(input.selection)) {
+    return { response: null };
+  }
+
+  return fetchTeamAdvancedStatsPayload(
+    input.teamId,
+    input.selection.leagueId,
+    input.selection.season,
+  );
+}
+
+export async function buildTeamStatsPlayersSection(input: {
+  teamId: string;
+  selection: TeamFullSelection;
+}): Promise<TeamStatsPlayersSectionPayload> {
+  if (!hasResolvedSelection(input.selection)) {
+    return { response: [] };
+  }
+
+  return fetchTeamStatsPlayersPayload(
+    input.teamId,
+    input.selection.leagueId,
+    input.selection.season,
+  );
+}
+
+export async function buildTeamSquadSection(input: {
+  teamId: string;
+}): Promise<TeamSquadSectionPayload> {
+  return fetchTeamSquadPayload(input.teamId);
+}
+
+export async function buildTeamTransfersSection(input: {
+  teamId: string;
+  selection: TeamFullSelection;
+  requestedSeason?: number;
+}): Promise<TeamTransfersSectionPayload> {
+  return fetchNormalizedTeamTransfers(
+    input.teamId,
+    hasResolvedSelection(input.selection) ? input.selection.season : input.requestedSeason,
+  );
+}
+
+export async function buildTeamTrophiesSection(input: {
+  teamId: string;
+  logger: FastifyBaseLogger;
+}): Promise<TeamTrophiesSectionPayload> {
+  return fetchTeamTrophiesPayload(input.teamId, input.logger);
+}
+
+export function composeTeamFullPayload(input: {
+  core: TeamCoreSnapshotPayload;
+  statistics: TeamStatisticsSectionPayload;
+  advancedStats: TeamAdvancedStatsSectionPayload;
+  statsPlayers: TeamStatsPlayersSectionPayload;
+  squad: TeamSquadSectionPayload;
+  transfers: TeamTransfersSectionPayload;
+  trophies: TeamTrophiesSectionPayload;
+  hydration?: FullPayloadHydration;
+}): TeamFullRoutePayload {
   return {
     _meta: buildFreshnessMeta({
       details: freshnessHints.static,
@@ -506,20 +629,90 @@ export async function fetchTeamFullPayload(params: {
       advancedStats: freshnessHints.postMatch,
       transfers: freshnessHints.weekly,
     }),
+    _hydration: input.hydration,
     response: {
-      details,
-      leagues,
-      selection,
-      overview: resolveSettledValue(overview, null),
-      overviewLeaders: resolveSettledValue(overviewLeaders, null),
-      standings: resolveSettledValue(standings, { response: null }),
-      matches: resolveSettledValue(matches, { response: [] }),
-      statistics: resolveSettledValue(statistics, { response: null }),
-      advancedStats: resolveSettledValue(advancedStats, { response: null }),
-      statsPlayers: resolveSettledValue(statsPlayers, { response: [] }),
-      squad: resolveSettledValue(squad, { response: [{ players: [], coach: null }] }),
-      transfers: resolveSettledValue(transfers, { response: [] }),
-      trophies: resolveSettledValue(trophies, { response: [] }),
+      ...input.core,
+      statistics: input.statistics,
+      advancedStats: input.advancedStats,
+      statsPlayers: input.statsPlayers,
+      squad: input.squad,
+      transfers: input.transfers,
+      trophies: input.trophies,
     },
   };
+}
+
+export function splitTeamFullPayload(payload: TeamFullRoutePayload): {
+  core: TeamCoreSnapshotPayload;
+  statistics: TeamStatisticsSectionPayload;
+  advancedStats: TeamAdvancedStatsSectionPayload;
+  statsPlayers: TeamStatsPlayersSectionPayload;
+  squad: TeamSquadSectionPayload;
+  transfers: TeamTransfersSectionPayload;
+  trophies: TeamTrophiesSectionPayload;
+} {
+  return {
+    core: {
+      details: payload.response.details,
+      leagues: payload.response.leagues,
+      selection: payload.response.selection,
+      overview: payload.response.overview,
+      overviewLeaders: payload.response.overviewLeaders,
+      standings: payload.response.standings,
+      matches: payload.response.matches,
+    },
+    statistics: payload.response.statistics,
+    advancedStats: payload.response.advancedStats,
+    statsPlayers: payload.response.statsPlayers,
+    squad: payload.response.squad,
+    transfers: payload.response.transfers,
+    trophies: payload.response.trophies,
+  };
+}
+
+export async function fetchTeamFullPayload(params: {
+  teamId: string;
+  leagueId?: string;
+  season?: number;
+  timezone: string;
+  historySeasons?: string;
+  logger: FastifyBaseLogger;
+}): Promise<TeamFullRoutePayload> {
+  const core = await buildTeamCoreSnapshot(params);
+  const [statistics, advancedStats, statsPlayers, squad, transfers, trophies] = await Promise.all([
+    buildTeamStatisticsSection({
+      teamId: params.teamId,
+      selection: core.selection,
+    }),
+    buildTeamAdvancedStatsSection({
+      teamId: params.teamId,
+      selection: core.selection,
+    }),
+    buildTeamStatsPlayersSection({
+      teamId: params.teamId,
+      selection: core.selection,
+    }),
+    buildTeamSquadSection({
+      teamId: params.teamId,
+    }),
+    buildTeamTransfersSection({
+      teamId: params.teamId,
+      selection: core.selection,
+      requestedSeason: params.season,
+    }),
+    buildTeamTrophiesSection({
+      teamId: params.teamId,
+      logger: params.logger,
+    }),
+  ]);
+
+  return composeTeamFullPayload({
+    core,
+    statistics,
+    advancedStats,
+    statsPlayers,
+    squad,
+    transfers,
+    trophies,
+  });
 }

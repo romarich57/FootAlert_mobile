@@ -3,13 +3,56 @@ import type { FastifyBaseLogger } from 'fastify';
 import { env } from '../config/env.js';
 import type { EntityCacheTtlConfig } from '../config/cacheTtl.js';
 import {
+  COMPETITION_BRACKET_POLICY,
+  COMPETITION_CORE_POLICY,
+  COMPETITION_PLAYER_STATS_POLICY,
+  COMPETITION_TEAM_STATS_POLICY,
+  COMPETITION_TRANSFERS_POLICY,
   COMPETITION_POLICY,
   MATCH_DEFAULT_POLICY,
+  PLAYER_CAREER_POLICY,
+  PLAYER_CORE_POLICY,
+  PLAYER_MATCHES_POLICY,
+  PLAYER_STATS_CATALOG_POLICY,
   PLAYER_POLICY,
+  PLAYER_TROPHIES_POLICY,
+  TEAM_ADVANCED_STATS_POLICY,
+  TEAM_CORE_POLICY,
   TEAM_POLICY,
+  TEAM_SQUAD_POLICY,
+  TEAM_STATISTICS_POLICY,
+  TEAM_STATS_PLAYERS_POLICY,
+  TEAM_TRANSFERS_POLICY,
+  TEAM_TROPHIES_POLICY,
 } from '../lib/readStore/policies.js';
 import { getSnapshotStore } from '../lib/readStore/runtime.js';
 import type { ReadStore, SnapshotRefreshJob } from '../lib/readStore/runtime.js';
+import {
+  buildCompetitionBracketSection,
+  buildCompetitionCoreSnapshot,
+  buildCompetitionPlayerStatsSection,
+  buildCompetitionTeamStatsSection,
+  buildCompetitionTransfersSection,
+  type CompetitionCoreSnapshotPayload,
+} from '../routes/competitions/fullService.js';
+import {
+  buildPlayerCareerSection,
+  buildPlayerCoreSnapshot,
+  buildPlayerMatchesSection,
+  buildPlayerStatsCatalogSection,
+  buildPlayerTrophiesSection,
+  type PlayerCoreSnapshotPayload,
+} from '../routes/players/fullService.js';
+import {
+  buildTeamAdvancedStatsSection,
+  buildTeamCoreSnapshot,
+  buildTeamSquadSection,
+  buildTeamStatisticsSection,
+  buildTeamStatsPlayersSection,
+  buildTeamTransfersSection,
+  buildTeamTrophiesSection,
+  type TeamCoreSnapshotPayload,
+} from '../routes/teams/fullService.js';
 import {
   hashSensitiveValue,
   logWorker,
@@ -134,6 +177,430 @@ export function createReadStoreRefreshRuntime(input: {
     return snapshot.payload;
   }
 
+  function readJobPayloadText(
+    job: SnapshotRefreshJob,
+    key: string,
+  ): string | null {
+    const value = job.payload?.[key];
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  }
+
+  function readJobSection(
+    job: SnapshotRefreshJob,
+    scope: Record<string, string>,
+  ): string | null {
+    return readJobPayloadText(job, 'section') ?? parseOptionalText(scope.section) ?? null;
+  }
+
+  function assertTeamCoreSnapshotComplete(payload: TeamCoreSnapshotPayload): void {
+    if (
+      !Array.isArray(payload.details.response)
+      || payload.details.response.length === 0
+      || !Array.isArray(payload.leagues.response)
+      || payload.leagues.response.length === 0
+      || payload.selection.leagueId === null
+      || payload.selection.season === null
+    ) {
+      throw new Error('team core snapshot is incomplete');
+    }
+  }
+
+  function assertPlayerCoreSnapshotComplete(payload: PlayerCoreSnapshotPayload): void {
+    if (
+      !Array.isArray(payload.details.response)
+      || payload.details.response.length === 0
+      || !Array.isArray(payload.seasons.response)
+      || payload.seasons.response.length === 0
+      || payload.overview.response == null
+    ) {
+      throw new Error('player core snapshot is incomplete');
+    }
+  }
+
+  function assertCompetitionCoreSnapshotComplete(
+    payload: CompetitionCoreSnapshotPayload,
+  ): void {
+    if (payload.competition == null || !Number.isFinite(payload.season)) {
+      throw new Error('competition core snapshot is incomplete');
+    }
+  }
+
+  async function upsertSectionSnapshot(inputSnapshot: {
+    entityKind: 'team' | 'player' | 'competition';
+    entityId: string;
+    scopeKey: string;
+    section: string;
+    payload: unknown;
+    policy: { freshMs: number; staleMs: number };
+  }): Promise<void> {
+    const window = policyWindow(inputSnapshot.policy);
+    await input.readStore.upsertEntitySnapshot({
+      entityKind: inputSnapshot.entityKind,
+      entityId: inputSnapshot.entityId,
+      scopeKey: inputSnapshot.scopeKey,
+      payload: inputSnapshot.payload,
+      metadata: {
+        source: 'worker.refresh',
+        section: inputSnapshot.section,
+      },
+      ...window,
+    });
+  }
+
+  async function getOrBuildCompetitionCoreSnapshot(inputSnapshot: {
+    competitionId: string;
+    season?: number;
+  }): Promise<CompetitionCoreSnapshotPayload> {
+    const coreScopeKey = services.buildReadStoreScopeKey({
+      section: 'core',
+      season: inputSnapshot.season ?? null,
+    });
+    const snapshot = await input.readStore.getEntitySnapshot<CompetitionCoreSnapshotPayload>({
+      entityKind: 'competition',
+      entityId: inputSnapshot.competitionId,
+      scopeKey: coreScopeKey,
+    });
+
+    if (snapshot.status !== 'miss') {
+      assertCompetitionCoreSnapshotComplete(snapshot.payload);
+      return snapshot.payload;
+    }
+
+    const payload = await buildCompetitionCoreSnapshot(
+      inputSnapshot.competitionId,
+      inputSnapshot.season,
+    );
+    assertCompetitionCoreSnapshotComplete(payload);
+    await upsertSectionSnapshot({
+      entityKind: 'competition',
+      entityId: inputSnapshot.competitionId,
+      scopeKey: coreScopeKey,
+      section: 'core',
+      payload,
+      policy: COMPETITION_CORE_POLICY,
+    });
+    return payload;
+  }
+
+  async function refreshSectionedEntityJob(
+    job: SnapshotRefreshJob,
+    scope: Record<string, string>,
+  ): Promise<boolean> {
+    const section = readJobSection(job, scope);
+    if (!section) {
+      return false;
+    }
+
+    if (job.entityKind === 'team') {
+      if (section === 'core') {
+        const timezone = parseOptionalText(scope.timezone);
+        if (!timezone) {
+          throw new Error(`team core scope missing timezone for job ${job.id}`);
+        }
+
+        const payload = await buildTeamCoreSnapshot({
+          teamId: job.entityId,
+          leagueId: parseOptionalText(scope.leagueId) ?? undefined,
+          season: parseOptionalNumber(scope.season) ?? undefined,
+          timezone,
+          historySeasons: parseOptionalText(scope.historySeasons) ?? undefined,
+          logger: input.logger as unknown as FastifyBaseLogger,
+        });
+        assertTeamCoreSnapshotComplete(payload);
+        await upsertSectionSnapshot({
+          entityKind: 'team',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload,
+          policy: TEAM_CORE_POLICY,
+        });
+        return true;
+      }
+
+      const selection = {
+        leagueId: parseOptionalText(scope.leagueId) ?? null,
+        season: parseOptionalNumber(scope.season) ?? null,
+      };
+
+      if (section === 'statistics') {
+        await upsertSectionSnapshot({
+          entityKind: 'team',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildTeamStatisticsSection({
+            teamId: job.entityId,
+            selection,
+          }),
+          policy: TEAM_STATISTICS_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'advancedStats') {
+        await upsertSectionSnapshot({
+          entityKind: 'team',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildTeamAdvancedStatsSection({
+            teamId: job.entityId,
+            selection,
+          }),
+          policy: TEAM_ADVANCED_STATS_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'statsPlayers') {
+        await upsertSectionSnapshot({
+          entityKind: 'team',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildTeamStatsPlayersSection({
+            teamId: job.entityId,
+            selection,
+          }),
+          policy: TEAM_STATS_PLAYERS_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'squad') {
+        await upsertSectionSnapshot({
+          entityKind: 'team',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildTeamSquadSection({
+            teamId: job.entityId,
+          }),
+          policy: TEAM_SQUAD_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'transfers') {
+        await upsertSectionSnapshot({
+          entityKind: 'team',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildTeamTransfersSection({
+            teamId: job.entityId,
+            selection,
+            requestedSeason: parseOptionalNumber(scope.season) ?? undefined,
+          }),
+          policy: TEAM_TRANSFERS_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'trophies') {
+        await upsertSectionSnapshot({
+          entityKind: 'team',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildTeamTrophiesSection({
+            teamId: job.entityId,
+            logger: input.logger as unknown as FastifyBaseLogger,
+          }),
+          policy: TEAM_TROPHIES_POLICY,
+        });
+        return true;
+      }
+    }
+
+    if (job.entityKind === 'player') {
+      if (section === 'core') {
+        const season = parseOptionalNumber(scope.season);
+        if (!season) {
+          throw new Error(`player core scope missing season for job ${job.id}`);
+        }
+
+        const payload = await buildPlayerCoreSnapshot({
+          playerId: job.entityId,
+          season,
+        });
+        assertPlayerCoreSnapshotComplete(payload);
+        await upsertSectionSnapshot({
+          entityKind: 'player',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload,
+          policy: PLAYER_CORE_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'matches') {
+        const season = parseOptionalNumber(scope.season);
+        if (!season) {
+          throw new Error(`player matches scope missing season for job ${job.id}`);
+        }
+
+        const payload = await buildPlayerMatchesSection({
+          playerId: job.entityId,
+          season,
+          core: {
+            details: { response: [] },
+            seasons: { response: [] },
+            overview: {
+              response: {
+                profile: {
+                  team: {
+                    id: parseOptionalText(scope.teamId),
+                  },
+                },
+              },
+            },
+          } as PlayerCoreSnapshotPayload,
+        });
+        await upsertSectionSnapshot({
+          entityKind: 'player',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload,
+          policy: PLAYER_MATCHES_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'statsCatalog') {
+        await upsertSectionSnapshot({
+          entityKind: 'player',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildPlayerStatsCatalogSection({
+            playerId: job.entityId,
+          }),
+          policy: PLAYER_STATS_CATALOG_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'career') {
+        await upsertSectionSnapshot({
+          entityKind: 'player',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildPlayerCareerSection({
+            playerId: job.entityId,
+          }),
+          policy: PLAYER_CAREER_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'trophies') {
+        await upsertSectionSnapshot({
+          entityKind: 'player',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildPlayerTrophiesSection({
+            playerId: job.entityId,
+          }),
+          policy: PLAYER_TROPHIES_POLICY,
+        });
+        return true;
+      }
+    }
+
+    if (job.entityKind === 'competition') {
+      if (section === 'core') {
+        const payload = await buildCompetitionCoreSnapshot(
+          job.entityId,
+          parseOptionalNumber(scope.season) ?? undefined,
+        );
+        assertCompetitionCoreSnapshotComplete(payload);
+        await upsertSectionSnapshot({
+          entityKind: 'competition',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload,
+          policy: COMPETITION_CORE_POLICY,
+        });
+        return true;
+      }
+
+      const season = parseOptionalNumber(scope.season) ?? undefined;
+      const core = await getOrBuildCompetitionCoreSnapshot({
+        competitionId: job.entityId,
+        season,
+      });
+
+      if (section === 'bracket') {
+        await upsertSectionSnapshot({
+          entityKind: 'competition',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildCompetitionBracketSection({
+            core,
+          }),
+          policy: COMPETITION_BRACKET_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'playerStats') {
+        await upsertSectionSnapshot({
+          entityKind: 'competition',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildCompetitionPlayerStatsSection({
+            competitionId: job.entityId,
+            core,
+          }),
+          policy: COMPETITION_PLAYER_STATS_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'teamStats') {
+        await upsertSectionSnapshot({
+          entityKind: 'competition',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildCompetitionTeamStatsSection({
+            competitionId: job.entityId,
+            core,
+          }),
+          policy: COMPETITION_TEAM_STATS_POLICY,
+        });
+        return true;
+      }
+
+      if (section === 'transfers') {
+        await upsertSectionSnapshot({
+          entityKind: 'competition',
+          entityId: job.entityId,
+          scopeKey: job.scopeKey,
+          section,
+          payload: await buildCompetitionTransfersSection({
+            competitionId: job.entityId,
+            core,
+          }),
+          policy: COMPETITION_TRANSFERS_POLICY,
+        });
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   async function refreshSnapshotForJob(job: SnapshotRefreshJob): Promise<void> {
     if (job.entityKind === 'bootstrap') {
       const parsedScope = services.parseBootstrapScopeKey(job.scopeKey);
@@ -167,6 +634,10 @@ export function createReadStoreRefreshRuntime(input: {
     }
 
     const scope = services.decodeReadStoreScopeKey(job.scopeKey);
+
+    if (await refreshSectionedEntityJob(job, scope)) {
+      return;
+    }
 
     if (job.entityKind === 'team_full') {
       const timezone = parseOptionalText(scope.timezone);

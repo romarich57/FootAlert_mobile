@@ -1,88 +1,81 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { renderHook } from '@testing-library/react-native';
 
-import { appEnv } from '@data/config/env';
 import {
   mapCompetitionPlayerStatsToTotw,
   mapPlayerStatsDtoToPlayerStats,
 } from '@data/mappers/competitionsMapper';
-import { loadCompetitionFullPayload } from '@ui/features/competitions/hooks/competitionFullQuery';
+import { useCompetitionFullQuery } from '@ui/features/competitions/hooks/competitionFullQuery';
 import { useCompetitionTotw } from '@ui/features/competitions/hooks/useCompetitionTotw';
 
-jest.mock('@tanstack/react-query', () => ({
-  useQuery: jest.fn(),
-  useQueryClient: jest.fn(),
-}));
-jest.mock('@data/config/env', () => ({
-  appEnv: {
-    mobileEnableBffCompetitionFull: false,
-  },
-}));
 jest.mock('@data/mappers/competitionsMapper', () => ({
   mapPlayerStatsDtoToPlayerStats: jest.fn(),
   mapCompetitionPlayerStatsToTotw: jest.fn(),
 }));
 jest.mock('@ui/features/competitions/hooks/competitionFullQuery', () => ({
-  loadCompetitionFullPayload: jest.fn(),
+  useCompetitionFullQuery: jest.fn(),
 }));
 
-const mockedUseQuery = jest.mocked(useQuery);
-const mockedUseQueryClient = jest.mocked(useQueryClient);
 const mockedMapPlayerStatsDtoToPlayerStats = jest.mocked(mapPlayerStatsDtoToPlayerStats);
 const mockedMapCompetitionPlayerStatsToTotw = jest.mocked(mapCompetitionPlayerStatsToTotw);
-const mockedLoadCompetitionFullPayload = jest.mocked(loadCompetitionFullPayload);
+const mockedUseCompetitionFullQuery = jest.mocked(useCompetitionFullQuery);
+
+function createCompetitionFullQueryResult(overrides: Record<string, unknown> = {}) {
+  return {
+    data: undefined,
+    hydration: null,
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+    error: null,
+    ...overrides,
+  };
+}
 
 describe('useCompetitionTotw', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    appEnv.mobileEnableBffCompetitionFull = false;
-    mockedUseQueryClient.mockReturnValue({} as never);
-    mockedUseQuery.mockReturnValue({} as never);
-    mockedLoadCompetitionFullPayload.mockResolvedValue(null);
-  });
-
-  it('disables query when league or season is missing and query function returns null', async () => {
-    useCompetitionTotw(undefined, 2025);
-    let queryConfig = mockedUseQuery.mock.calls[0]?.[0];
-    let queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal | undefined }) => Promise<unknown>;
-    expect(queryConfig).toEqual(expect.objectContaining({ enabled: false }));
-    await expect(queryFn({ signal: undefined })).resolves.toBeNull();
-
-    mockedUseQuery.mockClear();
-
-    useCompetitionTotw(61, undefined);
-    queryConfig = mockedUseQuery.mock.calls[0]?.[0];
-    queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal | undefined }) => Promise<unknown>;
-    expect(queryConfig).toEqual(expect.objectContaining({ enabled: false }));
-    await expect(queryFn({ signal: undefined })).resolves.toBeNull();
-  });
-
-  it('uses expected key and options when parameters are present', () => {
-    useCompetitionTotw(61, 2025);
-
-    expect(mockedUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['competition_totw', 61, 2025],
-        enabled: true,
-        staleTime: 24 * 60 * 60 * 1000,
-      }),
+    mockedUseCompetitionFullQuery.mockReturnValue(
+      createCompetitionFullQueryResult() as never,
     );
   });
 
-  it('builds TOTW from competitions.full player stats and forwards data to the strict mapper', async () => {
-    appEnv.mobileEnableBffCompetitionFull = true;
-    const signal = new AbortController().signal;
-    const topScorersRaw = [{ key: 'scorer' }] as never;
-    const topAssistsRaw = [{ key: 'assist' }] as never;
-    const topYellowRaw = [{ key: 'yellow' }] as never;
-    const topRedRaw = [{ key: 'red' }] as never;
-    mockedLoadCompetitionFullPayload.mockResolvedValue({
-      playerStats: {
-        topScorers: topScorersRaw,
-        topAssists: topAssistsRaw,
-        topYellowCards: topYellowRaw,
-        topRedCards: topRedRaw,
-      },
-    } as never);
+  it('disables the upstream full query when league or season is missing and returns null', () => {
+    const { result: missingLeagueResult } = renderHook(() =>
+      useCompetitionTotw(undefined, 2025),
+    );
+
+    expect(mockedUseCompetitionFullQuery).toHaveBeenCalledWith(undefined, 2025, false);
+    expect(missingLeagueResult.current.data).toBeNull();
+
+    mockedUseCompetitionFullQuery.mockClear();
+
+    const { result: missingSeasonResult } = renderHook(() =>
+      useCompetitionTotw(61, undefined),
+    );
+
+    expect(mockedUseCompetitionFullQuery).toHaveBeenCalledWith(61, undefined, false);
+    expect(missingSeasonResult.current.data).toBeNull();
+  });
+
+  it('uses the expected key when parameters are present', () => {
+    const { result } = renderHook(() => useCompetitionTotw(61, 2025));
+
+    expect(result.current.queryKey).toEqual(['competition_totw', 61, 2025]);
+  });
+
+  it('builds TOTW from competitions.full player stats and forwards data to the strict mapper', () => {
+    mockedUseCompetitionFullQuery.mockReturnValue(
+      createCompetitionFullQueryResult({
+        data: {
+          playerStats: {
+            topScorers: [{ key: 'scorer' }],
+            topAssists: [{ key: 'assist' }],
+            topYellowCards: [{ key: 'yellow' }],
+            topRedCards: [{ key: 'red' }],
+          },
+        },
+      }) as never,
+    );
 
     mockedMapPlayerStatsDtoToPlayerStats
       .mockReturnValueOnce([{ playerId: 1 }] as never)
@@ -93,49 +86,67 @@ describe('useCompetitionTotw', () => {
     const expectedTotw = { formation: '4-3-3' };
     mockedMapCompetitionPlayerStatsToTotw.mockReturnValue(expectedTotw as never);
 
-    useCompetitionTotw(61, 2025);
-    const queryConfig = mockedUseQuery.mock.calls[0]?.[0];
-    const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>;
-    const result = await queryFn({ signal });
+    const { result } = renderHook(() => useCompetitionTotw(61, 2025));
 
-    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalledWith(expect.anything(), 61, 2025);
-    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(1, topScorersRaw, 2025);
-    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(2, topAssistsRaw, 2025);
-    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(3, topYellowRaw, 2025);
-    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(4, topRedRaw, 2025);
+    expect(mockedUseCompetitionFullQuery).toHaveBeenCalledWith(61, 2025, true);
+    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(
+      1,
+      [{ key: 'scorer' }],
+      2025,
+    );
+    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(
+      2,
+      [{ key: 'assist' }],
+      2025,
+    );
+    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(
+      3,
+      [{ key: 'yellow' }],
+      2025,
+    );
+    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenNthCalledWith(
+      4,
+      [{ key: 'red' }],
+      2025,
+    );
     expect(mockedMapCompetitionPlayerStatsToTotw).toHaveBeenCalledWith(
       [{ playerId: 1 }, { playerId: 2 }, { playerId: 3 }, { playerId: 4 }],
       2025,
     );
-    expect(result).toEqual(expectedTotw);
+    expect(result.current.data).toEqual(expectedTotw);
   });
 
-  it('propagates the full-query error when competitions.full fails', async () => {
-    appEnv.mobileEnableBffCompetitionFull = true;
-    const signal = new AbortController().signal;
+  it('surfaces the full-query error state without calling the mappers', () => {
     const upstreamError = new Error('competition full unavailable');
+    mockedUseCompetitionFullQuery.mockReturnValue(
+      createCompetitionFullQueryResult({
+        isError: true,
+        error: upstreamError,
+      }) as never,
+    );
 
-    mockedLoadCompetitionFullPayload.mockRejectedValue(upstreamError);
+    const { result } = renderHook(() => useCompetitionTotw(61, 2025));
 
-    useCompetitionTotw(61, 2025);
-    const queryConfig = mockedUseQuery.mock.calls[0]?.[0];
-    const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>;
-
-    await expect(queryFn({ signal })).rejects.toThrow('competition full unavailable');
+    expect(result.current.isError).toBe(true);
+    expect(result.current.error).toBe(upstreamError);
+    expect(result.current.data).toBeNull();
     expect(mockedMapPlayerStatsDtoToPlayerStats).not.toHaveBeenCalled();
     expect(mockedMapCompetitionPlayerStatsToTotw).not.toHaveBeenCalled();
   });
 
-  it('uses competitions.full playerStats when available and skips the legacy TOTW endpoint', async () => {
-    appEnv.mobileEnableBffCompetitionFull = true;
-    mockedLoadCompetitionFullPayload.mockResolvedValue({
-      playerStats: {
-        topScorers: [{ key: 'scorer' }],
-        topAssists: [{ key: 'assist' }],
-        topYellowCards: [{ key: 'yellow' }],
-        topRedCards: [{ key: 'red' }],
-      },
-    } as never);
+  it('uses competitions.full playerStats when available and skips any legacy TOTW source', () => {
+    mockedUseCompetitionFullQuery.mockReturnValue(
+      createCompetitionFullQueryResult({
+        data: {
+          playerStats: {
+            topScorers: [{ key: 'scorer' }],
+            topAssists: [{ key: 'assist' }],
+            topYellowCards: [{ key: 'yellow' }],
+            topRedCards: [{ key: 'red' }],
+          },
+        },
+      }) as never,
+    );
     mockedMapPlayerStatsDtoToPlayerStats
       .mockReturnValueOnce([{ playerId: 11 }] as never)
       .mockReturnValueOnce([{ playerId: 12 }] as never)
@@ -143,12 +154,8 @@ describe('useCompetitionTotw', () => {
       .mockReturnValueOnce([{ playerId: 14 }] as never);
     mockedMapCompetitionPlayerStatsToTotw.mockReturnValue({ formation: '4-3-3' } as never);
 
-    useCompetitionTotw(61, 2025);
-    const queryConfig = mockedUseQuery.mock.calls[0]?.[0];
-    const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>;
-    const result = await queryFn({ signal: new AbortController().signal });
+    const { result } = renderHook(() => useCompetitionTotw(61, 2025));
 
-    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalled();
-    expect(result).toEqual({ formation: '4-3-3' });
+    expect(result.current.data).toEqual({ formation: '4-3-3' });
   });
 });

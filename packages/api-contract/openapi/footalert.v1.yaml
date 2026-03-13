@@ -77,6 +77,23 @@ paths:
       - web
       - desktop
 
+  /v1/matches/{id}/full:
+    get:
+      summary: Get progressive full fixture payload
+      operationId: getMatchFull
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/TimezoneQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/MatchFullPayloadResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '404':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
   /v1/matches/{id}/events:
     get:
       summary: Get fixture events
@@ -238,6 +255,23 @@ paths:
       - web
       - desktop
 
+  /v1/competitions/{id}/full:
+    get:
+      summary: Get progressive full competition payload
+      operationId: getCompetitionFull
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/OptionalSeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/CompetitionFullPayloadResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '404':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
+
   /v1/competitions/{id}/standings:
     get:
       summary: Get competition standings
@@ -366,6 +400,26 @@ paths:
       - mobile
       - web
       - desktop
+
+  /v1/teams/{id}/full:
+    get:
+      summary: Get progressive full team payload
+      operationId: getTeamFull
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/TimezoneQuery'
+        - $ref: '#/components/parameters/OptionalLeagueIdQuery'
+        - $ref: '#/components/parameters/OptionalSeasonQuery'
+        - $ref: '#/components/parameters/HistorySeasonsQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/TeamFullPayloadResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '404':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/teams/{id}/leagues:
     get:
@@ -539,6 +593,23 @@ paths:
       - mobile
       - web
       - desktop
+
+  /v1/players/{id}/full:
+    get:
+      summary: Get progressive full player payload
+      operationId: getPlayerFull
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/SeasonQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/PlayerFullPayloadResponse'
+        '400':
+          $ref: '#/components/responses/ProblemResponse'
+        '404':
+          $ref: '#/components/responses/ProblemResponse'
+    x-platform-scope:
+      - mobile
 
   /v1/players/{id}/seasons:
     get:
@@ -1611,6 +1682,30 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/PlayerStatsCatalogResponse'
+    TeamFullPayloadResponse:
+      description: Progressive full team payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TeamFullResponse'
+    PlayerFullPayloadResponse:
+      description: Progressive full player payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlayerFullResponse'
+    CompetitionFullPayloadResponse:
+      description: Progressive full competition payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CompetitionFullResponse'
+    MatchFullPayloadResponse:
+      description: Progressive full fixture payload
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MatchFullResponse'
 
   schemas:
     TrendCompetitionItem:
@@ -1670,6 +1765,14 @@ components:
     FlexibleObject:
       type: object
       additionalProperties: true
+    FlexibleObjectList:
+      type: array
+      items:
+        $ref: '#/components/schemas/FlexibleObject'
+    NullableFlexibleObject:
+      oneOf:
+        - $ref: '#/components/schemas/FlexibleObject'
+        - type: 'null'
     CursorPageInfo:
       type: object
       required: [ hasMore, nextCursor, returnedCount ]
@@ -1725,6 +1828,20 @@ components:
             - type: string
             - type: boolean
             - type: 'null'
+    NullableFlexibleObjectEnvelope:
+      type: object
+      required: [ response ]
+      properties:
+        response:
+          $ref: '#/components/schemas/NullableFlexibleObject'
+    IntegerListEnvelope:
+      type: object
+      required: [ response ]
+      properties:
+        response:
+          type: array
+          items:
+            type: integer
     ProblemResponse:
       type: object
       required: [ error, message ]
@@ -1742,6 +1859,63 @@ components:
                 type: object
                 additionalProperties: true
             - type: 'null'
+    FieldFreshnessHint:
+      type: object
+      required: [ freshness, ttlSeconds ]
+      properties:
+        freshness:
+          type: string
+          enum: [ static, post_match, weekly, live ]
+        ttlSeconds:
+          type: integer
+          minimum: 0
+    PayloadFreshnessMeta:
+      type: object
+      required: [ generatedAt, fields ]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        fields:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/FieldFreshnessHint'
+    HydrationSection:
+      type: object
+      required: [ state, freshness, updatedAt ]
+      properties:
+        state:
+          type: string
+          enum: [ ready, loading, unavailable ]
+        freshness:
+          type: string
+          enum: [ fresh, stale, miss ]
+        updatedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+    FullPayloadHydration:
+      type: object
+      required: [ status, sections, enqueuedHeavyRefresh ]
+      properties:
+        status:
+          type: string
+          enum: [ core_ready, full_ready ]
+        sections:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HydrationSection'
+        enqueuedHeavyRefresh:
+          type: boolean
+    ProgressiveFullPayloadMeta:
+      type: object
+      required: [ _meta ]
+      properties:
+        _meta:
+          $ref: '#/components/schemas/PayloadFreshnessMeta'
+        _hydration:
+          $ref: '#/components/schemas/FullPayloadHydration'
     SearchTeamResult:
       type: object
       required: [ id, name, logo, country ]
@@ -2854,6 +3028,285 @@ components:
           type: array
           items:
             type: integer
+    TeamFullSelection:
+      type: object
+      required: [ leagueId, season ]
+      properties:
+        leagueId:
+          oneOf:
+            - type: string
+            - type: 'null'
+        season:
+          oneOf:
+            - type: integer
+            - type: 'null'
+    PlayerCareerAggregateEnvelope:
+      type: object
+      required: [ response ]
+      properties:
+        response:
+          type: object
+          required: [ seasons, teams ]
+          properties:
+            seasons:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            teams:
+              $ref: '#/components/schemas/FlexibleObjectList'
+    NullablePlayerOverviewEnvelope:
+      type: object
+      required: [ response ]
+      properties:
+        response:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerOverviewResponse'
+            - type: 'null'
+    NullablePlayerStatsCatalogEnvelope:
+      type: object
+      required: [ response ]
+      properties:
+        response:
+          oneOf:
+            - $ref: '#/components/schemas/PlayerStatsCatalogResponse'
+            - type: 'null'
+    TeamFullResponseBody:
+      type: object
+      required:
+        [
+          details,
+          leagues,
+          selection,
+          overview,
+          overviewLeaders,
+          standings,
+          matches,
+          statistics,
+          advancedStats,
+          statsPlayers,
+          squad,
+          transfers,
+          trophies,
+        ]
+      properties:
+        details:
+          $ref: '#/components/schemas/ListEnvelope'
+        leagues:
+          $ref: '#/components/schemas/ListEnvelope'
+        selection:
+          $ref: '#/components/schemas/TeamFullSelection'
+        overview:
+          oneOf:
+            - $ref: '#/components/schemas/TeamOverviewResponse'
+            - type: 'null'
+        overviewLeaders:
+          $ref: '#/components/schemas/NullableFlexibleObject'
+        standings:
+          $ref: '#/components/schemas/NullableFlexibleObjectEnvelope'
+        matches:
+          $ref: '#/components/schemas/ListEnvelope'
+        statistics:
+          $ref: '#/components/schemas/NullableFlexibleObjectEnvelope'
+        advancedStats:
+          $ref: '#/components/schemas/NullableFlexibleObjectEnvelope'
+        statsPlayers:
+          $ref: '#/components/schemas/ListEnvelope'
+        squad:
+          $ref: '#/components/schemas/ListEnvelope'
+        transfers:
+          $ref: '#/components/schemas/ListEnvelope'
+        trophies:
+          $ref: '#/components/schemas/ListEnvelope'
+    TeamFullResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProgressiveFullPayloadMeta'
+        - type: object
+          required: [ response ]
+          properties:
+            response:
+              $ref: '#/components/schemas/TeamFullResponseBody'
+    PlayerFullResponseBody:
+      type: object
+      required: [ details, seasons, trophies, career, overview, statsCatalog, matches ]
+      properties:
+        details:
+          $ref: '#/components/schemas/ListEnvelope'
+        seasons:
+          $ref: '#/components/schemas/IntegerListEnvelope'
+        trophies:
+          $ref: '#/components/schemas/ListEnvelope'
+        career:
+          $ref: '#/components/schemas/PlayerCareerAggregateEnvelope'
+        overview:
+          $ref: '#/components/schemas/NullablePlayerOverviewEnvelope'
+        statsCatalog:
+          $ref: '#/components/schemas/NullablePlayerStatsCatalogEnvelope'
+        matches:
+          $ref: '#/components/schemas/ListEnvelope'
+    PlayerFullResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProgressiveFullPayloadMeta'
+        - type: object
+          required: [ response ]
+          properties:
+            response:
+              $ref: '#/components/schemas/PlayerFullResponseBody'
+    CompetitionFullPlayerStats:
+      type: object
+      required: [ topScorers, topAssists, topYellowCards, topRedCards ]
+      properties:
+        topScorers:
+          $ref: '#/components/schemas/FlexibleObjectList'
+        topAssists:
+          $ref: '#/components/schemas/FlexibleObjectList'
+        topYellowCards:
+          $ref: '#/components/schemas/FlexibleObjectList'
+        topRedCards:
+          $ref: '#/components/schemas/FlexibleObjectList'
+    CompetitionFullResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProgressiveFullPayloadMeta'
+        - type: object
+          required:
+            [
+              competition,
+              competitionKind,
+              season,
+              standings,
+              matches,
+              bracket,
+              playerStats,
+              teamStats,
+              transfers,
+            ]
+          properties:
+            competition:
+              $ref: '#/components/schemas/NullableFlexibleObject'
+            competitionKind:
+              type: string
+              enum: [ league, cup, mixed ]
+            season:
+              type: integer
+            standings:
+              $ref: '#/components/schemas/NullableFlexibleObject'
+            matches:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            bracket:
+              oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/KnockoutRound'
+                - type: 'null'
+            playerStats:
+              $ref: '#/components/schemas/CompetitionFullPlayerStats'
+            teamStats:
+              $ref: '#/components/schemas/NullableFlexibleObject'
+            transfers:
+              $ref: '#/components/schemas/FlexibleObjectList'
+    MatchFullContext:
+      type: object
+      required: [ leagueId, season, homeTeamId, awayTeamId ]
+      properties:
+        leagueId:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+        season:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+        homeTeamId:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+        awayTeamId:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+    MatchFullStatisticsBundle:
+      type: object
+      required: [ all, first, second ]
+      properties:
+        all:
+          $ref: '#/components/schemas/FlexibleObjectList'
+        first:
+          $ref: '#/components/schemas/FlexibleObjectList'
+        second:
+          $ref: '#/components/schemas/FlexibleObjectList'
+    MatchFullPlayersStats:
+      type: object
+      required: [ homeTeamId, awayTeamId, home, away ]
+      properties:
+        homeTeamId:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+        awayTeamId:
+          oneOf:
+            - type: integer
+            - type: string
+            - type: 'null'
+        home:
+          $ref: '#/components/schemas/FlexibleObjectList'
+        away:
+          $ref: '#/components/schemas/FlexibleObjectList'
+    MatchFullResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProgressiveFullPayloadMeta'
+        - type: object
+          required:
+            [
+              fixture,
+              lifecycleState,
+              context,
+              events,
+              statistics,
+              lineups,
+              predictions,
+              absences,
+              headToHead,
+              standings,
+              homeRecentResults,
+              awayRecentResults,
+              homeLeaders,
+              awayLeaders,
+              playersStats,
+            ]
+          properties:
+            fixture:
+              $ref: '#/components/schemas/NullableFlexibleObject'
+            lifecycleState:
+              type: string
+              enum: [ pre_match, live, finished ]
+            context:
+              $ref: '#/components/schemas/MatchFullContext'
+            events:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            statistics:
+              $ref: '#/components/schemas/MatchFullStatisticsBundle'
+            lineups:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            predictions:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            absences:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            headToHead:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            standings:
+              $ref: '#/components/schemas/NullableFlexibleObject'
+            homeRecentResults:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            awayRecentResults:
+              $ref: '#/components/schemas/FlexibleObjectList'
+            homeLeaders:
+              $ref: '#/components/schemas/NullableFlexibleObject'
+            awayLeaders:
+              $ref: '#/components/schemas/NullableFlexibleObject'
+            playersStats:
+              $ref: '#/components/schemas/MatchFullPlayersStats'
     MobileSessionChallengeRequest:
       type: object
       additionalProperties: false

@@ -129,6 +129,7 @@ export function extractTeamSeedEntriesFromCompetitionPayload(
   payload: CompetitionFullPayload,
   competitionId: string,
   season: number,
+  limit: number | null = HOTSET_MAX_TEAMS_PER_COMPETITION,
 ): TeamSeedEntry[] {
   const entries: TeamSeedEntry[] = [];
   const seenKeys = new Set<string>();
@@ -190,7 +191,11 @@ export function extractTeamSeedEntriesFromCompetitionPayload(
     }
   }
 
-  return entries.slice(0, HOTSET_MAX_TEAMS_PER_COMPETITION);
+  if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
+    return entries.slice(0, limit);
+  }
+
+  return entries;
 }
 
 export function extractPlayerSeedEntriesFromCompetitionPayload(

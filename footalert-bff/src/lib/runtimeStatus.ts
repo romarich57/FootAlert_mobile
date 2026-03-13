@@ -10,6 +10,7 @@ import {
   getSnapshotStore,
   type SnapshotRefreshBacklog,
 } from './readStore/runtime.js';
+import type { SnapshotRefreshKind } from './readStore/snapshotStore.js';
 import { BOOTSTRAP_DEFAULT_DISCOVERY_LIMIT } from '../routes/bootstrap/schemas.js';
 import { buildBootstrapScopeKey } from '../routes/bootstrap/service.js';
 
@@ -23,6 +24,12 @@ type DependencyCheck<TDetails = Record<string, unknown>> = {
 };
 
 const READ_STORE_HEARTBEAT_STALE_MS = 5 * 60_000;
+const READ_STORE_CRITICAL_TASK_KINDS: SnapshotRefreshKind[] = [
+  'bootstrap',
+  'entity_core',
+  'match',
+  'match_live',
+];
 
 type ReadStoreDegradedReason =
   | 'bootstrap_snapshot_missing'
@@ -445,8 +452,13 @@ async function buildReadStoreCheck(): Promise<ReadinessPayload['checks']['readSt
         databaseUrl: env.databaseUrl,
       }),
     ]);
-    const [backlog, statusSnapshot, bootstrapSnapshot] = await Promise.all([
+    const criticalBacklogPromise =
+      typeof store.countRefreshBacklogByKinds === 'function'
+        ? store.countRefreshBacklogByKinds(READ_STORE_CRITICAL_TASK_KINDS)
+        : store.countRefreshBacklog();
+    const [backlog, criticalBacklog, statusSnapshot, bootstrapSnapshot] = await Promise.all([
       store.countRefreshBacklog(),
+      criticalBacklogPromise,
       snapshotStore.getStatusSnapshot(),
       store.getBootstrapSnapshot({
         scopeKey: defaultScopeKey,
@@ -458,12 +470,13 @@ async function buildReadStoreCheck(): Promise<ReadinessPayload['checks']['readSt
     const workerHeartbeatStale =
       workerHeartbeatAgeMs !== null && workerHeartbeatAgeMs > READ_STORE_HEARTBEAT_STALE_MS;
     const backlogBlocked =
-      backlog.queued > 0 &&
-      backlog.inProgress === 0 &&
+      criticalBacklog.queued > 0 &&
+      criticalBacklog.inProgress === 0 &&
       (workerHeartbeatMissing
         || workerHeartbeatStale
         || statusSnapshot.refreshFailureRows > 0);
-    const hasRefreshFailures = backlog.failed > 0 || statusSnapshot.refreshFailureRows > 0;
+    const hasRefreshFailures =
+      criticalBacklog.failed > 0 || statusSnapshot.refreshFailureRows > 0;
     const degradedReasons: ReadStoreDegradedReason[] = [];
 
     if (!bootstrapSnapshotAvailable) {
@@ -592,6 +605,7 @@ export async function renderPrometheusMetrics(): Promise<string> {
   let readStoreMetrics:
     | {
         backlog: SnapshotRefreshBacklog;
+        criticalBacklog: SnapshotRefreshBacklog;
         bootstrapAvailable: boolean;
         workerHeartbeatAgeMs: number | null;
         backlogBlocked: boolean;
@@ -614,8 +628,13 @@ export async function renderPrometheusMetrics(): Promise<string> {
         databaseUrl: env.databaseUrl,
       }),
     ]);
-    const [backlog, bootstrapSnapshot, statusSnapshot] = await Promise.all([
+    const criticalBacklogPromise =
+      typeof store.countRefreshBacklogByKinds === 'function'
+        ? store.countRefreshBacklogByKinds(READ_STORE_CRITICAL_TASK_KINDS)
+        : store.countRefreshBacklog();
+    const [backlog, criticalBacklog, bootstrapSnapshot, statusSnapshot] = await Promise.all([
       store.countRefreshBacklog(),
+      criticalBacklogPromise,
       store.getBootstrapSnapshot({ scopeKey: defaultScopeKey }),
       snapshotStore.getStatusSnapshot(),
     ]);
@@ -624,11 +643,12 @@ export async function renderPrometheusMetrics(): Promise<string> {
       workerHeartbeatAgeMs !== null && workerHeartbeatAgeMs > READ_STORE_HEARTBEAT_STALE_MS;
     readStoreMetrics = {
       backlog,
+      criticalBacklog,
       bootstrapAvailable: bootstrapSnapshot.status !== 'miss',
       workerHeartbeatAgeMs: statusSnapshot.workerHeartbeatAgeMs,
       backlogBlocked:
-        backlog.queued > 0
-        && backlog.inProgress === 0
+        criticalBacklog.queued > 0
+        && criticalBacklog.inProgress === 0
         && (workerHeartbeatAgeMs === null
           || workerHeartbeatStale
           || statusSnapshot.refreshFailureRows > 0),

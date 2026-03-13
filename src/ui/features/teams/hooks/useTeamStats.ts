@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import {
   fetchTeamAdvancedStats,
 } from '@data/endpoints/teamsApi';
@@ -15,6 +16,7 @@ import {
   fetchAllTeamPlayers,
   fetchTeamStatsCoreData,
 } from '@data/teams/teamQueryData';
+import type { TeamFullData } from '@domain/contracts/teamFull.types';
 import type {
   TeamAdvancedStatsDto,
   TeamStatsCoreData,
@@ -22,7 +24,6 @@ import type {
 } from '@ui/features/teams/types/teams.types';
 import {
   useTeamFull,
-  type TeamFullData,
 } from '@ui/features/teams/hooks/useTeamFull';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
@@ -250,6 +251,10 @@ export function useTeamStats({
   });
   const canUseFullPayload =
     teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
+  const isFullPlayersSectionLoading =
+    canUseFullPayload && isHydrationSectionLoading(teamFullQuery.hydration, 'statsPlayers');
+  const isFullAdvancedSectionLoading =
+    canUseFullPayload && isHydrationSectionLoading(teamFullQuery.hydration, 'advancedStats');
 
   const coreQuery = useQuery<TeamStatsCoreData>({
     queryKey: queryKeys.teams.statsCore(teamId, leagueId, season),
@@ -305,17 +310,17 @@ export function useTeamStats({
   );
   const fullPlayersData = useMemo(
     () =>
-      canUseFullPayload && teamFullQuery.data
+      canUseFullPayload && teamFullQuery.data && !isFullPlayersSectionLoading
         ? mapTeamFullStatsPlayersData(teamFullQuery.data, teamId)
         : undefined,
-    [canUseFullPayload, teamFullQuery.data, teamId],
+    [canUseFullPayload, isFullPlayersSectionLoading, teamFullQuery.data, teamId],
   );
   const fullAdvancedData = useMemo(
     () =>
-      canUseFullPayload && teamFullQuery.data
+      canUseFullPayload && teamFullQuery.data && !isFullAdvancedSectionLoading
         ? mapTeamFullStatsAdvancedData(teamFullQuery.data)
         : undefined,
-    [canUseFullPayload, teamFullQuery.data],
+    [canUseFullPayload, isFullAdvancedSectionLoading, teamFullQuery.data],
   );
 
   const data = useMemo(() => {
@@ -388,10 +393,18 @@ export function useTeamStats({
       canUseFullPayload ? teamFullQuery.dataUpdatedAt : advancedQuery.dataUpdatedAt,
     ),
     isCoreLoading: canUseFullPayload ? false : coreQuery.isLoading && !coreQuery.data,
-    isPlayersLoading: canUseFullPayload ? false : playersQuery.isLoading && !playersQuery.data,
-    isAdvancedLoading: canUseFullPayload ? false : advancedQuery.isLoading && !advancedQuery.data,
-    isPlayersFetching: canUseFullPayload ? false : playersQuery.isFetching,
-    isAdvancedFetching: canUseFullPayload ? false : advancedQuery.isFetching,
+    isPlayersLoading: canUseFullPayload
+      ? isFullPlayersSectionLoading && !fullPlayersData
+      : playersQuery.isLoading && !playersQuery.data,
+    isAdvancedLoading: canUseFullPayload
+      ? isFullAdvancedSectionLoading && !fullAdvancedData
+      : advancedQuery.isLoading && !advancedQuery.data,
+    isPlayersFetching: canUseFullPayload
+      ? isFullPlayersSectionLoading || teamFullQuery.isFetching
+      : playersQuery.isFetching,
+    isAdvancedFetching: canUseFullPayload
+      ? isFullAdvancedSectionLoading || teamFullQuery.isFetching
+      : advancedQuery.isFetching,
     isPlayersError: canUseFullPayload ? false : playersQuery.isError && !playersQuery.data,
     isAdvancedError: canUseFullPayload ? false : advancedQuery.isError && !advancedQuery.data,
     refetch: async () => {

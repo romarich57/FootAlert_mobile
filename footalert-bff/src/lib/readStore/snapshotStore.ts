@@ -14,6 +14,8 @@ type PoolLike = Queryable & {
 export type SnapshotEntityKind = 'team' | 'player' | 'competition' | 'match';
 export type SnapshotRefreshKind =
   | 'bootstrap'
+  | 'entity_core'
+  | 'entity_heavy'
   | 'team'
   | 'player'
   | 'competition'
@@ -35,7 +37,7 @@ export type SnapshotRecord<TPayload = unknown> = {
 export type SnapshotRefreshTaskInput = {
   taskKey: string;
   taskKind: SnapshotRefreshKind;
-  entityKind: SnapshotEntityKind | null;
+  entityKind: string | null;
   entityId: string | null;
   scopeKey: string | null;
   payload: Record<string, unknown> | null;
@@ -54,6 +56,7 @@ export type SnapshotRefreshTask = SnapshotRefreshTaskInput & {
 
 export type SnapshotRefreshJob = {
   id: string;
+  taskKind: SnapshotRefreshKind;
   entityKind: string;
   entityId: string;
   scopeKey: string;
@@ -183,6 +186,7 @@ export type SnapshotStore = {
     nextAttemptAt?: Date;
   }) => Promise<void>;
   countRefreshBacklog: () => Promise<SnapshotRefreshBacklog>;
+  countRefreshBacklogByKinds: (taskKinds: SnapshotRefreshKind[]) => Promise<SnapshotRefreshBacklog>;
   upsertWorkerHeartbeat: (input: {
     workerId: string;
     seenAt: Date;
@@ -242,7 +246,7 @@ type EntitySnapshotRow = {
 type RefreshQueueRow = {
   task_key: string;
   task_kind: SnapshotRefreshKind;
-  entity_kind: SnapshotEntityKind | null;
+  entity_kind: string | null;
   entity_id: string | null;
   scope_key: string | null;
   payload_json: Record<string, unknown> | null;
@@ -428,9 +432,27 @@ function mapRefreshRow(row: RefreshQueueRow): SnapshotRefreshTask {
   };
 }
 
+function readRefreshKind(
+  payload: Record<string, unknown> | null | undefined,
+): 'core' | 'heavy' | null {
+  const refreshKind = payload?.refreshKind;
+  return refreshKind === 'core' || refreshKind === 'heavy' ? refreshKind : null;
+}
+
+function readScopeSection(scopeKey: string | null | undefined): string | null {
+  const normalizedScopeKey = normalizeScopeKey(scopeKey);
+  if (normalizedScopeKey.length === 0) {
+    return null;
+  }
+
+  const searchParams = new URLSearchParams(normalizedScopeKey);
+  const section = searchParams.get('section');
+  return section && section.trim().length > 0 ? section : null;
+}
+
 export function buildRefreshTaskKey(input: {
   taskKind: SnapshotRefreshKind;
-  entityKind?: SnapshotEntityKind | null;
+  entityKind?: string | null;
   entityId?: string | null;
   scopeKey?: string | null;
 }): string {
@@ -445,21 +467,44 @@ export function buildRefreshTaskKey(input: {
   return `${input.taskKind}:${input.entityKind ?? ''}:${input.entityId ?? ''}:${normalizeScopeKey(input.scopeKey)}`;
 }
 
-function resolveRefreshTaskKind(entityKind: string): SnapshotRefreshKind {
-  if (entityKind === 'bootstrap') {
+function resolveRefreshTaskKind(input: {
+  entityKind: string;
+  scopeKey?: string | null;
+  payload?: Record<string, unknown> | null;
+}): SnapshotRefreshKind {
+  if (input.entityKind === 'bootstrap') {
     return 'bootstrap';
   }
-  if (entityKind === 'team' || entityKind === 'team_full') {
+  if (input.entityKind === 'match_live' || input.entityKind === 'match_live_overlay') {
+    return 'match_live';
+  }
+  if (input.entityKind === 'team_full') {
     return 'team';
   }
-  if (entityKind === 'player' || entityKind === 'player_full') {
+  if (input.entityKind === 'player_full') {
     return 'player';
   }
-  if (entityKind === 'competition' || entityKind === 'competition_full') {
+  if (input.entityKind === 'competition_full') {
     return 'competition';
   }
-  if (entityKind === 'match_live' || entityKind === 'match_live_overlay') {
-    return 'match_live';
+  if (
+    input.entityKind === 'team'
+    || input.entityKind === 'player'
+    || input.entityKind === 'competition'
+  ) {
+    const refreshKind = readRefreshKind(input.payload);
+    if (refreshKind === 'heavy') {
+      return 'entity_heavy';
+    }
+    if (refreshKind === 'core') {
+      return 'entity_core';
+    }
+
+    const section = readScopeSection(input.scopeKey);
+    return section !== null && section !== 'core' ? 'entity_heavy' : 'entity_core';
+  }
+  if (input.entityKind === 'match' || input.entityKind === 'match_full') {
+    return 'match';
   }
 
   return 'match';
@@ -476,12 +521,41 @@ function buildGenericRefreshTaskKey(input: {
 function mapRefreshTaskToJob(task: SnapshotRefreshTask): SnapshotRefreshJob {
   return {
     id: task.taskKey,
+    taskKind: task.taskKind,
     entityKind: task.entityKind ?? task.taskKind,
     entityId: task.entityId ?? '',
     scopeKey: task.scopeKey ?? '',
     attempts: task.attemptCount,
     lastError: task.lastError,
     payload: task.payload ?? null,
+  };
+}
+
+function buildBacklogFromTasks(
+  tasks: Iterable<SnapshotRefreshTask>,
+  now: Date,
+): SnapshotRefreshBacklog {
+  let queued = 0;
+  let inProgress = 0;
+  let failed = 0;
+
+  for (const task of tasks) {
+    if (task.nextRefreshAt <= now && (!task.leaseUntil || task.leaseUntil < now)) {
+      queued += 1;
+    }
+    if (task.leaseUntil !== null && task.leaseUntil >= now) {
+      inProgress += 1;
+    }
+    if (task.lastError !== null) {
+      failed += 1;
+    }
+  }
+
+  return {
+    queued,
+    inProgress,
+    failed,
+    total: queued + inProgress + failed,
   };
 }
 
@@ -736,8 +810,12 @@ class InMemorySnapshotStore implements SnapshotStore {
         entityId: input.entityId,
         scopeKey: normalizedScopeKey,
       }),
-      taskKind: resolveRefreshTaskKind(input.entityKind),
-      entityKind: input.entityKind as SnapshotRefreshTaskInput['entityKind'],
+      taskKind: resolveRefreshTaskKind({
+        entityKind: input.entityKind,
+        scopeKey: normalizedScopeKey,
+        payload: input.payload ?? null,
+      }),
+      entityKind: input.entityKind,
       entityId: input.entityId,
       scopeKey: normalizedScopeKey,
       payload: input.payload ?? null,
@@ -785,23 +863,22 @@ class InMemorySnapshotStore implements SnapshotStore {
   }
 
   async countRefreshBacklog(): Promise<SnapshotRefreshBacklog> {
-    const now = new Date();
-    const queued = [...this.refreshQueue.values()]
-      .filter(task => task.nextRefreshAt <= now && (!task.leaseUntil || task.leaseUntil < now))
-      .length;
-    const inProgress = [...this.refreshQueue.values()]
-      .filter(task => task.leaseUntil !== null && task.leaseUntil >= now)
-      .length;
-    const failed = [...this.refreshQueue.values()]
-      .filter(task => task.lastError !== null)
-      .length;
+    return buildBacklogFromTasks(this.refreshQueue.values(), new Date());
+  }
 
-    return {
-      queued,
-      inProgress,
-      failed,
-      total: queued + inProgress + failed,
-    };
+  async countRefreshBacklogByKinds(taskKinds: SnapshotRefreshKind[]): Promise<SnapshotRefreshBacklog> {
+    if (taskKinds.length === 0) {
+      return {
+        queued: 0,
+        inProgress: 0,
+        failed: 0,
+        total: 0,
+      };
+    }
+
+    const allowedTaskKinds = new Set(taskKinds);
+    const tasks = [...this.refreshQueue.values()].filter(task => allowedTaskKinds.has(task.taskKind));
+    return buildBacklogFromTasks(tasks, new Date());
   }
 
   async upsertWorkerHeartbeat(input: {
@@ -1358,8 +1435,12 @@ class PostgresSnapshotStore implements SnapshotStore {
         entityId: input.entityId,
         scopeKey: normalizedScopeKey,
       }),
-      taskKind: resolveRefreshTaskKind(input.entityKind),
-      entityKind: input.entityKind as SnapshotRefreshTaskInput['entityKind'],
+      taskKind: resolveRefreshTaskKind({
+        entityKind: input.entityKind,
+        scopeKey: normalizedScopeKey,
+        payload: input.payload ?? null,
+      }),
+      entityKind: input.entityKind,
       entityId: input.entityId,
       scopeKey: normalizedScopeKey,
       payload: input.payload ?? null,
@@ -1432,6 +1513,55 @@ class PostgresSnapshotStore implements SnapshotStore {
     const queued = toNumber(queuedRow.rows[0]?.count);
     const inProgress = toNumber(inProgressRow.rows[0]?.count);
     const failed = toNumber(failedRow.rows[0]?.count);
+    return {
+      queued,
+      inProgress,
+      failed,
+      total: queued + inProgress + failed,
+    };
+  }
+
+  async countRefreshBacklogByKinds(taskKinds: SnapshotRefreshKind[]): Promise<SnapshotRefreshBacklog> {
+    if (taskKinds.length === 0) {
+      return {
+        queued: 0,
+        inProgress: 0,
+        failed: 0,
+        total: 0,
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+    const [queuedRow, inProgressRow, failedRow] = await Promise.all([
+      this.pool.query<CountRow>(
+        `SELECT COUNT(*) AS count
+         FROM snapshot_refresh_queue
+         WHERE task_kind = ANY($2::text[])
+           AND next_refresh_at <= $1
+           AND (lease_until IS NULL OR lease_until < $1)`,
+        [nowIso, taskKinds],
+      ),
+      this.pool.query<CountRow>(
+        `SELECT COUNT(*) AS count
+         FROM snapshot_refresh_queue
+         WHERE task_kind = ANY($2::text[])
+           AND lease_until IS NOT NULL
+           AND lease_until >= $1`,
+        [nowIso, taskKinds],
+      ),
+      this.pool.query<CountRow>(
+        `SELECT COUNT(*) AS count
+         FROM snapshot_refresh_queue
+         WHERE task_kind = ANY($1::text[])
+           AND last_error IS NOT NULL`,
+        [taskKinds],
+      ),
+    ]);
+
+    const queued = toNumber(queuedRow.rows[0]?.count);
+    const inProgress = toNumber(inProgressRow.rows[0]?.count);
+    const failed = toNumber(failedRow.rows[0]?.count);
+
     return {
       queued,
       inProgress,

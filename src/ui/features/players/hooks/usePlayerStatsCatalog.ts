@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { mapPlayerDetailsToSeasonStatsDataset } from '@data/mappers/playersMapper';
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import type {
   PlayerApiDetailsDto,
   PlayerStatsCatalogCompetition,
@@ -181,6 +182,10 @@ export function usePlayerStatsCatalog(
     fullSeason ?? 0,
     enabled && !!playerId && fullSeason !== null,
   );
+  const isStatsCatalogSectionLoading = isHydrationSectionLoading(
+    fullPlayerQuery.hydration,
+    'statsCatalog',
+  );
   const fullCatalogData = useMemo(
     () =>
       fullPlayerQuery.data
@@ -199,7 +204,7 @@ export function usePlayerStatsCatalog(
   return {
     competitions: catalogQuery.data?.competitions ?? [],
     defaultSelection: catalogQuery.data?.defaultSelection ?? EMPTY_SELECTION,
-    isLoading: catalogQuery.isLoading,
+    isLoading: catalogQuery.isLoading || isStatsCatalogSectionLoading,
     isError: catalogQuery.isError,
     dataUpdatedAt: catalogQuery.dataUpdatedAt,
     refetch: catalogQuery.refetch,

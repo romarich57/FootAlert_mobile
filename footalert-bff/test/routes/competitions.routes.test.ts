@@ -381,10 +381,19 @@ test('GET /v1/competitions/:id/full aggregates league competition sections', asy
   assert.equal(payload.standings.league.id, 61);
   assert.equal(payload.matches.length, 2);
   assert.equal(payload.bracket, null);
-  assert.equal(payload.playerStats.topScorers[0].player.id, 1);
-  assert.equal(payload.playerStats.topRedCards[0].player.id, 4);
-  assert.equal(payload.teamStats.advanced.state, 'available');
-  assert.equal(payload.transfers.length, 1);
+  assert.equal(payload._hydration.status, 'core_ready');
+  assert.equal(payload._hydration.sections.bracket.state, 'unavailable');
+  assert.equal(payload._hydration.sections.playerStats.state, 'loading');
+  assert.equal(payload._hydration.sections.teamStats.state, 'loading');
+  assert.equal(payload._hydration.sections.transfers.state, 'loading');
+  assert.deepEqual(payload.playerStats, {
+    topScorers: [],
+    topAssists: [],
+    topYellowCards: [],
+    topRedCards: [],
+  });
+  assert.equal(payload.teamStats, null);
+  assert.deepEqual(payload.transfers, []);
   assert.equal(calls.filter(call => String(call.input).includes('/standings?league=61&season=2025')).length, 1);
 });
 
@@ -479,6 +488,17 @@ test('GET /v1/competitions/:id/full serves snapshot after memory cache reset', a
     url: '/v1/competitions/100/full?season=2025',
   });
   assert.equal(secondResponse.statusCode, 200);
-  assert.deepEqual(secondResponse.json(), firstPayload);
+  const secondPayload = secondResponse.json();
+  assert.equal(secondPayload.competitionKind, firstPayload.competitionKind);
+  assert.equal(secondPayload.season, firstPayload.season);
+  assert.deepEqual(secondPayload.competition, firstPayload.competition);
+  assert.deepEqual(secondPayload.matches, firstPayload.matches);
+  assert.deepEqual(secondPayload.bracket, firstPayload.bracket);
+  assert.deepEqual(secondPayload.playerStats, firstPayload.playerStats);
+  assert.deepEqual(secondPayload.teamStats, firstPayload.teamStats);
+  assert.deepEqual(secondPayload.transfers, firstPayload.transfers);
+  assert.equal(secondPayload._hydration.sections.competition.freshness, 'fresh');
+  assert.equal(secondPayload._hydration.sections.bracket.freshness, 'fresh');
+  assert.equal(secondPayload._hydration.status, 'core_ready');
   assert.equal(secondCalls.length, 0);
 });

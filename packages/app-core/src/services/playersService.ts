@@ -187,6 +187,9 @@ export function createPlayersReadService({ http, telemetry }: PlayersServiceDepe
         if (raw && '_meta' in raw) {
           (responseData as Record<string, unknown>)._meta = raw._meta;
         }
+        if (raw && '_hydration' in raw) {
+          (responseData as Record<string, unknown>)._hydration = raw._hydration;
+        }
       }
 
       return responseData as T | null;

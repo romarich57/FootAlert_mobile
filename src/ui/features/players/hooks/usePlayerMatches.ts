@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import {
   usePlayerFullQuery,
   type PlayerFullPayload,
@@ -23,12 +24,16 @@ export function usePlayerMatches(
     season,
     enabled && !!playerId && !!season,
   );
+  const isMatchesSectionLoading = isHydrationSectionLoading(
+    fullPlayerQuery.hydration,
+    'matches',
+  );
   const fullMatches = useMemo(
     () =>
-      fullPlayerQuery.data
+      fullPlayerQuery.data && !isMatchesSectionLoading
         ? selectPlayerMatchesFromFull(fullPlayerQuery.data as PlayerFullPayload)
         : undefined,
-    [fullPlayerQuery.data],
+    [fullPlayerQuery.data, isMatchesSectionLoading],
   );
   const activeQuery = {
     ...fullPlayerQuery,
@@ -37,7 +42,7 @@ export function usePlayerMatches(
 
   return {
     matches: activeQuery.data ?? [],
-    isLoading: activeQuery.isLoading,
+    isLoading: activeQuery.isLoading || isMatchesSectionLoading,
     isError: activeQuery.isError,
     dataUpdatedAt: activeQuery.dataUpdatedAt,
     refetch: activeQuery.refetch,

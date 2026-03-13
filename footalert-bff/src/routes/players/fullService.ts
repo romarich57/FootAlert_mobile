@@ -6,6 +6,7 @@ import {
   freshnessHints,
   type PayloadFreshnessMeta,
 } from '../../lib/freshnessMeta.js';
+import type { FullPayloadHydration } from '../../lib/readStore/hydration.js';
 
 import { fetchPlayerOverview, fetchPlayerStatsCatalog } from './aggregates.js';
 import { fetchPlayerDetailForSeason, fetchPlayerSeasons, fetchPlayerTrophies } from './aggregates/playerApi.js';
@@ -24,6 +25,7 @@ type ApiFootballListResponse<T> = {
 
 export type PlayerFullRoutePayload = {
   _meta: PayloadFreshnessMeta;
+  _hydration?: FullPayloadHydration;
   response: {
     details: { response: unknown[] };
     seasons: { response: number[] };
@@ -34,6 +36,16 @@ export type PlayerFullRoutePayload = {
     matches: { response: PlayerMatchPerformanceAggregate[] };
   };
 };
+
+export type PlayerCoreSnapshotPayload = Pick<
+  PlayerFullRoutePayload['response'],
+  'details' | 'seasons' | 'overview'
+>;
+
+export type PlayerTrophiesSectionPayload = PlayerFullRoutePayload['response']['trophies'];
+export type PlayerCareerSectionPayload = PlayerFullRoutePayload['response']['career'];
+export type PlayerStatsCatalogSectionPayload = PlayerFullRoutePayload['response']['statsCatalog'];
+export type PlayerMatchesSectionPayload = PlayerFullRoutePayload['response']['matches'];
 
 function firstSettledError(results: PromiseSettledResult<unknown>[]): Error {
   for (const result of results) {
@@ -134,42 +146,90 @@ async function fetchPlayerMatchesPayload(
   };
 }
 
-export async function fetchPlayerFullPayload(params: {
+export async function buildPlayerCoreSnapshot(params: {
   playerId: string;
   season: number;
-}): Promise<PlayerFullRoutePayload> {
+}): Promise<PlayerCoreSnapshotPayload> {
   const results = await Promise.allSettled([
     fetchPlayerDetailsPayload(params.playerId, params.season),
     fetchPlayerSeasonsPayload(params.playerId),
-    fetchPlayerTrophiesPayload(params.playerId),
-    fetchPlayerCareer(params.playerId),
     fetchPlayerOverview(params.playerId, params.season),
-    fetchPlayerStatsCatalog(params.playerId),
   ]);
 
   if (results.every(result => result.status === 'rejected')) {
     throw firstSettledError(results);
   }
 
-  const [details, seasons, trophies, career, overview, statsCatalog] = results;
-  const overviewPayload =
-    overview.status === 'fulfilled'
-      ? overview.value
-      : { response: null as unknown | null };
-  const statsCatalogPayload =
-    statsCatalog.status === 'fulfilled'
-      ? statsCatalog.value
-      : { response: null as unknown | null };
-  const teamId =
-    overview.status === 'fulfilled'
-      ? (overview.value.response.profile?.team.id ?? '')
-      : '';
-  const matches = await fetchPlayerMatchesPayload(
+  const [details, seasons, overview] = results;
+
+  return {
+    details: resolveSettledValue(details, { response: [] }),
+    seasons: resolveSettledValue(seasons, { response: [] }),
+    overview:
+      overview.status === 'fulfilled'
+        ? overview.value
+        : { response: null as unknown | null },
+  };
+}
+
+export async function buildPlayerTrophiesSection(params: {
+  playerId: string;
+}): Promise<PlayerTrophiesSectionPayload> {
+  return fetchPlayerTrophiesPayload(params.playerId);
+}
+
+export async function buildPlayerCareerSection(params: {
+  playerId: string;
+}): Promise<PlayerCareerSectionPayload> {
+  return fetchPlayerCareer(params.playerId);
+}
+
+export async function buildPlayerStatsCatalogSection(params: {
+  playerId: string;
+}): Promise<PlayerStatsCatalogSectionPayload> {
+  return fetchPlayerStatsCatalog(params.playerId);
+}
+
+function readTeamIdFromPlayerCore(core: PlayerCoreSnapshotPayload): string | null {
+  const overview = core.overview.response;
+  if (!overview || typeof overview !== 'object') {
+    return null;
+  }
+
+  const profile = (overview as Record<string, unknown>).profile;
+  if (!profile || typeof profile !== 'object') {
+    return null;
+  }
+
+  const team = (profile as Record<string, unknown>).team;
+  if (!team || typeof team !== 'object') {
+    return null;
+  }
+
+  const teamId = (team as Record<string, unknown>).id;
+  return typeof teamId === 'string' && teamId.trim().length > 0 ? teamId : null;
+}
+
+export async function buildPlayerMatchesSection(params: {
+  playerId: string;
+  season: number;
+  core: PlayerCoreSnapshotPayload;
+}): Promise<PlayerMatchesSectionPayload> {
+  return fetchPlayerMatchesPayload(
     params.playerId,
-    teamId || null,
+    readTeamIdFromPlayerCore(params.core),
     params.season,
   );
+}
 
+export function composePlayerFullPayload(input: {
+  core: PlayerCoreSnapshotPayload;
+  trophies: PlayerTrophiesSectionPayload;
+  career: PlayerCareerSectionPayload;
+  statsCatalog: PlayerStatsCatalogSectionPayload;
+  matches: PlayerMatchesSectionPayload;
+  hydration?: FullPayloadHydration;
+}): PlayerFullRoutePayload {
   return {
     _meta: buildFreshnessMeta({
       details: freshnessHints.static,
@@ -180,14 +240,64 @@ export async function fetchPlayerFullPayload(params: {
       statsCatalog: freshnessHints.static,
       matches: freshnessHints.postMatch,
     }),
+    _hydration: input.hydration,
     response: {
-      details: resolveSettledValue(details, { response: [] }),
-      seasons: resolveSettledValue(seasons, { response: [] }),
-      trophies: resolveSettledValue(trophies, { response: [] }),
-      career: resolveSettledValue(career, { response: { seasons: [], teams: [] } }),
-      overview: overviewPayload,
-      statsCatalog: statsCatalogPayload,
-      matches,
+      ...input.core,
+      trophies: input.trophies,
+      career: input.career,
+      statsCatalog: input.statsCatalog,
+      matches: input.matches,
     },
   };
+}
+
+export function splitPlayerFullPayload(payload: PlayerFullRoutePayload): {
+  core: PlayerCoreSnapshotPayload;
+  trophies: PlayerTrophiesSectionPayload;
+  career: PlayerCareerSectionPayload;
+  statsCatalog: PlayerStatsCatalogSectionPayload;
+  matches: PlayerMatchesSectionPayload;
+} {
+  return {
+    core: {
+      details: payload.response.details,
+      seasons: payload.response.seasons,
+      overview: payload.response.overview,
+    },
+    trophies: payload.response.trophies,
+    career: payload.response.career,
+    statsCatalog: payload.response.statsCatalog,
+    matches: payload.response.matches,
+  };
+}
+
+export async function fetchPlayerFullPayload(params: {
+  playerId: string;
+  season: number;
+}): Promise<PlayerFullRoutePayload> {
+  const core = await buildPlayerCoreSnapshot(params);
+  const [trophies, career, statsCatalog, matches] = await Promise.all([
+    buildPlayerTrophiesSection({
+      playerId: params.playerId,
+    }),
+    buildPlayerCareerSection({
+      playerId: params.playerId,
+    }),
+    buildPlayerStatsCatalogSection({
+      playerId: params.playerId,
+    }),
+    buildPlayerMatchesSection({
+      playerId: params.playerId,
+      season: params.season,
+      core,
+    }),
+  ]);
+
+  return composePlayerFullPayload({
+    core,
+    trophies,
+    career,
+    statsCatalog,
+    matches,
+  });
 }

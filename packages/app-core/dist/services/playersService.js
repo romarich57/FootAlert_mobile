@@ -114,6 +114,9 @@ export function createPlayersReadService({ http, telemetry }) {
                 if (raw && '_meta' in raw) {
                     responseData._meta = raw._meta;
                 }
+                if (raw && '_hydration' in raw) {
+                    responseData._hydration = raw._hydration;
+                }
             }
             return responseData;
         },

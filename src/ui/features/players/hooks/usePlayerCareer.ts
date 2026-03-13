@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import {
   mapPlayerCareerSeasonAggregate,
   mapPlayerCareerTeamAggregate,
@@ -30,12 +31,16 @@ function getCurrentSeason(): number {
 export function usePlayerCareer(playerId: string, enabled: boolean = true) {
   const currentSeason = useMemo(() => getCurrentSeason(), []);
   const fullPlayerQuery = usePlayerFullQuery(playerId, currentSeason, enabled && !!playerId);
+  const isCareerSectionLoading = isHydrationSectionLoading(
+    fullPlayerQuery.hydration,
+    'career',
+  );
   const careerData = useMemo(
     () =>
-      fullPlayerQuery.data
+      fullPlayerQuery.data && !isCareerSectionLoading
         ? selectPlayerCareerFromFull(fullPlayerQuery.data as PlayerFullPayload)
         : undefined,
-    [fullPlayerQuery.data],
+    [fullPlayerQuery.data, isCareerSectionLoading],
   );
 
   const aggregateCareerQuery = {
@@ -46,7 +51,7 @@ export function usePlayerCareer(playerId: string, enabled: boolean = true) {
   return {
     careerSeasons: aggregateCareerQuery.data?.seasons ?? [],
     careerTeams: aggregateCareerQuery.data?.teams ?? [],
-    isLoading: aggregateCareerQuery.isLoading,
+    isLoading: aggregateCareerQuery.isLoading || isCareerSectionLoading,
     isError: aggregateCareerQuery.isError,
     dataUpdatedAt: aggregateCareerQuery.dataUpdatedAt,
     refetch: () => {

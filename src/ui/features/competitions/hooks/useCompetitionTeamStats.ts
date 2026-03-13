@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { buildCompetitionTeamStatsDashboardData } from '@data/mappers/competitionsTeamStatsMapper';
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import type {
   CompetitionTeamStatsDashboardData,
   CompetitionTeamAdvancedReason,
@@ -11,10 +11,9 @@ import type {
   CompetitionTeamStatsSection,
 } from '@ui/features/competitions/types/competitions.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 
 import { useCompetitionStandings } from './useCompetitionStandings';
-import { loadCompetitionFullPayload } from './competitionFullQuery';
+import { useCompetitionFullQuery } from './competitionFullQuery';
 
 type UseCompetitionTeamStatsParams = {
   leagueId: number | undefined;
@@ -57,8 +56,16 @@ export function useCompetitionTeamStats({
   advancedEnabled,
   networkLiteMode: _networkLiteMode = false,
 }: UseCompetitionTeamStatsParams): UseCompetitionTeamStatsResult {
-  const queryClient = useQueryClient();
   const standingsQuery = useCompetitionStandings(leagueId, season);
+  const competitionFullQuery = useCompetitionFullQuery(
+    leagueId,
+    season,
+    advancedEnabled &&
+      typeof leagueId === 'number' &&
+      Number.isFinite(leagueId) &&
+      typeof season === 'number' &&
+      Number.isFinite(season),
+  );
 
   const baseDashboard = useMemo(
     () => buildCompetitionTeamStatsDashboardData(standingsQuery.data),
@@ -69,26 +76,13 @@ export function useCompetitionTeamStats({
     () => (standingsQuery.data?.length ?? 0) > 1,
     [standingsQuery.data],
   );
-
-  const aggregatedQuery = useQuery({
-    queryKey: queryKeys.competitions.teamStats(leagueId, season),
-    enabled:
-      advancedEnabled &&
-      typeof leagueId === 'number' &&
-      Number.isFinite(leagueId) &&
-      typeof season === 'number' &&
-      Number.isFinite(season) &&
-      !isGroupedCompetition,
-    queryFn: async (): Promise<CompetitionTeamStatsDashboardData | null> => {
-      const payload = await loadCompetitionFullPayload(
-        queryClient,
-        leagueId as number,
-        season as number,
-      );
-      return payload?.teamStats ?? null;
-    },
-    ...featureQueryOptions.competitions.teamStats,
-  });
+  const isTeamStatsSectionLoading =
+    !isGroupedCompetition &&
+    isHydrationSectionLoading(competitionFullQuery.hydration, 'teamStats');
+  const aggregatedData =
+    isTeamStatsSectionLoading
+      ? null
+      : competitionFullQuery.data?.teamStats ?? null;
 
   const dashboard = useMemo(() => {
     if (isGroupedCompetition) {
@@ -101,20 +95,20 @@ export function useCompetitionTeamStats({
       };
     }
 
-    return aggregatedQuery.data ?? baseDashboard;
-  }, [aggregatedQuery.data, baseDashboard, isGroupedCompetition]);
+    return aggregatedData ?? baseDashboard;
+  }, [aggregatedData, baseDashboard, isGroupedCompetition]);
 
   const shouldRenderAdvancedSection = useMemo(() => {
     if (isGroupedCompetition) {
       return false;
     }
 
-    if (advancedEnabled && aggregatedQuery.data?.advanced.state === 'unavailable') {
+    if (advancedEnabled && aggregatedData?.advanced.state === 'unavailable') {
       return false;
     }
 
     return true;
-  }, [advancedEnabled, aggregatedQuery.data?.advanced.state, isGroupedCompetition]);
+  }, [advancedEnabled, aggregatedData?.advanced.state, isGroupedCompetition]);
 
   const hasAdvancedData = useMemo(
     () =>
@@ -126,9 +120,13 @@ export function useCompetitionTeamStats({
 
   const isAdvancedLoading =
     advancedEnabled &&
-    aggregatedQuery.fetchStatus === 'fetching' &&
-    aggregatedQuery.data == null;
-  const advancedProgress = !advancedEnabled ? 0 : isAdvancedLoading ? 45 : aggregatedQuery.data ? 100 : 0;
+    !isGroupedCompetition &&
+    (
+      (competitionFullQuery.isLoading && !competitionFullQuery.data) ||
+      isTeamStatsSectionLoading
+    ) &&
+    aggregatedData == null;
+  const advancedProgress = !advancedEnabled ? 0 : isAdvancedLoading ? 45 : aggregatedData ? 100 : 0;
 
   return {
     summary: dashboard.summary,
@@ -138,7 +136,10 @@ export function useCompetitionTeamStats({
     isAdvancedLoading,
     advancedProgress,
     baseError: (standingsQuery.error as Error | null) ?? null,
-    advancedError: advancedEnabled ? ((aggregatedQuery.error as Error | null) ?? null) : null,
+    advancedError:
+      advancedEnabled && competitionFullQuery.isError && !competitionFullQuery.data
+        ? ((competitionFullQuery.error as Error | null) ?? null)
+        : null,
     hasAdvancedData,
     shouldRenderAdvancedSection,
   };

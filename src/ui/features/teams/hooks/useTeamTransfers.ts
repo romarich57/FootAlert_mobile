@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import { mapTransfersToTeamTransfers } from '@data/mappers/teamsMapper';
 import { fetchTeamTransfersData } from '@data/teams/teamQueryData';
 import {
@@ -32,12 +33,20 @@ export function useTeamTransfers({
   });
   const canUseFullPayload =
     teamFullQuery.isFullEnabled && Boolean(teamFullQuery.data);
+  const isFullTransfersSectionLoading =
+    canUseFullPayload && isHydrationSectionLoading(teamFullQuery.hydration, 'transfers');
   const fullTransfers = useMemo(
     () =>
-      canUseFullPayload
+      canUseFullPayload && !isFullTransfersSectionLoading
         ? mapTransfersToTeamTransfers(teamFullQuery.data?.transfers.response ?? [], teamId, season)
         : { arrivals: [], departures: [] },
-    [canUseFullPayload, season, teamFullQuery.data?.transfers.response, teamId],
+    [
+      canUseFullPayload,
+      isFullTransfersSectionLoading,
+      season,
+      teamFullQuery.data?.transfers.response,
+      teamId,
+    ],
   );
 
   const query = useQuery<TeamTransfersData>({
@@ -57,8 +66,8 @@ export function useTeamTransfers({
     ? {
         ...query,
         data: fullTransfers,
-        isLoading: teamFullQuery.isLoading && !teamFullQuery.data,
-        isFetching: teamFullQuery.isFetching,
+        isLoading: (teamFullQuery.isLoading && !teamFullQuery.data) || isFullTransfersSectionLoading,
+        isFetching: teamFullQuery.isFetching || isFullTransfersSectionLoading,
         isError: teamFullQuery.isError && !teamFullQuery.data,
         isFetched: teamFullQuery.isFetched,
         isFetchedAfterMount: teamFullQuery.isFetchedAfterMount,

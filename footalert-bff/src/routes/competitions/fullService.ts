@@ -10,6 +10,7 @@ import {
   freshnessHints,
   type PayloadFreshnessMeta,
 } from '../../lib/freshnessMeta.js';
+import type { FullPayloadHydration } from '../../lib/readStore/hydration.js';
 import { mapWithConcurrency } from '../../lib/concurrency/mapWithConcurrency.js';
 
 import { buildCompetitionBracket } from './bracketMapper.js';
@@ -44,6 +45,7 @@ type CompetitionPlayerStatsBundle = {
 
 export type CompetitionFullResponse = {
   _meta: PayloadFreshnessMeta;
+  _hydration?: FullPayloadHydration;
   competition: unknown | null;
   competitionKind: CompetitionKind;
   season: number;
@@ -54,6 +56,16 @@ export type CompetitionFullResponse = {
   teamStats: unknown | null;
   transfers: unknown[];
 };
+
+export type CompetitionCoreSnapshotPayload = Pick<
+  CompetitionFullResponse,
+  'competition' | 'competitionKind' | 'season' | 'standings' | 'matches'
+>;
+
+export type CompetitionBracketSectionPayload = CompetitionFullResponse['bracket'];
+export type CompetitionPlayerStatsSectionPayload = CompetitionFullResponse['playerStats'];
+export type CompetitionTeamStatsSectionPayload = CompetitionFullResponse['teamStats'];
+export type CompetitionTransfersSectionPayload = CompetitionFullResponse['transfers'];
 
 const EMPTY_PLAYER_STATS: CompetitionPlayerStatsBundle = {
   topScorers: [],
@@ -352,6 +364,129 @@ async function fetchCompetitionTransfers(
   );
 }
 
+export async function buildCompetitionCoreSnapshot(
+  competitionId: string,
+  requestedSeason?: number,
+): Promise<CompetitionCoreSnapshotPayload> {
+  const competition = await fetchCompetitionRecord(competitionId);
+  const season =
+    requestedSeason ??
+    readCompetitionCurrentSeason(competition) ??
+    new Date().getUTCFullYear();
+
+  const matches = await fetchCompetitionFixtures(competitionId, season);
+  const { competitionKind } = resolveCompetitionKind(competition, matches);
+  const standings =
+    competitionKind !== 'cup'
+      ? await fetchCompetitionStandings(competitionId, season)
+      : null;
+
+  return {
+    competition,
+    competitionKind,
+    season,
+    standings,
+    matches,
+  };
+}
+
+export async function buildCompetitionBracketSection(input: {
+  core: CompetitionCoreSnapshotPayload;
+}): Promise<CompetitionBracketSectionPayload> {
+  return resolveCompetitionKind(input.core.competition, input.core.matches).bracket;
+}
+
+export async function buildCompetitionPlayerStatsSection(input: {
+  competitionId: string;
+  core: CompetitionCoreSnapshotPayload;
+}): Promise<CompetitionPlayerStatsSectionPayload> {
+  if (input.core.competitionKind === 'cup') {
+    return EMPTY_PLAYER_STATS;
+  }
+
+  return fetchCompetitionPlayerStatsBundle(
+    input.competitionId,
+    input.core.season,
+  );
+}
+
+export async function buildCompetitionTeamStatsSection(input: {
+  competitionId: string;
+  core: CompetitionCoreSnapshotPayload;
+}): Promise<CompetitionTeamStatsSectionPayload> {
+  if (input.core.competitionKind === 'cup') {
+    return null;
+  }
+
+  return buildCompetitionTeamStatsResponse(
+    input.competitionId,
+    input.core.season,
+  );
+}
+
+export async function buildCompetitionTransfersSection(input: {
+  competitionId: string;
+  core: CompetitionCoreSnapshotPayload;
+}): Promise<CompetitionTransfersSectionPayload> {
+  return fetchCompetitionTransfers(
+    input.competitionId,
+    input.core.season,
+  );
+}
+
+export function composeCompetitionFullPayload(input: {
+  core: CompetitionCoreSnapshotPayload;
+  bracket: CompetitionBracketSectionPayload;
+  playerStats: CompetitionPlayerStatsSectionPayload;
+  teamStats: CompetitionTeamStatsSectionPayload;
+  transfers: CompetitionTransfersSectionPayload;
+  hydration?: FullPayloadHydration;
+}): CompetitionFullResponse {
+  return {
+    _meta: buildFreshnessMeta({
+      competition: freshnessHints.static,
+      standings: freshnessHints.postMatch,
+      matches: freshnessHints.postMatch,
+      bracket: freshnessHints.postMatch,
+      playerStats: freshnessHints.postMatch,
+      teamStats: freshnessHints.postMatch,
+      transfers: freshnessHints.weekly,
+    }),
+    _hydration: input.hydration,
+    competition: input.core.competition,
+    competitionKind: input.core.competitionKind,
+    season: input.core.season,
+    standings: input.core.standings,
+    matches: input.core.matches,
+    bracket: input.bracket,
+    playerStats: input.playerStats,
+    teamStats: input.teamStats,
+    transfers: input.transfers,
+  };
+}
+
+export function splitCompetitionFullPayload(payload: CompetitionFullResponse): {
+  core: CompetitionCoreSnapshotPayload;
+  bracket: CompetitionBracketSectionPayload;
+  playerStats: CompetitionPlayerStatsSectionPayload;
+  teamStats: CompetitionTeamStatsSectionPayload;
+  transfers: CompetitionTransfersSectionPayload;
+} {
+  return {
+    core: {
+      competition: payload.competition,
+      competitionKind: payload.competitionKind,
+      season: payload.season,
+      standings: payload.standings,
+      matches: payload.matches,
+    },
+    bracket: payload.bracket,
+    playerStats: payload.playerStats,
+    teamStats: payload.teamStats,
+    transfers: payload.transfers,
+  };
+}
+
 export async function buildCompetitionFullResponse(
   competitionId: string,
   requestedSeason?: number,
@@ -363,48 +498,35 @@ export async function buildCompetitionFullResponse(
     }),
     COMPETITION_CACHE_TTL_MS,
     async () => {
-      const competition = await fetchCompetitionRecord(competitionId);
-      const season =
-        requestedSeason ??
-        readCompetitionCurrentSeason(competition) ??
-        new Date().getUTCFullYear();
-
-      const [matches, transfers] = await Promise.all([
-        fetchCompetitionFixtures(competitionId, season),
-        fetchCompetitionTransfers(competitionId, season),
-      ]);
-
-      const { competitionKind, bracket } = resolveCompetitionKind(competition, matches);
-      const shouldLoadAnalytics = competitionKind !== 'cup';
-
-      const [standings, playerStats, teamStats] = await Promise.all([
-        shouldLoadAnalytics ? fetchCompetitionStandings(competitionId, season) : null,
-        shouldLoadAnalytics
-          ? fetchCompetitionPlayerStatsBundle(competitionId, season)
-          : EMPTY_PLAYER_STATS,
-        shouldLoadAnalytics ? buildCompetitionTeamStatsResponse(competitionId, season) : null,
-      ]);
-
-      return {
-        _meta: buildFreshnessMeta({
-          competition: freshnessHints.static,
-          standings: freshnessHints.postMatch,
-          matches: freshnessHints.postMatch,
-          bracket: freshnessHints.postMatch,
-          playerStats: freshnessHints.postMatch,
-          teamStats: freshnessHints.postMatch,
-          transfers: freshnessHints.weekly,
+      const core = await buildCompetitionCoreSnapshot(
+        competitionId,
+        requestedSeason,
+      );
+      const [bracket, playerStats, teamStats, transfers] = await Promise.all([
+        buildCompetitionBracketSection({
+          core,
         }),
-        competition,
-        competitionKind,
-        season,
-        standings,
-        matches,
+        buildCompetitionPlayerStatsSection({
+          competitionId,
+          core,
+        }),
+        buildCompetitionTeamStatsSection({
+          competitionId,
+          core,
+        }),
+        buildCompetitionTransfersSection({
+          competitionId,
+          core,
+        }),
+      ]);
+
+      return composeCompetitionFullPayload({
+        core,
         bracket,
         playerStats,
         teamStats,
         transfers,
-      };
+      });
     },
   );
 }

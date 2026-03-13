@@ -9,6 +9,10 @@ import type {
   CompetitionsApiStandingDto,
   CompetitionsApiTransferDto,
 } from '@domain/contracts/competitions.types';
+import type {
+  MobileFullPayloadHydration,
+} from '@domain/contracts/fullPayloadHydration.types';
+import type { PayloadFreshnessMeta } from '@domain/contracts/freshnessMeta.types';
 import {
   mobileReadHttpAdapter,
   mobileReadTelemetryAdapter,
@@ -187,7 +191,8 @@ export async function fetchCompetitionBracket(
 }
 
 export type CompetitionFullPayload = {
-  _meta?: import('@domain/contracts/freshnessMeta.types').PayloadFreshnessMeta;
+  _meta?: PayloadFreshnessMeta;
+  _hydration?: MobileFullPayloadHydration;
   competition: CompetitionsApiLeagueDto | null;
   competitionKind: CompetitionKind;
   season: number;
@@ -225,6 +230,8 @@ export async function fetchCompetitionFull(
     : 'league';
 
   return {
+    _meta: raw._meta,
+    _hydration: raw._hydration,
     competition: raw.competition ?? null,
     competitionKind,
     season: raw.season,

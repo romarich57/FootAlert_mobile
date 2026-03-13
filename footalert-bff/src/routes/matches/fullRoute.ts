@@ -2,6 +2,10 @@ import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
 import { ReadStoreSnapshotInvalidBffError } from '../../lib/readStore/errors.js';
+import {
+  buildFullPayloadHydration,
+  buildHydrationSection,
+} from '../../lib/readStore/hydration.js';
 import { MATCH_DEFAULT_POLICY } from '../../lib/readStore/policies.js';
 import { buildSnapshotWindow, readThroughSnapshot, buildReadStoreScopeKey } from '../../lib/readStore/readThrough.js';
 import { getReadStore } from '../../lib/readStore/runtime.js';
@@ -172,8 +176,95 @@ export function registerMatchFullRoute(app: FastifyInstance): void {
         responsePayload = applyMatchLiveOverlay(responsePayload, overlaySnapshot.payload);
       }
 
+      const storedSnapshot = await readStore.getEntitySnapshot<MatchFullPayload>({
+        entityKind: 'match_full',
+        entityId: params.id,
+        scopeKey,
+      });
+      const sectionFreshness = result.freshness === 'stale' ? 'stale' : 'fresh';
+      const sectionUpdatedAt =
+        storedSnapshot.status === 'miss' ? new Date() : storedSnapshot.generatedAt;
+      const hydration = buildFullPayloadHydration({
+        sections: {
+          fixture: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          context: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          events: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          statistics: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          lineups: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          predictions: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          absences: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          headToHead: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          standings: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          homeRecentResults: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          awayRecentResults: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          homeLeaders: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          awayLeaders: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+          playersStats: buildHydrationSection({
+            state: 'ready',
+            freshness: sectionFreshness,
+            updatedAt: sectionUpdatedAt,
+          }),
+        },
+        enqueuedHeavyRefresh: false,
+      });
+
       reply.header('Cache-Control', CACHE_CONTROL_SHORT);
-      return responsePayload;
+      return {
+        ...responsePayload,
+        _hydration: hydration,
+      };
     },
   );
 }

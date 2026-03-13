@@ -1,90 +1,102 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { renderHook } from '@testing-library/react-native';
 
-import { appEnv } from '@data/config/env';
 import { mapPlayerStatsDtoToPlayerStats } from '@data/mappers/competitionsMapper';
-import { loadCompetitionFullPayload } from '@ui/features/competitions/hooks/competitionFullQuery';
+import { useCompetitionFullQuery } from '@ui/features/competitions/hooks/competitionFullQuery';
 import { useCompetitionPlayerStats } from '@ui/features/competitions/hooks/useCompetitionPlayerStats';
 
-jest.mock('@tanstack/react-query', () => ({
-  useQuery: jest.fn(),
-  useQueryClient: jest.fn(),
-}));
-jest.mock('@data/config/env', () => ({
-  appEnv: {
-    mobileEnableBffCompetitionFull: false,
-  },
-}));
 jest.mock('@data/mappers/competitionsMapper', () => ({
   mapPlayerStatsDtoToPlayerStats: jest.fn(),
 }));
 jest.mock('@ui/features/competitions/hooks/competitionFullQuery', () => ({
-  loadCompetitionFullPayload: jest.fn(),
+  useCompetitionFullQuery: jest.fn(),
 }));
 
-const mockedUseQuery = jest.mocked(useQuery);
-const mockedUseQueryClient = jest.mocked(useQueryClient);
 const mockedMapPlayerStatsDtoToPlayerStats = jest.mocked(mapPlayerStatsDtoToPlayerStats);
-const mockedLoadCompetitionFullPayload = jest.mocked(loadCompetitionFullPayload);
+const mockedUseCompetitionFullQuery = jest.mocked(useCompetitionFullQuery);
+
+function createCompetitionFullQueryResult(overrides: Record<string, unknown> = {}) {
+  return {
+    data: undefined,
+    hydration: null,
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+    error: null,
+    ...overrides,
+  };
+}
 
 describe('useCompetitionPlayerStats', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    appEnv.mobileEnableBffCompetitionFull = false;
-    mockedUseQueryClient.mockReturnValue({} as never);
-    mockedUseQuery.mockReturnValue({} as never);
-    mockedLoadCompetitionFullPayload.mockResolvedValue(null);
+    mockedUseCompetitionFullQuery.mockReturnValue(
+      createCompetitionFullQueryResult() as never,
+    );
     mockedMapPlayerStatsDtoToPlayerStats.mockReturnValue([] as never);
   });
 
-  it('uses the expected key and stays disabled without league or season', () => {
-    useCompetitionPlayerStats(undefined, 2025, 'goals');
-    expect(mockedUseQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['competition_player_stats', undefined, 2025, 'goals'],
-        enabled: false,
-      }),
+  it('uses the expected key and disables the upstream full query without league or season', () => {
+    const { result } = renderHook(() =>
+      useCompetitionPlayerStats(undefined, 2025, 'goals'),
     );
+
+    expect(mockedUseCompetitionFullQuery).toHaveBeenCalledWith(undefined, 2025, false);
+    expect(result.current.queryKey).toEqual([
+      'competition_player_stats',
+      undefined,
+      2025,
+      'goals',
+    ]);
+    expect(result.current.data).toEqual([]);
   });
 
-  it('uses competitions.full as the first source when available', async () => {
-    appEnv.mobileEnableBffCompetitionFull = true;
-    mockedLoadCompetitionFullPayload.mockResolvedValue({
-      playerStats: {
-        topScorers: [{ id: 'from-full' }],
-        topAssists: [],
-        topYellowCards: [],
-        topRedCards: [],
-      },
-    } as never);
+  it('uses competitions.full as the unique player stats source', () => {
+    mockedUseCompetitionFullQuery.mockReturnValue(
+      createCompetitionFullQueryResult({
+        data: {
+          playerStats: {
+            topScorers: [{ id: 'from-full' }],
+            topAssists: [],
+            topYellowCards: [],
+            topRedCards: [],
+          },
+        },
+      }) as never,
+    );
     mockedMapPlayerStatsDtoToPlayerStats.mockReturnValue([{ playerId: 10 }] as never);
 
-    useCompetitionPlayerStats(61, 2025, 'goals');
-    const queryConfig = mockedUseQuery.mock.calls[0]?.[0];
-    const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal | undefined }) => Promise<unknown>;
-    const result = await queryFn({ signal: undefined });
+    const { result } = renderHook(() =>
+      useCompetitionPlayerStats(61, 2025, 'goals'),
+    );
 
-    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalled();
-    expect(result).toEqual([{ playerId: 10 }]);
+    expect(mockedUseCompetitionFullQuery).toHaveBeenCalledWith(61, 2025, true);
+    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenCalledWith(
+      [{ id: 'from-full' }],
+      2025,
+    );
+    expect(result.current.data).toEqual([{ playerId: 10 }]);
   });
 
-  it('returns an empty player stats list when competitions.full has no matching stat bucket', async () => {
-    appEnv.mobileEnableBffCompetitionFull = true;
-    mockedLoadCompetitionFullPayload.mockResolvedValue({
-      playerStats: {
-        topScorers: [],
-        topAssists: [],
-        topYellowCards: [],
-        topRedCards: [],
-      },
-    } as never);
+  it('returns an empty list when competitions.full has no matching stat bucket entries', () => {
+    mockedUseCompetitionFullQuery.mockReturnValue(
+      createCompetitionFullQueryResult({
+        data: {
+          playerStats: {
+            topScorers: [],
+            topAssists: [],
+            topYellowCards: [],
+            topRedCards: [],
+          },
+        },
+      }) as never,
+    );
     mockedMapPlayerStatsDtoToPlayerStats.mockReturnValue([]);
 
-    useCompetitionPlayerStats(61, 2025, 'goals');
-    const queryConfig = mockedUseQuery.mock.calls[0]?.[0];
-    const queryFn = queryConfig?.queryFn as (context: { signal: AbortSignal | undefined }) => Promise<unknown>;
-    const result = await queryFn({ signal: undefined });
+    const { result } = renderHook(() =>
+      useCompetitionPlayerStats(61, 2025, 'goals'),
+    );
 
-    expect(mockedLoadCompetitionFullPayload).toHaveBeenCalled();
-    expect(result).toEqual([]);
+    expect(mockedMapPlayerStatsDtoToPlayerStats).toHaveBeenCalledWith([], 2025);
+    expect(result.current.data).toEqual([]);
   });
 });

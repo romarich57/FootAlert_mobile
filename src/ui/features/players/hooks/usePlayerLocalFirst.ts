@@ -5,6 +5,10 @@ import { useLocalFirstQuery } from '@data/db/useLocalFirstQuery';
 import { buildPlayerFullEntityId } from '@data/db/fullEntityIds';
 import { fetchPlayerFull } from '@data/endpoints/playersApi';
 import { isJestRuntime } from '@data/runtime/isJestRuntime';
+import {
+  getHydrationSection,
+  isHydrationPending,
+} from '@domain/contracts/fullPayloadHydration.types';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
@@ -58,5 +62,11 @@ export function usePlayerLocalFirst({
   return {
     ...query,
     isFullEnabled: fullEnabled,
+    hydration: query.data?._hydration ?? null,
+    hydrationStatus: query.data?._hydration?.status ?? null,
+    hydrationSections: query.data?._hydration?.sections ?? {},
+    isHydrationPending: isHydrationPending(query.data?._hydration),
+    getSectionHydration: (sectionKey: string) =>
+      getHydrationSection(query.data?._hydration, sectionKey),
   };
 }

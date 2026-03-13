@@ -1,5 +1,6 @@
 import type {
   SnapshotRecord,
+  SnapshotRefreshKind,
   SnapshotRefreshTask,
   SnapshotRefreshTaskInput,
   ReadStoreStatusSnapshot,
@@ -9,6 +10,8 @@ import { createSnapshotStore } from './snapshotStore.js';
 
 type RefreshTaskKind =
   | 'bootstrap'
+  | 'entity_core'
+  | 'entity_heavy'
   | 'team'
   | 'player'
   | 'competition'
@@ -39,6 +42,7 @@ export type SnapshotRefreshBacklog = {
 
 export type SnapshotRefreshJob = {
   id: string;
+  taskKind: SnapshotRefreshKind;
   entityKind: string;
   entityId: string;
   scopeKey: string;
@@ -112,6 +116,7 @@ export type ReadStore = {
     nextAttemptAt?: Date;
   }) => Promise<void>;
   countRefreshBacklog: () => Promise<SnapshotRefreshBacklog>;
+  countRefreshBacklogByKinds: (taskKinds: SnapshotRefreshKind[]) => Promise<SnapshotRefreshBacklog>;
   upsertWorkerHeartbeat: (input: {
     workerId: string;
     seenAt: Date;
@@ -138,6 +143,24 @@ function normalizeScopeKey(scopeKey: string | null | undefined): string {
   return normalized && normalized.length > 0 ? normalized : '';
 }
 
+function readRefreshKind(
+  payload: Record<string, unknown> | null | undefined,
+): 'core' | 'heavy' | null {
+  const refreshKind = payload?.refreshKind;
+  return refreshKind === 'core' || refreshKind === 'heavy' ? refreshKind : null;
+}
+
+function readScopeSection(scopeKey: string | null | undefined): string | null {
+  const normalizedScopeKey = normalizeScopeKey(scopeKey);
+  if (normalizedScopeKey.length === 0) {
+    return null;
+  }
+
+  const searchParams = new URLSearchParams(normalizedScopeKey);
+  const section = searchParams.get('section');
+  return section && section.trim().length > 0 ? section : null;
+}
+
 function mapSnapshotRecord<TPayload>(
   snapshot: SnapshotRecord<unknown> | null,
 ): ReadStoreSnapshot<TPayload> {
@@ -155,21 +178,41 @@ function mapSnapshotRecord<TPayload>(
   };
 }
 
-function resolveTaskKind(entityKind: string): RefreshTaskKind {
-  if (entityKind === 'bootstrap') {
+function resolveTaskKind(input: {
+  entityKind: string;
+  scopeKey: string;
+  payload: Record<string, unknown> | null;
+}): RefreshTaskKind {
+  if (input.entityKind === 'bootstrap') {
     return 'bootstrap';
   }
-  if (entityKind === 'team_full' || entityKind === 'team') {
+  if (input.entityKind === 'match_live_overlay' || input.entityKind === 'match_live') {
+    return 'match_live';
+  }
+  if (input.entityKind === 'team_full') {
     return 'team';
   }
-  if (entityKind === 'player_full' || entityKind === 'player') {
+  if (input.entityKind === 'player_full') {
     return 'player';
   }
-  if (entityKind === 'competition_full' || entityKind === 'competition') {
+  if (input.entityKind === 'competition_full') {
     return 'competition';
   }
-  if (entityKind === 'match_live_overlay' || entityKind === 'match_live') {
-    return 'match_live';
+  if (
+    input.entityKind === 'team'
+    || input.entityKind === 'player'
+    || input.entityKind === 'competition'
+  ) {
+    const refreshKind = readRefreshKind(input.payload);
+    if (refreshKind === 'heavy') {
+      return 'entity_heavy';
+    }
+    if (refreshKind === 'core') {
+      return 'entity_core';
+    }
+
+    const section = readScopeSection(input.scopeKey);
+    return section !== null && section !== 'core' ? 'entity_heavy' : 'entity_core';
   }
   return 'match';
 }
@@ -183,9 +226,10 @@ function buildRefreshJobId(input: {
 }
 
 function mapRefreshTaskToJob(task: SnapshotRefreshTask): SnapshotRefreshJob {
-  const taskEntityKind = (task.entityKind ?? task.taskKind) as string;
+  const taskEntityKind = task.entityKind ?? task.taskKind;
   return {
     id: task.taskKey,
+    taskKind: task.taskKind,
     entityKind: taskEntityKind,
     entityId: task.entityId ?? '',
     scopeKey: task.scopeKey ?? '',
@@ -203,7 +247,11 @@ function mapEnqueueInputToTask(input: {
   notBefore: Date;
   payload: Record<string, unknown> | null;
 }): SnapshotRefreshTaskInput {
-  const taskKind = resolveTaskKind(input.entityKind);
+  const taskKind = resolveTaskKind({
+    entityKind: input.entityKind,
+    scopeKey: input.scopeKey,
+    payload: input.payload,
+  });
   return {
     taskKey: buildRefreshJobId({
       entityKind: input.entityKind,
@@ -211,7 +259,7 @@ function mapEnqueueInputToTask(input: {
       scopeKey: input.scopeKey,
     }),
     taskKind,
-    entityKind: input.entityKind as SnapshotRefreshTaskInput['entityKind'],
+    entityKind: input.entityKind,
     entityId: input.entityId,
     scopeKey: input.scopeKey,
     payload: input.payload,
@@ -328,6 +376,9 @@ function createReadStore(baseStore: SnapshotStore, backend: 'memory' | 'postgres
     },
     async countRefreshBacklog(): Promise<SnapshotRefreshBacklog> {
       return baseStore.countRefreshBacklog();
+    },
+    async countRefreshBacklogByKinds(taskKinds): Promise<SnapshotRefreshBacklog> {
+      return baseStore.countRefreshBacklogByKinds(taskKinds);
     },
     async upsertWorkerHeartbeat(input): Promise<void> {
       await baseStore.upsertWorkerHeartbeat(input);

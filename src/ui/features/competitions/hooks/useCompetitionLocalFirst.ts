@@ -4,6 +4,10 @@ import { appEnv } from '@data/config/env';
 import { buildCompetitionFullEntityId } from '@data/db/fullEntityIds';
 import { useLocalFirstQuery } from '@data/db/useLocalFirstQuery';
 import {
+  getHydrationSection,
+  isHydrationPending,
+} from '@domain/contracts/fullPayloadHydration.types';
+import {
   fetchCompetitionFull,
   type CompetitionFullPayload,
 } from '@data/endpoints/competitionsApi';
@@ -57,5 +61,11 @@ export function useCompetitionLocalFirst({
   return {
     ...query,
     isFullEnabled: fullEnabled,
+    hydration: query.data?._hydration ?? null,
+    hydrationStatus: query.data?._hydration?.status ?? null,
+    hydrationSections: query.data?._hydration?.sections ?? {},
+    isHydrationPending: isHydrationPending(query.data?._hydration),
+    getSectionHydration: (sectionKey: string) =>
+      getHydrationSection(query.data?._hydration, sectionKey),
   };
 }

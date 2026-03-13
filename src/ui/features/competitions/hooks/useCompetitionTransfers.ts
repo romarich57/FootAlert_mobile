@@ -1,29 +1,44 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { mapTransfersDtoToCompetitionTransfers } from '@data/mappers/competitionsMapper';
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import type { Transfer } from '../types/competitions.types';
 
-import { loadCompetitionFullPayload } from './competitionFullQuery';
+import { useCompetitionFullQuery } from './competitionFullQuery';
 
 export function useCompetitionTransfers(
   leagueId: number | undefined,
   season: number | undefined,
 ) {
-  const queryClient = useQueryClient();
+  const competitionFullQuery = useCompetitionFullQuery(
+    leagueId,
+    season,
+    !!leagueId && !!season,
+  );
+  const isTransfersSectionLoading = isHydrationSectionLoading(
+    competitionFullQuery.hydration,
+    'transfers',
+  );
+  const data = useMemo(
+    () =>
+      leagueId && season && competitionFullQuery.data
+        ? mapTransfersDtoToCompetitionTransfers(
+            competitionFullQuery.data.transfers ?? [],
+            season,
+          )
+        : [],
+    [competitionFullQuery.data, leagueId, season],
+  );
 
-  return useQuery<Transfer[], Error>({
+  return {
+    ...competitionFullQuery,
     queryKey: queryKeys.competitions.transfers(leagueId, season),
-    queryFn: async ({ signal }) => {
-      if (!leagueId || !season) {
-        return [];
-      }
-
-      const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
-      return mapTransfersDtoToCompetitionTransfers(payload?.transfers ?? [], season);
-    },
-    enabled: !!leagueId && !!season,
-    ...featureQueryOptions.competitions.transfers,
-  });
+    data,
+    isLoading:
+      (competitionFullQuery.isLoading && !competitionFullQuery.data) ||
+      isTransfersSectionLoading,
+    isFetching: competitionFullQuery.isFetching || isTransfersSectionLoading,
+    isError: competitionFullQuery.isError && !competitionFullQuery.data,
+  };
 }

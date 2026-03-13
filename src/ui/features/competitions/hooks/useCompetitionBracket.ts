@@ -1,10 +1,10 @@
-import { useQuery, keepPreviousData, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import type { CompetitionBracket } from '@domain/contracts/competitions.types';
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
+import { queryKeys } from '@ui/shared/query/queryKeys';
 
-import { loadCompetitionFullPayload } from './competitionFullQuery';
+import { useCompetitionFullQuery } from './competitionFullQuery';
 
 type UseCompetitionBracketOptions = {
   enabled?: boolean;
@@ -16,24 +16,31 @@ export function useCompetitionBracket(
   options?: UseCompetitionBracketOptions,
 ) {
   const isEnabled = options?.enabled ?? true;
-  const queryClient = useQueryClient();
+  const competitionFullQuery = useCompetitionFullQuery(
+    leagueId,
+    season,
+    isEnabled && !!leagueId && !!season,
+  );
+  const isBracketSectionLoading = isHydrationSectionLoading(
+    competitionFullQuery.hydration,
+    'bracket',
+  );
+  const data = useMemo<CompetitionBracket>(
+    () => ({
+      competitionKind: competitionFullQuery.data?.competitionKind ?? 'league',
+      bracket: competitionFullQuery.data?.bracket ?? null,
+    }),
+    [competitionFullQuery.data?.bracket, competitionFullQuery.data?.competitionKind],
+  );
 
-  return useQuery<CompetitionBracket, Error>({
+  return {
+    ...competitionFullQuery,
     queryKey: queryKeys.competitions.bracket(leagueId, season),
-    queryFn: async ({ signal }) => {
-      if (!leagueId || !season) {
-        return { competitionKind: 'league', bracket: null };
-      }
-
-      const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
-      return {
-        competitionKind: payload?.competitionKind ?? 'league',
-        bracket: payload?.bracket ?? null,
-      };
-    },
-    enabled: isEnabled && !!leagueId && !!season,
-    placeholderData: keepPreviousData,
-    gcTime: 24 * 60 * 60 * 1000,
-    ...featureQueryOptions.competitions.bracket,
-  });
+    data,
+    isLoading:
+      (competitionFullQuery.isLoading && !competitionFullQuery.data) ||
+      isBracketSectionLoading,
+    isFetching: competitionFullQuery.isFetching || isBracketSectionLoading,
+    isError: competitionFullQuery.isError && !competitionFullQuery.data,
+  };
 }

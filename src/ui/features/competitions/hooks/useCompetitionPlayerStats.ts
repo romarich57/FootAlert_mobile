@@ -1,17 +1,18 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { mapPlayerStatsDtoToPlayerStats } from '@data/mappers/competitionsMapper';
+import type { CompetitionFullPayload } from '@data/endpoints/competitionsApi';
+import { isHydrationSectionLoading } from '@domain/contracts/fullPayloadHydration.types';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import type { CompetitionPlayerStat } from '../types/competitions.types';
 
-import { loadCompetitionFullPayload } from './competitionFullQuery';
+import { useCompetitionFullQuery } from './competitionFullQuery';
 
 export type PlayerStatType = 'goals' | 'assists' | 'yellowCards' | 'redCards';
 
 function readPlayerStatsFromFullPayload(
   statType: PlayerStatType,
-  payload: Awaited<ReturnType<typeof loadCompetitionFullPayload>>,
+  payload: CompetitionFullPayload | null | undefined,
   season: number,
 ): CompetitionPlayerStat[] | null {
   if (!payload?.playerStats) {
@@ -37,19 +38,35 @@ export function useCompetitionPlayerStats(
   season: number | undefined,
   statType: PlayerStatType,
 ) {
-  const queryClient = useQueryClient();
+  const competitionFullQuery = useCompetitionFullQuery(
+    leagueId,
+    season,
+    !!leagueId && !!season,
+  );
+  const isPlayerStatsSectionLoading = isHydrationSectionLoading(
+    competitionFullQuery.hydration,
+    'playerStats',
+  );
+  const data = useMemo(
+    () =>
+      leagueId && season && competitionFullQuery.data
+        ? (readPlayerStatsFromFullPayload(
+            statType,
+            competitionFullQuery.data,
+            season,
+          ) ?? [])
+        : [],
+    [competitionFullQuery.data, leagueId, season, statType],
+  );
 
-  return useQuery<CompetitionPlayerStat[], Error>({
+  return {
+    ...competitionFullQuery,
     queryKey: queryKeys.competitions.playerStats(leagueId, season, statType),
-    queryFn: async ({ signal }) => {
-      if (!leagueId || !season) {
-        return [];
-      }
-
-      const payload = await loadCompetitionFullPayload(queryClient, leagueId, season);
-      return readPlayerStatsFromFullPayload(statType, payload, season) ?? [];
-    },
-    enabled: !!leagueId && !!season,
-    ...featureQueryOptions.competitions.playerStats,
-  });
+    data,
+    isLoading:
+      (competitionFullQuery.isLoading && !competitionFullQuery.data) ||
+      isPlayerStatsSectionLoading,
+    isFetching: competitionFullQuery.isFetching || isPlayerStatsSectionLoading,
+    isError: competitionFullQuery.isError && !competitionFullQuery.data,
+  };
 }

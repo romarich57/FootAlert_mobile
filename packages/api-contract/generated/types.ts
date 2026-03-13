@@ -70,6 +70,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/competitions/{id}/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get progressive full competition payload */
+        get: operations["getCompetitionFull"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/competitions/{id}/matches": {
         parameters: {
             query?: never;
@@ -410,6 +427,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/matches/{id}/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get progressive full fixture payload */
+        get: operations["getMatchFull"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/matches/{id}/head-to-head": {
         parameters: {
             query?: never;
@@ -717,6 +751,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/players/{id}/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get progressive full player payload */
+        get: operations["getPlayerFull"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/players/{id}/matches": {
         parameters: {
             query?: never;
@@ -896,6 +947,23 @@ export type paths = {
         };
         /** Get team fixtures */
         get: operations["getTeamFixtures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/teams/{id}/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get progressive full team payload */
+        get: operations["getTeamFull"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1186,13 +1254,45 @@ export type components = {
             /** @enum {string} */
             competitionKind: "league" | "cup" | "mixed";
         };
+        CompetitionFullPlayerStats: {
+            topAssists: components["schemas"]["FlexibleObjectList"];
+            topRedCards: components["schemas"]["FlexibleObjectList"];
+            topScorers: components["schemas"]["FlexibleObjectList"];
+            topYellowCards: components["schemas"]["FlexibleObjectList"];
+        };
+        CompetitionFullResponse: components["schemas"]["ProgressiveFullPayloadMeta"] & {
+            bracket: components["schemas"]["KnockoutRound"][] | null;
+            competition: components["schemas"]["NullableFlexibleObject"];
+            /** @enum {string} */
+            competitionKind: "league" | "cup" | "mixed";
+            matches: components["schemas"]["FlexibleObjectList"];
+            playerStats: components["schemas"]["CompetitionFullPlayerStats"];
+            season: number;
+            standings: components["schemas"]["NullableFlexibleObject"];
+            teamStats: components["schemas"]["NullableFlexibleObject"];
+            transfers: components["schemas"]["FlexibleObjectList"];
+        };
         CursorPageInfo: {
             hasMore: boolean;
             nextCursor: string | null;
             returnedCount: number;
         };
+        FieldFreshnessHint: {
+            /** @enum {string} */
+            freshness: "static" | "post_match" | "weekly" | "live";
+            ttlSeconds: number;
+        };
         FlexibleObject: {
             [key: string]: unknown;
+        };
+        FlexibleObjectList: components["schemas"]["FlexibleObject"][];
+        FullPayloadHydration: {
+            enqueuedHeavyRefresh: boolean;
+            sections: {
+                [key: string]: components["schemas"]["HydrationSection"];
+            };
+            /** @enum {string} */
+            status: "core_ready" | "full_ready";
         };
         HealthResponse: {
             cache: {
@@ -1210,6 +1310,16 @@ export type components = {
             /** @enum {string} */
             status: "ok" | "degraded";
         };
+        HydrationSection: {
+            /** @enum {string} */
+            freshness: "fresh" | "stale" | "miss";
+            /** @enum {string} */
+            state: "ready" | "loading" | "unavailable";
+            updatedAt: string | null;
+        };
+        IntegerListEnvelope: {
+            response: number[];
+        };
         KnockoutRound: {
             matches: components["schemas"]["BracketMatch"][];
             name: string;
@@ -1218,6 +1328,41 @@ export type components = {
         ListEnvelope: {
             pageInfo?: components["schemas"]["CursorPageInfo"] | null;
             response: components["schemas"]["FlexibleObject"][];
+        };
+        MatchFullContext: {
+            awayTeamId: number | string | null;
+            homeTeamId: number | string | null;
+            leagueId: number | string | null;
+            season: number | string | null;
+        };
+        MatchFullPlayersStats: {
+            away: components["schemas"]["FlexibleObjectList"];
+            awayTeamId: number | string | null;
+            home: components["schemas"]["FlexibleObjectList"];
+            homeTeamId: number | string | null;
+        };
+        MatchFullResponse: components["schemas"]["ProgressiveFullPayloadMeta"] & {
+            absences: components["schemas"]["FlexibleObjectList"];
+            awayLeaders: components["schemas"]["NullableFlexibleObject"];
+            awayRecentResults: components["schemas"]["FlexibleObjectList"];
+            context: components["schemas"]["MatchFullContext"];
+            events: components["schemas"]["FlexibleObjectList"];
+            fixture: components["schemas"]["NullableFlexibleObject"];
+            headToHead: components["schemas"]["FlexibleObjectList"];
+            homeLeaders: components["schemas"]["NullableFlexibleObject"];
+            homeRecentResults: components["schemas"]["FlexibleObjectList"];
+            /** @enum {string} */
+            lifecycleState: "pre_match" | "live" | "finished";
+            lineups: components["schemas"]["FlexibleObjectList"];
+            playersStats: components["schemas"]["MatchFullPlayersStats"];
+            predictions: components["schemas"]["FlexibleObjectList"];
+            standings: components["schemas"]["NullableFlexibleObject"];
+            statistics: components["schemas"]["MatchFullStatisticsBundle"];
+        };
+        MatchFullStatisticsBundle: {
+            all: components["schemas"]["FlexibleObjectList"];
+            first: components["schemas"]["FlexibleObjectList"];
+            second: components["schemas"]["FlexibleObjectList"];
         };
         MobilePrivacyEraseRequest: {
             attestation: components["schemas"]["MobileSessionAttestation"];
@@ -1343,6 +1488,16 @@ export type components = {
             status: "ok";
             subscriptions: components["schemas"]["NotificationSubscriptionRecord"][];
         };
+        NullableFlexibleObject: components["schemas"]["FlexibleObject"] | null;
+        NullableFlexibleObjectEnvelope: {
+            response: components["schemas"]["NullableFlexibleObject"];
+        };
+        NullablePlayerOverviewEnvelope: {
+            response: components["schemas"]["PlayerOverviewResponse"] | null;
+        };
+        NullablePlayerStatsCatalogEnvelope: {
+            response: components["schemas"]["PlayerStatsCatalogResponse"] | null;
+        };
         OptionalEnvelope: {
             response?: components["schemas"]["FlexibleObject"] | components["schemas"]["FlexibleObject"][] | number | string | boolean | null;
         };
@@ -1352,6 +1507,31 @@ export type components = {
                 [key: string]: unknown;
             } | null;
             response: components["schemas"]["FlexibleObject"][];
+        };
+        PayloadFreshnessMeta: {
+            fields: {
+                [key: string]: components["schemas"]["FieldFreshnessHint"];
+            };
+            /** Format: date-time */
+            generatedAt: string;
+        };
+        PlayerCareerAggregateEnvelope: {
+            response: {
+                seasons: components["schemas"]["FlexibleObjectList"];
+                teams: components["schemas"]["FlexibleObjectList"];
+            };
+        };
+        PlayerFullResponse: components["schemas"]["ProgressiveFullPayloadMeta"] & {
+            response: components["schemas"]["PlayerFullResponseBody"];
+        };
+        PlayerFullResponseBody: {
+            career: components["schemas"]["PlayerCareerAggregateEnvelope"];
+            details: components["schemas"]["ListEnvelope"];
+            matches: components["schemas"]["ListEnvelope"];
+            overview: components["schemas"]["NullablePlayerOverviewEnvelope"];
+            seasons: components["schemas"]["IntegerListEnvelope"];
+            statsCatalog: components["schemas"]["NullablePlayerStatsCatalogEnvelope"];
+            trophies: components["schemas"]["ListEnvelope"];
         };
         PlayerOverviewCharacteristics: {
             attack: number | null;
@@ -1506,6 +1686,10 @@ export type components = {
             error: string;
             message: string;
         };
+        ProgressiveFullPayloadMeta: {
+            _hydration?: components["schemas"]["FullPayloadHydration"];
+            _meta: components["schemas"]["PayloadFreshnessMeta"];
+        };
         PushTokenPayload: {
             appVersion: string;
             deviceId: string;
@@ -1577,6 +1761,28 @@ export type components = {
             /** @enum {string} */
             result: "W" | "D" | "L" | "";
             score: string | null;
+        };
+        TeamFullResponse: components["schemas"]["ProgressiveFullPayloadMeta"] & {
+            response: components["schemas"]["TeamFullResponseBody"];
+        };
+        TeamFullResponseBody: {
+            advancedStats: components["schemas"]["NullableFlexibleObjectEnvelope"];
+            details: components["schemas"]["ListEnvelope"];
+            leagues: components["schemas"]["ListEnvelope"];
+            matches: components["schemas"]["ListEnvelope"];
+            overview: components["schemas"]["TeamOverviewResponse"] | null;
+            overviewLeaders: components["schemas"]["NullableFlexibleObject"];
+            selection: components["schemas"]["TeamFullSelection"];
+            squad: components["schemas"]["ListEnvelope"];
+            standings: components["schemas"]["NullableFlexibleObjectEnvelope"];
+            statistics: components["schemas"]["NullableFlexibleObjectEnvelope"];
+            statsPlayers: components["schemas"]["ListEnvelope"];
+            transfers: components["schemas"]["ListEnvelope"];
+            trophies: components["schemas"]["ListEnvelope"];
+        };
+        TeamFullSelection: {
+            leagueId: string | null;
+            season: number | null;
         };
         TeamMatchItem: {
             awayGoals: number | null;
@@ -1769,6 +1975,15 @@ export type components = {
                 };
             };
         };
+        /** @description Progressive full competition payload */
+        CompetitionFullPayloadResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CompetitionFullResponse"];
+            };
+        };
         /** @description API response envelope with list payload */
         ListEnvelopeResponse: {
             headers: {
@@ -1776,6 +1991,15 @@ export type components = {
             };
             content: {
                 "application/json": components["schemas"]["ListEnvelope"];
+            };
+        };
+        /** @description Progressive full fixture payload */
+        MatchFullPayloadResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["MatchFullResponse"];
             };
         };
         /** @description API response envelope with optional payload */
@@ -1794,6 +2018,15 @@ export type components = {
             };
             content: {
                 "application/json": components["schemas"]["PagedEnvelope"];
+            };
+        };
+        /** @description Progressive full player payload */
+        PlayerFullPayloadResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PlayerFullResponse"];
             };
         };
         /** @description Aggregated player overview payload */
@@ -1830,6 +2063,15 @@ export type components = {
             };
             content: {
                 "application/json": components["schemas"]["SearchGlobalResponse"];
+            };
+        };
+        /** @description Progressive full team payload */
+        TeamFullPayloadResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["TeamFullResponse"];
             };
         };
         /** @description Aggregated team overview payload */
@@ -1959,6 +2201,24 @@ export interface operations {
                 };
             };
             400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getCompetitionFull: {
+        parameters: {
+            query?: {
+                season?: components["parameters"]["OptionalSeasonQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["CompetitionFullPayloadResponse"];
+            400: components["responses"]["ProblemResponse"];
+            404: components["responses"]["ProblemResponse"];
         };
     };
     getCompetitionMatches: {
@@ -2281,6 +2541,24 @@ export interface operations {
         responses: {
             200: components["responses"]["ListEnvelopeResponse"];
             400: components["responses"]["ProblemResponse"];
+        };
+    };
+    getMatchFull: {
+        parameters: {
+            query: {
+                timezone: components["parameters"]["TimezoneQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["MatchFullPayloadResponse"];
+            400: components["responses"]["ProblemResponse"];
+            404: components["responses"]["ProblemResponse"];
         };
     };
     getMatchHeadToHead: {
@@ -2702,6 +2980,24 @@ export interface operations {
             200: components["responses"]["CareerAggregateResponse"];
         };
     };
+    getPlayerFull: {
+        parameters: {
+            query: {
+                season: components["parameters"]["SeasonQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PlayerFullPayloadResponse"];
+            400: components["responses"]["ProblemResponse"];
+            404: components["responses"]["ProblemResponse"];
+        };
+    };
     getPlayerMatches: {
         parameters: {
             query: {
@@ -2878,6 +3174,27 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ListEnvelopeResponse"];
+        };
+    };
+    getTeamFull: {
+        parameters: {
+            query: {
+                historySeasons?: components["parameters"]["HistorySeasonsQuery"];
+                leagueId?: components["parameters"]["OptionalLeagueIdQuery"];
+                season?: components["parameters"]["OptionalSeasonQuery"];
+                timezone: components["parameters"]["TimezoneQuery"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TeamFullPayloadResponse"];
+            400: components["responses"]["ProblemResponse"];
+            404: components["responses"]["ProblemResponse"];
         };
     };
     getTeamLeagues: {

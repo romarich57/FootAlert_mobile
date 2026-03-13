@@ -19,7 +19,14 @@ import { fetchTeamFull } from '@data/endpoints/teamsApi';
 import { isJestRuntime } from '@data/runtime/isJestRuntime';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
-import type { TeamFullResponsePayload } from '@domain/contracts/teamFull.types';
+import {
+  getHydrationSection,
+  isHydrationPending,
+} from '@domain/contracts/fullPayloadHydration.types';
+import type {
+  TeamFullData,
+  TeamFullResponsePayload,
+} from '@domain/contracts/teamFull.types';
 
 type UseTeamLocalFirstParams = {
   teamId: string;
@@ -29,7 +36,13 @@ type UseTeamLocalFirstParams = {
   enabled?: boolean;
 };
 
-export type TeamFullData = TeamFullResponsePayload['response'];
+function flattenTeamFullPayload(payload: TeamFullResponsePayload): TeamFullData {
+  return {
+    ...payload.response,
+    _meta: payload._meta,
+    _hydration: payload._hydration,
+  };
+}
 
 /** Durée max en ms avant de considérer le cache team stale — aligné sur TEAM_POLICY BFF (6h). */
 const TEAM_FULL_MAX_AGE_MS = 6 * 60 * 60_000;
@@ -54,7 +67,7 @@ export function useTeamLocalFirst({
         { teamId, timezone, leagueId, season },
         signal,
       );
-      return payload.response;
+      return flattenTeamFullPayload(payload);
     },
     [teamId, timezone, leagueId, season],
   );
@@ -72,5 +85,11 @@ export function useTeamLocalFirst({
   return {
     ...query,
     isFullEnabled: fullEnabled,
+    hydration: query.data?._hydration ?? null,
+    hydrationStatus: query.data?._hydration?.status ?? null,
+    hydrationSections: query.data?._hydration?.sections ?? {},
+    isHydrationPending: isHydrationPending(query.data?._hydration),
+    getSectionHydration: (sectionKey: string) =>
+      getHydrationSection(query.data?._hydration, sectionKey),
   };
 }

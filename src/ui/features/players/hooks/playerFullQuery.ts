@@ -2,6 +2,11 @@ import { useQuery, type QueryFunctionContext } from '@tanstack/react-query';
 
 import { appEnv } from '@data/config/env';
 import { fetchPlayerFull } from '@data/endpoints/playersApi';
+import {
+  getHydrationSection,
+  isHydrationPending,
+  resolveProgressiveHydrationRefetchInterval,
+} from '@domain/contracts/fullPayloadHydration.types';
 import { featureQueryOptions } from '@ui/shared/query/queryOptions';
 import { queryKeys } from '@ui/shared/query/queryKeys';
 
@@ -61,6 +66,12 @@ export function usePlayerFullQuery(
     },
     enabled: !isLocalFirstActive && fullEnabled,
     placeholderData: previousData => previousData,
+    refetchInterval: query =>
+      resolveProgressiveHydrationRefetchInterval(
+        query.state.data?._hydration,
+        query.state.dataUpdatedAt,
+      ),
+    refetchIntervalInBackground: false,
     ...featureQueryOptions.players.full,
   });
 
@@ -71,5 +82,11 @@ export function usePlayerFullQuery(
   return {
     ...networkQuery,
     isFullEnabled: fullEnabled,
+    hydration: networkQuery.data?._hydration ?? null,
+    hydrationStatus: networkQuery.data?._hydration?.status ?? null,
+    hydrationSections: networkQuery.data?._hydration?.sections ?? {},
+    isHydrationPending: isHydrationPending(networkQuery.data?._hydration),
+    getSectionHydration: (sectionKey: string) =>
+      getHydrationSection(networkQuery.data?._hydration, sectionKey),
   };
 }
