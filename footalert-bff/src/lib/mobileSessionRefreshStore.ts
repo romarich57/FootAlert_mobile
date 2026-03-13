@@ -284,15 +284,6 @@ class PostgresMobileSessionRefreshStore implements MobileSessionRefreshStore {
 
       await client.query(
         `
-        UPDATE mobile_refresh_sessions
-        SET rotated_at = to_timestamp($2 / 1000.0), replaced_by = $3
-        WHERE id = $1
-        `,
-        [current.id, nowMs, nextId],
-      );
-
-      await client.query(
-        `
         INSERT INTO mobile_refresh_sessions (
           id, family_id, auth_subject, platform, integrity, scope,
           token_hash, created_at, expires_at, rotated_at, revoked_at, replaced_by
@@ -309,6 +300,15 @@ class PostgresMobileSessionRefreshStore implements MobileSessionRefreshStore {
           nowMs,
           nextExpiresAtMs,
         ],
+      );
+
+      await client.query(
+        `
+        UPDATE mobile_refresh_sessions
+        SET rotated_at = to_timestamp($2 / 1000.0), replaced_by = $3
+        WHERE id = $1
+        `,
+        [current.id, nowMs, nextId],
       );
 
       await client.query('COMMIT');
@@ -449,6 +449,17 @@ async function createPostgresPool(databaseUrl: string): Promise<PoolLike> {
   return new PoolClass({
     connectionString: databaseUrl,
   });
+}
+
+export function createPostgresMobileSessionRefreshStoreForTests(pool: {
+  query: <T = unknown>(text: string, values?: unknown[]) => Promise<{ rows: T[] }>;
+  connect: () => Promise<{
+    query: <T = unknown>(text: string, values?: unknown[]) => Promise<{ rows: T[] }>;
+    release: () => void;
+  }>;
+  end: () => Promise<void>;
+}): MobileSessionRefreshStore {
+  return new PostgresMobileSessionRefreshStore(pool);
 }
 
 export async function createMobileSessionRefreshStore(options: {
