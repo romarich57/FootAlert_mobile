@@ -8,8 +8,12 @@ import {
 } from '../../lib/freshnessMeta.js';
 import type { FullPayloadHydration } from '../../lib/readStore/hydration.js';
 
-import { fetchPlayerOverview, fetchPlayerStatsCatalog } from './aggregates.js';
+import { fetchPlayerStatsCatalog } from './aggregates.js';
 import { fetchPlayerDetailForSeason, fetchPlayerSeasons, fetchPlayerTrophies } from './aggregates/playerApi.js';
+import {
+  buildEmptyPlayerOverviewPayload,
+  buildPlayerOverviewPayload,
+} from './aggregates/overviewService.js';
 import { fetchPlayerCareer } from './careerService.js';
 import {
   mapPlayerMatchPerformance,
@@ -57,27 +61,6 @@ function firstSettledError(results: PromiseSettledResult<unknown>[]): Error {
   }
 
   return new Error('Unable to load player full payload');
-}
-
-function resolveSettledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
-  return result.status === 'fulfilled' ? result.value : fallback;
-}
-
-async function fetchPlayerDetailsPayload(
-  playerId: string,
-  season: number,
-): Promise<{ response: unknown[] }> {
-  const details = await fetchPlayerDetailForSeason(playerId, season);
-  return {
-    response: details ? [details] : [],
-  };
-}
-
-async function fetchPlayerSeasonsPayload(playerId: string): Promise<{ response: number[] }> {
-  const payload = await fetchPlayerSeasons(playerId);
-  return {
-    response: Array.isArray(payload.response) ? payload.response : [],
-  };
 }
 
 async function fetchPlayerTrophiesPayload(playerId: string): Promise<{ response: unknown[] }> {
@@ -151,24 +134,53 @@ export async function buildPlayerCoreSnapshot(params: {
   season: number;
 }): Promise<PlayerCoreSnapshotPayload> {
   const results = await Promise.allSettled([
-    fetchPlayerDetailsPayload(params.playerId, params.season),
-    fetchPlayerSeasonsPayload(params.playerId),
-    fetchPlayerOverview(params.playerId, params.season),
+    fetchPlayerDetailForSeason(params.playerId, params.season),
+    fetchPlayerSeasons(params.playerId),
+    fetchPlayerTrophies(params.playerId),
   ]);
 
   if (results.every(result => result.status === 'rejected')) {
     throw firstSettledError(results);
   }
 
-  const [details, seasons, overview] = results;
+  const [details, seasons, trophies] = results;
+  const resolvedDetails = details.status === 'fulfilled' ? details.value : null;
+  const resolvedSeasons =
+    seasons.status === 'fulfilled' && Array.isArray(seasons.value.response)
+      ? seasons.value.response
+      : [];
+  const seasonsFallback =
+    resolvedSeasons.length > 0
+      ? resolvedSeasons
+      : resolvedDetails
+        ? [params.season]
+        : [];
+  const resolvedTrophies =
+    trophies.status === 'fulfilled' && Array.isArray(trophies.value.response)
+      ? trophies.value.response
+      : [];
+
+  const overview =
+    resolvedDetails === null
+      ? { response: buildEmptyPlayerOverviewPayload() }
+      : {
+          response: await buildPlayerOverviewPayload({
+            playerId: params.playerId,
+            season: params.season,
+            details: resolvedDetails,
+            seasons: seasonsFallback,
+            trophies: resolvedTrophies,
+          }),
+        };
 
   return {
-    details: resolveSettledValue(details, { response: [] }),
-    seasons: resolveSettledValue(seasons, { response: [] }),
-    overview:
-      overview.status === 'fulfilled'
-        ? overview.value
-        : { response: null as unknown | null },
+    details: {
+      response: resolvedDetails ? [resolvedDetails] : [],
+    },
+    seasons: {
+      response: seasonsFallback,
+    },
+    overview,
   };
 }
 

@@ -577,3 +577,68 @@ test('GET /v1/teams/:id/full and /v1/players/:id/full return additive aggregates
   assert.deepEqual(playerPayload.response.career.response.seasons, []);
   assert.deepEqual(playerPayload.response.matches.response, []);
 });
+
+test('GET /v1/players/:id/full keeps player core available when seasons and trophies fetches fail', async t => {
+  let playerDetailsCalls = 0;
+
+  installFetchMock(async call => {
+    const url = new URL(String(call.input));
+
+    if (url.pathname.endsWith('/players') && url.searchParams.get('id') === '278' && url.searchParams.get('season') === '2025') {
+      playerDetailsCalls += 1;
+      return jsonResponse({
+        response: [
+          {
+            player: {
+              id: 278,
+              name: 'Kylian Mbappe',
+              age: 26,
+              nationality: 'France',
+              photo: 'mbappe.png',
+            },
+            statistics: [
+              {
+                team: { id: 40, name: 'Team A', logo: 'team-a.png' },
+                league: { id: 39, name: 'Premier League', logo: 'pl.png', season: 2025 },
+                games: { appearences: 28, lineups: 27, minutes: 2400, position: 'Attacker', rating: '7.8' },
+                goals: { total: 19, assists: 8 },
+              },
+            ],
+          },
+        ],
+      });
+    }
+
+    if (url.pathname.endsWith('/players/seasons') && url.searchParams.get('player') === '278') {
+      throw new TypeError('upstream seasons throttle');
+    }
+
+    if (url.pathname.endsWith('/trophies') && url.searchParams.get('player') === '278') {
+      throw new TypeError('upstream trophies throttle');
+    }
+
+    if (url.pathname.endsWith('/fixtures') && url.searchParams.get('team') === '40') {
+      return jsonResponse({ response: [] });
+    }
+
+    return jsonResponse({ response: [] });
+  });
+
+  const app = await buildApp(t);
+  const response = await app.inject({
+    method: 'GET',
+    url: '/v1/players/278/full?season=2025',
+  });
+
+  assert.equal(response.statusCode, 200);
+  const payload = response.json();
+  assert.equal(payload.response.details.response[0].player.name, 'Kylian Mbappe');
+  assert.deepEqual(payload.response.seasons.response, [2025]);
+  assert.equal(payload.response.overview.response.profile.name, 'Kylian Mbappe');
+  assert.equal(payload._hydration.status, 'core_ready');
+  assert.equal(payload._hydration.sections.matches.state, 'loading');
+  assert.equal(payload._hydration.sections.statsCatalog.state, 'loading');
+  assert.equal(payload._hydration.sections.career.state, 'loading');
+  assert.equal(payload._hydration.sections.trophies.state, 'loading');
+  assert.equal(playerDetailsCalls, 1);
+});
